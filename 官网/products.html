@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>产品介绍 - 爱客迅</title>
+    <style>
+        :root {
+            --klein-blue: #002FA7;
+            --hermes-orange: #E37111;
+            --deep-blue: #000F3C;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #e2e8f0;
+            line-height: 1.6;
+            background: linear-gradient(135deg, var(--deep-blue) 0%, var(--klein-blue) 100%);
+            overflow-x: hidden;
+        }
+
+        .flowing-gradient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .flowing-gradient-bg::before,
+        .flowing-gradient-bg::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(150px);
+            opacity: 0.3;
+            animation: flowingGradient 12.5s ease-in-out infinite;
+        }
+
+        .flowing-gradient-bg::before {
+            width: 1000px;
+            height: 1000px;
+            background: radial-gradient(circle, var(--klein-blue) 0%, transparent 70%);
+            top: -300px;
+            left: -300px;
+        }
+
+        .flowing-gradient-bg::after {
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--hermes-orange) 0%, transparent 70%);
+            bottom: -200px;
+            right: -200px;
+            animation-delay: -12s;
+        }
+
+        @keyframes flowingGradient {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(100px, 80px) scale(1.1); }
+            66% { transform: translate(-80px, 60px) scale(0.9); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(80px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
+            50% { opacity: 1; transform: scaleX(1); }
+        }
+
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            padding: 20px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .header.scrolled {
+            background: rgba(0, 15, 60, 0.9);
+            backdrop-filter: blur(20px);
+            padding: 16px 60px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 42px;
+            width: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .logo:hover img {
+            transform: scale(1.05) rotate(-3deg);
+        }
+
+        .nav {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s;
+            position: relative;
+            padding: 8px 0;
+        }
+
+        .nav a:hover {
+            color: #fff;
+        }
+
+        .nav a.active {
+            color: #fff;
+        }
+
+        .nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--hermes-orange), var(--klein-blue));
+            border-radius: 1px;
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        .hero-magazine {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            padding: 120px 60px 60px;
+            gap: 80px;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(227, 113, 17, 0.1);
+            border: 1px solid rgba(227, 113, 17, 0.25);
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 14px;
+            color: var(--hermes-orange);
+            margin-bottom: 30px;
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        .hero-badge::before {
+            content: '✦';
+            font-size: 10px;
+        }
+
+        .hero-title {
+            font-size: 72px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 30px;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.15s;
+            opacity: 0;
+        }
+
+        .hero-title .highlight {
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-desc {
+            font-size: 20px;
+            color: #94a3b8;
+            line-height: 1.8;
+            margin-bottom: 40px;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.3s;
+            opacity: 0;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 20px;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.45s;
+            opacity: 0;
+        }
+
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            color: #fff;
+            padding: 16px 36px;
+            border-radius: 60px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 10px 40px rgba(227, 113, 17, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 15px 50px rgba(227, 113, 17, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.97);
+        }
+
+        .btn-outline {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #f8fafc;
+            padding: 16px 36px;
+            border-radius: 60px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.4s ease;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: rgba(227, 113, 17, 0.4);
+            transform: translateY(-4px);
+        }
+
+        .hero-visual {
+            position: relative;
+            height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .hero-image-frame {
+            width: 450px;
+            height: 550px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.4), rgba(227, 113, 17, 0.3));
+            border-radius: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 120px;
+            position: relative;
+            animation: fadeInScale 1s ease-out forwards;
+            animation-delay: 0.2s;
+            opacity: 0;
+        }
+
+        .hero-image-frame::before {
+            content: '';
+            position: absolute;
+            inset: -3px;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            border-radius: 35px;
+            z-index: -1;
+        }
+
+        .floating-badge {
+            position: absolute;
+            background: rgba(0, 15, 60, 0.9);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 16px;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            animation: float 4s ease-in-out infinite;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .floating-badge .icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .floating-badge .text strong {
+            display: block;
+            font-size: 14px;
+            color: #f8fafc;
+        }
+
+        .floating-badge .text span {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .badge-1 { top: 20%; left: -40px; animation-delay: 0s; }
+        .badge-2 { top: 50%; right: -40px; animation-delay: -2s; }
+        .badge-3 { bottom: 15%; left: 0; animation-delay: -4s; }
+
+        .product-section {
+            padding: 100px 60px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 80px;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--hermes-orange);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            padding: 10px 28px;
+            background: rgba(227, 113, 17, 0.1);
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 100px;
+        }
+
+        .section-title {
+            font-size: 52px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+
+        .section-desc {
+            font-size: 18px;
+            color: #64748b;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+
+        .pricing-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 28px;
+            padding: 50px 40px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }
+
+        .pricing-card::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            background: linear-gradient(45deg, var(--hermes-orange), transparent, var(--klein-blue), transparent);
+            border-radius: 30px;
+            opacity: 0;
+            z-index: -1;
+            transition: opacity 0.4s ease;
+        }
+
+        .pricing-card.featured {
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.15), rgba(227, 113, 17, 0.1));
+            border-color: rgba(227, 113, 17, 0.3);
+        }
+
+        .pricing-card.featured::before {
+            opacity: 1;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            border-color: rgba(227, 113, 17, 0.4);
+            box-shadow: 0 30px 80px rgba(227, 113, 17, 0.25);
+        }
+
+        .pricing-card:hover::before {
+            opacity: 1;
+            animation: shimmer 1s linear infinite;
+            background-size: 200% 100%;
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--hermes-orange), #FF8C00);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 16px;
+            border-radius: 100px;
+        }
+
+        .pricing-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .pricing-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.2), rgba(227, 113, 17, 0.2));
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            transition: all 0.2s ease;
+        }
+
+        .pricing-card:hover .pricing-icon {
+            transform: scale(1.1) rotate(-5deg);
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.4), rgba(227, 113, 17, 0.4));
+        }
+
+        .pricing-name {
+            font-size: 26px;
+            color: #f8fafc;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .pricing-desc {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .pricing-price {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .pricing-price .amount {
+            font-size: 56px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .pricing-price .unit {
+            font-size: 16px;
+            color: #64748b;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 40px;
+        }
+
+        .pricing-features li {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 0;
+            font-size: 15px;
+            color: #94a3b8;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .pricing-features li:last-child {
+            border-bottom: none;
+        }
+
+        .pricing-features li .check {
+            width: 22px;
+            height: 22px;
+            background: rgba(34, 197, 94, 0.15);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #22c55e;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .pricing-cta {
+            display: block;
+            text-align: center;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            color: #fff;
+            padding: 16px;
+            border-radius: 14px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.4s ease;
+        }
+
+        .pricing-cta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(227, 113, 17, 0.4);
+        }
+
+        .comparison-section {
+            padding: 100px 60px;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 47, 167, 0.08) 50%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        .comparison-table {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 24px;
+            overflow: hidden;
+        }
+
+        .comparison-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            background: rgba(0, 47, 167, 0.15);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .comparison-header > div {
+            padding: 24px 30px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #f8fafc;
+            text-align: center;
+        }
+
+        .comparison-header > div:first-child {
+            text-align: left;
+        }
+
+        .comparison-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            transition: background 0.3s ease;
+        }
+
+        .comparison-row:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-row:hover {
+            background: rgba(255,255,255,0.02);
+        }
+
+        .comparison-row > div {
+            padding: 20px 30px;
+            font-size: 14px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .comparison-row > div:first-child {
+            justify-content: flex-start;
+            text-align: left;
+        }
+
+        .comparison-row .yes {
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .comparison-row .no {
+            color: #64748b;
+        }
+
+        .features-detailed {
+            padding: 100px 60px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .feature-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            margin-bottom: 100px;
+        }
+
+        .feature-row:nth-child(even) {
+            direction: rtl;
+        }
+
+        .feature-row:nth-child(even) > * {
+            direction: ltr;
+        }
+
+        .feature-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .feature-visual {
+            height: 400px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.2), rgba(0, 0, 0, 0.3));
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 100px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-visual::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23E37111' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .feature-info h3 {
+            font-size: 36px;
+            color: #f8fafc;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .feature-info p {
+            font-size: 16px;
+            color: #94a3b8;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 14px 0;
+            font-size: 15px;
+            color: #e2e8f0;
+        }
+
+        .feature-list li .icon {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.3), rgba(227, 113, 17, 0.3));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .cta-section {
+            padding: 120px 60px;
+            text-align: center;
+            position: relative;
+        }
+
+        .cta-bg {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(227, 113, 17, 0.15) 0%, transparent 70%);
+            filter: blur(60px);
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-section h2 {
+            font-size: 48px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 16px;
+        }
+
+        .cta-section p {
+            font-size: 18px;
+            color: #94a3b8;
+            margin-bottom: 40px;
+        }
+
+        .footer {
+            background: linear-gradient(180deg, var(--deep-blue) 0%, var(--klein-blue) 50%, var(--hermes-orange) 100%);
+            color: #94a3b8;
+            padding: 60px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--hermes-orange), transparent);
+            animation: breathe 3s ease-in-out infinite;
+        }
+
+        .footer p {
+            font-size: 14px;
+        }
+
+        .footer-contact a {
+            color: var(--hermes-orange);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .footer-contact a:hover {
+            color: #fff;
+            text-shadow: 0 0 10px var(--hermes-orange);
+        }
+
+        .footer-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.15s;
+        }
+
+        .footer-links a:hover {
+            color: #fff;
+        }
+
+        .footer-bottom {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-magazine {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                text-align: center;
+            }
+
+            .hero-visual {
+                height: 400px;
+            }
+
+            .hero-image-frame {
+                width: 300px;
+                height: 380px;
+                font-size: 80px;
+            }
+
+            .floating-badge {
+                display: none;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .feature-row {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+
+            .feature-row:nth-child(even) {
+                direction: ltr;
+            }
+
+            .comparison-header,
+            .comparison-row {
+                grid-template-columns: 1.5fr 1fr 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 16px 20px;
+                flex-direction: column;
+                gap: 16px;
+            }
+
+            .nav {
+                display: none;
+            }
+
+            .hero-magazine {
+                padding: 100px 20px 60px;
+            }
+
+            .hero-title {
+                font-size: 42px;
+            }
+
+            .hero-desc {
+                font-size: 16px;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            .product-section,
+            .features-detailed {
+                padding: 60px 20px;
+            }
+
+            .section-title {
+                font-size: 32px;
+            }
+
+            .pricing-card {
+                padding: 40px 30px;
+            }
+
+            .comparison-section {
+                padding: 60px 20px;
+            }
+
+            .comparison-header > div,
+            .comparison-row > div {
+                padding: 12px 10px;
+                font-size: 12px;
+            }
+
+            .cta-section {
+                padding: 80px 20px;
+            }
+
+            .cta-section h2 {
+                font-size: 32px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="flowing-gradient-bg"></div>
+
+    <header class="header">
+        <a href="index.html" class="logo"><img src="b4cf181f44d2e4fcd4552d914fe53306.png" alt="MyTwins"></a>
+        <nav class="nav">
+            <a href="products.html" class="active">产品</a>
+            <a href="solution.html">解决方案</a>
+            <a href="about.html">关于我们</a>
+            <a href="contact.html">合作咨询</a>
+        </nav>
+    </header>
+
+    <section class="hero-magazine">
+        <div class="hero-content">
+            <span class="hero-badge">产品介绍</span>
+            <h1 class="hero-title">
+                按需选择<br>
+                <span class="highlight">找到最适合你的方案</span>
+            </h1>
+            <p class="hero-desc">
+                从初创商家到头部品牌，爱客迅提供三档解决方案。
+                无论你处于哪个发展阶段，都能找到最适合的AI直播工具。
+            </p>
+            <div class="hero-actions">
+                <a href="contact.html" class="btn-primary">免费试用 →</a>
+                <a href="#pricing" class="btn-outline">查看定价</a>
+            </div>
+        </div>
+
+        <div class="hero-visual">
+            <div class="hero-image-frame">🎬</div>
+            <div class="floating-badge badge-1">
+                <div class="icon">⚡</div>
+                <div class="text">
+                    <strong>5分钟</strong>
+                    <span>快速搭建完成</span>
+                </div>
+            </div>
+            <div class="floating-badge badge-2">
+                <div class="icon">🛡️</div>
+                <div class="text">
+                    <strong>合规认证</strong>
+                    <span>平台官方授权</span>
+                </div>
+            </div>
+            <div class="floating-badge badge-3">
+                <div class="icon">📈</div>
+                <div class="text">
+                    <strong>ROI提升</strong>
+                    <span>平均300%+</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="product-section" id="pricing">
+        <div class="section-header">
+            <span class="section-label">灵活定价</span>
+            <h2 class="section-title">选择适合你的方案</h2>
+            <p class="section-desc">三档方案，总有一款适合你</p>
+        </div>
+
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="pricing-header">
+                    <div class="pricing-icon">🌱</div>
+                    <h3 class="pricing-name">轻享版</h3>
+                    <p class="pricing-desc">初创品牌首选</p>
+                </div>
+                <div class="pricing-price">
+                    <span class="amount">¥1,999</span>
+                    <span class="unit">/月</span>
+                </div>
+                <ul class="pricing-features">
+                    <li><span class="check">✓</span> 基础数字人形象</li>
+                    <li><span class="check">✓</span> 30小时/月直播时长</li>
+                    <li><span class="check">✓</span> 10+标准话术模板</li>
+                    <li><span class="check">✓</span> 基础弹幕互动</li>
+                    <li><span class="check">✓</span> 1个直播平台</li>
+                    <li><span class="check">✓</span> 7×12小时客服</li>
+                </ul>
+                <a href="contact.html" class="pricing-cta">立即选购</a>
+            </div>
+
+            <div class="pricing-card featured">
+                <span class="pricing-badge">推荐</span>
+                <div class="pricing-header">
+                    <div class="pricing-icon">🚀</div>
+                    <h3 class="pricing-name">智享版</h3>
+                    <p class="pricing-desc">成长型品牌必备</p>
+                </div>
+                <div class="pricing-price">
+                    <span class="amount">¥4,999</span>
+                    <span class="unit">/月</span>
+                </div>
+                <ul class="pricing-features">
+                    <li><span class="check">✓</span> 定制数字人形象</li>
+                    <li><span class="check">✓</span> 120小时/月直播时长</li>
+                    <li><span class="check">✓</span> AI话术生成引擎</li>
+                    <li><span class="check">✓</span> 高级弹幕互动</li>
+                    <li><span class="check">✓</span> 3个直播平台</li>
+                    <li><span class="check">✓</span> 数据驾驶舱</li>
+                    <li><span class="check">✓</span> 1V1运营培训</li>
+                </ul>
+                <a href="contact.html" class="pricing-cta">立即选购</a>
+            </div>
+
+            <div class="pricing-card">
+                <div class="pricing-header">
+                    <div class="pricing-icon">🏢</div>
+                    <h3 class="pricing-name">企业版</h3>
+                    <p class="pricing-desc">头部品牌定制</p>
+                </div>
+                <div class="pricing-price">
+                    <span class="amount">定制</span>
+                    <span class="unit">报价</span>
+                </div>
+                <ul class="pricing-features">
+                    <li><span class="check">✓</span> 完全定制数字人</li>
+                    <li><span class="check">✓</span> 不限直播时长</li>
+                    <li><span class="check">✓</span> 私有化部署</li>
+                    <li><span class="check">✓</span> 全平台覆盖</li>
+                    <li><span class="check">✓</span> API接口开放</li>
+                    <li><span class="check">✓</span> 专属客户成功经理</li>
+                    <li><span class="check">✓</span> 7×24小时响应</li>
+                </ul>
+                <a href="contact.html" class="pricing-cta">联系商务</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="comparison-section">
+        <div class="section-header">
+            <span class="section-label">功能对比</span>
+            <h2 class="section-title">详细功能对比</h2>
+            <p class="section-desc">一目了然，找到最符合需求的方案</p>
+        </div>
+
+        <div class="comparison-table">
+            <div class="comparison-header">
+                <div>功能模块</div>
+                <div>轻享版</div>
+                <div>智享版</div>
+                <div>企业版</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>数字人形象</div>
+                <div class="yes">公模10+</div>
+                <div class="yes">定制1个</div>
+                <div class="yes">无限</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>月度直播时长</div>
+                <div>30小时</div>
+                <div>120小时</div>
+                <div class="yes">不限</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>AI话术生成</div>
+                <div class="no">—</div>
+                <div class="yes">✓</div>
+                <div class="yes">✓</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>弹幕智能互动</div>
+                <div>基础</div>
+                <div>高级</div>
+                <div class="yes">AI增强</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>支持平台数</div>
+                <div>1个</div>
+                <div>3个</div>
+                <div class="yes">全平台</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>数据驾驶舱</div>
+                <div class="no">—</div>
+                <div class="yes">✓</div>
+                <div class="yes">高级</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>运营培训</div>
+                <div class="no">—</div>
+                <div>1V1</div>
+                <div class="yes">定制</div>
+            </div>
+
+            <div class="comparison-row">
+                <div>专属客服</div>
+                <div>7×12h</div>
+                <div>7×12h</div>
+                <div class="yes">7×24h</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="features-detailed">
+        <div class="section-header">
+            <span class="section-label">核心能力</span>
+            <h2 class="section-title">每个方案都包含</h2>
+            <p class="section-desc">强大功能，赋能直播增长</p>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature-visual">🧬</div>
+            <div class="feature-info">
+                <h3>超写实数字人形象</h3>
+                <p>基于深度学习的人物动作生成技术，支持大幅度肢体动作、表情变化、视线交互。3小时直播画面零重复，观众感受真实主播的存在感。</p>
+                <ul class="feature-list">
+                    <li><span class="icon">✓</span> 动作自然流畅，无限时长不重复</li>
+                    <li><span class="icon">✓</span> 表情丰富，支持喜怒哀乐</li>
+                    <li><span class="icon">✓</span> 视线追踪，与观众眼神互动</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature-visual">🎙️</div>
+            <div class="feature-info">
+                <h3>情感语音合成</h3>
+                <p>不只是文字转语音，而是真正复刻真人的语气、语速、停顿习惯。支持开心、惊讶、疑惑等多种情绪表达，让每一次带货都充满感染力。</p>
+                <ul class="feature-list">
+                    <li><span class="icon">✓</span> 声音媲美真人，情感饱满</li>
+                    <li><span class="icon">✓</span> 支持多种方言和语言</li>
+                    <li><span class="icon">✓</span> 语速智能调节，适应不同场景</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="feature-row">
+            <div class="feature-visual">💬</div>
+            <div class="feature-info">
+                <h3>智能弹幕互动</h3>
+                <p>实时分析弹幕内容，智能生成回复话术，自动引导用户下单购买。直播间不再冷清，AI主播会主动与观众互动，提升停留时长和转化率。</p>
+                <ul class="feature-list">
+                    <li><span class="icon">✓</span> 自动回复弹幕，解答常见问题</li>
+                    <li><span class="icon">✓</span> 智能引导下单，促进成交</li>
+                    <li><span class="icon">✓</span> 主动发起互动，提升活跃度</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="cta-section">
+        <div class="cta-bg"></div>
+        <div class="cta-content">
+            <h2>还在犹豫？</h2>
+            <p>现在预约体验，7天内不满意全额退款</p>
+            <a href="contact.html" class="btn-primary">立即预约体验 →</a>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-main">
+            <div class="footer-contact">
+                <p>合作邮箱：<a href="mailto:contactus@mytwins.ai">contactus@mytwins.ai</a></p>
+                <p>合作电话：19012810580</p>
+                <p>联系地址：浙江省杭州市西湖区灵隐街道玉古路172号灵隐人工智能产业基地8层811室</p>
+            </div>
+            <div class="footer-links">
+                <a href="#">商务合作</a>
+                <a href="#">数字人</a>
+                <a href="#">近期动态</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>ICP备案：浙ICP备2023023923号</p>
+            <p>网信算备：330110545364901240019号；330110545364901240027号</p>
+            <p>Copyright © 2026 MyTwins.ai Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const header = document.querySelector('.header');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+            });
+
+            const observerOptions = {
+                threshold: 0.15,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.pricing-card, .feature-row, .comparison-row').forEach((el, index) => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(40px)';
+                el.style.transition = `opacity 0.3s ease ${index * 0.06}s, transform 0.3s ease ${index * 0.06}s`;
+                observer.observe(el);
+            });
+        });
+    </script>
+</body>
+</html>

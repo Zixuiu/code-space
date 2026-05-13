@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Virtual Environment
+venv/
+.env/
+.venv/
+
+# Environment files
+.env
+.env.local
+
+# IDE/Editor
+.vscode/
+.hbuilderx/
+.idea/
+*.swp
+*.swo
+*~
+
+# Trae AI
+.trae/
+
+# Node
+node_modules/
+package-lock.json
+
+# OS files
+Thumbs.db
+.DS_Store
+Desktop.ini
+
+# Database
+*.db
+*.sqlite
+
+# Archives
+*.zip
+*.rar
+*.7z
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+*.exe
+*.msi

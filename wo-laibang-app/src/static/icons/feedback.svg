@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="grad83" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#10B981;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#34D399;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- 消息气泡主体 -->
+  <path d="M8 12C8 10 10 8 14 8H34C38 8 40 10 40 12V30C40 32 38 34 34 34H28L22 40V34H14C10 34 8 32 8 30V12Z" fill="url(#grad83)"/>
+  <!-- 气泡高光 -->
+  <path d="M12 12C12 11 13 10 15 10H33C35 10 36 11 36 12V26C36 27 35 28 33 28H27V32L23 28H15C13 28 12 27 12 26V12Z" fill="white" opacity="0.2"/>
+  <!-- 反馈线条 -->
+  <rect x="16" y="16" width="16" height="3" rx="1.5" fill="white" opacity="0.8"/>
+  <rect x="16" y="22" width="12" height="3" rx="1.5" fill="white" opacity="0.6"/>
+  <rect x="16" y="28" width="8" height="3" rx="1.5" fill="white" opacity="0.4"/>
+</svg>

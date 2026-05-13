@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>合作咨询 - 爱客迅</title>
+    <style>
+        :root {
+            --klein-blue: #002FA7;
+            --hermes-orange: #E37111;
+            --deep-blue: #000F3C;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: #e2e8f0;
+            line-height: 1.6;
+            background: linear-gradient(135deg, var(--klein-blue) 0%, var(--deep-blue) 100%);
+            overflow-x: hidden;
+        }
+
+        .flowing-gradient-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+
+        .flowing-gradient-bg::before,
+        .flowing-gradient-bg::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(150px);
+            opacity: 0.3;
+            animation: flowingGradient 25s ease-in-out infinite;
+        }
+
+        .flowing-gradient-bg::before {
+            width: 1000px;
+            height: 1000px;
+            background: radial-gradient(circle, var(--klein-blue) 0%, transparent 70%);
+            top: -300px;
+            left: -300px;
+        }
+
+        .flowing-gradient-bg::after {
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--hermes-orange) 0%, transparent 70%);
+            bottom: -200px;
+            right: -200px;
+            animation-delay: -12s;
+        }
+
+        @keyframes flowingGradient {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(100px, 80px) scale(1.1); }
+            66% { transform: translate(-80px, 60px) scale(0.9); }
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(60px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-60px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
+            50% { opacity: 1; transform: scaleX(1); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-5px); }
+            40%, 80% { transform: translateX(5px); }
+        }
+
+        @keyframes successPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .header {
+            background: transparent;
+            padding: 24px 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: absolute;
+            width: 100%;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        .logo img {
+            height: 40px;
+            width: auto;
+        }
+
+        .nav {
+            display: flex;
+            gap: 40px;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: rgba(255,255,255,0.7);
+            font-size: 15px;
+            font-weight: 500;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav a:hover {
+            color: #fff;
+        }
+
+        .nav a.active {
+            color: #fff;
+        }
+
+        .nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--hermes-orange), var(--klein-blue));
+            border-radius: 1px;
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        .hero-section {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 140px 40px 60px;
+            position: relative;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(227, 113, 17, 0.1);
+            border: 1px solid rgba(227, 113, 17, 0.25);
+            padding: 10px 24px;
+            border-radius: 100px;
+            font-size: 14px;
+            color: var(--hermes-orange);
+            margin-bottom: 30px;
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        .hero-badge::before {
+            content: '💬';
+            font-size: 16px;
+        }
+
+        .hero-title {
+            font-size: 56px;
+            font-weight: 800;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #f8fafc 30%, var(--hermes-orange) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.15s;
+            opacity: 0;
+        }
+
+        .hero-subtitle {
+            font-size: 20px;
+            color: #94a3b8;
+            max-width: 600px;
+            margin: 0 auto;
+            animation: fadeInUp 0.8s ease-out forwards;
+            animation-delay: 0.3s;
+            opacity: 0;
+        }
+
+        .content {
+            padding: 0 60px 100px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .qa-section {
+            margin-bottom: 80px;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-label {
+            display: inline-block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--hermes-orange);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            padding: 8px 20px;
+            background: rgba(227, 113, 17, 0.1);
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 100px;
+        }
+
+        .section-title {
+            font-size: 42px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 12px;
+        }
+
+        .section-desc {
+            font-size: 17px;
+            color: #64748b;
+        }
+
+        .qa-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .qa-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 24px;
+            padding: 40px;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .qa-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--klein-blue), var(--hermes-orange));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+
+        .qa-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(227, 113, 17, 0.3);
+            box-shadow: 0 20px 60px rgba(227, 113, 17, 0.15);
+        }
+
+        .qa-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .qa-card.expanded {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(227, 113, 17, 0.4);
+        }
+
+        .qa-card.expanded::before {
+            transform: scaleX(1);
+        }
+
+        .qa-question {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            margin-bottom: 0;
+            transition: margin-bottom 0.3s ease;
+        }
+
+        .qa-card.expanded .qa-question {
+            margin-bottom: 20px;
+        }
+
+        .qa-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.2), rgba(227, 113, 17, 0.2));
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+            transition: all 0.3s ease;
+        }
+
+        .qa-card:hover .qa-icon {
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.4), rgba(227, 113, 17, 0.4));
+            transform: scale(1.1);
+        }
+
+        .qa-text h4 {
+            font-size: 20px;
+            color: #f8fafc;
+            font-weight: 600;
+            line-height: 1.4;
+        }
+
+        .qa-toggle {
+            margin-left: auto;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            color: #94a3b8;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .qa-card.expanded .qa-toggle {
+            background: var(--hermes-orange);
+            border-color: var(--hermes-orange);
+            color: #fff;
+            transform: rotate(45deg);
+        }
+
+        .qa-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .qa-card.expanded .qa-answer {
+            max-height: 300px;
+        }
+
+        .qa-answer-content {
+            padding-left: 64px;
+            font-size: 15px;
+            color: #94a3b8;
+            line-height: 1.8;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            margin-bottom: 80px;
+        }
+
+        .contact-methods {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .method-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            padding: 32px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .method-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.1), rgba(227, 113, 17, 0.1));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .method-card:hover {
+            transform: translateX(10px);
+            border-color: rgba(227, 113, 17, 0.3);
+            box-shadow: 0 10px 40px rgba(227, 113, 17, 0.15);
+        }
+
+        .method-card:hover::before {
+            opacity: 1;
+        }
+
+        .method-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            flex-shrink: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .method-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .method-content h4 {
+            font-size: 20px;
+            color: #f8fafc;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .method-content p {
+            font-size: 15px;
+            color: #94a3b8;
+        }
+
+        .method-content a {
+            color: var(--hermes-orange);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .method-content a:hover {
+            color: #FF8C00;
+            text-shadow: 0 0 10px rgba(227, 113, 17, 0.5);
+        }
+
+        .form-wrapper {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 28px;
+            padding: 50px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .form-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--klein-blue), var(--hermes-orange));
+        }
+
+        .form-title {
+            font-size: 28px;
+            color: #f8fafc;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .form-subtitle {
+            font-size: 15px;
+            color: #64748b;
+            margin-bottom: 32px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group.full {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .form-group label .required {
+            color: var(--hermes-orange);
+            margin-left: 4px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 16px;
+            color: #f8fafc;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: #475569;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--hermes-orange);
+            background: rgba(227, 113, 17, 0.05);
+            box-shadow: 0 0 0 3px rgba(227, 113, 17, 0.1);
+        }
+
+        .form-group select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+        }
+
+        .form-group select option {
+            background: #1e293b;
+            color: #f8fafc;
+        }
+
+        .form-group textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            color: #fff;
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(227, 113, 17, 0.4);
+        }
+
+        .submit-btn:hover::before {
+            left: 100%;
+        }
+
+        .submit-btn:active {
+            transform: scale(0.97);
+        }
+
+        .submit-btn.loading {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 60px 40px;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: fadeInScale 0.5s ease-out;
+        }
+
+        .success-icon {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+            border: 2px solid rgba(34, 197, 94, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            margin: 0 auto 24px;
+            animation: successPulse 1.5s ease-in-out infinite;
+        }
+
+        .success-message h3 {
+            font-size: 28px;
+            color: #f8fafc;
+            margin-bottom: 12px;
+        }
+
+        .success-message p {
+            font-size: 16px;
+            color: #94a3b8;
+        }
+
+        .location-section {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 24px;
+            padding: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+        }
+
+        .location-info h3 {
+            font-size: 28px;
+            color: #f8fafc;
+            margin-bottom: 24px;
+            font-weight: 600;
+        }
+
+        .location-details {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .location-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .location-item .icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(227, 113, 17, 0.1);
+            border: 1px solid rgba(227, 113, 17, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .location-item .text {
+            flex: 1;
+        }
+
+        .location-item .text strong {
+            display: block;
+            font-size: 15px;
+            color: #f8fafc;
+            margin-bottom: 4px;
+        }
+
+        .location-item .text span {
+            font-size: 14px;
+            color: #64748b;
+        }
+
+        .location-map {
+            height: 280px;
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.1), rgba(227, 113, 17, 0.1));
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .location-map::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 0 L100 50 L50 100 L0 50Z' fill='none' stroke='%23E37111' stroke-width='0.5' opacity='0.1'/%3E%3C/svg%3E");
+            opacity: 0.5;
+        }
+
+        .cta-section {
+            background: linear-gradient(135deg, rgba(0, 47, 167, 0.15), rgba(227, 113, 17, 0.15));
+            border: 1px solid rgba(227, 113, 17, 0.15);
+            border-radius: 28px;
+            padding: 70px;
+            text-align: center;
+            margin-top: 60px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23E37111' fill-opacity='0.03'%3E%3Ccircle cx='20' cy='20' r='2'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-section h2 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #f8fafc;
+            margin-bottom: 14px;
+        }
+
+        .cta-section p {
+            font-size: 17px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 36px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.4s ease;
+        }
+
+        .cta-btn.primary {
+            background: linear-gradient(135deg, var(--klein-blue), var(--hermes-orange));
+            color: #fff;
+            box-shadow: 0 8px 30px rgba(227, 113, 17, 0.3);
+        }
+
+        .cta-btn.secondary {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f8fafc;
+        }
+
+        .cta-btn:hover {
+            transform: translateY(-4px);
+        }
+
+        .cta-btn.primary:hover {
+            box-shadow: 0 12px 40px rgba(227, 113, 17, 0.5);
+        }
+
+        .cta-btn.secondary:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(227, 113, 17, 0.3);
+        }
+
+        .footer {
+            background: linear-gradient(135deg, var(--deep-blue) 0%, var(--klein-blue) 50%, var(--hermes-orange) 100%);
+            color: #94a3b8;
+            padding: 60px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            text-align: center;
+            position: relative;
+            margin-top: 80px;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--hermes-orange), transparent);
+            animation: breathe 3s ease-in-out infinite;
+        }
+
+        .footer p {
+            font-size: 14px;
+        }
+
+        .footer-main {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 40px;
+            margin-bottom: 30px;
+        }
+
+        .footer-contact {
+            text-align: left;
+        }
+
+        .footer-contact p {
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .footer-contact a {
+            color: var(--hermes-orange);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .footer-contact a:hover {
+            color: #fff;
+            text-shadow: 0 0 10px var(--hermes-orange);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover {
+            color: #fff;
+        }
+
+        .footer-bottom {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        @media (max-width: 1024px) {
+            .qa-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .location-section {
+                grid-template-columns: 1fr;
+            }
+
+            .location-map {
+                height: 200px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 20px;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .hero-title {
+                font-size: 36px;
+            }
+
+            .hero-subtitle {
+                font-size: 16px;
+            }
+
+            .content {
+                padding: 0 20px 60px;
+            }
+
+            .section-title {
+                font-size: 30px;
+            }
+
+            .form-wrapper {
+                padding: 30px 24px;
+            }
+
+            .location-section {
+                padding: 30px 24px;
+            }
+
+            .cta-section {
+                padding: 50px 30px;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+            }
+
+            .cta-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="flowing-gradient-bg"></div>
+    <header class="header">
+        <a href="index.html" class="logo"><img src="b4cf181f44d2e4fcd4552d914fe53306.png" alt="MyTwins"></a>
+        <nav class="nav">
+            <a href="products.html">产品</a>
+            <a href="solution.html">解决方案</a>
+            <a href="about.html">关于我们</a>
+            <a href="contact.html" class="active">合作咨询</a>
+        </nav>
+    </header>
+
+    <section class="hero-section">
+        <span class="hero-badge">Contact Us</span>
+        <h1 class="hero-title">有任何问题？<br>我们随时为您解答</h1>
+        <p class="hero-subtitle">
+            无论是产品咨询、商务合作还是技术支持，我们的专业团队都会在24小时内回复您。
+        </p>
+    </section>
+
+    <div class="content">
+        <div class="qa-section">
+            <div class="section-header">
+                <span class="section-label">常见问题</span>
+                <h2 class="section-title">你可能想知道</h2>
+                <p class="section-desc">点击展开查看答案</p>
+            </div>
+
+            <div class="qa-grid">
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">💰</div>
+                        <div class="qa-text">
+                            <h4>爱客迅的收费模式是怎样的？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            我们提供灵活的订阅制服务，根据您的直播时长和功能需求，分为基础版、专业版和企业版。基础版1999元/月起，包含30小时/月的数字人直播时长、基础话术生成和弹幕互动功能。具体价格可联系商务顾问为您定制方案。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">⏱️</div>
+                        <div class="qa-text">
+                            <h4>数字人形象可以定制吗？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            当然可以！我们提供两种方式：① 使用我们的公模数字人，3分钟内即可搭建完成；② 定制专属数字人形象，需要您提供15-30分钟的真人视频素材，我们会在7个工作日内完成训练和交付。定制费用根据形象复杂度另行报价。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">🎯</div>
+                        <div class="qa-text">
+                            <h4>直播效果和真人主播比怎么样？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            我们的AI数字人在动作自然度、声音情感度上已经非常接近真人主播水平。根据已接入客户的数据，数字人直播的转化率平均可达真人主播的70-85%，但成本只有真人主播的1/10。对于日播、深夜场等场景，数字人的ROI远超真人。对于头部品牌达播，建议仍使用真人主播。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">🛡️</div>
+                        <div class="qa-text">
+                            <h4>平台会封号吗？合规性如何保障？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            爱客迅是行业内少数同时具备「国家算法备案」和「平台官方认证服务商」双重资质的数字人服务商。我们的数字人技术完全合规，已在淘宝、京东、抖音等平台稳定运行超过2年，从未出现大规模封号情况。我们会持续跟进各平台政策变化，确保技术始终合规。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">🔧</div>
+                        <div class="qa-text">
+                            <h4>需要技术支持吗？我们自己能上手吗？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            我们提供「交钥匙」服务，买了就能用。平台操作简单直观，5分钟即可学会基础操作。对于企业客户，我们还提供1V1定制培训服务，由资深运营专家手把手指导如何优化话术、提升转化。同时我们配备7×12小时在线客服，遇到问题随时响应。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="qa-card" onclick="toggleQA(this)">
+                    <div class="qa-question">
+                        <div class="qa-icon">📱</div>
+                        <div class="qa-text">
+                            <h4>支持哪些直播平台？</h4>
+                        </div>
+                        <div class="qa-toggle">+</div>
+                    </div>
+                    <div class="qa-answer">
+                        <div class="qa-answer-content">
+                            目前已支持：淘宝直播、京东直播、抖音直播、快手直播、拼多多直播、小红书直播、视频号直播等主流电商平台。我们是多个平台的官方认证服务商，享有流量扶持政策和技术白名单支持。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="contact-grid">
+            <div class="contact-methods">
+                <div class="section-header" style="text-align: left; margin-bottom: 30px;">
+                    <span class="section-label">联系方式</span>
+                    <h2 class="section-title" style="font-size: 32px;">找到我们</h2>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-icon">📞</div>
+                    <div class="method-content">
+                        <h4>咨询热线</h4>
+                        <p><a href="tel:19012810580">190-1281-0580</a></p>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-icon">💬</div>
+                    <div class="method-content">
+                        <h4>商务合作</h4>
+                        <p><a href="mailto:contactus@mytwins.ai">contactus@mytwins.ai</a></p>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-icon">📍</div>
+                    <div class="method-content">
+                        <h4>公司地址</h4>
+                        <p>浙江省杭州市西湖区灵隐街道<br>玉古路172号灵隐人工智能产业基地8层811室</p>
+                    </div>
+                </div>
+
+                <div class="method-card">
+                    <div class="method-icon">⏰</div>
+                    <div class="method-content">
+                        <h4>服务时间</h4>
+                        <p>周一至周五 9:00-18:00<br>7×12小时在线客服支持</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-wrapper">
+                <div id="formContent">
+                    <h3 class="form-title">免费体验申请</h3>
+                    <p class="form-subtitle">填写表单，我们会在24小时内联系您</p>
+
+                    <form id="contactForm">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>您的姓名 <span class="required">*</span></label>
+                                <input type="text" placeholder="张三" required>
+                            </div>
+                            <div class="form-group">
+                                <label>公司名称 <span class="required">*</span></label>
+                                <input type="text" placeholder="杭州科技有限公司" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>联系电话 <span class="required">*</span></label>
+                                <input type="tel" placeholder="138-xxxx-xxxx" required>
+                            </div>
+                            <div class="form-group">
+                                <label>公司规模</label>
+                                <select>
+                                    <option value="">请选择</option>
+                                    <option value="1-10">1-10人</option>
+                                    <option value="11-50">11-50人</option>
+                                    <option value="51-200">51-200人</option>
+                                    <option value="201-500">201-500人</option>
+                                    <option value="500+">500人以上</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>所在平台</label>
+                                <select>
+                                    <option value="">请选择主要平台</option>
+                                    <option value="taobao">淘宝直播</option>
+                                    <option value="jd">京东直播</option>
+                                    <option value="douyin">抖音直播</option>
+                                    <option value="kuaishou">快手直播</option>
+                                    <option value="pinduoduo">拼多多直播</option>
+                                    <option value="other">其他</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>当前月GMV</label>
+                                <select>
+                                    <option value="">请选择</option>
+                                    <option value="0-10">10万以下</option>
+                                    <option value="10-50">10-50万</option>
+                                    <option value="50-100">50-100万</option>
+                                    <option value="100-500">100-500万</option>
+                                    <option value="500+">500万以上</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group full">
+                            <label>合作意向或问题描述</label>
+                            <textarea placeholder="请简要描述您的需求或问题，我们会安排专人对接..."></textarea>
+                        </div>
+
+                        <button type="submit" class="submit-btn">提交咨询</button>
+                    </form>
+                </div>
+
+                <div class="success-message" id="successMessage">
+                    <div class="success-icon">✓</div>
+                    <h3>提交成功！</h3>
+                    <p>感谢您的咨询，我们的商务顾问会在24小时内联系您，请保持电话畅通。</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="location-section">
+            <div class="location-info">
+                <h3>📍 来访地址</h3>
+                <div class="location-details">
+                    <div class="location-item">
+                        <span class="icon">🏢</span>
+                        <div class="text">
+                            <strong>办公地点</strong>
+                            <span>浙江省杭州市西湖区灵隐街道玉古路172号<br>灵隐人工智能产业基地8层811室</span>
+                        </div>
+                    </div>
+                    <div class="location-item">
+                        <span class="icon">🚇</span>
+                        <div class="text">
+                            <strong>交通指引</strong>
+                            <span>地铁3号线「古墩路站」B出口步行约8分钟<br>自驾请至地下停车场B2层</span>
+                        </div>
+                    </div>
+                    <div class="location-item">
+                        <span class="icon">🅿️</span>
+                        <div class="text">
+                            <strong>停车服务</strong>
+                            <span>访客可享3小时免费停车</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="location-map">
+                🗺️
+            </div>
+        </div>
+
+        <div class="cta-section">
+            <div class="cta-content">
+                <h2>期待与您合作</h2>
+                <p>无论是初次接触还是深入洽谈，我们都期待与您的对话</p>
+                <div class="cta-buttons">
+                    <a href="solution.html" class="cta-btn secondary">查看解决方案 →</a>
+                    <a href="tel:19012810580" class="cta-btn primary">📞 立即致电</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-main">
+            <div class="footer-contact">
+                <p>合作邮箱：<a href="mailto:contactus@mytwins.ai">contactus@mytwins.ai</a></p>
+                <p>合作电话：19012810580</p>
+                <p>联系地址：浙江省杭州市西湖区灵隐街道玉古路172号灵隐人工智能产业基地8层811室</p>
+            </div>
+            <div class="footer-links">
+                <a href="#">商务合作</a>
+                <a href="#">数字人</a>
+                <a href="#">近期动态</a>
+                <a href="#">数字人</a>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>ICP备案：浙ICP备2023023923号</p>
+            <p>网信算备：330110545364901240019号；330110545364901240027号</p>
+            <p>Copyright © 2026 MyTwins.ai Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        function toggleQA(card) {
+            const wasExpanded = card.classList.contains('expanded');
+            document.querySelectorAll('.qa-card').forEach(c => c.classList.remove('expanded'));
+            if (!wasExpanded) {
+                card.classList.add('expanded');
+            }
+        }
+
+        document.getElementById('contactForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const btn = this.querySelector('.submit-btn');
+            btn.classList.add('loading');
+            btn.textContent = '提交中...';
+
+            setTimeout(() => {
+                document.getElementById('formContent').style.display = 'none';
+                document.getElementById('successMessage').classList.add('show');
+            }, 1500);
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const observerOptions = {
+                threshold: 0.15,
+                rootMargin: '0px 0px -30px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry, index) => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('.qa-card, .method-card, .location-section').forEach((el, index) => {
+                el.style.opacity = '0';
+                el.style.transform = 'translateY(40px)';
+                el.style.transition = `opacity 0.6s ease ${index * 0.08}s, transform 0.6s ease ${index * 0.08}s`;
+                observer.observe(el);
+            });
+        });
+    </script>
+</body>
+</html>

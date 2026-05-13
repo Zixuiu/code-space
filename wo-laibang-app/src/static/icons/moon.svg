@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="grad_moon" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A855F7;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <path d="M28 10C28 10 26 14 26 18C26 26 32 32 40 32C36 38 28 40 22 38C14 36 10 28 12 20C14 14 20 10 28 10Z" fill="url(#grad_moon)"/>
+</svg>

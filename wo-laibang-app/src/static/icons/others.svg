@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="grad80" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#A78BFA;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- 三个横点 -->
+  <circle cx="14" cy="24" r="6" fill="url(#grad80)"/>
+  <circle cx="24" cy="24" r="6" fill="url(#grad80)"/>
+  <circle cx="34" cy="24" r="6" fill="url(#grad80)"/>
+  <!-- 高光 -->
+  <circle cx="12" cy="22" r="2" fill="white" opacity="0.4"/>
+  <circle cx="22" cy="22" r="2" fill="white" opacity="0.4"/>
+  <circle cx="32" cy="22" r="2" fill="white" opacity="0.4"/>
+</svg>
