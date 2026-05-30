@@ -18,68 +18,85 @@ body {
     linear-gradient(90deg, rgba(255,255,255,0.9) 1px, transparent 1px);
   background-size: 20px 20px;
   background-position: center center;
-  padding: 20px 20px 20px 80px;
+  padding: 20px;
   min-height: 100vh;
 }
 .app {
-  max-width: 700px;
+  max-width: 1200px;
   margin: 0 auto;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  padding: 20px;
+  padding: 0;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border: 1px solid rgba(226, 232, 240, 0.8);
   position: relative;
+  display: flex;
+  min-height: calc(100vh - 40px);
 }
-/* 页面标签栏样式 */
+/* 左侧导航栏 */
+.sidebar {
+  width: 220px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-right: 1px solid #e2e8f0;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  border-radius: 16px 0 0 16px;
+}
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0 12px 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+/* 页面标签栏样式 - 改为垂直布局 */
 .page-tabs {
   display: flex;
-  gap: 8px;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e2e8f0;
-  overflow-x: auto;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
 }
 .page-tab {
-  padding: 8px 16px;
-  padding-right: 28px; /* 为删除图标预留空间 */
+  padding: 10px 14px;
   border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: none;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
   color: #475569;
   white-space: nowrap;
   transition: all 0.2s ease;
-  position: relative; /* 用于定位删除图标 */
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  text-align: left;
 }
 .page-tab:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: #e2e8f0;
 }
 .page-tab.active {
   background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
   color: white;
-  border-color: #3b82f6;
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
 }
 /* 页面删除图标样式 */
 .page-delete-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: rgba(0,0,0,0.1);
   color: white;
-  font-size: 10px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -87,6 +104,7 @@ body {
   opacity: 0;
   transition: all 0.2s ease;
   user-select: none;
+  margin-left: 8px;
 }
 .page-tab:hover .page-delete-btn {
   opacity: 1;
@@ -95,34 +113,30 @@ body {
   background: #ef4444;
   transform: scale(1.1);
 }
-/* 重命名输入框样式 */
-.page-rename-input {
-  border: none;
-  outline: none;
-  background: rgba(255,255,255,0.9);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 14px;
-  font-weight: 500;
-  width: 80px;
-  text-align: center;
-  color: #1e293b;
-}
 .add-page-btn {
-  padding: 8px 16px;
+  padding: 10px 14px;
   border-radius: 8px;
   border: 1px dashed #94a3b8;
-  background: #f8fafc;
+  background: transparent;
   cursor: pointer;
   font-size: 14px;
   color: #64748b;
   white-space: nowrap;
   transition: all 0.2s ease;
+  text-align: left;
+  margin-top: 8px;
 }
 .add-page-btn:hover {
-  background: #f1f5f9;
+  background: #e2e8f0;
   border-color: #64748b;
   color: #334155;
+}
+/* 主内容区域 */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  border-radius: 0 16px 16px 0;
 }
 .toolbar {
   display: none;
@@ -239,15 +253,15 @@ body {
 }
 .cell-summary {
   position: absolute;
-  left: -290px;
+  right: 140px;
   top: 50%;
   transform: translateY(-50%);
-  width: 280px;
+  max-width: 200px;
   padding: 6px 10px;
   border-radius: 10px;
   background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
   color: #92400e;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.5;
   box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
@@ -354,7 +368,7 @@ body {
   line-height: 1.6;
   min-height: 28px;
   outline: none;
-  padding-right: 130px;
+  padding-right: 350px;
   word-wrap: break-word;
   color: #0f172a;
   font-weight: 450;
@@ -394,7 +408,7 @@ body {
   align-items: center;
   justify-content: center;
   color: #475569;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 /* 移除按钮hover动画 */
@@ -415,11 +429,31 @@ body {
     0 2px 6px rgba(59, 130, 246, 0.1),
     inset 0 1px 0 rgba(255,255,255,1);
 }
+/* 最后一个单元格选中时的按钮样式 */
+.cell.selected-last .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  color: #3b82f6;
+  border: 1px solid #bfdbfe;
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.1),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
 /* 移除选中单元格按钮hover动画 */
 .cell.selected .action-btn:hover {
   background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
   color: #fff;
-  transform: none;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
+}
+/* 最后一个单元格选中时按钮hover */
+.cell.selected-last .action-btn:hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+  transform: scale(1.1);
   box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
 }
 .cell.selected .action-btn.delete {
@@ -430,6 +464,18 @@ body {
 .cell.selected .action-btn.delete:hover {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: #fff;
+  transform: scale(1.1);
+}
+/* 最后一个单元格删除按钮hover */
+.cell.selected-last .action-btn.delete {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+.cell.selected-last .action-btn.delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  transform: scale(1.1);
 }
 
 .image-placeholder {
@@ -619,28 +665,27 @@ body {
 <body>
 
 <div class="app">
-  <!-- 页面标签栏 -->
-  <div class="page-tabs" id="pageTabs">
-    <div class="page-tab active" onclick="handleTabClick(0)">
-      页面1
-      <span class="page-delete-btn" onclick="handleDeletePage(0, event)">×</span>
-    </div>
-    <div class="add-page-btn" onclick="addNewPage()">+ 新增页面</div>
+  <!-- 左侧导航栏 -->
+  <div class="sidebar">
+    <div class="sidebar-title">页面列表</div>
+    <div class="page-tabs" id="pageTabs"></div>
   </div>
   
-  <!-- 导入导出工具栏 -->
-  <div class="import-export-toolbar">
-    <button class="btn" onclick="exportData()">📤 导出</button>
-    <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
-    <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
-    <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
-    <button class="btn primary" onclick="generateAllSummaries()">✨ 一键生成总结</button>
-    <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
-  </div>
+  <!-- 主内容区域 -->
+  <div class="main-content">
+    <!-- 导入导出工具栏 -->
+    <div class="import-export-toolbar">
+      <button class="btn" onclick="exportData()">📤 导出</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
+      <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
+      <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
+      <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
+    </div>
 
-  <div class="toolbar"></div>
-  <button id="addCellBtn" class="btn primary add-cell-btn" onclick="addCell()">+</button>
-  <div id="container" style="overflow: visible; padding-bottom: 20px;"></div>
+    <div class="toolbar"></div>
+    <button id="addCellBtn" class="btn primary add-cell-btn" onclick="addCell()">+</button>
+    <div id="container" style="overflow: visible; padding-bottom: 20px;"></div>
+  </div>
 </div>
 
 <div class="notification" id="notice"></div>
@@ -701,17 +746,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 自动总结定时器
 function startAutoSummary() {
-  // 每3秒检测一次
+  // 每1秒检测一次
   setInterval(() => {
     const currentPage = getCurrentPageData();
     if (!currentPage || !currentPage.cellsData) return;
 
     currentPage.cellsData.forEach((cellText, i) => {
-      if (cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
+      // 只有在用户不再选中/编辑该单元格时才进行AI总结
+      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
         generateSummary(i);
       }
     });
-  }, 3000);
+  }, 1000);
 }
 
 // 更新加号按钮位置到app容器右侧，不与单元格重叠
@@ -975,10 +1021,10 @@ function selectCell(index, shouldFocus = false) {
     }
   });
   
-  // 自动总结所有未总结的单元格
+  // 自动总结所有未总结的单元格（排除当前选中的单元格）
   setTimeout(() => {
     currentPage.cellsData.forEach((cellText, i) => {
-      if (cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
+      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
         generateSummary(i);
       }
     });
@@ -1439,21 +1485,45 @@ function confirmTextImport() {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   const currentPage = getCurrentPageData();
   const itemRegex = /^(\d+)[\.、\s]+(.+)$/;
-  let addedCount = 0;
-
+  
+  // 解析所有要导入的内容
+  const contentsToImport = [];
   for (const line of lines) {
     const match = line.match(itemRegex);
     if (match) {
       const content = match[2].trim();
       if (content) {
-        currentPage.cellsData.push(content);
-        addedCount++;
+        contentsToImport.push(content);
       }
     } else {
       // 没有序号的普通文本，也作为一条内容
-      currentPage.cellsData.push(line);
+      contentsToImport.push(line);
+    }
+  }
+
+  if (contentsToImport.length === 0) {
+    show('未识别到有效内容');
+    return;
+  }
+
+  let addedCount = 0;
+  let importIndex = 0; // 当前要导入的内容索引
+
+  // 第一步：先填充空白单元格
+  for (let i = 0; i < currentPage.cellsData.length && importIndex < contentsToImport.length; i++) {
+    if (!currentPage.cellsData[i] || !currentPage.cellsData[i].trim()) {
+      // 找到空白单元格，填充内容
+      currentPage.cellsData[i] = contentsToImport[importIndex];
+      importIndex++;
       addedCount++;
     }
+  }
+
+  // 第二步：如果还有剩余内容，另起新行添加
+  while (importIndex < contentsToImport.length) {
+    currentPage.cellsData.push(contentsToImport[importIndex]);
+    importIndex++;
+    addedCount++;
   }
 
   if (addedCount > 0) {
