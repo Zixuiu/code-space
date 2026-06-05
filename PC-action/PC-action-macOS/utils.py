@@ -170,10 +170,10 @@ def get_dynamic_radius(width, height):
 
 
 def get_recordings_path():
-    """获取录制文件夹路径 - 与原始版本共享同一路径"""
+    """获取录制文件夹路径"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     recordings_dir = os.path.normpath(os.path.join(
-        base_dir, "..", "PC-action-家用电脑", "resent", "recordings"
+        base_dir, "recordings"
     ))
     if not os.path.exists(recordings_dir):
         os.makedirs(recordings_dir)
@@ -181,10 +181,10 @@ def get_recordings_path():
 
 
 def get_user_data_path():
-    """获取用户数据文件夹路径 - 与原始版本共享"""
+    """获取用户数据文件夹路径"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     user_data_dir = os.path.normpath(os.path.join(
-        base_dir, "..", "PC-action-家用电脑", "resent", "user_data"
+        base_dir, "user_data"
     ))
     if not os.path.exists(user_data_dir):
         os.makedirs(user_data_dir)
