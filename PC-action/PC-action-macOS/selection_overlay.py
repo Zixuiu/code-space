@@ -543,6 +543,39 @@ class SelectionOverlay(QWidget):
         except Exception as e:
             print(f"保存操作信息失败: {e}")
     
+    # ---- 全局键盘钩子管理: 避免干扰输入法IME ----
+    def _disable_global_hooks(self):
+        """彻底停止键盘监听线程 + 卸载系统钩子，让输入法能正常工作"""
+        import keyboard as _kb
+        import time as _time
+        parent = self.parent
+        self._saved_grave_id = getattr(parent, 'grave_hotkey_id', None)
+        self._saved_stop_id = getattr(parent, 'stop_replay_hotkey_id', None)
+        self._saved_shortcuts = getattr(parent, 'registered_shortcuts', [])[:]
+        
+        # 1. 取消所有系统级钩子 (UnhookWindowsHookEx)
+        try: _kb.unhook_all()
+        except: pass
+        # 短暂等待，确保钩子线程退出
+        _time.sleep(0.05)
+        
+        # 2. 重置监听器状态，使其能被重新启动
+        if hasattr(_kb, '_listener') and _kb._listener:
+            _kb._listener.listening = False
+            _kb._listener.handlers.clear()
+
+    def _reenable_global_hooks(self):
+        """重新注册所有键盘钩子 (会重启监听线程)"""
+        parent = self.parent
+        if hasattr(parent, 'reenable_grave_hotkey'):
+            parent.reenable_grave_hotkey()
+        if self._saved_stop_id and hasattr(parent, 'register_stop_replay_hotkey'):
+            parent.register_stop_replay_hotkey()
+        if self._saved_shortcuts and hasattr(parent, 'update_shortcuts'):
+            parent.update_shortcuts()
+        self._saved_grave_id = self._saved_stop_id = None
+        self._saved_shortcuts = []
+
     def add_text_input(self):
         """添加文本输入操作"""
         try:
@@ -571,12 +604,20 @@ class SelectionOverlay(QWidget):
             input_dialog.setOkButtonText("确定")
             input_dialog.setCancelButtonText("取消")
             
+            # 停止焦点抢夺定时器，让输入法能正常工作
+            if hasattr(self, 'focus_timer') and self.focus_timer:
+                self.focus_timer.stop()
+            
             if input_dialog.exec_() == QInputDialog.Accepted:
                 text = input_dialog.textValue()
                 ok = True
             else:
                 text = ""
                 ok = False
+            
+            # 重新启动焦点抢夺定时器
+            if hasattr(self, 'focus_timer') and self.focus_timer:
+                self.focus_timer.start(100)
             
             if ok and text:
                 # 如果还没有录制目录，则创建它（用户实际执行了操作）
@@ -713,8 +754,8 @@ class SelectionOverlay(QWidget):
                     self.setWindowTitle("输入按键或滚动滚轮")
                     self.setModal(True)
                     
-                    # 设置窗口标志，确保能捕获所有键盘事件和滚轮事件
-                    self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+                    # 设置窗口标志：Dialog 才能正确模态 + 置顶
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
                     
                     # 应用统一的对话框样式
                     from styles import apply_dialog_style
@@ -760,16 +801,17 @@ class SelectionOverlay(QWidget):
                     self.cancel_btn.clicked.connect(self.reject)
                     self.cancel_btn.setStyleSheet(f"""
                         QPushButton {{
-                            background-color: {MUTED};
-                            color: white;
-                            border: none;
+                            background-color: #FFFFFF;
+                            color: #8E8E93;
+                            border: 1px solid #D1D1D6;
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
-                            background-color: {ACCENT};
+                            background-color: #F0F0F2;
+                            color: #6E6E73;
                         }}
                     """)
                     button_layout.addWidget(self.cancel_btn)
@@ -827,32 +869,27 @@ class SelectionOverlay(QWidget):
                         self.scroll_amount = -3  # 向下滚动3格
                         self.line_edit.setText("🔄 向下滚动")
                     self.is_scroll = True
+                    # 滚轮操作已记录，自动确认关闭对话框
+                    self.accept()
                     event.accept()
                     
                 def keyPressEvent(self, event):
                     key = event.key()
                     
-                    # 处理Enter键，添加到按键选项而不是直接关闭
+                    # 处理Enter键：如果有文本就直接确认，否则填入'enter'并确认
                     if key in [Qt.Key_Return, Qt.Key_Enter]:
-                        key_name = 'enter'
-                        modifiers = []
-                        if event.modifiers() & Qt.ControlModifier:
-                            modifiers.append('ctrl')
-                        if event.modifiers() & Qt.ShiftModifier:
-                            modifiers.append('shift')
-                        if event.modifiers() & Qt.AltModifier:
-                            modifiers.append('alt')
-                        if event.modifiers() & Qt.MetaModifier:
-                            modifiers.append('meta')
-                        
-                        if modifiers:
-                            key_str = '+'.join(modifiers + [key_name])
+                        if self.line_edit.text():
+                            # 已经有文本，直接确认
+                            self.accept()
+                            event.accept()
+                            return
                         else:
-                            key_str = key_name
-                        
-                        self.line_edit.setText(key_str)
-                        self.is_scroll = False
-                        return
+                            # 没有文本，填入'enter'后自动确认
+                            self.line_edit.setText('enter')
+                            self.is_scroll = False
+                            self.accept()
+                            event.accept()
+                            return
                     
                     # 处理修饰键
                     if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
@@ -891,11 +928,16 @@ class SelectionOverlay(QWidget):
                     
                     self.line_edit.setText(key_str)
                     
-                    # 阻止事件传递，避免系统快捷键触发
-                    # 使用accept()而不是ignore()来阻止事件传播
+                    # 按键已设置，自动确认关闭对话框，无需用户再点击"确定"按钮
+                    self.accept()
                     event.accept()
+                    return
                     
             input_dialog = KeyInputDialog(self)
+            
+            # 停止焦点抢夺定时器，让按键输入对话框不被打扰
+            if hasattr(self, 'focus_timer') and self.focus_timer:
+                self.focus_timer.stop()
             
             if input_dialog.exec_() == QDialog.Accepted:
                 # 检查是否是滚动操作
@@ -905,12 +947,15 @@ class SelectionOverlay(QWidget):
                     ok = True
                     key = ""
                 else:
-                    # 处理普通按键操作
                     key = input_dialog.line_edit.text()
-                    ok = True if key else False
+                    ok = True
             else:
                 key = ""
                 ok = False
+            
+            # 重新启动焦点抢夺定时器
+            if hasattr(self, 'focus_timer') and self.focus_timer:
+                self.focus_timer.start(100)
             
             if ok:
                 # 如果还没有录制目录，则创建它（用户实际执行了操作）

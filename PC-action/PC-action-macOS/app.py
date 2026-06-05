@@ -93,7 +93,7 @@ from PyQt5.QtWidgets import (
     QHeaderView, QShortcut, QLineEdit, QDialog, QAbstractItemView, QMenu,
     QAction, QCheckBox, QPushButton, QTextEdit, QComboBox, QDoubleSpinBox, QSpinBox,
     QInputDialog, QSystemTrayIcon, QPlainTextEdit, QListWidget, QListWidgetItem, QFrame, QButtonGroup,
-    QRadioButton, QFileDialog, QStackedWidget, QGraphicsOpacityEffect
+    QRadioButton, QFileDialog, QStackedWidget
 )
 from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, QEvent, QObject, QSize, QPropertyAnimation, QRect, QAbstractAnimation, QThread, QEasingCurve, QMimeData, pyqtSignal
 from PyQt5.QtWidgets import QSizePolicy
@@ -107,112 +107,48 @@ from image_recognition import replay_coordinate_operations, replay_coordinates_o
 # image_recognition模块已导入
 
 
-class _HoverCloseButton(QWidget):
-    """macOS Photos 风格的圆形关闭按钮 - 自绘两条交叉线
+class _HoverCloseButton(QPushButton):
+    """图片右上角关闭按钮 - QPushButton + 样式表，macOS Photos 风格
 
-    设计要点：
-    - 完全自绘：半透明黑色填充圆 + 白色交叉直线（不是字符 ×）
-    - hover 时背景加深、线条加粗变纯白
-    - pressed 时变 iOS 红色（轻微动效）
-    - 始终可见，不依赖 hover 才出现
+    半透明灰色正圆 + 细"×"，悬停加深，按下变红。
     """
-    def __init__(self, parent_widget, on_click, size=22):
-        super().__init__(parent_widget)
-        self.setFixedSize(size, size)
+    def __init__(self, parent_widget, on_click, size=24):
+        super().__init__("×", parent_widget)
         self.setCursor(Qt.PointingHandCursor)
-        self._size = size
-        self._hovered = False
-        self._pressed = False
-        self._on_click = on_click
-        # 必须使用 WA_TranslucentBackground 让 paintEvent 的透明区域能正确合成
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        # 不要 WA_NoSystemBackground，它会导致某些环境下 paintEvent 不被调用
-        # 不使用 QGraphicsOpacityEffect，它会与自绘透明产生冲突
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._pressed = True
-            self.update()
-        super().mousePressEvent(event)
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton and self._pressed:
-            self._pressed = False
-            self.update()
-            if self.rect().contains(event.pos()):
-                try:
-                    self._on_click()
-                except Exception as e:
-                    print(f"[关闭按钮] 点击回调失败: {e}")
-        else:
-            self._pressed = False
-            self.update()
-        super().mouseReleaseEvent(event)
-
-    def enterEvent(self, event):
-        self._hovered = True
-        self.update()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        self._hovered = False
-        self.update()
-        super().leaveEvent(event)
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
-
-        s = self._size
-        # 整体比按钮稍小一圈，留出阴影空间
-        rect = QRectF(1, 1, s - 2, s - 2)
-
-        # 1. 背景圆：iOS 系统红（按下） / 半透明深黑（hover） / 半透明黑（普通）
-        if self._pressed:
-            bg = QColor(255, 59, 48, 235)        # iOS 红
-            line_color = QColor(255, 255, 255, 250)
-            line_w = max(1.4, s * 0.09)
-        elif self._hovered:
-            bg = QColor(20, 20, 20, 220)
-            line_color = QColor(255, 255, 255, 255)
-            line_w = max(1.3, s * 0.08)
-        else:
-            bg = QColor(0, 0, 0, 180)            # 提高不透明度，确保可见
-            line_color = QColor(255, 255, 255, 240)
-            line_w = max(1.5, s * 0.09)           # 加粗线条
-
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(bg))
-        painter.drawEllipse(rect)
-
-        # 2. 1px 细描边（macOS Photos 风格）
-        if not self._pressed:
-            border = QColor(255, 255, 255, 50 if self._hovered else 30)
-            border_pen = QPen(border, 1.0)
-            border_pen.setCosmetic(True)
-            painter.setPen(border_pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawEllipse(rect)
-            painter.setPen(Qt.NoPen)
-
-        # 3. 绘制两条交叉直线（✕）- 中心点
-        cx, cy = s / 2.0, s / 2.0
-        # 线长 = 按钮内径的 ~40%
-        line_len = s * 0.30
-        pen = QPen(line_color, line_w)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setCosmetic(True)
-        painter.setPen(pen)
-        # 第一条: 左上 → 右下
-        painter.drawLine(QPointF(cx - line_len, cy - line_len),
-                         QPointF(cx + line_len, cy + line_len))
-        # 第二条: 右上 → 左下
-        painter.drawLine(QPointF(cx + line_len, cy - line_len),
-                         QPointF(cx - line_len, cy + line_len))
+        self.clicked.connect(on_click)
+        s = size  # 别名，保持代码简洁
+        self.setFixedSize(s, s)
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background-color: rgba(80, 80, 80, 150);
+                color: rgba(255, 255, 255, 230);
+                border: 1px solid rgba(255, 255, 255, 50);
+                border-radius: {s//2}px;
+                font-size: {max(12, s - 8)}px;
+                font-weight: normal;
+                min-width: 0px;
+                min-height: 0px;
+                max-width: {s}px;
+                max-height: {s}px;
+                width: {s}px;
+                height: {s}px;
+                padding: 0px;
+                margin: 0px;
+            }}
+            QPushButton:hover {{
+                background-color: rgba(30, 30, 30, 200);
+                color: white;
+                border-color: rgba(255, 255, 255, 70);
+            }}
+            QPushButton:pressed {{
+                background-color: rgba(255, 59, 48, 220);
+                color: white;
+                border-color: rgba(255, 255, 255, 90);
+            }}
+        """)
 
 
-def _create_hover_close_button(parent_widget, on_click, size=22):
+def _create_hover_close_button(parent_widget, on_click, size=24):
     """
     创建一个优雅的图片关闭按钮（macOS Photos 风格）
     - 始终可见，不依赖 hover —— paintEvent 已通过颜色 alpha 处理透明度
@@ -1825,18 +1761,26 @@ class FolderManager(QDialog):
             traceback.print_exc()
             self._view_images_grave_hotkey_id = None
         
-        # 获取动态圆角半径
-        container_border_radius = get_dynamic_radius("image", screen_height)
-        delete_btn_radius = get_dynamic_radius("small", screen_height)
-        button_border_radius = get_dynamic_radius("button", screen_height)
-        
         # 使用统一的样式函数
         dialog.setStyleSheet(get_common_dialog_style())
         center_window(dialog)
         layout = QVBoxLayout(dialog)
         scroll_area = QScrollArea()
-        scroll_content = QWidget()
-        grid_layout = QGridLayout(scroll_content)
+        scroll_area.setStyleSheet("QScrollArea { background: white; border: none; }")
+        scroll_root = QWidget()  # 最外层容器 (撑满滚动区)
+        scroll_root.setStyleSheet("background: white;")
+        root_layout = QHBoxLayout(scroll_root)
+        root_layout.setContentsMargins(0, 0, 0, 0)
+
+        # 居中定宽容器：列表宽度不超过 560px，居中显示
+        list_wrapper = QWidget()
+        list_wrapper.setMaximumWidth(560)
+        list_layout = QVBoxLayout(list_wrapper)
+        list_layout.setContentsMargins(16, 12, 16, 12)
+        list_layout.setSpacing(2)
+        root_layout.addStretch()
+        root_layout.addWidget(list_wrapper)
+        root_layout.addStretch()
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
         image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
         
@@ -2021,290 +1965,204 @@ class FolderManager(QDialog):
             except Exception as e:
                 QMessageBox.critical(dialog, "错误", f"删除失败: {str(e)}")
 
-        for i, img_file in enumerate(image_files):
-            # 初始化标记变量，跟踪当前循环是否创建了下拉框
-            action_combo_created = False
-            action_combo = None
-            
-            # 创建容器widget和垂直布局
-            img_path = os.path.join(folder_path, img_file)
-            container = DraggableImageWidget(self.parent, dialog, step_num=i+1, img_path=img_path, folder_path=folder_path)
-            container_layout = QVBoxLayout(container)
-            container_layout.setContentsMargins(6, 6, 6, 6)  # 减小外边距
-            container_layout.setSpacing(6)  # 减小内部间距
-            
-            # 创建图片和删除按钮的容器（使用相对布局）
-            image_container = QWidget()
-            # 使用固定的小尺寸，避免在大屏幕上太宽
-            container_size = 100  # 固定100像素，紧凑显示
-            image_container.setFixedSize(container_size, container_size)
-            image_container.setStyleSheet(f"background-color: white; border-radius: {container_border_radius}px; border: 1px solid white;")
+        def _show_large_preview(img_path):
+            """弹出大图预览窗口"""
+            from PyQt5.QtWidgets import QDialog, QVBoxLayout, QScrollArea
+            preview = QDialog(dialog)
+            preview.setWindowTitle("图片预览")
+            preview.setWindowFlags(preview.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+            # 获取屏幕尺寸
+            from PyQt5.QtWidgets import QDesktopWidget
+            desktop = QDesktopWidget()
+            sw = desktop.screenGeometry().width()
+            sh = desktop.screenGeometry().height()
+            max_w = int(sw * 0.7)
+            max_h = int(sh * 0.7)
+            preview.resize(max_w, max_h)
 
-            # 使用优雅的 hover-show 关闭按钮（macOS Photos 风格）
-            delete_btn = _create_hover_close_button(
-                image_container,
-                on_click=lambda checked=False, file_name=img_file: delete_image(file_name),
-                size=24
+            layout = QVBoxLayout(preview)
+            layout.setContentsMargins(0, 0, 0, 0)
+
+            scroll = QScrollArea(preview)
+            scroll.setWidgetResizable(True)
+            scroll.setStyleSheet("QScrollArea { border: none; background: #1C1C1E; }")
+
+            img_label = QLabel()
+            img_label.setAlignment(Qt.AlignCenter)
+            fp = load_qpixmap(img_path)
+            if fp:
+                # 等比例缩放
+                fp = fp.scaled(max_w - 20, max_h - 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                img_label.setPixmap(fp)
+            img_label.setStyleSheet("background: #1C1C1E; padding: 10px;")
+            scroll.setWidget(img_label)
+            layout.addWidget(scroll)
+            preview.exec_()
+
+        control_height = 24
+        action_font_size = 11
+        row_height = 54
+
+        for i, img_file in enumerate(image_files):
+            img_path = os.path.join(folder_path, img_file)
+            step_num = i + 1
+
+            # 每行 = 干净白色行 (仿通讯录风格)
+            row_widget = QWidget()
+            row_widget.setFixedHeight(row_height)
+            row_widget.setStyleSheet("""
+                QWidget#listRow {
+                    background-color: #FFFFFF;
+                }
+            """)
+            row_widget.setObjectName("listRow")
+
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(14, 4, 14, 4)
+            row_layout.setSpacing(12)
+
+            # ── ① 编号圆点 (灰蓝) ──
+            step_label = QLabel(str(step_num))
+            step_label.setFixedSize(24, 24)
+            step_label.setAlignment(Qt.AlignCenter)
+            step_label.setStyleSheet("QLabel { background-color: #E8ECF0; color: #8E8E93; border-radius: 12px; font-size: 10px; font-weight: bold; }")
+            row_layout.addWidget(step_label)
+
+            # ── ② 圆形缩略图 (纯圆头像, 点击查看大图) ──
+            thumb_w = QPushButton()
+            thumb_w.setFixedSize(40, 40)
+            thumb_w.setStyleSheet("QPushButton { background: #FFFFFF; border-radius: 20px; }")
+            del_btn = _create_hover_close_button(
+                thumb_w,
+                on_click=lambda checked=False, fn=img_file: delete_image(fn),
+                size=18
             )
-            delete_btn.move(container_size - 26, 2)  # 右上角位置（留 2px 边距）
-            
-            # 添加图片（居中显示）
+            del_btn.move(22, 0)
             pixmap = load_qpixmap(img_path)
             if pixmap is None:
                 QMessageBox.warning(dialog, "警告", f"无法加载图片: {img_file}")
                 continue
-                
-            label = QLabel(image_container)
-            # 使用固定的小尺寸图片
-            img_size = 80  # 固定80像素
-            scaled_pixmap = pixmap.scaled(img_size, img_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            label.setPixmap(scaled_pixmap)
-            label.setAlignment(Qt.AlignCenter)
-            label.move(10, 10)  # 居中位置
-            label.lower()  # 确保图片在下层
-            # 最后再 raise 删除按钮，确保它在最上层
-            delete_btn.raise_()
-            # 清理原始pixmap
+            tl = QLabel(thumb_w)
+            tp = pixmap.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            tl.setPixmap(tp)
+            tl.setGeometry(2, 2, 36, 36)
+            tl.setStyleSheet("QLabel { border-radius: 18px; }")
+            tl.lower()
+            del_btn.raise_()
             pixmap = None
-            
-            # 将图片容器添加到主容器
-            container_layout.addWidget(image_container, alignment=Qt.AlignCenter)
+            row_layout.addWidget(thumb_w)
 
-            # 创建紧凑的控制栏 - 水平排列所有控件
-            controls_container = QWidget()
-            controls_container.setFixedSize(220, 32)  # 增加宽度以容纳按键标签
-            controls_container.setStyleSheet("""
-                QWidget {
-                    background-color: #F0F0F2;
-                    border: 1px solid #D1D1D6;
-                    border-radius: 6px;
-                }
-            """)
-            controls_layout = QHBoxLayout(controls_container)
-            controls_layout.setContentsMargins(6, 4, 6, 4)
-            controls_layout.setSpacing(4)
-            controls_layout.setAlignment(Qt.AlignVCenter)  # 垂直居中对齐
-            
-            # 统一控件高度
-            control_height = 22
-            
-            # 添加操作方式显示到控制栏
+            # 点击缩略图查看大图
+            thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
+
+            # ── ③ 操作控件（统一 90px 宽） ──
+            ACT_W = 90
             if i < len(self.image_actions):
-                action_text = self.image_actions[i]
-                # 按屏幕比例设置字体大小
-                screen_width, screen_height = get_screen_size()
-                action_font_size = int(screen_height * 0.012)  # 屏幕高度的1.2%
-                
-                if action_text.startswith("按键:"):
-                    # 键盘操作显示为可点击的标签
-                    key_text = action_text.replace("按键: ", "")
-                    action_label = QLabel(f"⌨️ {key_text}")
-                    action_label.setMinimumSize(60, control_height)
-                    action_label.setStyleSheet(f"background-color: #007AFF; color: #1E1E2E; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; font-size: {action_font_size}px; cursor: pointer;")
-                    action_label.setAlignment(Qt.AlignCenter)
-                    action_label.setToolTip(f"按键: {key_text}")
-                    action_label.mousePressEvent = lambda event, img_idx=i, fp=folder_path: self.show_key_input_dialog(img_idx, fp)
-                    controls_layout.addWidget(action_label)
-                elif action_text.startswith("滚动:"):
-                    # 滚动操作显示为可点击的标签
-                    scroll_display = action_text.replace("滚动: ", "")
-                    action_label = QLabel(f"🔄 {scroll_display}")
-                    action_label.setMinimumSize(60, control_height)
-                    action_label.setStyleSheet(f"background-color: #89B4FA; color: #1E1E2E; padding: 2px 6px; border-radius: 4px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; font-size: {action_font_size}px; cursor: pointer;")
-                    action_label.setAlignment(Qt.AlignCenter)
-                    action_label.setToolTip(f"滚动: {scroll_display}")
-                    action_label.mousePressEvent = lambda event, img_idx=i, fp=folder_path: self.show_scroll_input_dialog(img_idx, fp)
-                    controls_layout.addWidget(action_label)
-                elif action_text.startswith("文本:"):
-                    # 文本输入操作显示为标签
-                    text_content = action_text.replace("文本: ", "")
-                    action_label = QLabel(f"📝 文本: {text_content}")
-                    action_label.setFixedSize(100, control_height)
-                    action_label.setStyleSheet(f"background-color: #A6E3A1; color: #1E1E2E; padding: 2px 4px; border-radius: 4px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; font-size: {action_font_size}px;")
-                    action_label.setAlignment(Qt.AlignCenter)
-                    controls_layout.addWidget(action_label)
-                elif action_text == "条件分支":
-                    # 条件分支显示为特殊标签
-                    action_label = QLabel("🔀 条件分支")
-                    action_label.setFixedSize(100, control_height)
-                    action_label.setStyleSheet(f"background-color: #FAB387; color: #1E1E2E; padding: 2px 4px; border-radius: 4px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; font-size: {action_font_size}px;")
-                    action_label.setAlignment(Qt.AlignCenter)
-                    controls_layout.addWidget(action_label)
-                elif action_text in ["左击", "右击", "双击", "中击"]:
-                    # 点击操作显示为下拉菜单
-                    action_combo = QComboBox()
-                    action_combo_created = True
-                    click_icon = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                    actions = [f"{click_icon['左击']} 左击", f"{click_icon['右击']} 右击", f"{click_icon['双击']} 双击", f"{click_icon['中击']} 中击"]
-                    action_combo.addItems(actions)
-                    action_combo.setCurrentText(f"{click_icon.get(action_text, '👆')} {action_text}")
-                    action_combo.currentIndexChanged.connect(
-                        lambda idx, img_idx=i, fp=folder_path: self.update_action(img_idx, action_combo.currentText().split(' ', 1)[1] if ' ' in action_combo.currentText() else action_combo.currentText(), fp))
-                    action_combo.setFixedSize(70, control_height)
-                    action_combo.setStyleSheet("""
-                        QComboBox {
-                            background-color: #FFFFFF;
-                            color: #333333;
-                            padding: 2px 4px;
-                            border-radius: 4px;
-                            font-weight: 500;
-                            font-size: 16px;
-                            border: 1px solid #D9D9D9;
-                        }
-                        QComboBox:hover {
-                            border-color: #40A9FF;
-                        }
-                        QComboBox QAbstractItemView {
-                            background-color: white;
-                            color: #333333;
-                            selection-background-color: #E6F7FF;
-                            selection-color: #1890FF;
-                            border: 1px solid #D9D9D9;
-                            border-radius: 3px;
-                            padding: 2px;
-                        }
+                at = self.image_actions[i]
+
+                if at.startswith("按键:"):
+                    kw = QLabel(f"⌨️ {at.replace('按键: ','')}")
+                    kw.setFixedSize(ACT_W, control_height)
+                    kw.setStyleSheet(f"QLabel {{ background: #007AFF; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    kw.setAlignment(Qt.AlignCenter)
+                    kw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_key_input_dialog(idx, fp)
+                    row_layout.addWidget(kw)
+                elif at.startswith("滚动:"):
+                    sw = QLabel(f"🔄 {at.replace('滚动: ','')}")
+                    sw.setFixedSize(ACT_W, control_height)
+                    sw.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    sw.setAlignment(Qt.AlignCenter)
+                    sw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_scroll_input_dialog(idx, fp)
+                    row_layout.addWidget(sw)
+                elif at.startswith("文本:"):
+                    tw_w = QLabel(f"📝 {at.replace('文本: ','')}")
+                    tw_w.setFixedSize(ACT_W, control_height)
+                    tw_w.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    tw_w.setAlignment(Qt.AlignCenter)
+                    tw_w.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_text_input_dialog(idx, fp)
+                    row_layout.addWidget(tw_w)
+                elif at == "条件分支":
+                    cw = QLabel("🔀 条件分支")
+                    cw.setFixedSize(ACT_W, control_height)
+                    cw.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
+                    cw.setAlignment(Qt.AlignCenter)
+                    row_layout.addWidget(cw)
+                elif at in ["左击", "右击", "双击", "中击"]:
+                    ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
+                    cc = {"左击": "#8E8E93", "右击": "#8E8E93", "双击": "#8E8E93", "中击": "#8E8E93"}
+                    cb = QComboBox()
+                    cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
+                    cb.setCurrentText(f"{ci.get(at, '👆')} {at}")
+                    cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path: self.update_action(ii, cb.currentText().split(' ', 1)[1] if ' ' in cb.currentText() else cb.currentText(), fp))
+                    cb.setFixedSize(ACT_W, control_height)
+                    c = cc.get(at, "#8E8E93")
+                    cb.setStyleSheet(f"""
+                        QComboBox {{ background: {c}; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
+                        QComboBox:hover {{ background: #007AFF; }}
+                        QComboBox::drop-down {{ width: 0; border: none; }}
+                        QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
-                    controls_layout.addWidget(action_combo)
+                    row_layout.addWidget(cb)
                 else:
-                    # 其他操作类型显示为下拉菜单
-                    action_combo = QComboBox()
-                    action_combo_created = True
-                    click_icon = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                    actions = [f"{click_icon['左击']} 左击", f"{click_icon['右击']} 右击", f"{click_icon['双击']} 双击", f"{click_icon['中击']} 中击"]
-                    action_combo.addItems(actions)
-                    action_combo.setCurrentText(f"{click_icon.get(action_text, '👆')} {action_text}")
-                    action_combo.currentIndexChanged.connect(
-                        lambda idx, img_idx=i, fp=folder_path: self.update_action(img_idx, action_combo.currentText().split(' ', 1)[1] if ' ' in action_combo.currentText() else action_combo.currentText(), fp))
-                    action_combo.setFixedSize(70, control_height)
-                    action_combo.setStyleSheet("""
-                        QComboBox {
-                            background-color: #FFFFFF;
-                            color: #333333;
-                            padding: 2px 4px;
-                            border-radius: 4px;
-                            font-weight: 500;
-                            font-size: 10px;
-                            border: 1px solid #D9D9D9;
-                        }
-                        QComboBox:hover {
-                            border-color: #40A9FF;
-                        }
-                        QComboBox QAbstractItemView {
-                            background-color: white;
-                            color: #333333;
-                            selection-background-color: #E6F7FF;
-                            selection-color: #1890FF;
-                            border: 1px solid #D9D9D9;
-                            border-radius: 3px;
-                            padding: 2px;
-                        }
+                    cb = QComboBox()
+                    ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
+                    cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
+                    cb.setCurrentText(f"{ci.get(at, '👆')} {at}")
+                    cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path: self.update_action(ii, cb.currentText().split(' ', 1)[1] if ' ' in cb.currentText() else cb.currentText(), fp))
+                    cb.setFixedSize(ACT_W, control_height)
+                    cb.setStyleSheet(f"""
+                        QComboBox {{ background: #8E8E93; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
+                        QComboBox:hover {{ background: #007AFF; }}
+                        QComboBox::drop-down {{ width: 0; border: none; }}
+                        QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
-                    controls_layout.addWidget(action_combo)
+                    row_layout.addWidget(cb)
             else:
-                # 默认点击操作显示为下拉菜单
-                action_combo = QComboBox()
-                action_combo_created = True
-                click_icon = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                actions = [f"{click_icon['左击']} 左击", f"{click_icon['右击']} 右击", f"{click_icon['双击']} 双击", f"{click_icon['中击']} 中击"]
-                action_combo.addItems(actions)
-                action_combo.setCurrentText(f"{click_icon['左击']} 左击")
-                action_combo.currentIndexChanged.connect(
-                    lambda idx, img_idx=i, fp=folder_path: self.update_action(img_idx, action_combo.currentText().split(' ', 1)[1] if ' ' in action_combo.currentText() else action_combo.currentText(), fp))
-                action_combo.setFixedSize(70, control_height)
-                action_combo.setStyleSheet("""
-                    QComboBox {
-                        background-color: #FFFFFF;
-                        color: #333333;
-                        padding: 2px 4px;
-                        border-radius: 4px;
-                        font-weight: 500;
-                        font-size: 16px;
-                        border: 1px solid #D9D9D9;
-                    }
-                    QComboBox:hover {
-                        border-color: #40A9FF;
-                    }
-                    QComboBox QAbstractItemView {
-                        background-color: white;
-                        color: #333333;
-                        selection-background-color: #E6F7FF;
-                        selection-color: #1890FF;
-                        border: 1px solid #D9D9D9;
-                        border-radius: 3px;
-                        padding: 2px;
-                    }
+                cb = QComboBox()
+                ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
+                cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
+                cb.setCurrentText(f"{ci['左击']} 左击")
+                cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path: self.update_action(ii, cb.currentText().split(' ', 1)[1] if ' ' in cb.currentText() else cb.currentText(), fp))
+                cb.setFixedSize(ACT_W, control_height)
+                cb.setStyleSheet(f"""
+                    QComboBox {{ background: #8E8E93; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
+                    QComboBox:hover {{ background: #007AFF; }}
+                    QComboBox::drop-down {{ width: 0; border: none; }}
+                    QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                 """)
-                controls_layout.addWidget(action_combo)
+                row_layout.addWidget(cb)
 
-            # 添加延迟时间设置到控制栏
-            # 1. 延迟时间设置
-            delay_label = QLabel("⏱")
-            delay_label.setStyleSheet("QLabel { color: #999999; font-size: 16px; }")
-            
-            delay_spinbox = QDoubleSpinBox()
-            delay_spinbox.setSingleStep(0.1)
-            delay_spinbox.setDecimals(1)
-            delay_spinbox.setValue(self.get_delay_for_step(folder_path, i))
-            delay_spinbox.valueChanged.connect(
-                lambda value, img_idx=i, fp=folder_path: self.update_delay(img_idx, value, fp))
-            delay_spinbox.setFixedSize(40, control_height)
-            delay_spinbox.setStyleSheet("""
-                QDoubleSpinBox {
-                    background-color: white;
-                    border: 1px solid #D9D9D9;
-                    border-radius: 3px;
-                    padding: 0 2px;
-                    font-size: 16px;
-                    color: #333333;
-                }
-                QDoubleSpinBox:focus { border-color: #1890FF; }
-            """)
-            
-            delay_unit = QLabel("s")
-            delay_unit.setStyleSheet("QLabel { color: #999999; font-size: 16px; }")
-            
-            # 2. 添加条件按钮
-            condition_btn = QPushButton("➕")
-            condition_btn.setFixedSize(24, control_height)
-            condition_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #FFFFFF;
-                    color: #999999;
-                    border: 1px solid #D9D9D9;
-                    border-radius: 3px;
-                    font-weight: 500;
-                    font-size: 16px;
-                    padding: 0;
-                }
-                QPushButton:hover {
-                    border-color: #1890FF;
-                    color: #1890FF;
-                }
-            """)
-            condition_btn.clicked.connect(lambda checked, img_idx=i, fp=folder_path: self.add_condition_for_image(img_idx, fp))
-            
-            # 组装布局 - 操作类型控件已经在上面添加过了
-            controls_layout.addWidget(delay_label)
-            controls_layout.addWidget(delay_spinbox)
-            controls_layout.addWidget(delay_unit)
-            controls_layout.addStretch()
-            controls_layout.addWidget(condition_btn)
-            
-            container_layout.addWidget(controls_container, alignment=Qt.AlignCenter)
-            
+            # ── ④ 延迟 ⏱0.5s ──
+            delay_w = QWidget()
+            delay_w.setFixedWidth(72)
+            dl = QHBoxLayout(delay_w)
+            dl.setContentsMargins(0, 0, 0, 0)
+            dl.setSpacing(2)
+            dl2 = QLabel("⏱")
+            dl2.setStyleSheet("QLabel { color: #999; font-size: 12px; }")
+            dl.addWidget(dl2)
+            ds = QDoubleSpinBox()
+            ds.setSingleStep(0.1); ds.setDecimals(1)
+            ds.setValue(self.get_delay_for_step(folder_path, i))
+            ds.valueChanged.connect(lambda v, ii=i, fp=folder_path: self.update_delay(ii, v, fp))
+            ds.setFixedSize(40, control_height)
+            ds.setStyleSheet("QDoubleSpinBox { background: white; border: 1px solid #D9D9D9; border-radius: 4px; font-size: 11px; color: #333; padding: 0; } QDoubleSpinBox:focus { border-color: #1890FF; }")
+            dl.addWidget(ds)
+            du = QLabel("s")
+            du.setStyleSheet("QLabel { color: #999; font-size: 10px; }")
+            dl.addWidget(du)
+            row_layout.addWidget(delay_w)
 
+            # ── ⑥ 条件按钮 ──
+            cbtn = QPushButton("➕")
+            cbtn.setFixedSize(26, control_height)
+            cbtn.setStyleSheet("QPushButton { background: #FFF; color: #999; border: 1px solid #D9D9D9; border-radius: 13px; font-size: 11px; padding: 0; } QPushButton:hover { border-color: #1890FF; color: #1890FF; }")
+            cbtn.clicked.connect(lambda checked, ii=i, fp=folder_path: self.add_condition_for_image(ii, fp))
+            row_layout.addWidget(cbtn)
 
-            # 动态计算列数，根据屏幕宽度和图片数量调整
-            # 屏幕宽度较小时使用2列，宽度较大时使用3列或4列
-            if screen_width < 1200:
-                cols = 2
-            elif screen_width < 1600:
-                cols = 3
-            else:
-                cols = 4
-                
-            grid_layout.addWidget(container, i//cols, i%cols)
-        scroll_area.setWidget(scroll_content)
+            row_layout.addStretch()
+            list_layout.addWidget(row_widget)
+        scroll_area.setWidget(scroll_root)
         layout.addWidget(scroll_area)
         # 添加底部按钮区域
         button_layout = QHBoxLayout()
@@ -2340,7 +2198,7 @@ class FolderManager(QDialog):
         # 如果parent有folder_manager属性，也设置它
         if hasattr(self.parent, 'folder_manager') and self.parent.folder_manager:
             self.parent.folder_manager._view_images_dialog = dialog
-        self.parent._view_images_grid_layout = grid_layout
+        self.parent._view_images_grid_layout = list_layout
         
         # 添加键盘事件处理 - ·键触发继续添加操作
         def keyPressEvent(event):
@@ -2616,25 +2474,12 @@ class FolderManager(QDialog):
             table.setColumnCount(3)
             table.setHorizontalHeaderLabels(["步骤", "操作类型", "坐标位置"])
             table.setRowCount(len(recording_data))
-            table.verticalHeader().setVisible(False)  # 隐藏行号列
 
-            # 设置表格样式
-            table.setStyleSheet("""
-                QTableWidget {
-                    border: 1px solid #d9d9d9;
-                    border-radius: 4px;
-                }
-                QHeaderView::section {
-                    background-color: #f0f0f0;
-                    padding: 8px;
-                    font-weight: bold;
-                    border: 1px solid #d9d9d9;
-                }
-                QTableWidget::item {
-                    padding: 8px;
-                    border-bottom: 1px solid #e8e8e8;
-                }
-            """)
+            from design_system import configure_table, get_table_stylesheet
+            configure_table(table, get_table_stylesheet(
+                cell_padding_v=8, cell_padding_h=10, row_height=38,
+                border_radius=8
+            ))
             
             # 填充数据
             for i, record in enumerate(recording_data):
@@ -2763,16 +2608,17 @@ class FolderManager(QDialog):
                     self.cancel_btn.clicked.connect(self.reject)
                     self.cancel_btn.setStyleSheet(f"""
                         QPushButton {{
-                            background-color: {MUTED};
-                            color: white;
-                            border: none;
+                            background-color: #FFFFFF;
+                            color: #8E8E93;
+                            border: 1px solid #D1D1D6;
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
-                            background-color: {ACCENT};
+                            background-color: #F0F0F2;
+                            color: #6E6E73;
                         }}
                     """)
                     button_layout.addWidget(self.cancel_btn)
@@ -2834,6 +2680,9 @@ class FolderManager(QDialog):
                             key_str = key_name
                         
                         self.line_edit.setText(key_str)
+                        # 按键已设置，自动确认关闭对话框
+                        self.accept()
+                        event.accept()
                         return
                     
                     if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
@@ -2867,6 +2716,9 @@ class FolderManager(QDialog):
                         key_str = key_name
                     
                     self.line_edit.setText(key_str)
+                    # 按键已设置，自动确认关闭对话框
+                    self.accept()
+                    event.accept()
             
             dialog = KeyInputDialog(self.parent)
             if dialog.exec_() == QDialog.Accepted:
@@ -2978,16 +2830,17 @@ class FolderManager(QDialog):
                     self.cancel_btn.clicked.connect(self.reject)
                     self.cancel_btn.setStyleSheet(f"""
                         QPushButton {{
-                            background-color: {MUTED};
-                            color: white;
-                            border: none;
+                            background-color: #FFFFFF;
+                            color: #8E8E93;
+                            border: 1px solid #D1D1D6;
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
-                            background-color: {ACCENT};
+                            background-color: #F0F0F2;
+                            color: #6E6E73;
                         }}
                     """)
                     button_layout.addWidget(self.cancel_btn)
@@ -3022,6 +2875,118 @@ class FolderManager(QDialog):
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.critical(self.parent, "错误", f"修改滚动设置失败: {str(e)}")
+
+    def show_text_input_dialog(self, index, folder_path):
+        """显示文本输入对话框，用于修改文本内容"""
+        try:
+            from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QLabel,
+                                         QLineEdit, QPushButton, QHBoxLayout)
+            from PyQt5.QtCore import Qt
+
+            # 获取当前的文本内容
+            current_text = ""
+            recording_json_path = os.path.join(folder_path, 'recording.json')
+            if os.path.exists(recording_json_path):
+                recording_data = load_json_data(recording_json_path)
+                if isinstance(recording_data, list):
+                    step = index + 1
+                    for d in recording_data:
+                        if d.get('step') == step and d.get('action_type') == 'text_input':
+                            current_text = d.get('text', '')
+                            break
+
+            class TextInputDialog(QDialog):
+                def __init__(self, parent=None, current_text=""):
+                    super().__init__(parent)
+                    self.setWindowTitle("修改文本")
+                    self.setModal(True)
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint |
+                                        Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+
+                    apply_dialog_style(self, 0.35, 0.2)
+
+                    layout = QVBoxLayout()
+
+                    label = QLabel("请输入新的文本内容:")
+                    layout.addWidget(label)
+
+                    self.text_edit = QLineEdit(current_text)
+                    self.text_edit.setClearButtonEnabled(True)
+                    self.text_edit.selectAll()
+                    layout.addWidget(self.text_edit)
+
+                    button_layout = QHBoxLayout()
+
+                    self.ok_btn = QPushButton("确定")
+                    self.ok_btn.setFocusPolicy(Qt.StrongFocus)
+                    self.ok_btn.setDefault(True)
+                    self.ok_btn.clicked.connect(self.accept)
+                    self.ok_btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background: {THEME_PRIMARY};
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-size: 14px;
+                            font-weight: bold;
+                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                        }}
+                        QPushButton:hover {{
+                            background-color: #006AE0;
+                        }}
+                        QPushButton:pressed {{
+                            background-color: #004DB3;
+                        }}
+                    """)
+                    button_layout.addWidget(self.ok_btn)
+
+                    self.cancel_btn = QPushButton("取消")
+                    self.cancel_btn.setFocusPolicy(Qt.StrongFocus)
+                    self.cancel_btn.clicked.connect(self.reject)
+                    self.cancel_btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: #FFFFFF;
+                            color: #8E8E93;
+                            border: 1px solid #D1D1D6;
+                            border-radius: 6px;
+                            font-weight: bold;
+                            font-size: 14px;
+                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                        }}
+                        QPushButton:hover {{
+                            background-color: #F0F0F2;
+                            color: #6E6E73;
+                        }}
+                    """)
+                    button_layout.addWidget(self.cancel_btn)
+
+                    layout.addLayout(button_layout)
+                    self.setLayout(layout)
+
+            dialog = TextInputDialog(self.parent, current_text)
+            if dialog.exec_() == QDialog.Accepted:
+                new_text = dialog.text_edit.text()
+                if new_text == current_text:
+                    return
+                # 更新 image_actions
+                display_text = new_text if len(new_text) <= 10 else new_text[:10] + "..."
+                self.image_actions[index] = f"文本: {display_text}"
+                # 保存到 JSON 文件
+                if os.path.exists(recording_json_path):
+                    recording_data = load_json_data(recording_json_path)
+                    if isinstance(recording_data, list):
+                        step = index + 1
+                        for d in recording_data:
+                            if d.get('step') == step:
+                                d['action_type'] = 'text_input'
+                                d['text'] = new_text
+                                break
+                        save_json_data(recording_json_path, recording_data)
+                # 刷新界面
+                self.refresh_view_images(folder_path)
+        except Exception as e:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.critical(self.parent, "错误", f"修改文本失败: {str(e)}")
 
     def get_delay_for_step(self, folder_path, step_index):
         """获取指定步骤的延迟时间（秒）"""
@@ -4097,16 +4062,17 @@ class FolderManager(QDialog):
             no_btn.setFixedSize(100, 36)
             no_btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {MUTED};
-                    color: white;
-                    border: none;
+                    background-color: #FFFFFF;
+                    color: #8E8E93;
+                    border: 1px solid #D1D1D6;
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: 14px;
                     font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
-                    background-color: {ACCENT};
+                    background-color: #F0F0F2;
+                    color: #6E6E73;
                 }}
             """)
             button_layout.addWidget(no_btn)
@@ -4225,16 +4191,17 @@ class FolderManager(QDialog):
             no_btn.setFixedSize(100, 36)
             no_btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: {MUTED};
-                    color: white;
-                    border: none;
+                    background-color: #FFFFFF;
+                    color: #8E8E93;
+                    border: 1px solid #D1D1D6;
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: 14px;
                     font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
-                    background-color: {ACCENT};
+                    background-color: #F0F0F2;
+                    color: #6E6E73;
                 }}
             """)
             button_layout.addWidget(no_btn)
@@ -4781,7 +4748,7 @@ class AutoRecorderApp(QMainWindow):
         self.replay_interval = 0.001  # 操作间隔1毫秒
         # 图像匹配超时时间（秒）：至少要 1.5s 才能确保小图标有足够时间匹配
         self.replay_timeout = 1.5
-        self.replay_enabled = False  # 回放功能开关
+        self.replay_enabled = True  # 回放功能开关（默认开启，按钮显示"开始回放"）
         self.shortcuts = {}
         self.shortcut_objects = []
         self.alt_press_count = 0  # ALT键按下次数
@@ -4985,12 +4952,35 @@ class AutoRecorderApp(QMainWindow):
                        'keyboard': '键盘输入', 'double_click': '双击', 'drag': '拖拽'}.get(
                 step_action_map.get(step_num, 'left_click'), '左击')
             btn = QPushButton(f"{op_type} {step_num}")
+            btn.setFixedHeight(24)
+            btn.setCursor(Qt.PointingHandCursor)
             btn.setProperty("step_num", step_num)
             btn.setProperty("img_path", img_path)
             btn.setProperty("folder_path", folder_path)
             btn.setProperty("current_action_type", step_action_map.get(step_num, 'left_click'))
             btn.clicked.connect(lambda _, b=btn: self.show_action_type_menu(b))
-            btn.setStyleSheet("text-align: center;")
+            # 操作类型按钮 - iOS 药丸风格
+            step_actual = step_action_map.get(step_num, 'left_click')
+            btn_colors = {'left_click': '#8E8E93', 'right_click': '#8E8E93',
+                         'double_click': '#8E8E93', 'keyboard': '#007AFF', 'drag': '#8E8E93'}
+            pill_color = btn_colors.get(step_actual, '#8E8E93')
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {pill_color};
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    font-size: 11px;
+                    padding: 0px;
+                }}
+                QPushButton:hover {{
+                    background-color: #007AFF;
+                }}
+                QPushButton:pressed {{
+                    background-color: #004DB3;
+                }}
+            """)
             vbox.addWidget(btn)
             grid_layout.addWidget(container, row, col)
             col += 1
@@ -5235,6 +5225,27 @@ class AutoRecorderApp(QMainWindow):
                   'double_click': '双击', 'drag': '拖拽'}.get(new_action_type, new_action_type)
             button.setText(f"{op} {button.property('step_num')}")
             button.setProperty("current_action_type", new_action_type)
+            # 更新按钮颜色以匹配新操作类型
+            btn_colors = {'left_click': '#8E8E93', 'right_click': '#8E8E93',
+                         'double_click': '#8E8E93', 'keyboard': '#007AFF', 'drag': '#8E8E93'}
+            new_color = btn_colors.get(new_action_type, '#8E8E93')
+            button.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: {new_color};
+                    color: white;
+                    border: none;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    font-size: 11px;
+                    padding: 0px;
+                }}
+                QPushButton:hover {{
+                    background-color: #007AFF;
+                }}
+                QPushButton:pressed {{
+                    background-color: #004DB3;
+                }}
+            """)
 
     # -------------------- 原__init__后续内容 --------------------
 
@@ -6220,6 +6231,7 @@ class AutoRecorderApp(QMainWindow):
             
             # 立即重置回放状态
             self.is_replaying = False
+            self.replay_enabled = False
             
             # 同时停止所有组合技
             if hasattr(self, 'runners') and self.runners:
@@ -6253,7 +6265,7 @@ class AutoRecorderApp(QMainWindow):
                 # 不清除current_recording，保留以便重新播放
                 pass
             
-            self.update_replay_playback_indicator()
+            self._update_replay_ui()
             self.debug_print("[回放控制] 已停止回放，状态已重置")
         except Exception as e:
             self.debug_print(f"停止回放失败: {e}")
@@ -6345,9 +6357,11 @@ class AutoRecorderApp(QMainWindow):
         # 更新主窗口按钮文字（仅当它是普通 QPushButton 时才设置样式）
         if hasattr(self, 'replay_btn'):
             if self.replay_enabled:
-                self.replay_btn.setText("● 回放已开启")
+                self.replay_btn.setText("▶ 开始回放")
             else:
-                self.replay_btn.setText("● 回放已关闭")
+                self.replay_btn.setText("⏹ 回放已关闭")
+            # 强制刷新自绘按钮
+            self.replay_btn.update()
             # 不要对 RoundedPillButton 调用 setStyleSheet，会破坏自绘
 
         # 更新悬浮窗口按钮文字和样式（floating_replay_btn 是普通 QPushButton）
@@ -6374,7 +6388,7 @@ class AutoRecorderApp(QMainWindow):
             _open_style = """
                 QPushButton {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #5BD672, stop:1 #34C759);
+                        stop:0 #007AFF, stop:1 #006AE0);
                     color: white;
                     border: none;
                     border-radius: 22px;
@@ -6384,11 +6398,11 @@ class AutoRecorderApp(QMainWindow):
                 }
                 QPushButton:hover {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #6BDC82, stop:1 #30D158);
+                        stop:0 #006AE0, stop:1 #0055CC);
                 }
                 QPushButton:pressed {
                     background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                        stop:0 #2BA846, stop:1 #28A745);
+                        stop:0 #004DB3, stop:1 #003D99);
                     padding-top: 2px;
                 }
             """
@@ -6437,47 +6451,40 @@ class AutoRecorderApp(QMainWindow):
         from PyQt5.QtCore import QTimer
         import traceback
 
-        # print(f"[DEBUG] toggle_replay_playback 被调用")  # [日志已禁用]
+        print(f"[TOGGLE] toggle_replay_playback called, is_replaying={getattr(self, 'is_replaying', False)}")  # [调试用]
 
         def do_toggle():
-            # 检查当前是否有正在运行的回放
-            is_replaying = getattr(self, 'is_replaying', False)
+            try:
+                # 检查当前是否有正在运行的回放
+                is_replaying = getattr(self, 'is_replaying', False)
 
-            if is_replaying:
-                # 如果有正在进行的回放，停止它
-                self.debug_print(f"[DEBUG] 停止当前回放")
-                self.stop_replay()
-                self.is_replaying = False
-            else:
-                # 如果没有回放，获取要播放的流程
-                current_recording = getattr(self, 'current_recording', None)
+                if is_replaying:
+                    # 如果有正在进行的回放，停止它
+                    self.debug_print(f"[DEBUG] 停止当前回放")
+                    self.stop_replay()
+                    self.is_replaying = False
+                    self.replay_enabled = False
+                else:
+                    # 如果没有回放，获取要播放的流程
+                    current_recording = getattr(self, 'current_recording', None)
 
-                # 如果没有选中的流程，自动选择第一个流程
-                if not current_recording:
-                    # 从复选框中获取第一个流程
-                    if hasattr(self, 'recording_checkboxes') and self.recording_checkboxes:
-                        first_recording = list(self.recording_checkboxes.keys())[0]
-                        current_recording = first_recording
-                        # print(f"[DEBUG] 自动选择第一个流程: {current_recording}")  # [日志已禁用]
+                    # 如果没有选中的流程，自动选择第一个流程
+                    if not current_recording:
+                        if hasattr(self, 'recording_checkboxes') and self.recording_checkboxes:
+                            first_recording = list(self.recording_checkboxes.keys())[0]
+                            current_recording = first_recording
+
+                    # 开始回放
+                    if current_recording:
+                        self.debug_print(f"[DEBUG] 开始回放流程: {current_recording}")
+                        self.is_replaying = True
+                        self.replay_enabled = True
+                        self.play_recording(current_recording)
                     else:
-                        # print(f"[DEBUG] 没有可用的流程")  # [日志已禁用]
-                        return
-
-                # 开始回放
-                if current_recording:
-                    self.debug_print(f"[DEBUG] 开始回放流程: {current_recording}")
-                    self.is_replaying = True
-                    self.play_recording(current_recording)
-            
-            # 更新按钮显示状态
-            self.update_replay_playback_indicator()
-            
-            # 确保悬浮窗口显示
-            if hasattr(self, 'replay_status_widget'):
-                if not self.replay_status_widget.isVisible():
-                    self.replay_status_widget.show()
-                    self.replay_status_widget.raise_()
-                    self.replay_status_widget.activateWindow()
+                        self.debug_print(f"[DEBUG] 没有可用的流程，无法开始回放")
+            finally:
+                # 始终更新按钮显示状态
+                self._update_replay_ui()
         
         QTimer.singleShot(0, do_toggle)
     
@@ -6509,7 +6516,7 @@ class AutoRecorderApp(QMainWindow):
                 self.replay_btn.setText("⏸ 回放已开启")
                 self.replay_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #30D158;
+                        background-color: #007AFF;
                         color: white;
                         border: none;
                         border-radius: 22px;
@@ -6936,7 +6943,7 @@ class AutoRecorderApp(QMainWindow):
 
         class PillButton(QPushButton):
             """iOS 风格药丸按钮 - 自绘确保绝对圆润"""
-            def __init__(self, text="", color_top="#5AC8FA", color_mid="#007AFF", color_bottom="#0062CC",
+            def __init__(self, text="", color_top="#007AFF", color_mid="#007AFF", color_bottom="#004DB3",
                          text_color="white", parent=None):
                 super().__init__(text, parent)
                 self.setCursor(Qt.PointingHandCursor)
@@ -7086,7 +7093,7 @@ class AutoRecorderApp(QMainWindow):
                     square_size = (inner_radius - 4) * 1.4
                     square_rect = QRectF(cx - square_size/2, cy - square_size/2, square_size, square_size)
                     painter.setPen(Qt.NoPen)
-                    painter.setBrush(QBrush(QColor("#FF3B30")))
+                    painter.setBrush(QBrush(QColor("#FF453A")))
                     painter.drawRoundedRect(square_rect, 6, 6)
                 else:
                     # 未录制: 漂亮的大红色渐变圆
@@ -7103,7 +7110,7 @@ class AutoRecorderApp(QMainWindow):
                         gradient.setColorAt(1.0, QColor("#D9231B"))
                     else:
                         gradient.setColorAt(0.0, QColor("#FF6961"))
-                        gradient.setColorAt(0.55, QColor("#FF3B30"))
+                        gradient.setColorAt(0.55, QColor("#FF453A"))
                         gradient.setColorAt(1.0, QColor("#C71D14"))
                     painter.setPen(Qt.NoPen)
                     painter.setBrush(QBrush(gradient))
@@ -7120,7 +7127,7 @@ class AutoRecorderApp(QMainWindow):
 
                 # 5. 下方文字(在圆环下面,而不是中间)
                 text_y = cy + ring_radius + 16
-                text_color = QColor("#1a1a2e") if not self._recording else QColor("#FF3B30")
+                text_color = QColor("#1a1a2e") if not self._recording else QColor("#FF453A")
                 painter.setPen(text_color)
                 font = QFont()
                 font.setFamilies(['PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', 'sans-serif'])
@@ -7238,7 +7245,7 @@ class AutoRecorderApp(QMainWindow):
 
         # 切换到悬浮窗口按钮 - 药丸形状(iOS 风格,自绘)
         float_btn = PillButton("悬浮窗口",
-                               color_top="#5AC8FA", color_mid="#007AFF", color_bottom="#0062CC",
+                               color_top="#007AFF", color_mid="#007AFF", color_bottom="#004DB3",
                                text_color="white")
         float_btn.setFixedHeight(44)
         float_btn.clicked.connect(self.switch_to_floating_window)
@@ -7485,51 +7492,14 @@ class AutoRecorderApp(QMainWindow):
         
         # 使用QTableWidget显示流程列表（支持更多操作）
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
+        from design_system import configure_table, get_table_stylesheet
+
         folder_table = QTableWidget()
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
-        folder_table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #e8e8e8;
-                border-radius: 6px;
-                background: white;
-                outline: none;
-            }
-            QTableWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #f5f5f5;
-            }
-            QTableWidget::item:hover {
-                background: #FFFFFF;
-            }
-            QTableWidget::item:selected {
-                background: #FF453A;
-                color: white;
-            }
-            QTableWidget::item:focus {
-                outline: none;
-                border: none;
-            }
-            QHeaderView::section {
-                background: #f5f5f5;
-                padding: 8px;
-                border: none;
-                border-bottom: 1px solid #e8e8e8;
-                font-weight: bold;
-            }
-            QScrollBar:vertical {
-                width: 0px;
-                background: transparent;
-            }
-            QScrollBar:horizontal {
-                height: 0px;
-                background: transparent;
-            }
-        """)
-        folder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        folder_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        folder_table.horizontalHeader().setStretchLastSection(True)
-        folder_table.verticalHeader().setVisible(False)  # 隐藏行号列
+        configure_table(folder_table, get_table_stylesheet(
+            cell_padding_v=8, cell_padding_h=12, row_height=44
+        ))
 
         # 添加单击事件 - 点击流程名称打开查看图片窗口，点击Emoji执行操作
         def on_folder_table_click(row, column):
@@ -7936,35 +7906,10 @@ class AutoRecorderApp(QMainWindow):
         trash_table = QTableWidget()
         trash_table.setColumnCount(2)
         trash_table.setHorizontalHeaderLabels(["", "流程名称"])
-        trash_table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #e8e8e8;
-                border-radius: 6px;
-                background: white;
-            }
-            QTableWidget::item {
-                padding: 8px;
-                border-bottom: 1px solid #f5f5f5;
-            }
-            QTableWidget::item:selected {
-                background: #e6f7ff;
-                color: #1890ff;
-            }
-            QHeaderView::section {
-                background: #f5f5f5;
-                padding: 8px;
-                border: none;
-                border-bottom: 1px solid #e8e8e8;
-                font-weight: bold;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
-        """)
-        trash_table.verticalHeader().setVisible(False)
-        trash_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        trash_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        from design_system import configure_table, get_table_stylesheet
+        configure_table(trash_table, get_table_stylesheet(
+            cell_padding_v=8, cell_padding_h=12, row_height=44
+        ))
         trash_table.setColumnWidth(0, 50)  # 复选框列宽度
         trash_table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(trash_table)
@@ -8377,47 +8322,15 @@ class AutoRecorderApp(QMainWindow):
         layout.addLayout(top_layout)
         
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
+        from design_system import configure_table, get_table_stylesheet
+
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
         combo_table.setHorizontalHeaderLabels(["选择", "组合技名称", "流程数", "状态", "操作", "停止快捷键", "删除"])
-        combo_table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #e8e8e8;
-                border-radius: 6px;
-                background: white;
-                outline: none;
-            }
-            QTableWidget::item {
-                padding: 6px;
-                border-bottom: 1px solid #f0f0f0;
-                min-height: 40px;
-            }
-            QTableWidget::item:hover {
-                background: #e6f7ff;
-            }
-            QTableWidget::item:selected {
-                background: #1890ff;
-                color: white;
-                min-height: 40px;
-            }
-            QTableWidget::item:focus {
-                outline: none;
-                border: none;
-            }
-            QHeaderView::section {
-                background: #fafafa;
-                padding: 6px;
-                border: none;
-                border-bottom: 1px solid #e8e8e8;
-                font-weight: bold;
-                font-size: 12px;
-            }
-        """)
-        combo_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        combo_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        combo_table.horizontalHeader().setStretchLastSection(True)
-        combo_table.verticalHeader().setVisible(False)
-        combo_table.verticalHeader().setDefaultSectionSize(40)
+        configure_table(combo_table, get_table_stylesheet(
+            cell_padding_v=6, cell_padding_h=12, row_height=44
+        ))
+        combo_table.verticalHeader().setDefaultSectionSize(44)
         
         def on_combo_table_click(row, column):
             combo_table.setCurrentCell(row, column)

@@ -120,11 +120,11 @@ def generate_macos_theme():
 
     /* 成功按钮 */
     QPushButton[class="success"] {{
-        background-color: {C.SUCCESS};
+        background-color: {C.PRIMARY};
     }}
 
     QPushButton[class="success"]:hover {{
-        background-color: #2DB84D;
+        background-color: {C.PRIMARY_HOVER};
     }}
 
     /* 输入框系统 */

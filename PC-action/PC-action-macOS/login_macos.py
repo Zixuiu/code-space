@@ -485,7 +485,7 @@ class MacOSLoginDialog(QDialog):
 
         cl.addSpacing(12)
 
-        reg_btn = self._macos_button("注  册", MacOSColors.SYSTEM_GREEN)
+        reg_btn = self._macos_button("注  册", MacOSColors.ACCENT)
         reg_btn.clicked.connect(self.handle_register)
         cl.addWidget(reg_btn)
 
@@ -654,7 +654,7 @@ class MacOSLoginDialog(QDialog):
 
         cl.addSpacing(12)
 
-        reset_btn = self._macos_button("重  置", MacOSColors.SYSTEM_ORANGE)
+        reset_btn = self._macos_button("重  置", MacOSColors.ACCENT)
         reset_btn.clicked.connect(self.handle_reset_password)
         self.reset_pwd_btn = reset_btn
         cl.addWidget(reset_btn)

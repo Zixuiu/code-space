@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import sys
 from datetime import datetime
 
@@ -348,9 +349,9 @@ class MacOSSecondaryButton(QPushButton):
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: #F2F2F7;
-                color: {MacOSColors.TEXT_PRIMARY};
-                border: 1px solid rgba(0, 0, 0, 0.06);
+                background-color: #FFFFFF;
+                color: #8E8E93;
+                border: 1px solid #D1D1D6;
                 border-radius: {BorderRadiusSystem.MD}px;
                 font-size: {TypographySystem.SIZE_BASE}px;
                 font-weight: {TypographySystem.WEIGHT_MEDIUM};
@@ -358,10 +359,11 @@ class MacOSSecondaryButton(QPushButton):
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
             }}
             QPushButton:hover {{
-                background-color: #E5E5EA;
+                background-color: #F0F0F2;
+                color: #6E6E73;
             }}
             QPushButton:pressed {{
-                background-color: #D1D1D6;
+                background-color: #E8E8ED;
                 padding-top: 2px;
             }}
             QPushButton:disabled {{
@@ -382,9 +384,9 @@ def _attach_button_shadow(button, color_hex, blur_radius=18, offset_y=4, alpha=7
     """把按钮的阴影挂到外层 QFrame 容器上，避免 :hover 失效。
 
     用法（在调用方创建按钮并 addWidget 之后调用）：
-        btn = MacOSButton("+ 新建组合技", MacOSColors.SYSTEM_GREEN)
+        btn = MacOSButton("+ 新建组合技", MacOSColors.ACCENT)
         layout.addWidget(btn)
-        _attach_button_shadow(btn, MacOSColors.SYSTEM_GREEN)
+        _attach_button_shadow(btn, MacOSColors.ACCENT)
     """
     try:
         parent = button.parentWidget()
@@ -424,15 +426,11 @@ def _attach_button_shadow(button, color_hex, blur_radius=18, offset_y=4, alpha=7
 
 
 class RoundedRecordButton(QPushButton):
-    """圆角方形录制按钮 - 黑白极简，大尺寸消除割裂感
+    """霓虹圆环风格录制按钮
 
     尺寸: 130x130 圆角方形 (圆角 28px)
-    ┌──────────────────┐
-    │                  │
-    │    ● / ■         │
-    │    录制 / 停止     │
-    │                  │
-    └──────────────────┘
+    空闲态: 暗底 + 青色旋转弧环 + 中心青点
+    录制态: 暗底 + 红色旋转弧环 + 中心红点 + 脉冲
     """
     BUTTON_SIZE = 130
     CORNER_RADIUS = 28
@@ -446,45 +444,26 @@ class RoundedRecordButton(QPushButton):
         self._hovered = False
         self._pressed = False
         self._is_recording = False
-        self._shape_progress = 0.0
-        self._target_shape = 0.0
-        self._pulse_t = 0.0
+        self._t = 0.0
 
-        # 图标形状过渡
-        self._shape_anim = QPropertyAnimation(self, b"_shape_progress_anim")
-        self._shape_anim.setDuration(280)
-        self._shape_anim.setEasingCurve(QEasingCurve.InOutCubic)
-
-        # 脉冲动画
-        self._pulse_anim = QPropertyAnimation(self, b"_pulse_progress_anim")
-        self._pulse_anim.setDuration(1600)
-        self._pulse_anim.setStartValue(0.0)
-        self._pulse_anim.setEndValue(1.0)
-        self._pulse_anim.setLoopCount(-1)
-        self._pulse_anim.setEasingCurve(QEasingCurve.InOutSine)
-        self._pulse_anim.start()
+        # 旋转/脉冲动画
+        self._anim = QPropertyAnimation(self, b"_anim_progress")
+        self._anim.setDuration(2000)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(1.0)
+        self._anim.setLoopCount(-1)
+        self._anim.setEasingCurve(QEasingCurve.InOutSine)
+        self._anim.start()
 
     # ---------------- Qt 属性 ----------------
-    def _get_shape(self) -> float: return self._shape_progress
-    def _set_shape(self, v: float):
-        self._shape_progress = v
-        self.update()
-    _shape_progress_anim = pyqtProperty(float, _get_shape, _set_shape)
-
-    def _get_pulse(self) -> float: return self._pulse_t
-    def _set_pulse(self, v: float):
-        self._pulse_t = v
-        self.update()
-    _pulse_progress_anim = pyqtProperty(float, _get_pulse, _set_pulse)
+    def _get_t(self) -> float: return self._t
+    def _set_t(self, v: float):
+        self._t = v; self.update()
+    _anim_progress = pyqtProperty(float, _get_t, _set_t)
 
     # ---------------- 公开 API ----------------
     def set_is_recording(self, recording: bool):
         self._is_recording = recording
-        self._target_shape = 1.0 if recording else 0.0
-        self._shape_anim.stop()
-        self._shape_anim.setStartValue(self._shape_progress)
-        self._shape_anim.setEndValue(self._target_shape)
-        self._shape_anim.start()
         self.update()
 
     def set_recording(self, recording: bool): self.set_is_recording(recording)
@@ -492,8 +471,7 @@ class RoundedRecordButton(QPushButton):
     def get_is_recording(self) -> bool: return self._is_recording
 
     def setText(self, text):
-        super().setText(text)
-        self.update()
+        super().setText(text); self.update()
 
     # ---------------- 鼠标事件 ----------------
     def enterEvent(self, event):
@@ -528,13 +506,9 @@ class RoundedRecordButton(QPushButton):
         off = (s - ss) / 2.0
         rect = QRectF(off, off, ss, ss)
 
-        # ----- 1. 阴影(内置,避免外框割裂) -----
+        # ----- 1. 阴影 -----
         sh_rect = QRectF(off + 2, off + 4, ss, ss)
-        if self._is_recording:
-            sh_a = 35
-        else:
-            bf = 0.5 + 0.5 * (0.5 + 0.5 * (1 - abs(self._pulse_t * 2 - 1)))
-            sh_a = int(10 + 22 * bf)
+        sh_a = 30 if not self._is_recording else 40
         sh = QRadialGradient(cx + 2, cx + 4, s * 0.55)
         sh.setColorAt(0.0, QColor(0, 0, 0, sh_a))
         sh.setColorAt(0.6, QColor(0, 0, 0, sh_a // 2))
@@ -543,67 +517,75 @@ class RoundedRecordButton(QPushButton):
         painter.setBrush(QBrush(sh))
         painter.drawRoundedRect(sh_rect, cr * scale, cr * scale)
 
-        # ----- 2. 底色 -----
-        if self._is_recording:
-            bg, bd = QColor("#2C2C2E"), QColor("#3A3A3C")
-        elif self._hovered:
-            bg, bd = QColor("#EBEBEB"), QColor("#C8C8C8")
+        # ----- 2. 暗底 -----
+        if self._hovered:
+            bg = QColor("#222226")
         else:
-            bg, bd = QColor("#FFFFFF"), QColor("#DADADA")
-
+            bg = QColor("#1A1A1E")
+        bd = QColor("#3A3A3C")
         painter.setPen(QPen(bd, 1.5))
         painter.setBrush(QBrush(bg))
         painter.drawRoundedRect(rect, cr * scale, cr * scale)
 
-        # ----- 3. 空闲态顶部柔光 -----
-        if not self._is_recording:
-            hl = QRadialGradient(cx, cx - s * 0.2, s * 0.5)
-            hl.setColorAt(0.0, QColor(255, 255, 255, 170))
-            hl.setColorAt(1.0, QColor(255, 255, 255, 0))
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(QBrush(hl))
-            painter.drawRoundedRect(rect, cr * scale, cr * scale)
+        # ----- 3. 霓虹旋转弧环 (正圆) -----
+        ring_margin = 22
+        ring_size = ss - ring_margin * 2
+        ring_off = off + ring_margin
+        ring_rect = QRectF(ring_off, ring_off, ring_size, ring_size)
+        span = 270 * 16
+        start = int(self._t * 360 * 16) - span // 2
 
-        # ----- 4. 录制中: 旋转环 -----
+        # 颜色: 空闲=青, 录制=红
+        main_color = QColor("#FF453A") if self._is_recording else QColor("#00D4FF")
+
+        # 残影弧 (全周淡色)
+        painter.setPen(QPen(QColor(0, 212, 255, 30) if not self._is_recording else QColor(255, 69, 58, 30), 1.5))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawArc(ring_rect, 0, 360 * 16)
+
+        # 主弧
+        painter.setPen(QPen(main_color, 2.5, Qt.SolidLine, Qt.RoundCap))
+        painter.drawArc(ring_rect, start, span)
+
+        # 残影尾迹 (反向 90°)
+        trail_alpha = 50 if not self._is_recording else 40
         if self._is_recording:
-            ring_r = rect.adjusted(-5, -5, 5, 5)
-            span = 90 * 16
-            start = int(self._pulse_t * 360 * 16) - span // 2
-            painter.setPen(QPen(QColor("#8E8E93"), 2.5, Qt.SolidLine, Qt.RoundCap))
-            painter.setBrush(Qt.NoBrush)
-            painter.drawArc(ring_r, start, span)
-            painter.setPen(QPen(QColor(255, 255, 255, 25), 1, Qt.SolidLine, Qt.RoundCap))
-            painter.drawArc(ring_r, 0, 360 * 16)
+            trail_color = QColor(255, 69, 58, trail_alpha)
+        else:
+            trail_color = QColor(0, 212, 255, trail_alpha)
+        painter.setPen(QPen(trail_color, 2.0, Qt.SolidLine, Qt.RoundCap))
+        painter.drawArc(ring_rect, start + span, 90 * 16)
 
-        # ----- 5. 图标 ● ↔ ■ -----
-        margin = 30
-        area = s - margin * 2
-        icon_d = area * (0.38 - self._shape_progress * 0.12)
-        icon_r = icon_d * (0.5 - self._shape_progress * 0.38)
-        icon_y = cx - icon_d / 2 - 10
-        icon_rect = QRectF(cx - icon_d / 2, icon_y, icon_d, icon_d)
+        # 录制中: 脉冲呼吸
+        if self._is_recording:
+            pulse_alpha = int(20 + 25 * (0.5 + 0.5 * math.sin(self._t * math.pi * 4)))
+            painter.setPen(QPen(QColor(255, 69, 58, pulse_alpha), 2, Qt.SolidLine, Qt.RoundCap))
+            painter.drawArc(ring_rect, start, 360 * 16)
 
-        ic = QColor(255, 255, 255, 245) if self._is_recording else QColor("#1C1C1E")
+        # ----- 4. 中心小圆 -----
+        dot_r = 7
+        dot_color = QColor("#FF453A") if self._is_recording else QColor("#00D4FF")
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(ic))
-        painter.drawRoundedRect(icon_rect, icon_r, icon_r)
+        painter.setBrush(QBrush(dot_color))
+        painter.drawEllipse(QRectF(cx - dot_r, cx - dot_r, dot_r * 2, dot_r * 2))
 
-        if self._is_recording:
-            ih = QLinearGradient(icon_rect.center().x(), icon_rect.top(),
-                                 icon_rect.center().x(), icon_rect.bottom())
-            ih.setColorAt(0.0, QColor(255, 255, 255, 60))
-            ih.setColorAt(1.0, QColor(255, 255, 255, 0))
-            painter.setBrush(QBrush(ih))
-            painter.drawRoundedRect(icon_rect, icon_r, icon_r)
+        # 中心发光
+        glow_r = dot_r + 4 + 2 * (0.5 + 0.5 * math.sin(self._t * math.pi * 2))
+        glow_a = int(15 + 15 * (0.5 + 0.5 * math.sin(self._t * math.pi * 2)))
+        painter.setPen(QPen(QColor(dot_color.red(), dot_color.green(), dot_color.blue(), glow_a), 1))
+        painter.setBrush(Qt.NoBrush)
+        painter.drawEllipse(QRectF(cx - glow_r, cx - glow_r, glow_r * 2, glow_r * 2))
 
-        # ----- 6. 文字(图标下方) -----
+        # ----- 5. 文字 -----
         txt = self.text() or ""
         if txt:
-            font = QFont(TypographySystem.FONT_FAMILY)
+            font = QFont("Microsoft YaHei" if sys.platform == "win32" else "PingFang SC")
             font.setPixelSize(15)
             font.setWeight(QFont.DemiBold)
+            font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
+            font.setHintingPreference(QFont.PreferFullHinting)
             painter.setFont(font)
-            tc = QColor(255, 255, 255, 230) if self._is_recording else QColor("#1C1C1E")
+            tc = QColor(255, 255, 255, 220) if self._is_recording else QColor(255, 255, 255, 180)
             painter.setPen(tc)
             painter.drawText(QRectF(10, cx + 4, s - 20, cx - 6),
                              int(Qt.AlignCenter | Qt.TextWordWrap), txt)
@@ -678,9 +660,11 @@ class RoundedPillButton(QPushButton):
 
         # 文字
         painter.setPen(QColor(self._text_color))
-        font = QFont(TypographySystem.FONT_FAMILY)
+        font = QFont("Microsoft YaHei" if sys.platform == "win32" else "PingFang SC")
         font.setPixelSize(15)
         font.setWeight(QFont.Medium)
+        font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
+        font.setHintingPreference(QFont.PreferFullHinting)
         painter.setFont(font)
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
@@ -703,7 +687,7 @@ class MacOSToolbar(QWidget):
         super().__init__(parent)
         self.setFixedHeight(46)
         self.setStyleSheet(f"""
-            QWidget {{
+            MacOSToolbar {{
                 background-color: {MacOSColors.TOOLBAR_BG};
                 border-bottom: 1px solid {MacOSColors.SEPARATOR};
             }}
@@ -714,6 +698,8 @@ class MacOSToolbar(QWidget):
         layout.setSpacing(12)
 
         controls = QWidget()
+        controls.setAttribute(Qt.WA_TranslucentBackground)
+        controls.setStyleSheet("background: transparent;")
         controls_layout = QHBoxLayout(controls)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(6)
@@ -1158,14 +1144,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         )
         self.replay_btn.setFixedHeight(48)
         self.replay_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE + 20)
-        self.replay_btn.clicked.connect(self.toggle_replay_playback)
+        self.replay_btn.clicked.connect(self.toggle_replay_status_only)
         replay_layout.addWidget(self.replay_btn)
 
         float_btn = RoundedPillButton(
             "悬浮窗口",
-            color_top="#5AC8FA",
+            color_top="#007AFF",
             color_mid="#007AFF",
-            color_bottom="#0062CC",
+            color_bottom="#004DB3",
             text_color="white"
         )
         float_btn.setFixedHeight(48)
@@ -1202,51 +1188,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.addLayout(header)
 
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
+        from design_system import configure_table, get_table_stylesheet
+
         folder_table = QTableWidget()
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
-        folder_table.setStyleSheet(f"""
-            QTableWidget {{
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: 12px;
-                background: {MacOSColors.CARD_BG};
-                outline: none;
-                gridline-color: transparent;
-            }}
-            QTableWidget::item {{
-                padding: 8px 12px;
-                border-bottom: 1px solid {MacOSColors.SEPARATOR}60;
-                color: {MacOSColors.TEXT_PRIMARY};
-            }}
-            QTableWidget::item:hover {{
-                background: {MacOSColors.ACCENT_BG};
-            }}
-            QTableWidget::item:selected {{
-                background: {MacOSColors.ACCENT_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-            }}
-            QHeaderView::section {{
-                background: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_SECONDARY};
-                padding: 10px 12px;
-                border: none;
-                border-bottom: 1px solid {MacOSColors.SEPARATOR};
-                font-weight: 600;
-                font-size: 12px;
-            }}
-            QScrollBar:vertical {{
-                width: 0px;
-                background: transparent;
-            }}
-            QScrollBar:horizontal {{
-                height: 0px;
-                background: transparent;
-            }}
-        """)
-        folder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        folder_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        folder_table.horizontalHeader().setStretchLastSection(True)
-        folder_table.verticalHeader().setVisible(False)
+        configure_table(folder_table, get_table_stylesheet(
+            cell_padding_v=10, cell_padding_h=12, row_height=46
+        ))
 
         def on_folder_table_click(row, column):
             if column == 1:
@@ -1860,10 +1809,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         top_layout = QHBoxLayout()
         top_layout.setSpacing(10)
 
-        new_btn = MacOSButton("+ 新建组合技", MacOSColors.SYSTEM_GREEN)
+        new_btn = MacOSButton("+ 新建组合技", MacOSColors.ACCENT)
         new_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE)
         top_layout.addWidget(new_btn)
-        _attach_button_shadow(new_btn, MacOSColors.SYSTEM_GREEN)
+        _attach_button_shadow(new_btn, MacOSColors.ACCENT)
 
         refresh_btn = MacOSSecondaryButton("🔄 刷新")
         refresh_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
@@ -1890,46 +1839,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.addLayout(top_layout)
 
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
+        from design_system import configure_table, get_table_stylesheet
+
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
         combo_table.setHorizontalHeaderLabels(["选择", "组合技名称", "流程数", "状态", "操作", "停止快捷键", "删除"])
-        combo_table.setStyleSheet(f"""
-            QTableWidget {{
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: 12px;
-                background: {MacOSColors.CARD_BG};
-                outline: none;
-                gridline-color: transparent;
-            }}
-            QTableWidget::item {{
-                padding: 6px 12px;
-                border-bottom: 1px solid {MacOSColors.SEPARATOR}60;
-                min-height: 40px;
-                color: {MacOSColors.TEXT_PRIMARY};
-            }}
-            QTableWidget::item:hover {{
-                background: {MacOSColors.ACCENT_BG};
-            }}
-            QTableWidget::item:selected {{
-                background: {MacOSColors.ACCENT_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-                min-height: 40px;
-            }}
-            QHeaderView::section {{
-                background: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_SECONDARY};
-                padding: 6px 12px;
-                border: none;
-                border-bottom: 1px solid {MacOSColors.SEPARATOR};
-                font-weight: 600;
-                font-size: 12px;
-            }}
-        """)
-        combo_table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        combo_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        combo_table.horizontalHeader().setStretchLastSection(True)
-        combo_table.verticalHeader().setVisible(False)
-        combo_table.verticalHeader().setDefaultSectionSize(40)
+        configure_table(combo_table, get_table_stylesheet(
+            cell_padding_v=6, cell_padding_h=12, row_height=44
+        ))
+        combo_table.verticalHeader().setDefaultSectionSize(44)
 
         def on_combo_table_click(row, column):
             combo_table.setCurrentCell(row, column)
@@ -2298,7 +2216,8 @@ def start_macos_app():
         font_name = "PingFang SC"  # macOS
     
     font = QFont(font_name, 13)
-    font.setStyleStrategy(QFont.PreferAntialias)
+    font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
+    font.setHintingPreference(QFont.PreferFullHinting)
     app.setFont(font)
 
     app.setStyle("Fusion")
