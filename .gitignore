@@ -2,55 +2,24 @@
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-*.egg
 *.egg-info/
 dist/
 build/
-*.spec
 
-# Virtual Environment
-venv/
-.env/
-.venv/
-
-# Environment files
-.env
-.env.local
-
-# IDE/Editor
+# IDE
+.trae/
 .vscode/
-.hbuilderx/
 .idea/
 *.swp
 *.swo
-*~
 
-# Trae AI
-.trae/
-
-# Node
-node_modules/
-package-lock.json
-
-# OS files
-Thumbs.db
+# OS
 .DS_Store
-Desktop.ini
+Thumbs.db
 
-# Database
-*.db
-*.sqlite
+# Backup
+*.backup_*
+*.bak
 
-# Archives
-*.zip
-*.rar
-*.7z
-
-# Logs
-*.log
-logs/
-
-# Build outputs
-*.exe
-*.msi
+# Others
+nul

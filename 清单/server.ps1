@@ -3,7 +3,6 @@ $listener.Prefixes.Add("http://localhost:8080/")
 $listener.Start()
 Write-Host "Server started: http://localhost:8080"
 Write-Host "Press Ctrl+C to stop"
-
 while ($listener.IsListening) {
     $context = $listener.GetContext()
     $request = $context.Request

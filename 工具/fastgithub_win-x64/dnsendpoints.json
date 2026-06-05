@@ -1,0 +1,74 @@
+[
+  {
+    "host": "storage.live.com",
+    "port": 443
+  },
+  {
+    "host": "github.com",
+    "port": 443
+  },
+  {
+    "host": "github.githubassets.com",
+    "port": 443
+  },
+  {
+    "host": "northcentralus-0.in.applicationinsights.azure.com",
+    "port": 443
+  },
+  {
+    "host": "codetypess.github.io",
+    "port": 443
+  },
+  {
+    "host": "login.live.com",
+    "port": 443
+  },
+  {
+    "host": "raw.githubusercontent.com",
+    "port": 443
+  },
+  {
+    "host": "js.monitor.azure.com",
+    "port": 443
+  },
+  {
+    "host": "codeload.github.com",
+    "port": 443
+  },
+  {
+    "host": "odc.officeapps.live.com",
+    "port": 443
+  },
+  {
+    "host": "collector.github.com",
+    "port": 443
+  },
+  {
+    "host": "login.microsoftonline.com",
+    "port": 443
+  },
+  {
+    "host": "avatars.githubusercontent.com",
+    "port": 443
+  },
+  {
+    "host": "edge-consumer-static.azureedge.net",
+    "port": 443
+  },
+  {
+    "host": "xpaywalletcdn-prod.azureedge.net",
+    "port": 443
+  },
+  {
+    "host": "api.github.com",
+    "port": 443
+  },
+  {
+    "host": "alive.github.com",
+    "port": 443
+  },
+  {
+    "host": "github.com",
+    "port": 22
+  }
+]

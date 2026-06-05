@@ -253,7 +253,7 @@ body {
 }
 .cell-summary {
   position: absolute;
-  right: 140px;
+  right: 170px;
   top: 50%;
   transform: translateY(-50%);
   max-width: 200px;
@@ -760,7 +760,7 @@ function startAutoSummary() {
   }, 1000);
 }
 
-// 更新加号按钮位置到app容器右侧，不与单元格重叠
+// 更新加号按钮位置到单元格左侧
 function updateAddButtonPosition() {
   const btn = document.getElementById('addCellBtn');
   const cells = document.querySelectorAll('.cell');
@@ -776,15 +776,14 @@ function updateAddButtonPosition() {
   // 获取最后一个单元格相对于app容器的位置
   const app = document.querySelector('.app');
   const lastCell = cells[cells.length - 1];
-  const lastCellRight = lastCell.offsetLeft + lastCell.offsetWidth;
   
   // 计算位置：垂直居中于最后一个单元格
   const lastCellTop = lastCell.offsetTop;
   const lastCellHeight = lastCell.offsetHeight;
   const top = lastCellTop + lastCellHeight / 2 - 25;
   
-  // 按钮左边缘在单元格右侧5px
-  btn.style.left = (lastCellRight + 5) + 'px';
+  // 按钮右边缘在单元格左侧5px
+  btn.style.left = (lastCell.offsetLeft - 55) + 'px';
   btn.style.top = top + 'px';
   btn.style.right = 'auto';
   btn.style.transform = 'none';
@@ -1644,7 +1643,21 @@ async function generateSummary(cellIndex) {
     currentPage.cellSummaries[cellIndex] = summary;
     
     save();
-    renderAllCells();
+    
+    // 只更新当前单元格的总结显示，不重新渲染所有单元格（避免影响正在编辑的单元格光标）
+    const cells = document.querySelectorAll('.cell');
+    if (cells[cellIndex]) {
+      // 移除旧的总结元素
+      const oldSummary = cells[cellIndex].querySelector('.cell-summary');
+      if (oldSummary) oldSummary.remove();
+      // 添加新的总结元素
+      const summaryEl = document.createElement('span');
+      summaryEl.className = 'cell-summary';
+      summaryEl.textContent = summary;
+      summaryEl.title = summary;
+      cells[cellIndex].appendChild(summaryEl);
+    }
+    
     show('总结已生成');
   } catch (error) {
     console.error('生成总结失败:', error);
