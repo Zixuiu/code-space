@@ -229,17 +229,17 @@ def get_table_stylesheet(
     text_color=ColorPalette.TEXT_PRIMARY,
     border_color=ColorPalette.SEPARATOR,
     hover_color=ColorPalette.BG_HOVER,
-    selected_color="#E8F0FE",  # 浅蓝选中
-    alternate_color="#FAFAFC",  # 极浅隔行
+    selected_color="#E8F0FE",
+    alternate_color="#FAFAFC",
     border_radius=12,
     header_font_size=12,
     cell_font_size=13,
-    cell_padding_v=10,
-    cell_padding_h=14,
-    row_height=44,
+    cell_padding_v=12,
+    cell_padding_h=16,
+    row_height=48,
 ):
-    """生成 macOS 17 风格统一样式表
-
+    """生成 macOS 17 风格统一样式表 - 现代化设计
+    
     所有参数都有默认值,不传参数即可获得 iOS/macOS 原生风格。
     """
     return f"""
@@ -250,10 +250,11 @@ def get_table_stylesheet(
             outline: none;
             gridline-color: transparent;
             font-size: {cell_font_size}px;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
         }}
         QTableWidget::item {{
             padding: {cell_padding_v}px {cell_padding_h}px;
-            border-bottom: 1px solid {border_color}40;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             color: {text_color};
             min-height: {row_height - cell_padding_v * 2}px;
         }}
@@ -268,7 +269,7 @@ def get_table_stylesheet(
             background: {alternate_color};
         }}
         QTableWidget:focus {{
-            border: 1px solid {border_color};
+            border: 1px solid {ColorPalette.PRIMARY};
             outline: none;
         }}
         QTableWidget::item:focus {{
@@ -277,18 +278,50 @@ def get_table_stylesheet(
         QHeaderView::section {{
             background: {header_bg};
             color: {header_color};
-            padding: {max(cell_padding_v - 2, 6)}px {cell_padding_h}px;
+            padding: {max(cell_padding_v - 2, 8)}px {cell_padding_h}px;
             border: none;
             border-bottom: 1px solid {border_color};
+            border-top-left-radius: {border_radius}px;
+            border-top-right-radius: {border_radius}px;
             font-weight: 600;
             font-size: {header_font_size}px;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+        }}
+        QHeaderView::section:last {{
+            border-top-right-radius: {border_radius}px;
         }}
         QScrollBar:vertical {{
-            width: 0px;
+            width: 8px;
+            background: transparent;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {ColorPalette.GRAY_300};
+            border-radius: 4px;
+            min-height: 20px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {ColorPalette.GRAY_400};
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            height: 0px;
             background: transparent;
         }}
         QScrollBar:horizontal {{
-            height: 0px;
+            height: 8px;
+            background: transparent;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: {ColorPalette.GRAY_300};
+            border-radius: 4px;
+            min-width: 20px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: {ColorPalette.GRAY_400};
+        }}
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+            width: 0px;
             background: transparent;
         }}
     """

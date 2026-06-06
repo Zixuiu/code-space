@@ -749,47 +749,50 @@ def get_card_style(screen_width=None, screen_height=None):
     """
 
 def get_table_style(screen_width=None, screen_height=None):
-    """获取表格样式 - macOS风格"""
+    """获取表格样式 - macOS风格（现代化设计）"""
     if not screen_width or not screen_height:
         screen_width, screen_height = get_screen_size()
 
     return f"""
         QTableWidget {{
-            background: {THEME_BG};
+            background: {THEME_CARD};
             color: {THEME_TEXT};
             border: 1px solid {THEME_BORDER};
-            border-radius: 8px;
-            gridline-color: {THEME_BORDER};
-            selection-background-color: #007AFF15;
-            font-family: {MACOS_FONT_STACK};
-            alternate-background-color: {THEME_CARD};
+            border-radius: 12px;
+            gridline-color: transparent;
+            selection-background-color: #E8F0FE;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-size: 13px;
+            alternate-background-color: #FAFAFC;
         }}
         QHeaderView::section {{
             background: {THEME_CARD};
-            color: {THEME_TEXT};
-            padding: 10px 12px;
-            border: none;
-            border-right: 1px solid {THEME_BORDER};
-            border-bottom: 2px solid {THEME_BORDER};
-            font-weight: 600;
-            font-family: {MACOS_FONT_STACK};
-            font-size: 13px;
-        }}
-        QHeaderView::section:last {{
-            border-right: none;
-        }}
-        QTableWidget::item {{
-            padding: 10px 12px;
+            color: {THEME_MUTED};
+            padding: 12px 16px;
             border: none;
             border-bottom: 1px solid {THEME_BORDER};
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+            font-weight: 600;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-size: 12px;
+        }}
+        QHeaderView::section:last {{
+            border-top-right-radius: 12px;
+        }}
+        QTableWidget::item {{
+            padding: 12px 16px;
+            border: none;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             text-align: center;
+            min-height: 24px;
         }}
         QTableWidget::item:hover {{
-            background: {THEME_CARD};
+            background: {THEME_BG};
         }}
         QTableWidget::item:selected {{
             color: {THEME_TEXT};
-            background: #007AFF15;
+            background: #E8F0FE;
         }}
         QTableWidget::horizontalHeader {{
             background: {THEME_CARD};
@@ -797,7 +800,49 @@ def get_table_style(screen_width=None, screen_height=None):
         QTableCornerButton::section {{
             background: {THEME_CARD};
             border: none;
-            border-bottom: 2px solid {THEME_BORDER};
+            border-bottom: 1px solid {THEME_BORDER};
+            border-top-left-radius: 12px;
+        }}
+        QTableWidget:focus {{
+            border: 1px solid {THEME_PRIMARY};
+            outline: none;
+        }}
+        QTableWidget::item:focus {{
+            outline: none;
+        }}
+        QScrollBar:vertical {{
+            width: 8px;
+            background: transparent;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: #D1D1D6;
+            border-radius: 4px;
+            min-height: 20px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: #AEAEB2;
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            height: 0px;
+            background: transparent;
+        }}
+        QScrollBar:horizontal {{
+            height: 8px;
+            background: transparent;
+            border-radius: 4px;
+        }}
+        QScrollBar::handle:horizontal {{
+            background: #D1D1D6;
+            border-radius: 4px;
+            min-width: 20px;
+        }}
+        QScrollBar::handle:horizontal:hover {{
+            background: #AEAEB2;
+        }}
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+            width: 0px;
+            background: transparent;
         }}
     """
 
