@@ -1,0 +1,22 @@
+[
+  {
+    "step": 1,
+    "image": "操作1.png",
+    "x": 502,
+    "y": 588,
+    "width": 22,
+    "height": 27,
+    "action_type": "left_click",
+    "delay": 0
+  },
+  {
+    "step": 2,
+    "image": "操作2.png",
+    "x": 478,
+    "y": 467,
+    "width": 164,
+    "height": 40,
+    "action_type": "left_click",
+    "delay": 0
+  }
+]

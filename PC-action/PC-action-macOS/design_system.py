@@ -269,7 +269,7 @@ def get_table_stylesheet(
             background: {alternate_color};
         }}
         QTableWidget:focus {{
-            border: 1px solid {ColorPalette.PRIMARY};
+            border: 1px solid {border_color};
             outline: none;
         }}
         QTableWidget::item:focus {{

@@ -804,7 +804,7 @@ def get_table_style(screen_width=None, screen_height=None):
             border-top-left-radius: 12px;
         }}
         QTableWidget:focus {{
-            border: 1px solid {THEME_PRIMARY};
+            border: 1px solid {THEME_BORDER};
             outline: none;
         }}
         QTableWidget::item:focus {{
@@ -847,40 +847,92 @@ def get_table_style(screen_width=None, screen_height=None):
     """
 
 def get_message_box_style(screen_width=None, screen_height=None):
-    """获取消息框样式 - macOS风格"""
+    """获取消息框样式 - macOS风格（现代化设计）"""
     if not screen_width or not screen_height:
         screen_width, screen_height = get_screen_size()
 
-    dialog_radius = int(screen_height * 0.012)
-    button_radius = int(screen_height * 0.006)
-    font_size = max(12, min(16, int(screen_width * 0.005)))
+    dialog_radius = 16
+    button_radius = 10
+    font_size = 14
 
     return f"""
         QMessageBox {{
-            background-color: {THEME_CARD};
-            color: {THEME_TEXT};
+            background-color: #FFFFFF;
+            color: #1D1D1F;
             border-radius: {dialog_radius}px;
+            min-width: 400px;
         }}
         QMessageBox QLabel {{
-            color: {THEME_TEXT};
-            font-family: {MACOS_FONT_STACK};
+            color: #1D1D1F;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-size: {font_size}px;
+            line-height: 1.5;
+        }}
+        QMessageBox QLabel#qt_msgbox_label {{
+            padding: 24px 24px 0 24px;
         }}
         QMessageBox QPushButton {{
-            background-color: {THEME_PRIMARY};
+            background-color: #007AFF;
             color: white;
             border: none;
             border-radius: {button_radius}px;
-            padding: 8px 16px;
-            font-weight: 500;
-            font-family: {MACOS_FONT_STACK};
-            font-size: {font_size}px;
-            min-width: 70px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-size: 14px;
+            min-width: 100px;
+            min-height: 40px;
         }}
         QMessageBox QPushButton:hover {{
-            background-color: #007AFFDD;
+            background-color: #0056CC;
         }}
         QMessageBox QPushButton:pressed {{
-            background-color: #007AFFBB;
+            background-color: #004499;
+        }}
+        QMessageBox QPushButton[text="OK"], 
+        QMessageBox QPushButton[text="确定"],
+        QMessageBox QPushButton[text="Yes"],
+        QMessageBox QPushButton[text="是"] {{
+            background-color: #007AFF;
+        }}
+        QMessageBox QPushButton[text="Cancel"], 
+        QMessageBox QPushButton[text="取消"],
+        QMessageBox QPushButton[text="No"],
+        QMessageBox QPushButton[text="否"] {{
+            background-color: #F5F5F7;
+            color: #1D1D1F;
+            border: 1px solid #D1D1D6;
+        }}
+        QMessageBox QPushButton[text="Cancel"]:hover, 
+        QMessageBox QPushButton[text="取消"]:hover,
+        QMessageBox QPushButton[text="No"]:hover,
+        QMessageBox QPushButton[text="否"]:hover {{
+            background-color: #E8E8ED;
+        }}
+        QMessageBox QPushButton[text="Cancel"]:pressed, 
+        QMessageBox QPushButton[text="取消"]:pressed,
+        QMessageBox QPushButton[text="No"]:pressed,
+        QMessageBox QPushButton[text="否"]:pressed {{
+            background-color: #D1D1D6;
+        }}
+        QMessageBox QPushButton[text="Close"],
+        QMessageBox QPushButton[text="关闭"] {{
+            background-color: #FF3B30;
+        }}
+        QMessageBox QPushButton[text="Close"]:hover,
+        QMessageBox QPushButton[text="关闭"]:hover {{
+            background-color: #E3342B;
+        }}
+        QMessageBox QPushButton[text="Close"]:pressed,
+        QMessageBox QPushButton[text="关闭"]:pressed {{
+            background-color: #CC2E26;
+        }}
+        QMessageBox QDialogButtonBox {{
+            padding: 24px;
+            spacing: 12px;
+        }}
+        QMessageBox QDialogButtonBox QPushButton {{
+            min-height: 44px;
         }}
     """
 

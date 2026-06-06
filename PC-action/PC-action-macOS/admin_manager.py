@@ -177,16 +177,22 @@ class AdminManager(QMainWindow):
     
     def show_message_box(self, msg_type, title, text, buttons=None, default_button=None):
         """
-        显示支持ESC键的消息框
+        显示支持ESC键的美化消息框
         msg_type: 'information', 'warning', 'critical', 'question'
         title: 消息框标题
         text: 消息框内容
         buttons: 按钮组合，默认为QMessageBox.Ok
         default_button: 默认按钮
         """
+        from styles import get_message_box_style
+        
         msg_box = QMessageBox()
         msg_box.setWindowTitle(title)
         msg_box.setText(text)
+        
+        # 应用美化样式
+        style = get_message_box_style()
+        msg_box.setStyleSheet(style)
         
         # 设置消息框类型
         if msg_type == 'information':

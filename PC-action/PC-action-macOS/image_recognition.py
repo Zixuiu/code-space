@@ -520,8 +520,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     screenshot_h = first_screenshot.shape[0] if first_screenshot is not None else 0
     screenshot_w = first_screenshot.shape[1] if first_screenshot is not None else 0
 
-    # 多尺度间隔从 5 改成 2,反应速度再提升
-    multi_scale_interval = 2
+    # 多尺度间隔从 2 改成 3,减少多尺度运行频率（每次多尺度太耗时），首次截图也会跑多尺度
+    multi_scale_interval = 3
     iteration = 0
 
     # 截图和模板尺寸（用于诊断 "明明有图却匹配不到" 问题）
@@ -560,9 +560,15 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         try:
             if _replay_stop_flag or (stop_check and stop_check()):
                 return None
+            # 首次截图：先快速尝试常规匹配
             result = _try_match(first_screenshot, skip_multi_scale=True)
             if result is not None:
                 return result
+            # 常规匹配失败后，立即在同一张截图上尝试多尺度匹配（无额外截图开销）
+            if not (_replay_stop_flag or (stop_check and stop_check())):
+                result = _try_match(first_screenshot, skip_multi_scale=False)
+                if result is not None:
+                    return result
         except Exception as e:
             debug_print(f"[匹配诊断] ❗ 首次 _try_match 抛异常: {type(e).__name__}: {e}")
     else:
