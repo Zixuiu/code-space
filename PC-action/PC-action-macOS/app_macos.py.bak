@@ -1178,12 +1178,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         configure_table(folder_table, get_table_stylesheet(
             cell_padding_v=10, cell_padding_h=12, row_height=46
         ))
-        folder_table.horizontalHeader().setStretchLastSection(False)
-        folder_table.setColumnWidth(0, 110)
-        folder_table.setColumnWidth(1, 170)
-        folder_table.setColumnWidth(2, 80)
-        folder_table.setColumnWidth(3, 55)
-        folder_table.setColumnWidth(4, 55)
 
         def on_folder_table_click(row, column):
             if column == 1:
@@ -1260,17 +1254,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 delete_item.setData(Qt.UserRole, ("delete", path))
                 delete_item.setForeground(QColor(MacOSColors.SYSTEM_RED))
                 table_widget.setItem(row, 4, delete_item)
-            table_widget.setColumnWidth(0, 150)
+
+            table_widget.setColumnWidth(0, 100)
             table_widget.setColumnWidth(1, 200)
             table_widget.setColumnWidth(2, 80)
             table_widget.setColumnWidth(3, 70)
             table_widget.setColumnWidth(4, 55)
-            table_widget.horizontalHeader().setStretchLastSection(True)
-            table_widget.setColumnWidth(1, 200)
+
         except Exception as e:
             pass
 
     def set_folder_shortcut_in_tab(self, folder_path, table_widget):
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
         from PyQt5.QtCore import Qt, QTimer
 
         folder_name = os.path.basename(folder_path)
@@ -1278,6 +1273,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         self.temporarily_disable_grave_hotkey()
 
+        dialog = QDialog(self)
+        dialog.setWindowTitle("设置快捷键")
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        width, height = get_screen_size(0.3)
+        dialog.resize(width, int(height * 0.25))
         dialog.setWindowModality(Qt.WindowModal)
         dialog.setStyleSheet(f"""
             QDialog {{
@@ -1635,15 +1635,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 new_path = os.path.join(os.path.dirname(folder_path), new_name)
                 os.rename(folder_path, new_path)
                 if hasattr(self, 'shortcuts'):
-                    old_path_normalized = os.path.normpath(str(folder_path))
-                    new_path_normalized = os.path.normpath(str(new_path))
-                    old_key = None
-                    for key in list(self.shortcuts.keys()):
-                        if os.path.normpath(str(key)).lower() == old_path_normalized.lower():
-                            old_key = key
-                            break
-                    if old_key is not None:
-                        self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_key)
+                    old_path_normalized = os.path.normpath(str(folder_path)).lower()
+                    new_path_normalized = os.path.normpath(str(new_path)).lower()
+                    if old_path_normalized in self.shortcuts:
+                        self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_path_normalized)
                         self.save_shortcut_config()
                         self.update_shortcuts()
                 self.load_folders_to_table(table_widget)
@@ -1826,14 +1821,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         combo_table.setColumnCount(7)
         combo_table.setHorizontalHeaderLabels(["选择", "组合技名称", "流程数", "状态", "操作", "停止快捷键", "删除"])
         configure_table(combo_table, get_table_stylesheet(
-            bg_color="#FFFFFF",
-            header_bg="#000000",
-            header_color="#FFFFFF",
-            text_color="#000000",
-            border_color="#E0E0E0",
-            hover_color="#F0F0F0",
-            selected_color="#33333333",
-            alternate_color="#FAFAFA",
             cell_padding_v=6, cell_padding_h=12, row_height=44
         ))
         combo_table.verticalHeader().setDefaultSectionSize(44)

@@ -12,14 +12,11 @@ from PyQt5.QtWidgets import (
     QDoubleSpinBox, QSpinBox, QTextEdit, QStackedWidget, QFrame,
     QFileDialog, QMessageBox, QApplication
 )
-T = {
-    'primary': '#000000', 'primary_hover': '#333333',
-    'bg_main': '#FFFFFF', 'bg_card': '#FAFAFA', 'bg_input': '#FFFFFF',
-    'text_primary': '#000000', 'text_secondary': '#888888',
-    'border': '#E0E0E0', 'success': '#000000', 'danger': '#000000',
-    'accent': '#00000010', 'header_bg': '#FAFAFA', 'tree_alt': '#F0F0F0',
-}
-IS_DARK = False
+from styles import (
+    THEME_PRIMARY, THEME_BG, THEME_CARD, THEME_TEXT,
+    THEME_MUTED, THEME_BORDER, MACOS_FONT_STACK,
+    apply_dialog_style
+)
 from design_system import ColorPalette, BorderRadiusSystem, TypographySystem
 from utils import get_recordings_path, get_screen_size
 
@@ -49,7 +46,7 @@ class ComboSkillEditDialog(QDialog):
         self.setFixedSize(900, 600)
 
         # 应用全局对话框样式
-        self.setStyleSheet(f'background: {T["bg_main"]}; border-radius: 16px;')
+        apply_dialog_style(self)
 
         # 计算动态圆角（与 apply_dialog_style 一致）
         _, sh = get_screen_size()
@@ -85,10 +82,10 @@ class ComboSkillEditDialog(QDialog):
                 background-color: #FFFFFF;
                 color: #8E8E93;
                 border: 1px solid #D1D1D6;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_MEDIUM};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -119,25 +116,25 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setHeaderLabels(["执行条件", "条件图片", "执行操作", "等待时间(s)"])
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
-                background: {T['bg_card']};
+                background: {THEME_BG};
                 border-radius: 6px;
-                border: 1px solid {T['border']};
+                border: 1px solid {THEME_BORDER};
                 outline: none;
             }}
             QTreeWidget::item {{
                 padding: 8px;
-                border-bottom: 1px solid {T['border']}55;
+                border-bottom: 1px solid {THEME_BORDER}55;
                 min-height: 45px;
                 outline: none;
                 border: none;
             }}
             QTreeWidget::item:selected {{
-                background: {T['primary']}15;
+                background: {THEME_PRIMARY}15;
                 border: none;
                 outline: none;
             }}
             QHeaderView::section {{
-                background: {T['primary']};
+                background: {THEME_PRIMARY};
                 color: white;
                 padding: 10px;
                 font-weight: bold;
@@ -167,21 +164,21 @@ class ComboSkillEditDialog(QDialog):
         add_btn = QPushButton("+ 添加")
         add_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {T['primary']};
+                background-color: {ColorPalette.PRIMARY};
                 color: white;
                 border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {ColorPalette.PRIMARY_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {ColorPalette.PRIMARY_ACTIVE};
                 padding-top: 2px;
             }}
         """)
@@ -191,13 +188,13 @@ class ComboSkillEditDialog(QDialog):
         del_btn = QPushButton("- 删除")
         del_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {T['danger']};
+                background-color: {ColorPalette.ERROR};
                 color: white;
                 border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -220,10 +217,10 @@ class ComboSkillEditDialog(QDialog):
                 background-color: #FFFFFF;
                 color: #8E8E93;
                 border: 1px solid #D1D1D6;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_MEDIUM};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -245,10 +242,10 @@ class ComboSkillEditDialog(QDialog):
                 background-color: #FFFFFF;
                 color: #8E8E93;
                 border: 1px solid #D1D1D6;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_MEDIUM};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -282,21 +279,21 @@ class ComboSkillEditDialog(QDialog):
         back_btn = QPushButton("← 返回")
         back_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {T['primary']};
+                background-color: {ColorPalette.PRIMARY};
                 color: white;
                 border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {ColorPalette.PRIMARY_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {ColorPalette.PRIMARY_ACTIVE};
                 padding-top: 2px;
             }}
         """)
@@ -324,10 +321,10 @@ class ComboSkillEditDialog(QDialog):
                 background-color: #FFFFFF;
                 color: #8E8E93;
                 border: 1px solid #D1D1D6;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_MEDIUM};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -346,21 +343,21 @@ class ComboSkillEditDialog(QDialog):
         save_btn = QPushButton("✓ 保存")
         save_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: {T['primary']};
+                background-color: {ColorPalette.PRIMARY};
                 color: white;
                 border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                border-radius: {BorderRadiusSystem.SM}px;
+                font-size: {TypographySystem.SIZE_BASE}px;
+                font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
+                font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 24px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {ColorPalette.PRIMARY_HOVER};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {ColorPalette.PRIMARY_ACTIVE};
                 padding-top: 2px;
             }}
         """)
@@ -417,7 +414,7 @@ class ComboSkillEditDialog(QDialog):
             flow_number_label = QLabel(f"{index + 1}")
             flow_number_label.setStyleSheet(f"""
                 QLabel {{
-                    background: {T['primary']};
+                    background: {THEME_PRIMARY};
                     color: white;
                     border-radius: 10px;
                     padding: 2px 6px;
@@ -431,7 +428,7 @@ class ComboSkillEditDialog(QDialog):
             condition_layout.addWidget(flow_number_label)
         else:
             else_indent = QLabel("  └")
-            else_indent.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px;")
+            else_indent.setStyleSheet(f"color: {THEME_MUTED}; font-size: 11px;")
             condition_layout.addWidget(else_indent)
 
         condition_combo = QComboBox()
@@ -439,13 +436,13 @@ class ComboSkillEditDialog(QDialog):
         condition_combo.setCurrentIndex({"always": 0, "image_found": 1, "image_not_found": 2, "wait_for_image": 3}.get(condition, 0))
         condition_combo.setStyleSheet(f"""
             font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox:hover {{ border: 1px solid {THEME_PRIMARY}; }}
             QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
-                border: 1px solid {T['border']};
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                selection-background-color: {THEME_PRIMARY}15;
+                selection-color: {THEME_PRIMARY};
+                border: 1px solid {THEME_BORDER};
             }}
         """)
         condition_combo.setFixedWidth(120)
@@ -457,7 +454,7 @@ class ComboSkillEditDialog(QDialog):
 
         if not is_else:
             else_btn = QPushButton("+else")
-            else_btn.setStyleSheet(f"background: {T['primary']}; color: white; padding: 4px 8px; font-size: 10px; border: none; border-radius: {8}px;")
+            else_btn.setStyleSheet(f"background: {ColorPalette.PRIMARY}; color: white; padding: 4px 8px; font-size: 10px; border: none; border-radius: {BorderRadiusSystem.SM}px;")
             else_btn.setFixedWidth(50)
             else_btn.clicked.connect(lambda checked, i=index: self.add_else_branch(i))
             if flow_data.get('else_branch'):
@@ -468,7 +465,7 @@ class ComboSkillEditDialog(QDialog):
 
         if is_else:
             del_else_btn = QPushButton("✕")
-            del_else_btn.setStyleSheet(f"background: {T['danger']}; color: white; padding: 2px 6px; font-size: 10px; border: none; border-radius: 3px;")
+            del_else_btn.setStyleSheet(f"background: {ColorPalette.ERROR}; color: white; padding: 2px 6px; font-size: 10px; border: none; border-radius: 3px;")
             del_else_btn.setFixedWidth(25)
             del_else_btn.setToolTip("删除else分支")
             del_else_btn.clicked.connect(lambda checked, i=index: self.delete_else_branch(i))
@@ -510,7 +507,7 @@ class ComboSkillEditDialog(QDialog):
         image_layout.addWidget(image_preview)
 
         img_btn = QPushButton("浏览")
-        img_btn.setStyleSheet(f"background: {T['primary']}; color: white; padding: 4px 10px; font-size: 10px; border: none; border-radius: {8}px;")
+        img_btn.setStyleSheet(f"background: {ColorPalette.PRIMARY}; color: white; padding: 4px 10px; font-size: 10px; border: none; border-radius: {BorderRadiusSystem.SM}px;")
         img_btn.clicked.connect(lambda checked, i=index, ie=is_else: self.browse_image(i, ie))
         img_btn.setVisible(condition != "always")
         image_layout.addWidget(img_btn)
@@ -528,13 +525,13 @@ class ComboSkillEditDialog(QDialog):
         action_type_combo = QComboBox()
         action_type_combo.setStyleSheet(f"""
             font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox:hover {{ border: 1px solid {THEME_PRIMARY}; }}
             QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
-                border: 1px solid {T['border']};
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                selection-background-color: {THEME_PRIMARY}15;
+                selection-color: {THEME_PRIMARY};
+                border: 1px solid {THEME_BORDER};
             }}
         """)
         action_type_combo.setFixedWidth(120)
@@ -546,13 +543,13 @@ class ComboSkillEditDialog(QDialog):
         action_detail_combo = QComboBox()
         action_detail_combo.setStyleSheet(f"""
             font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox:hover {{ border: 1px solid {THEME_PRIMARY}; }}
             QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
-                border: 1px solid {T['border']};
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                selection-background-color: {THEME_PRIMARY}15;
+                selection-color: {THEME_PRIMARY};
+                border: 1px solid {THEME_BORDER};
             }}
         """)
         action_detail_combo.setFixedWidth(150)
@@ -867,7 +864,7 @@ class ComboSkillEditDialog(QDialog):
         apply_dialog_style(dialog)
         layout = QVBoxLayout(dialog)
         path_label = QLabel(f"路径: {image_path}")
-        path_label.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px; padding: 5px;")
+        path_label.setStyleSheet(f"color: {THEME_MUTED}; font-size: 11px; padding: 5px;")
         path_label.setWordWrap(True)
         layout.addWidget(path_label)
         pixmap = QPixmap(image_path)
@@ -927,7 +924,7 @@ class ComboSkillEditDialog(QDialog):
         apply_dialog_style(dialog)
         layout = QVBoxLayout(dialog)
         path_label = QLabel(f"路径: {image_path}")
-        path_label.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px; padding: 5px;")
+        path_label.setStyleSheet(f"color: {THEME_MUTED}; font-size: 11px; padding: 5px;")
         path_label.setWordWrap(True)
         layout.addWidget(path_label)
         pixmap = QPixmap(image_path)

@@ -62,6 +62,7 @@ except ImportError as e:
         """
 
 # 导入utils模块（不导入样式相关函数，避免循环导入）
+from beautiful_dialog import StyledMessageDialog
 from utils import (
     load_json_data, save_json_data, center_window, get_screen_size, load_qpixmap, 
     load_qimage, get_common_styles, create_styled_button, create_styled_input,
@@ -316,7 +317,44 @@ class RechargeDialog(QDialog):
         # 应用统一样式
         from styles import apply_dialog_style
         apply_dialog_style(self)
-        
+                # 覆盖全局样式：将所有灰色背景替换为白色
+        _, sh = get_screen_size()
+        inp_r2 = int(sh * 0.006)
+        cb_r2 = int(sh * 0.004)
+        self.setStyleSheet(self.styleSheet() + f"""
+            QLineEdit {{
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                border: 1px solid {THEME_BORDER};
+                border-radius: {inp_r2}px;
+                padding: 8px;
+                font-family: {MACOS_FONT_STACK};
+            }}
+            QTextEdit {{
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                border: 1px solid {THEME_BORDER};
+                border-radius: {inp_r2}px;
+                padding: 8px;
+                font-family: {MACOS_FONT_STACK};
+            }}
+            QComboBox {{
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                border: 1px solid {THEME_BORDER};
+                border-radius: {cb_r2}px;
+                padding: 8px;
+                font-family: {MACOS_FONT_STACK};
+            }}
+            QSpinBox, QDoubleSpinBox {{
+                background-color: {THEME_CARD};
+                color: {THEME_TEXT};
+                border: 1px solid {THEME_BORDER};
+                border-radius: {inp_r2}px;
+                padding: 4px;
+                font-family: {MACOS_FONT_STACK};
+            }}
+        """)
         self.init_ui()
     
     def init_ui(self):
@@ -3257,7 +3295,7 @@ class FolderManager(QDialog):
                     image_files.append(os.path.join(root, file))
         
         if not image_files:
-            QMessageBox.warning(self, "警告", "在指定目录中未找到图片文件")
+            self.show_beautiful_message('warning', '警告', '在指定目录中未找到图片文件')
             return
         
         # 创建图片选择对话框
@@ -3398,7 +3436,7 @@ class FolderManager(QDialog):
         overlay = SelectionOverlay(self.parent, parent=self.parent, screen_pixmap=None, recording_dir=folder_path)
         overlay.save_condition_step(condition_type, image_path, action_data, image_index)
         
-        QMessageBox.information(self, "成功", "条件分支已保存")
+        self.show_beautiful_message('success', '成功', '条件分支已保存')
         dialog.accept()
         
         # 重新打开查看窗口
@@ -3556,7 +3594,7 @@ class FolderManager(QDialog):
                     
                     # 检查新名称是否已存在
                     if os.path.exists(new_path):
-                        QMessageBox.warning(self, "警告", f"文件夹名称 '{new_name}' 已存在，请使用其他名称。")
+                        self.show_beautiful_message('warning', '警告', f"文件夹名称 '{new_name}' 已存在，请使用其他名称。")
                         return
                     
                     # 重命名文件夹 - Python3原生支持Unicode路径
@@ -3598,7 +3636,7 @@ class FolderManager(QDialog):
             # 显示对话框
             dialog.show()
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"重命名失败: {str(e)}")
+            self.show_beautiful_message('critical', '错误', f"重命名失败: {str(e)}")
 
     def delete_folder(self, folder_path):
         try:
@@ -3648,7 +3686,7 @@ class FolderManager(QDialog):
             
             # 静默删除，不显示提示框
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"删除失败: {str(e)}")
+            self.show_beautiful_message('critical', '错误', f"删除失败: {str(e)}")
     
     def update_trash_index(self, trash_folder_name, original_name, original_path):
         """更新回收站索引文件"""
@@ -4012,7 +4050,7 @@ class FolderManager(QDialog):
             
             # 静默恢复，不显示提示框
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"恢复失败: {str(e)}")
+            self.show_beautiful_message('critical', '错误', f"恢复失败: {str(e)}")
     
     def permanent_delete_from_trash(self, row, table):
         """从回收站永久删除文件夹"""
@@ -4789,53 +4827,28 @@ class AutoRecorderApp(QMainWindow):
     
     def show_beautiful_message(self, msg_type, title, text, buttons=None, default_button=None, parent=None):
         """
-        显示美化的消息框
-        
-        msg_type: 'information', 'warning', 'critical', 'question'
-        title: 标题
-        text: 内容
-        buttons: 按钮组合
-        default_button: 默认按钮
-        parent: 父窗口
+        显示美化的消息框（风格10: 彩色标签）
         """
+        from beautiful_dialog import StyledMessageDialog
         from PyQt5.QtWidgets import QMessageBox
-        from styles import get_message_box_style
-        
+
         if parent is None:
             parent = self
-        
-        msg_box = QMessageBox(parent)
-        msg_box.setWindowTitle(title)
-        msg_box.setText(text)
-        
-        # 应用美化样式
-        style = get_message_box_style()
-        msg_box.setStyleSheet(style)
-        
-        # 设置消息框类型
-        if msg_type == 'information':
-            msg_box.setIcon(QMessageBox.Information)
-        elif msg_type == 'warning':
-            msg_box.setIcon(QMessageBox.Warning)
-        elif msg_type == 'critical':
-            msg_box.setIcon(QMessageBox.Critical)
-        elif msg_type == 'question':
-            msg_box.setIcon(QMessageBox.Question)
-        
-        # 设置按钮
+
         if buttons is None:
-            if msg_type == 'question':
-                buttons = QMessageBox.Yes | QMessageBox.No
-                default_button = QMessageBox.No
-            else:
-                buttons = QMessageBox.Ok
-                default_button = QMessageBox.Ok
-        
-        msg_box.setStandardButtons(buttons)
-        if default_button:
-            msg_box.setDefaultButton(default_button)
-        
-        return msg_box.exec_()
+            btn_str = 'yes_no' if msg_type == 'question' else 'ok'
+        else:
+            m = {QMessageBox.Ok: 'ok', QMessageBox.Ok|QMessageBox.Cancel: 'ok_cancel',
+                 QMessageBox.Yes|QMessageBox.No: 'yes_no',
+                 QMessageBox.Yes|QMessageBox.No|QMessageBox.Cancel: 'yes_no_cancel'}
+            btn_str = m.get(buttons, 'ok')
+
+        dlg = StyledMessageDialog(parent, title=title, text=text, msg_type=msg_type, buttons=btn_str)
+        dlg.exec_()
+
+        r = {StyledMessageDialog.OK: QMessageBox.Ok, StyledMessageDialog.CANCEL: QMessageBox.Cancel,
+             StyledMessageDialog.YES: QMessageBox.Yes, StyledMessageDialog.NO: QMessageBox.No}
+        return r.get(dlg.get_result(), QMessageBox.Ok)
     
     def showEvent(self, event):
         super().showEvent(event)
@@ -5179,11 +5192,11 @@ class AutoRecorderApp(QMainWindow):
                         new = os.path.join(folder_path, new_name)
                         if os.path.exists(old) and not os.path.exists(new):
                             os.rename(old, new)
-            QMessageBox.information(self, "成功", "图片删除成功！")
+            self.show_beautiful_message('information', '成功', '图片删除成功！')
             if hasattr(self, 'table') and self.table.currentRow() >= 0:
                 self.view_folder_images(self.table.currentRow(), folder_path)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"删除失败: {e}")
+            self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
 
     def reorder_images(self, folder_path, old_step, new_step, dialog=None):
         """拖拽重排图片顺序"""
@@ -6808,7 +6821,7 @@ class AutoRecorderApp(QMainWindow):
             self.admin_window = AdminManager(self.login_manager)
             self.admin_window.show()
         except ImportError:
-            QMessageBox.warning(self, "错误", "管理员模块加载失败")
+            self.show_beautiful_message('warning', '错误', '管理员模块加载失败')
 
     def initUI(self):
         desktop = QApplication.desktop()
@@ -6968,8 +6981,7 @@ class AutoRecorderApp(QMainWindow):
                 QTabWidget::pane {{
                     border: 1px solid {THEME_BORDER};
                     border-radius: 6px;
-                    background: {THEME_BG};
-                }}
+                    background: {THEME_CARD};                }}
                 QTabBar::tab {{
                     background: {THEME_CARD};
                     border: 1px solid {THEME_BORDER};
@@ -7875,6 +7887,12 @@ class AutoRecorderApp(QMainWindow):
         configure_table(folder_table, get_table_stylesheet(
             cell_padding_v=8, cell_padding_h=12, row_height=44
         ))
+        folder_table.horizontalHeader().setStretchLastSection(False)
+        folder_table.setColumnWidth(0, 110)
+        folder_table.setColumnWidth(1, 170)
+        folder_table.setColumnWidth(2, 80)
+        folder_table.setColumnWidth(3, 50)
+        folder_table.setColumnWidth(4, 50)
 
         # 添加单击事件 - 点击流程名称打开查看图片窗口，点击Emoji执行操作
         def on_folder_table_click(row, column):
@@ -7920,7 +7938,7 @@ class AutoRecorderApp(QMainWindow):
         return tab
     
     def load_folders_to_table(self, table_widget):
-        """加载流程到表格"""
+        print(f"[DEBUG] load_folders_to_table 被调用, 表格对象: {table_widget}")
         table_widget.setRowCount(0)
         from utils import get_recordings_path
         recordings_dir = get_recordings_path()
@@ -7967,11 +7985,6 @@ class AutoRecorderApp(QMainWindow):
                 table_widget.setItem(row, 4, delete_item)
                 
             # 调整列宽 - 给按钮列更多空间
-            table_widget.setColumnWidth(0, 100)  # 时间
-            table_widget.setColumnWidth(1, 200)  # 流程名称
-            table_widget.setColumnWidth(2, 80)   # 快捷键
-            table_widget.setColumnWidth(3, 70)   # 重命名按钮
-            table_widget.setColumnWidth(4, 55)   # 删除按钮
                 
         except Exception as e:
             # print(f"加载流程列表失败: {e}")  # [日志已禁用]
@@ -8240,12 +8253,17 @@ class AutoRecorderApp(QMainWindow):
                 os.rename(folder_path, new_path)
                 # print(f"重命名成功: {old_name} -> {new_name}")  # [日志已禁用]
                 
-                # 更新快捷键配置
+                # 更新快捷键配置（大小写不敏感匹配）
                 if hasattr(self, 'shortcuts'):
                     old_path_normalized = os.path.normpath(str(folder_path)).lower()
-                    new_path_normalized = os.path.normpath(str(new_path)).lower()
-                    if old_path_normalized in self.shortcuts:
-                        self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_path_normalized)
+                    new_path_normalized = os.path.normpath(str(new_path))
+                    old_key = None
+                    for key in list(self.shortcuts.keys()):
+                        if os.path.normpath(str(key)).lower() == old_path_normalized:
+                            old_key = key
+                            break
+                    if old_key:
+                        self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_key)
                         self.save_shortcut_config()
                         self.update_shortcuts()
                 
@@ -8268,7 +8286,7 @@ class AutoRecorderApp(QMainWindow):
                 # print(f"已删除流程: {folder_path}")  # [日志已禁用]
                 self.load_folders_to_table(table_widget)
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"删除失败: {e}")
+                self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
     
     def open_trash_dialog(self):
         """打开回收站对话框 - 带复选框批量操作版"""
@@ -8426,7 +8444,7 @@ class AutoRecorderApp(QMainWindow):
         def restore_items():
             selected = get_selected_items()
             if not selected:
-                QMessageBox.warning(dialog, "提示", "请先选择要还原的项目")
+                self.show_beautiful_message('warning', '提示', '请先选择要还原的项目', parent=dialog)
                 return
 
             success_count = 0
@@ -8489,9 +8507,9 @@ class AutoRecorderApp(QMainWindow):
 
             # 显示结果
             if failed_items:
-                QMessageBox.warning(dialog, "部分还原失败", f"成功还原 {success_count} 项\n失败项:\n" + "\n".join(failed_items))
+                self.show_beautiful_message('warning', '部分还原失败', f"成功还原 {success_count} 项\n失败项:\n" + "\n".join(failed_items), parent=dialog)
             else:
-                QMessageBox.information(dialog, "成功", f"已成功还原 {success_count} 个项目")
+                self.show_beautiful_message('information', '成功', f"已成功还原 {success_count} 个项目", parent=dialog)
 
             # 刷新流程管理表格
             if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
@@ -8501,10 +8519,10 @@ class AutoRecorderApp(QMainWindow):
         def permanent_delete_items():
             selected = get_selected_items()
             if not selected:
-                QMessageBox.warning(dialog, "提示", "请先选择要删除的项目")
+                self.show_beautiful_message('warning', '提示', '请先选择要删除的项目', parent=dialog)
                 return
 
-            reply = QMessageBox.question(dialog, "确认删除", f"确定要彻底删除选中的 {len(selected)} 个项目吗？此操作不可恢复！",
+            reply = self.show_beautiful_message('question', '确认删除', f"确定要彻底删除选中的 {len(selected)} 个项目吗？此操作不可恢复！",
                                          QMessageBox.Yes | QMessageBox.No)
             if reply != QMessageBox.Yes:
                 return
@@ -8541,9 +8559,9 @@ class AutoRecorderApp(QMainWindow):
 
             # 显示结果
             if failed_items:
-                QMessageBox.warning(dialog, "部分删除失败", f"成功删除 {success_count} 项\n失败项:\n" + "\n".join(failed_items))
+                self.show_beautiful_message('warning', '部分删除失败', f"成功删除 {success_count} 项\n失败项:\n" + "\n".join(failed_items), parent=dialog)
             else:
-                QMessageBox.information(dialog, "成功", f"已成功删除 {success_count} 个项目")
+                self.show_beautiful_message('information', '成功', f"已成功删除 {success_count} 个项目", parent=dialog)
 
         # 连接按钮信号
         restore_btn.clicked.connect(restore_items)
@@ -9135,7 +9153,7 @@ class AutoRecorderApp(QMainWindow):
             print(f"[COMBO DEBUG] 选中了 {len(selected_skills)} 个组合技")
             
             if not selected_skills:
-                QMessageBox.information(self, "提示", "请先勾选要启动的组合技（勾选第一列的复选框）")
+                self.show_beautiful_message('information', '提示', '请先勾选要启动的组合技（勾选第一列的复选框）')
                 return
             
             success_count = 0
@@ -9666,7 +9684,7 @@ class AutoRecorderApp(QMainWindow):
 
     def show_shortcut_settings(self):
         """显示快捷键设置对话框"""
-        QMessageBox.information(self, "快捷键设置", "快捷键配置功能开发中...")
+        self.show_beautiful_message('information', '快捷键设置', '快捷键配置功能开发中...')
 
     def show_about_dialog(self):
         """显示关于对话框"""
@@ -10021,7 +10039,7 @@ class AutoRecorderApp(QMainWindow):
                 if hasattr(self, 'record_action'):
                     self.record_action.setText("开始录制")
                 self.showNormal()
-                QMessageBox.critical(self, "错误", f"启动录制失败: {str(e)}")
+                self.show_beautiful_message('critical', '错误', f"启动录制失败: {str(e)}")
 
     def start_image_recording(self):
         """启动图像识别录制模式（框选区域）"""
@@ -10067,7 +10085,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'record_action'):
                 self.record_action.setText("开始录制")
             self.showNormal()
-            QMessageBox.critical(self, "错误", f"启动选择界面失败: {str(e)}")
+            self.show_beautiful_message('critical', '错误', f"启动选择界面失败: {str(e)}")
 
     def start_coordinate_recording(self):
         """启动坐标录制模式（点击记录坐标）"""
@@ -10103,7 +10121,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'record_action'):
                 self.record_action.setText("开始录制")
             self.showNormal()
-            QMessageBox.critical(self, "错误", f"启动坐标录制失败: {str(e)}")
+            self.show_beautiful_message('critical', '错误', f"启动坐标录制失败: {str(e)}")
 
     def on_coordinate_recording_finished(self):
         """坐标录制完成处理"""
@@ -10327,8 +10345,7 @@ class AutoRecorderApp(QMainWindow):
 
     def handle_error(self, error_msg, parent=None):
         """共用错误处理函数"""
-        # print(f"错误: {error_msg}")  # [日志已禁用]
-        QMessageBox.critical(parent or self, "错误", error_msg)
+        self.show_beautiful_message('critical', '错误', error_msg, parent=parent)
 
     def save_shortcut_config(self):
         """保存快捷键配置"""
@@ -10441,3 +10458,44 @@ class ComboSkillManager:
             save_json_data(path, self.combo_skills)
         except:
             pass
+        
+def start_app():
+    """启动应用程序"""
+    # 设置临时工作目录
+    import tempfile
+    temp_dir = tempfile.gettempdir()
+    os.chdir(temp_dir)
+
+    app = QApplication(sys.argv)
+    
+    from PyQt5.QtGui import QFont
+    default_font = QFont()
+    default_font.setFamily("Microsoft YaHei")
+    default_font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
+    app.setFont(default_font)
+    
+    from styles import generate_dynamic_styles, get_screen_size
+    screen_width, screen_height = get_screen_size()
+    app.setStyleSheet(generate_dynamic_styles(screen_width, screen_height))
+
+    login_manager = LoginManager()
+    login_dialog = LoginDialog(login_manager)
+    login_dialog.show()
+    login_dialog.raise_()
+    login_dialog.activateWindow()
+    
+    login_dialog.finished.connect(lambda result: handle_login_result(result, login_dialog, login_manager, app))
+    
+    def handle_login_result(result, dialog, manager, app):
+        if result == dialog.Accepted:
+            if not hasattr(handle_login_result, 'main_window_created'):
+                main_window = AutoRecorderApp(username=dialog.current_user, login_manager=manager)
+                handle_login_result.main_window = main_window
+                handle_login_result.main_window_created = True
+        else:
+            app.quit()
+    
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    start_app()
