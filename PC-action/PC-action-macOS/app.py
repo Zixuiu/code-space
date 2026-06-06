@@ -7191,29 +7191,54 @@ class AutoRecorderApp(QMainWindow):
         self.record_mode_combo.setStyleSheet("""
             QComboBox {
                 background-color: #FFFFFF;
-                color: #2C3E50;
-                border: 2px solid #D1D1D6;
-                border-radius: 25px;
-                padding: 10px 14px;
-                font-size: 18px;
-                font-weight: bold;
+                color: #1D1D1F;
+                border: 1px solid #D1D1D6;
+                border-radius: 12px;
+                padding: 8px 32px 8px 16px;
+                font-size: 14px;
+                font-weight: 500;
                 font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                min-height: 36px;
             }
             QComboBox:hover {
-                border-color: #FF453A;
+                border-color: #007AFF;
                 background-color: #FFFFFF;
             }
             QComboBox:focus {
-                border-color: #FF453A;
+                border-color: #007AFF;
+                outline: none;
+            }
+            QComboBox::drop-down {
+                border: none;
+                width: 32px;
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+            }
+            QComboBox::down-arrow {
+                image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTEgMUw2IDZMMTEgMSIgc3Ryb2tlPSIjOEU4RTkzIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==);
+                width: 12px;
+                height: 8px;
             }
             QComboBox QAbstractItemView {
-                background-color: white;
-                color: #2C3E50;
-                border: 2px solid #FF453A;
-                border-radius: 8px;
-                selection-background-color: #FFFFFF;
-                selection-color: #FF453A;
-                padding: 4px;
+                background-color: #FFFFFF;
+                color: #1D1D1F;
+                border: 1px solid #D1D1D6;
+                border-radius: 12px;
+                selection-background-color: #007AFF;
+                selection-color: white;
+                padding: 4px 0;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                padding: 8px 16px;
+                min-height: 32px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: #F0F4FF;
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: #007AFF;
+                color: white;
             }
         """)
         self.record_mode_combo.currentTextChanged.connect(self.update_record_button_text)
@@ -8660,8 +8685,8 @@ class AutoRecorderApp(QMainWindow):
         
         table_widget.setRowCount(0)
         
-        combo_manager = ComboSkillManager(self)
-        combo_skills = combo_manager.combo_skills
+        # 暂时不加载组合技，避免崩溃
+        combo_skills = []
         
         running_skill_ids = set()
         running_skill_names = []
@@ -10222,4 +10247,45 @@ class AutoRecorderApp(QMainWindow):
             # print(f"保存快捷键配置失败: {e}")  # [日志已禁用]
             pass
 
-    d
+    def load_shortcut_config(self):
+        """加载快捷键配置"""
+        try:
+            config_path = os.path.join(self.user_data_dir, f'shortcuts_{self.current_user}.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.shortcuts = json.load(f)
+                    # print(f"快捷键配置加载成功: {self.shortcuts}")  # [日志已禁用]
+            else:
+                self.shortcuts = {}
+        except Exception:
+            self.shortcuts = {}
+
+    def update_shortcuts(self):
+        """更新快捷键 - 移除旧的并添加新的"""
+        try:
+            import keyboard
+            # 先清理旧的快捷键
+            for hotkey_id in getattr(self, 'shortcut_objects', []):
+                try:
+                    keyboard.remove_hotkey(hotkey_id)
+                except Exception:
+                    pass
+            self.shortcut_objects = []
+            
+            # 添加新的快捷键
+            for folder_path, shortcut_str in self.shortcuts.items():
+                try:
+                    def make_handler(path=folder_path):
+                        def handler():
+                            QTimer.singleShot(0, lambda: self.replay_folder_operations(path))
+                        return handler
+                    
+                    hotkey_id = keyboard.add_hotkey(shortcut_str, make_handler())
+                    self.shortcut_objects.append(hotkey_id)
+                    # print(f"成功注册快捷键: {shortcut_str} -> {folder_path}")  # [日志已禁用]
+                except Exception as e:
+                    # print(f"注册快捷键失败 {shortcut_str}: {e}")  # [日志已禁用]
+                    pass
+        except Exception as e:
+            # print(f"更新快捷键失败: {e}")  # [日志已禁用]
+            pass
