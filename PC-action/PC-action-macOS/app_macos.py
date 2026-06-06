@@ -937,11 +937,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             import traceback
             traceback.print_exc()
 
-    def open_combo_skill_editor(self):
-        """打开组合技编辑器（暂时禁用）"""
-        from PyQt5.QtWidgets import QMessageBox
-        QMessageBox.information(self, "提示", "组合技编辑功能暂时不可用")
-
     def initUI(self):
         desktop = QApplication.desktop()
         screen = QApplication.primaryScreen()

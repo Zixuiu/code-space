@@ -9241,7 +9241,25 @@ class AutoRecorderApp(QMainWindow):
     
     def edit_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中编辑组合技"""
-        QMessageBox.information(self, "提示", "组合技编辑功能暂时不可用")
+        if hasattr(self, '_edit_dialog_open') and self._edit_dialog_open:
+            return
+        self._edit_dialog_open = True
+        
+        try:
+            dialog = ComboSkillEditDialog(self, skill)
+            result = dialog.exec_()
+            if result == QDialog.Accepted:
+                skill_data = dialog.get_skill_data()
+                if skill_data:
+                    combo_manager = ComboSkillManager(self)
+                    for i, s in enumerate(combo_manager.combo_skills):
+                        if s.get('name') == skill.get('name'):
+                            combo_manager.combo_skills[i] = skill_data
+                            break
+                    combo_manager.save_combo_skills()
+                    self.load_combo_skills_to_table(table_widget)
+        finally:
+            self._edit_dialog_open = False
     
     def delete_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中删除组合技"""
@@ -10330,3 +10348,129 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             # print(f"更新快捷键失败: {e}")  # [日志已禁用]
             pass
+
+
+class ComboSkillManager:
+    def __init__(self, parent=None):
+        self.parent = parent
+        self.combo_skills = []
+        self.load_combo_skills()
+    
+    def get_combo_skills_path(self):
+        app_data_dir = os.path.join(os.path.expanduser('~'), 'PC-action', 'data')
+        os.makedirs(app_data_dir, exist_ok=True)
+        return os.path.join(app_data_dir, 'combo_skills.json')
+    
+    def load_combo_skills(self):
+        try:
+            path = self.get_combo_skills_path()
+            if os.path.exists(path):
+                from utils import load_json_data
+                self.combo_skills = load_json_data(path)
+            else:
+                self.combo_skills = []
+        except:
+            self.combo_skills = []
+    
+    def save_combo_skills(self):
+        try:
+            from utils import save_json_data
+            path = self.get_combo_skills_path()
+            save_json_data(path, self.combo_skills)
+        except:
+            pass
+
+
+class ComboSkillEditDialog(QDialog):
+    def __init__(self, parent=None, skill=None):
+        super().__init__(parent)
+        self.parent = parent
+        self.skill = skill
+        self.skill_data = {'name': '', 'flows': [], 'loop_count': 1, 'stop_shortcut': ''}
+        if skill:
+            self.skill_data = skill.copy()
+        self.init_ui()
+    
+    def init_ui(self):
+        self.setWindowTitle('编辑组合技' if self.skill else '新建组合技')
+        self.setMinimumSize(500, 400)
+        layout = QVBoxLayout(self)
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        name_layout = QHBoxLayout()
+        name_label = QLabel('组合技名称:')
+        name_label.setStyleSheet('font-weight: bold;')
+        self.name_input = QLineEdit()
+        self.name_input.setText(self.skill_data.get('name', ''))
+        name_layout.addWidget(name_label)
+        name_layout.addWidget(self.name_input)
+        layout.addLayout(name_layout)
+        
+        flow_layout = QVBoxLayout()
+        flow_label = QLabel('选择流程:')
+        flow_label.setStyleSheet('font-weight: bold;')
+        flow_layout.addWidget(flow_label)
+        
+        self.flow_list = QListWidget()
+        self.flow_list.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.load_available_flows()
+        flow_layout.addWidget(self.flow_list)
+        layout.addLayout(flow_layout)
+        
+        loop_layout = QHBoxLayout()
+        loop_label = QLabel('循环次数:')
+        loop_label.setStyleSheet('font-weight: bold;')
+        self.loop_spin = QSpinBox()
+        self.loop_spin.setRange(1, 999)
+        self.loop_spin.setValue(self.skill_data.get('loop_count', 1))
+        loop_layout.addWidget(loop_label)
+        loop_layout.addWidget(self.loop_spin)
+        layout.addLayout(loop_layout)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        cancel_btn = QPushButton('取消')
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addWidget(cancel_btn)
+        
+        ok_btn = QPushButton('确定')
+        ok_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(ok_btn)
+        
+        layout.addLayout(btn_layout)
+    
+    def load_available_flows(self):
+        try:
+            from database_helper import DatabaseHelper
+            db_helper = DatabaseHelper()
+            folders = db_helper.get_all_folders()
+            for folder in folders:
+                item = QListWidgetItem(folder.get('name', ''))
+                item.setData(Qt.UserRole, folder)
+                self.flow_list.addItem(item)
+            if self.skill and self.skill_data.get('flows'):
+                selected_names = [f.get('name') for f in self.skill_data['flows']]
+                for i in range(self.flow_list.count()):
+                    item = self.flow_list.item(i)
+                    if item.text() in selected_names:
+                        item.setSelected(True)
+        except:
+            pass
+    
+    def get_skill_data(self):
+        name = self.name_input.text().strip()
+        if not name:
+            QMessageBox.warning(self, '提示', '请输入组合技名称')
+            return None
+        selected_items = self.flow_list.selectedItems()
+        flows = [item.data(Qt.UserRole) for item in selected_items if item.data(Qt.UserRole)]
+        if not flows:
+            QMessageBox.warning(self, '提示', '请至少选择一个流程')
+            return None
+        return {'name': name, 'flows': flows, 'loop_count': self.loop_spin.value(), 'stop_shortcut': ''}
+    
+    def accept(self):
+        if self.get_skill_data():
+            super().accept()
