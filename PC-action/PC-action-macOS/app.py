@@ -2063,21 +2063,24 @@ class FolderManager(QDialog):
                 if at.startswith("按键:"):
                     kw = QLabel(f"⌨️ {at.replace('按键: ','')}")
                     kw.setFixedSize(ACT_W, control_height)
-                    kw.setStyleSheet(f"QLabel {{ background: #007AFF; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    kw.setStyleSheet(f"QLabel {{ background: #007AFF; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
+                    kw.setCursor(Qt.PointingHandCursor)
                     kw.setAlignment(Qt.AlignCenter)
                     kw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_key_input_dialog(idx, fp)
                     row_layout.addWidget(kw)
                 elif at.startswith("滚动:"):
                     sw = QLabel(f"🔄 {at.replace('滚动: ','')}")
                     sw.setFixedSize(ACT_W, control_height)
-                    sw.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    sw.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
+                    sw.setCursor(Qt.PointingHandCursor)
                     sw.setAlignment(Qt.AlignCenter)
                     sw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_scroll_input_dialog(idx, fp)
                     row_layout.addWidget(sw)
                 elif at.startswith("文本:"):
                     tw_w = QLabel(f"📝 {at.replace('文本: ','')}")
                     tw_w.setFixedSize(ACT_W, control_height)
-                    tw_w.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; cursor: pointer; }}")
+                    tw_w.setStyleSheet(f"QLabel {{ background: #8E8E93; color: #FFFFFF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
+                    tw_w.setCursor(Qt.PointingHandCursor)
                     tw_w.setAlignment(Qt.AlignCenter)
                     tw_w.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_text_input_dialog(idx, fp)
                     row_layout.addWidget(tw_w)
@@ -4782,6 +4785,56 @@ class AutoRecorderApp(QMainWindow):
         
         # 更新状态显示
         self.update_status_display()
+    
+    def show_beautiful_message(self, msg_type, title, text, buttons=None, default_button=None, parent=None):
+        """
+        显示美化的消息框
+        
+        msg_type: 'information', 'warning', 'critical', 'question'
+        title: 标题
+        text: 内容
+        buttons: 按钮组合
+        default_button: 默认按钮
+        parent: 父窗口
+        """
+        from PyQt5.QtWidgets import QMessageBox
+        from styles import get_message_box_style
+        
+        if parent is None:
+            parent = self
+        
+        msg_box = QMessageBox(parent)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(text)
+        
+        # 应用美化样式
+        style = get_message_box_style()
+        msg_box.setStyleSheet(style)
+        
+        # 设置消息框类型
+        if msg_type == 'information':
+            msg_box.setIcon(QMessageBox.Information)
+        elif msg_type == 'warning':
+            msg_box.setIcon(QMessageBox.Warning)
+        elif msg_type == 'critical':
+            msg_box.setIcon(QMessageBox.Critical)
+        elif msg_type == 'question':
+            msg_box.setIcon(QMessageBox.Question)
+        
+        # 设置按钮
+        if buttons is None:
+            if msg_type == 'question':
+                buttons = QMessageBox.Yes | QMessageBox.No
+                default_button = QMessageBox.No
+            else:
+                buttons = QMessageBox.Ok
+                default_button = QMessageBox.Ok
+        
+        msg_box.setStandardButtons(buttons)
+        if default_button:
+            msg_box.setDefaultButton(default_button)
+        
+        return msg_box.exec_()
     
     def showEvent(self, event):
         super().showEvent(event)
@@ -9188,25 +9241,7 @@ class AutoRecorderApp(QMainWindow):
     
     def edit_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中编辑组合技"""
-        if hasattr(self, '_edit_dialog_open') and self._edit_dialog_open:
-            return
-        self._edit_dialog_open = True
-        
-        try:
-            dialog = ComboSkillEditDialog(self, skill)
-            result = dialog.exec_()
-            if result == QDialog.Accepted:
-                skill_data = dialog.get_skill_data()
-                if skill_data:
-                    combo_manager = ComboSkillManager(self)
-                    for i, s in enumerate(combo_manager.combo_skills):
-                        if s.get('name') == skill.get('name'):
-                            combo_manager.combo_skills[i] = skill_data
-                            break
-                    combo_manager.save_combo_skills()
-                    self.load_combo_skills_to_table(table_widget)
-        finally:
-            self._edit_dialog_open = False
+        QMessageBox.information(self, "提示", "组合技编辑功能暂时不可用")
     
     def delete_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中删除组合技"""
@@ -9354,17 +9389,23 @@ class AutoRecorderApp(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"设置快捷键失败: {e}")
     
-    def open_combo_skill_editor(self):
+    def open_combo_skill_editor(self, skill=None):
         """打开组合技编辑器"""
-        dialog = ComboSkillEditDialog(self)
+        dialog = ComboSkillEditDialog(self, skill)
         if dialog.exec_() == QDialog.Accepted:
             skill_data = dialog.get_skill_data()
             if skill_data:
-                # 保存组合技
                 combo_manager = ComboSkillManager(self)
-                combo_manager.combo_skills.append(skill_data)
+                if skill:
+                    # 编辑现有组合技
+                    for i, s in enumerate(combo_manager.combo_skills):
+                        if s.get('name') == skill.get('name'):
+                            combo_manager.combo_skills[i] = skill_data
+                            break
+                else:
+                    # 新建组合技
+                    combo_manager.combo_skills.append(skill_data)
                 combo_manager.save_combo_skills()
-                # 刷新列表
                 if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                     self.load_combo_skills_to_table(self.combo_tab.combo_table)
     

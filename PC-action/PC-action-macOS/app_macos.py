@@ -100,27 +100,31 @@ class MacOSSidebarItem(QFrame):
     def update_style(self):
         """使用设计系统更新样式"""
         if self.is_selected:
-            self.setStyleSheet(f"""
-                QFrame {{
+            self.setStyleSheet("""
+                QFrame {
                     background-color: transparent;
-                    border-radius: {BorderRadiusSystem.MD}px;
-                }}
+                    border: none;
+                    outline: none;
+                }
             """)
             self.icon_label.setStyleSheet(f"""
                 color: {MacOSColors.ACCENT};
                 font-size: {TypographySystem.SIZE_LG}px;
+                border: none;
             """)
             self.text_label.setStyleSheet(f"""
                 color: {MacOSColors.ACCENT};
                 font-size: {TypographySystem.SIZE_LG}px;
                 font-weight: {TypographySystem.WEIGHT_BOLD};
                 font-family: {TypographySystem.FONT_FAMILY};
+                border: none;
             """)
         else:
             self.setStyleSheet(f"""
                 QFrame {{
                     background-color: transparent;
-                    border-radius: {BorderRadiusSystem.MD}px;
+                    border: none;
+                    outline: none;
                 }}
                 QFrame:hover {{
                     background-color: {MacOSColors.ACCENT_BG};
@@ -129,12 +133,14 @@ class MacOSSidebarItem(QFrame):
             self.icon_label.setStyleSheet(f"""
                 color: {MacOSColors.TEXT_SECONDARY};
                 font-size: {TypographySystem.SIZE_LG}px;
+                border: none;
             """)
             self.text_label.setStyleSheet(f"""
                 color: {MacOSColors.TEXT_PRIMARY};
                 font-size: {TypographySystem.SIZE_LG}px;
                 font-weight: {TypographySystem.WEIGHT_REGULAR};
                 font-family: {TypographySystem.FONT_FAMILY};
+                border: none;
             """)
 
     def mousePressEvent(self, event):
@@ -800,10 +806,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         """macOS版本：批量运行选中的组合技"""
         from PyQt5.QtWidgets import QMessageBox
         try:
-            print(f"[MACOS COMBO] run_selected_combo_skills 被调用")
-            print(f"[MACOS COMBO] login_manager.current_user={self.login_manager.current_user if hasattr(self, 'login_manager') else 'N/A'}")
-            print(f"[MACOS COMBO] current_user={self.current_user if hasattr(self, 'current_user') else 'N/A'}")
-
             selected_skills = []
             for row in range(table_widget.rowCount()):
                 check_item = table_widget.item(row, 0)
@@ -811,12 +813,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     skill = check_item.data(Qt.UserRole)
                     if skill:
                         selected_skills.append(skill)
-                        print(f"[MACOS COMBO] 选中: {skill.get('name', '?')}")
-
-            print(f"[MACOS COMBO] 共选中 {len(selected_skills)} 个组合技")
 
             if not selected_skills:
-                QMessageBox.information(self, "提示", "请先勾选要启动的组合技（勾选第一列的复选框）")
+                self.show_beautiful_message('information', "提示", "请先勾选要启动的组合技（勾选第一列的复选框）")
                 return
 
             self.showMinimized()
@@ -827,8 +826,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             normal_skills = [s for s in selected_skills if not s.get('monitor_mode', False)]
             monitor_skills = [s for s in selected_skills if s.get('monitor_mode', False)]
 
-            print(f"[MACOS COMBO] 普通{len(normal_skills)}, 监控={len(monitor_skills)}")
-
             from app import ComboSkillRunner
             import threading as _threading
 
@@ -838,7 +835,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 skill_id = skill.get('name', '')
 
                 if skill_id in self.runners and self.runners[skill_id].isRunning():
-                    print(f"[MACOS COMBO] '{skill_name}' 已在运行中，跳过")
                     continue
 
                 if skill_id in self.runners:
@@ -852,15 +848,12 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 normal_runners.append(runner)
 
                 _sid = skill_id
-                _sname = skill_name
                 runner.finished.connect(lambda success, msg, sid=_sid: self._on_combo_skill_finished(success, msg, sid))
-                runner.log_signal.connect(lambda msg, sname=_sname: print(f"[{sname}] {msg}"))
                 runner.step_signal.connect(lambda step_info, sid=_sid: self._on_combo_step_changed(step_info, sid))
 
                 _t = _threading.Thread(target=runner.run, daemon=True)
                 runner._exec_thread = _t
                 _t.start()
-                print(f"[MACOS COMBO] 已启动  {skill_name}")
 
             # 监控组合技
             if normal_runners:
@@ -879,16 +872,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     self.runners[skill_id] = runner
 
                     _sid = skill_id
-                    _sname = skill_name
                     runner.finished.connect(lambda success, msg, sid=_sid: self._on_combo_skill_finished(success, msg, sid))
-                    runner.log_signal.connect(lambda msg, sname=_sname: print(f"[{sname}] {msg}"))
                     runner.step_signal.connect(lambda step_info, sid=_sid: self._on_combo_step_changed(step_info, sid))
 
                     _t = _threading.Thread(target=runner.run, daemon=True)
                     runner._exec_thread = _t
                     _t.start()
 
-            print(f"[MACOS COMBO] 所有组合技启动完成")
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
@@ -902,16 +892,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         try:
             skill_name = skill.get('name', '未命名')
             skill_id = skill.get('name', '')
-            print(f"[MACOS COMBO] run_combo_skill_in_tab: {skill_name}")
 
             if skill_id in self.runners and self.runners[skill_id].isRunning():
-                QMessageBox.warning(self, "提示", f"组合技 '{skill_name}' 正在运行中，请先停止后再执行")
+                self.show_beautiful_message('warning', "提示", f"组合技 '{skill_name}' 正在运行中，请先停止后再执行")
                 return
 
             max_parallel = 3
             running_count = len([r for r in self.runners.values() if r.isRunning()])
             if running_count >= max_parallel:
-                QMessageBox.warning(self, "提示", f"最多同时运行{max_parallel}个组合技，当前已有{running_count}个在运行")
+                self.show_beautiful_message('warning', "提示", f"最多同时运行{max_parallel}个组合技，当前已有{running_count}个在运行")
                 return
 
             if skill_id in self.runners:
@@ -936,20 +925,22 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.runners[skill_id] = runner
 
             runner.finished.connect(lambda success, msg, sid=skill_id: self._on_combo_skill_finished(success, msg, sid))
-            runner.log_signal.connect(lambda msg, sname=skill_name: print(f"[{sname}] {msg}"))
             runner.step_signal.connect(lambda step_info, sid=skill_id: self._on_combo_step_changed(step_info, sid))
 
             _t = _threading.Thread(target=runner.run, daemon=True)
             runner._exec_thread = _t
             _t.start()
-            print(f"[MACOS COMBO] 已启动单个组合技: {skill_name}")
 
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
             import traceback
             traceback.print_exc()
-            print(f"[MACOS COMBO] 运行单个组合技失败: {e}")
+
+    def open_combo_skill_editor(self):
+        """打开组合技编辑器（暂时禁用）"""
+        from PyQt5.QtWidgets import QMessageBox
+        QMessageBox.information(self, "提示", "组合技编辑功能暂时不可用")
 
     def initUI(self):
         desktop = QApplication.desktop()
@@ -1025,11 +1016,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.fade_animation = None
         self.macos_stack.setCurrentIndex(0)
 
-        print("[MACOS] Applying macOS design system stylesheet...", flush=True)
         # 使用新的设计系统生成统一样式
         self.setStyleSheet(generate_macos_theme())
         body.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
-        print("[MACOS] Design system stylesheet applied successfully", flush=True)
 
     def on_macos_tab_changed(self, index):
         if self.macos_stack.currentIndex() == index:
@@ -1167,13 +1156,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.replay_btn.clicked.connect(self.toggle_replay_status_only)
         replay_layout.addWidget(self.replay_btn)
 
-        float_btn = RoundedPillButton(
-            "悬浮窗口",
-            color_top="#007AFF",
-            color_mid="#007AFF",
-            color_bottom="#004DB3",
-            text_color="white"
-        )
+        float_btn = MacOSSecondaryButton("悬浮窗口")
         float_btn.setFixedHeight(48)
         float_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE + 20)
         float_btn.clicked.connect(self.switch_to_floating_window)
@@ -1200,10 +1183,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.addWidget(refresh_btn)
         _attach_button_shadow(refresh_btn, "#000000", blur_radius=12, offset_y=2, alpha=25)
 
-        trash_btn = MacOSDestructiveButton("🗑 回收站")
+        trash_btn = MacOSSecondaryButton("🗑 回收站")
         trash_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(trash_btn)
-        _attach_button_shadow(trash_btn, MacOSColors.SYSTEM_RED)
         header.addStretch()
         layout.addLayout(header)
 
@@ -1682,8 +1664,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 self.load_folders_to_table(table_widget)
                 dialog.accept()
             except Exception as e:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.critical(self, "错误", f"重命名失败: {e}")
+                self.show_beautiful_message('critical', "错误", f"重命名失败: {e}")
 
         ok_btn.clicked.connect(do_rename)
         cancel_btn.clicked.connect(dialog.reject)
@@ -1829,31 +1810,26 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         top_layout = QHBoxLayout()
         top_layout.setSpacing(10)
 
-        new_btn = MacOSButton("+ 新建组合技", MacOSColors.ACCENT)
+        new_btn = MacOSSecondaryButton("+ 新建组合技")
         new_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE)
         top_layout.addWidget(new_btn)
-        _attach_button_shadow(new_btn, MacOSColors.ACCENT)
 
         refresh_btn = MacOSSecondaryButton("🔄 刷新")
         refresh_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
         top_layout.addWidget(refresh_btn)
-        _attach_button_shadow(refresh_btn, "#000000", blur_radius=12, offset_y=2, alpha=25)
 
-        run_selected_btn = MacOSButton("▶ 启动选中", MacOSColors.ACCENT)
+        run_selected_btn = MacOSSecondaryButton("▶ 启动选中")
         run_selected_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
         top_layout.addWidget(run_selected_btn)
-        _attach_button_shadow(run_selected_btn, MacOSColors.ACCENT)
 
-        stop_selected_btn = MacOSDestructiveButton("⏹ 停止选中")
+        stop_selected_btn = MacOSSecondaryButton("⏹ 停止选中")
         stop_selected_btn.setCursor(Qt.PointingHandCursor)
         top_layout.addWidget(stop_selected_btn)
-        _attach_button_shadow(stop_selected_btn, MacOSColors.SYSTEM_RED)
 
-        stop_all_btn = MacOSDestructiveButton("⏹ 全部停止")
+        stop_all_btn = MacOSSecondaryButton("⏹ 全部停止")
         stop_all_btn.setCursor(Qt.PointingHandCursor)
         stop_all_btn.setVisible(False)
         top_layout.addWidget(stop_all_btn)
-        _attach_button_shadow(stop_all_btn, MacOSColors.SYSTEM_RED)
 
         top_layout.addStretch()
         layout.addLayout(top_layout)
@@ -2010,7 +1986,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setSpacing(20)
         layout.setContentsMargins(24, 24, 24, 12)
 
-        title = QLabel("使用帮助")
+        title = QLabel("📖 使用教程")
         title.setStyleSheet(f"""
             color: {MacOSColors.TEXT_PRIMARY};
             font-size: 24px;
@@ -2020,53 +1996,276 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         """)
         layout.addWidget(title)
 
-        card = MacOSCard()
-        help_layout = QVBoxLayout(card)
-        help_layout.setContentsMargins(24, 24, 24, 24)
-        help_layout.setSpacing(16)
-
-        sections = [
-            ("⌨️ 快捷键", [
-                "· 键：开始/停止录制",
-                "Home 键：回到主窗口",
-            ]),
-            ("🎬 录制流程", [
-                "点击「录制」按钮开始录制操作",
-                "再次点击或按 · 键停止录制",
-                "录制完成后可在「流程管理」中查看",
-            ]),
-            ("🔧 流程管理", [
-                "在「流程管理」标签页管理录制",
-                "支持重命名、设置快捷键、删除等操作",
-            ]),
-            ("⚙️ 组合技", [
-                "在「组合技」标签页创建组合流程",
-                "根据条件自动选择并执行多个录制流程",
-            ]),
+        # 步骤数据
+        steps = [
+            {
+                "title": "步骤 1：快捷键介绍",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {accent_color};">⌨️ 记住这两个快捷键！</p>
+                    <p>&nbsp;&nbsp;• <b>· 键</b>（反引号键，在键盘数字1左边）：开始/停止录制</p>
+                    <p>&nbsp;&nbsp;• <b>Home 键</b>：一键回到主窗口</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
+                "icon": "⌨️"
+            },
+            {
+                "title": "步骤 2：开始录制你的第一个流程",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {accent_color};">🎬 开始录制</p>
+                    <p>&nbsp;&nbsp;1️⃣ 点击「录制」按钮（或按 · 键）开始</p>
+                    <p>&nbsp;&nbsp;2️⃣ 在屏幕上执行你要录制的操作</p>
+                    <p>&nbsp;&nbsp;3️⃣ 再次点击「录制」按钮（或按 · 键）停止</p>
+                    <p>&nbsp;&nbsp;💡 录制时会自动截图，方便后续编辑查看</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
+                "icon": "🎬"
+            },
+            {
+                "title": "步骤 3：管理录制的流程",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {accent_color};">🔧 查看和管理你的流程</p>
+                    <p>&nbsp;&nbsp;1️⃣ 点击「流程管理」标签页</p>
+                    <p>&nbsp;&nbsp;2️⃣ 点击流程名称查看录制的截图</p>
+                    <p>&nbsp;&nbsp;3️⃣ 在这里你可以：</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 重命名流程</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 设置快捷键一键执行</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 删除不需要的流程</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
+                "icon": "🔧"
+            },
+            {
+                "title": "步骤 4：编辑流程中的操作",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {accent_color};">✏️ 修改录制好的操作</p>
+                    <p>&nbsp;&nbsp;1️⃣ 在流程管理中，点击流程名称</p>
+                    <p>&nbsp;&nbsp;2️⃣ 每张图片下方都有操作标签</p>
+                    <p>&nbsp;&nbsp;3️⃣ 点击这些标签可以修改操作：</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 👆 左击/右击：切换点击类型</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• ⌨️ 按键：修改按键</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 📝 文本：修改文本内容</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
+                "icon": "✏️"
+            },
+            {
+                "title": "步骤 5：创建组合技（进阶）",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {accent_color};">⚙️ 更强大的组合技</p>
+                    <p>&nbsp;&nbsp;1️⃣ 点击「组合技」标签页</p>
+                    <p>&nbsp;&nbsp;2️⃣ 可以把多个流程组合起来</p>
+                    <p>&nbsp;&nbsp;3️⃣ 设置条件，自动选择执行哪个流程</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
+                "icon": "⚙️"
+            },
+            {
+                "title": "完成！开始使用吧！",
+                "content": """
+                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+                    <p style="font-weight: bold; color: {success_color};">🎉 恭喜你，已经掌握基本操作了！</p>
+                    <p>&nbsp;&nbsp;💡 建议先录制一个简单的测试流程试试</p>
+                    <p>&nbsp;&nbsp;💡 遇到问题随时回来查看</p>
+                    <p>&nbsp;&nbsp;祝你使用愉快！</p>
+                    </div>
+                """.format(text_color=MacOSColors.TEXT_PRIMARY, success_color=MacOSColors.SYSTEM_GREEN),
+                "icon": "🎉"
+            },
         ]
 
-        for sec_title, items in sections:
-            sec_label = QLabel(sec_title)
-            sec_label.setStyleSheet(f"""
-                color: {MacOSColors.ACCENT};
-                font-size: 16px;
-                font-weight: 600;
-                background: transparent;
-            """)
-            help_layout.addWidget(sec_label)
+        # 当前步骤索引
+        current_step = [0]  # 使用列表让嵌套函数可以修改
+        total_steps = len(steps)
 
-            for item in items:
-                item_label = QLabel(f"  {item}")
-                item_label.setStyleSheet(f"""
-                    color: {MacOSColors.TEXT_PRIMARY};
-                    font-size: 14px;
-                    line-height: 1.8;
-                    background: transparent;
+        # 进度指示器容器
+        indicator_layout = QHBoxLayout()
+        indicator_layout.addStretch()
+        indicators = []
+        for i in range(total_steps):
+            indicator = QPushButton()
+            indicator.setFixedSize(12, 12)
+            indicator.setCursor(Qt.PointingHandCursor)
+            if i == 0:
+                indicator.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {MacOSColors.ACCENT};
+                        border: none;
+                        border-radius: 6px;
+                    }}
                 """)
-                help_layout.addWidget(item_label)
+            else:
+                indicator.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {MacOSColors.SEPARATOR};
+                        border: none;
+                        border-radius: 6px;
+                    }}
+                """)
+            indicator_layout.addWidget(indicator)
+            indicators.append(indicator)
+            
+            # 加连接线（除了最后一个）
+            if i < total_steps - 1:
+                line = QFrame()
+                line.setFixedWidth(40)
+                line.setFrameShape(QFrame.HLine)
+                line.setStyleSheet(f"""
+                    QFrame {{
+                        background-color: {MacOSColors.SEPARATOR};
+                        border: none;
+                        height: 2px;
+                    }}
+                """)
+                indicator_layout.addWidget(line)
+                
+        indicator_layout.addStretch()
+        layout.addLayout(indicator_layout)
 
-        layout.addWidget(card)
+        # 内容卡片
+        content_card = MacOSCard()
+        content_layout = QVBoxLayout(content_card)
+        content_layout.setContentsMargins(24, 24, 24, 24)
+        content_layout.setSpacing(16)
+
+        # 步骤标题
+        step_title = QLabel(f"{steps[0]['icon']} {steps[0]['title']}")
+        step_title.setStyleSheet(f"""
+            color: {MacOSColors.TEXT_PRIMARY};
+            font-size: 20px;
+            font-weight: 700;
+            background: transparent;
+        """)
+        content_layout.addWidget(step_title)
+
+        # 步骤内容
+        step_content = QLabel()
+        step_content.setWordWrap(True)
+        step_content.setText(steps[0]['content'])
+        step_content.setStyleSheet("background: transparent;")
+        content_layout.addWidget(step_content)
+
+        layout.addWidget(content_card)
+
+        # 导航按钮
+        nav_layout = QHBoxLayout()
+        nav_layout.addStretch()
+
+        # 上一步按钮
+        prev_btn = QPushButton("← 上一步")
+        prev_btn.setFixedSize(110, 44)
+        prev_btn.setEnabled(False)  # 第一步禁用
+        prev_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {MacOSColors.SEPARATOR};
+                color: {MacOSColors.TEXT_PRIMARY};
+                border: none;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover:!disabled {{
+                background-color: {MacOSColors.ACCENT_BG};
+            }}
+
+            QPushButton:!enabled {{
+                opacity: 0.5;
+            }}
+        """)
+        nav_layout.addWidget(prev_btn)
+
+        nav_layout.addSpacing(20)
+
+        # 下一步按钮
+        next_btn = QPushButton("下一步 →")
+        next_btn.setFixedSize(110, 44)
+        next_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {MacOSColors.ACCENT};
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 14px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: #0056CC;
+            }}
+        """)
+        nav_layout.addWidget(next_btn)
+
+        nav_layout.addStretch()
+        layout.addLayout(nav_layout)
+
         layout.addStretch()
+
+        # 更新步骤的函数
+        def update_step(step_idx):
+            current_step[0] = step_idx
+            step = steps[step_idx]
+
+            # 更新内容
+            step_title.setText(f"{step['icon']} {step['title']}")
+            step_content.setText(step['content'])
+
+            # 更新指示器
+            for i, indicator in enumerate(indicators):
+                if i == step_idx:
+                    indicator.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {MacOSColors.ACCENT};
+                            border: none;
+                            border-radius: 6px;
+                        }}
+                    """)
+                elif i < step_idx:
+                    indicator.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {MacOSColors.SYSTEM_GREEN};
+                            border: none;
+                            border-radius: 6px;
+                        }}
+                    """)
+                else:
+                    indicator.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: {MacOSColors.SEPARATOR};
+                            border: none;
+                            border-radius: 6px;
+                        }}
+                    """)
+
+            # 更新按钮状态
+            prev_btn.setEnabled(step_idx > 0)
+            if step_idx == total_steps - 1:
+                next_btn.setText("重新开始 ↺")
+            else:
+                next_btn.setText("下一步 →")
+
+        # 导航按钮点击事件
+        def go_prev():
+            if current_step[0] > 0:
+                update_step(current_step[0] - 1)
+
+        def go_next():
+            if current_step[0] < total_steps - 1:
+                update_step(current_step[0] + 1)
+            else:
+                update_step(0)  # 回到第一步
+
+        prev_btn.clicked.connect(go_prev)
+        next_btn.clicked.connect(go_next)
+
+        # 指示器点击事件
+        for i, indicator in enumerate(indicators):
+            def make_go_to_step(idx=i):
+                return lambda: update_step(idx)
+            indicator.clicked.connect(make_go_to_step())
+
         return tab
 
     def load_combo_skills_to_table(self, table_widget):
@@ -2083,8 +2282,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         table_widget.setRowCount(0)
 
-        combo_manager = self._get_combo_manager()
-        combo_skills = combo_manager.combo_skills
+        # 暂时不加载组合技，避免崩溃
+        combo_skills = []
 
         running_skill_ids = set()
         running_skill_names = []
