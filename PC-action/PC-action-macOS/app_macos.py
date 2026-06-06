@@ -277,8 +277,13 @@ class MacOSButton(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
         self.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        self.setAutoFillBackground(True)
+        # 移除自动填充背景，避免与样式表冲突
+        self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, True)
+        # 确保颜色值正确处理透明度
+        hover_color = self._adjust_color_opacity(color, 0.93)
+        pressed_color = self._adjust_color_opacity(color, 0.8)
+        disabled_color = self._adjust_color_opacity(color, 0.4)
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: {color};
@@ -289,19 +294,34 @@ class MacOSButton(QPushButton):
                 font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
                 font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
+                min-height: {ButtonSize.HEIGHT_REGULAR}px;
             }}
             QPushButton:hover {{
-                background-color: {color}EE;
+                background-color: {hover_color};
             }}
             QPushButton:pressed {{
-                background-color: {color}CC;
+                background-color: {pressed_color};
                 padding-top: 2px;
             }}
             QPushButton:disabled {{
-                background-color: {color}66;
+                background-color: {disabled_color};
                 color: rgba(255, 255, 255, 0.7);
             }}
         """)
+    
+    @staticmethod
+    def _adjust_color_opacity_static(color_hex, opacity):
+        """调整颜色透明度，返回有效的8位十六进制颜色值"""
+        color_hex = color_hex.lstrip('#')
+        if len(color_hex) == 6:
+            # 标准6位颜色，添加透明度
+            alpha = hex(int(opacity * 255))[2:].upper().zfill(2)
+            return f"#{color_hex}{alpha}"
+        return color_hex
+    
+    def _adjust_color_opacity(self, color_hex, opacity):
+        """调整颜色透明度，返回有效的8位十六进制颜色值"""
+        return MacOSButton._adjust_color_opacity_static(color_hex, opacity)
 
 
 class MacOSDestructiveButton(QPushButton):
@@ -311,11 +331,15 @@ class MacOSDestructiveButton(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
         self.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        self.setAutoFillBackground(True)
+        self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, True)
+        color = MacOSColors.SYSTEM_RED
+        hover_color = MacOSButton._adjust_color_opacity_static(color, 0.93)
+        pressed_color = MacOSButton._adjust_color_opacity_static(color, 0.8)
+        disabled_color = MacOSButton._adjust_color_opacity_static(color, 0.4)
         self.setStyleSheet(f"""
             QPushButton {{
-                background-color: {MacOSColors.SYSTEM_RED};
+                background-color: {color};
                 color: white;
                 border: none;
                 border-radius: {BorderRadiusSystem.MD}px;
@@ -323,16 +347,17 @@ class MacOSDestructiveButton(QPushButton):
                 font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
                 font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
+                min-height: {ButtonSize.HEIGHT_REGULAR}px;
             }}
             QPushButton:hover {{
-                background-color: {MacOSColors.SYSTEM_RED}EE;
+                background-color: {hover_color};
             }}
             QPushButton:pressed {{
-                background-color: {MacOSColors.SYSTEM_RED}CC;
+                background-color: {pressed_color};
                 padding-top: 2px;
             }}
             QPushButton:disabled {{
-                background-color: {MacOSColors.SYSTEM_RED}66;
+                background-color: {disabled_color};
                 color: rgba(255, 255, 255, 0.7);
             }}
         """)
@@ -345,7 +370,7 @@ class MacOSSecondaryButton(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
         self.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        self.setAutoFillBackground(True)
+        self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, True)
         self.setStyleSheet(f"""
             QPushButton {{
@@ -357,6 +382,7 @@ class MacOSSecondaryButton(QPushButton):
                 font-weight: {TypographySystem.WEIGHT_MEDIUM};
                 font-family: {TypographySystem.FONT_FAMILY};
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
+                min-height: {ButtonSize.HEIGHT_REGULAR}px;
             }}
             QPushButton:hover {{
                 background-color: #F0F0F2;
@@ -1135,13 +1161,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         replay_layout.setSpacing(16)
         replay_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.replay_btn = RoundedPillButton(
-            "▶ 开始回放",
-            color_top="#FFFFFF",
-            color_mid="#F8F8FA",
-            color_bottom="#E8E8ED",
-            text_color=MacOSColors.TEXT_PRIMARY
-        )
+        self.replay_btn = MacOSSecondaryButton("▶ 开始回放")
         self.replay_btn.setFixedHeight(48)
         self.replay_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE + 20)
         self.replay_btn.clicked.connect(self.toggle_replay_status_only)
