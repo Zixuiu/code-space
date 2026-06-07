@@ -18,7 +18,7 @@
   {
     "step": 3,
     "action_type": "keyboard",
-    "key": "enter",
+    "key": "esc",
     "delay": 0
   }
 ]

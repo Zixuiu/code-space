@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (QDialog, QLabel, QLineEdit, QPushButton,
 from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QThread
 from PyQt5.QtGui import QFont, QIcon, QFontDatabase
 from utils import is_valid_email, get_screen_size, apply_styles_to_dialog, get_common_dialog_style, generate_random_username, validate_password_requirements, STYLES_AVAILABLE, create_styled_button, create_styled_input
+from beautiful_dialog import StyledMessageDialog
 
 try:
     from styles import generate_dynamic_styles, apply_dialog_style, PRIMARY_GRADIENT, SECONDARY, ACCENT, BG, CARD, TEXT, MUTED, BORDER
@@ -758,51 +759,49 @@ class LoginDialog(QDialog):
 
         # 基本验证
         if not username:
-            QMessageBox.warning(self, "警告", "请输入用户名")
+            StyledMessageDialog(self, title="警告", text="请输入用户名", msg_type="warning", buttons="ok").exec_()
             return
 
         if not password:
-            QMessageBox.warning(self, "警告", "请输入密码")
+            StyledMessageDialog(self, title="警告", text="请输入密码", msg_type="warning", buttons="ok").exec_()
             return
 
         if password != confirm_password:
-            QMessageBox.warning(self, "警告", "两次输入的密码不一致")
+            StyledMessageDialog(self, title="警告", text="两次输入的密码不一致", msg_type="warning", buttons="ok").exec_()
             return
 
         if not email:
-            QMessageBox.warning(self, "警告", "请输入邮箱")
+            StyledMessageDialog(self, title="警告", text="请输入邮箱", msg_type="warning", buttons="ok").exec_()
             return
 
         if not is_valid_email(email):
-            QMessageBox.warning(self, "警告", "请输入有效的邮箱地址")
+            StyledMessageDialog(self, title="警告", text="请输入有效的邮箱地址", msg_type="warning", buttons="ok").exec_()
             return
 
         # 密码强度检查
         strength_text, _ = self._calculate_password_strength(password)
         if strength_text == "弱":
-            reply = QMessageBox.question(self, "密码强度提示", 
-                                       "您的密码强度较弱，建议使用包含大小写字母、数字和特殊字符的密码。\n是否继续注册？",
-                                       QMessageBox.Yes | QMessageBox.No)
-            if reply == QMessageBox.No:
+            reply = StyledMessageDialog(self, title="密码强度提示", text="您的密码强度较弱，建议使用包含大小写字母、数字和特殊字符的密码。\n是否继续注册？", msg_type="question", buttons="yes_no").exec_()
+            if dlg.get_result() == StyledMessageDialog.NO:
                 return
 
         # 验证码检查（如果需要）
         if not self.skip_verification and not verification_code:
-            QMessageBox.warning(self, "警告", "请输入验证码")
+            StyledMessageDialog(self, title="警告", text="请输入验证码", msg_type="warning", buttons="ok").exec_()
             return
 
         # 执行注册
         success, message = self.login_manager.register(username, password, email, verification_code)
         
         if success:
-            QMessageBox.information(self, "注册成功", message)
+            StyledMessageDialog(self, title="注册成功", text=message, msg_type="information", buttons="ok").exec_()
             # 保存注册信息以便登录时自动填充
             self.registered_username = username
             self.registered_password = password
             # 跳转到登录页面
             self.show_login_page()
         else:
-            QMessageBox.warning(self, "注册失败", message)
+            StyledMessageDialog(self, title="注册失败", text=message, msg_type="warning", buttons="ok").exec_()
 
     def toggle_register_password_visibility(self, checked):
         """切换注册密码可见性"""
@@ -895,7 +894,7 @@ class LoginDialog(QDialog):
             self.accept()  # 自动关闭登录对话框
         else:
             # 显示来自服务器的实际错误信息
-            QMessageBox.warning(self, "登录失败", message)
+            StyledMessageDialog(self, title="登录失败", text=message, msg_type="warning", buttons="ok").exec_()
 
     def get_current_user(self):
         """获取当前用户名
@@ -910,11 +909,11 @@ class LoginDialog(QDialog):
         email = self.register_email.text().strip()
 
         if not email:
-            QMessageBox.warning(self, "警告", "请输入邮箱地址")
+            StyledMessageDialog(self, title="警告", text="请输入邮箱地址", msg_type="warning", buttons="ok").exec_()
             return
 
         if not is_valid_email(email):
-            QMessageBox.warning(self, "警告", "请输入有效的邮箱地址")
+            StyledMessageDialog(self, title="警告", text="请输入有效的邮箱地址", msg_type="warning", buttons="ok").exec_()
             return
 
         # 防止重复点击
@@ -935,11 +934,11 @@ class LoginDialog(QDialog):
         if success:
             if code:
                 # 显示验证码在对话框中
-                QMessageBox.information(self, "验证码已生成", f"验证码: {code}\n\n验证码有效期为10分钟，请及时使用。")
+                StyledMessageDialog(self, title="验证码已生成", text=f"验证码: {code}\n\n验证码有效期为10分钟，请及时使用。", msg_type="information", buttons="ok").exec_()
                 # 自动填充验证码
                 self.verification_code_input.setText(code)
             else:
-                QMessageBox.information(self, "验证码已发送", "验证码已成功发送到您的邮箱，请查收")
+                StyledMessageDialog(self, title="验证码已发送", text="验证码已成功发送到您的邮箱，请查收", msg_type="information", buttons="ok").exec_()
             # 设置60秒倒计时
             self.countdown = 60
             self.register_timer = QTimer(self)
@@ -947,7 +946,7 @@ class LoginDialog(QDialog):
             self.register_timer.start(1000)  # 每秒触发一次
             self.get_code_button.setText(f"重新发送({self.countdown})")
         else:
-            QMessageBox.warning(self, "发送失败", msg)
+            StyledMessageDialog(self, title="发送失败", text=msg, msg_type="warning", buttons="ok").exec_()
             self.get_code_button.setEnabled(True)
             self.get_code_button.setText("获取验证码")
 
@@ -978,7 +977,7 @@ class LoginDialog(QDialog):
 3. 用户操作记录仅存储在本地，不会上传至服务器
 4. 开发者承诺保护用户隐私安全
 """
-        QMessageBox.information(self, "隐私条款", privacy_text)
+        StyledMessageDialog(self, title="隐私条款", text=privacy_text, msg_type="information", buttons="ok").exec_()
 
     def handle_forgot_password(self):
         """处理忘记密码逻辑 - 直接跳转到忘记密码页面"""
@@ -989,7 +988,7 @@ class LoginDialog(QDialog):
         email = self.forgot_email_input.text().strip()
 
         if not email:
-            QMessageBox.warning(self, "警告", "请输入注册邮箱")
+            StyledMessageDialog(self, title="警告", text="请输入注册邮箱", msg_type="warning", buttons="ok").exec_()
             self.forgot_email_input.setFocus()
             return
 
@@ -1021,7 +1020,7 @@ class LoginDialog(QDialog):
                 # 自动填充验证码
                 self.forgot_code_input.setText(code)
             else:
-                QMessageBox.information(self, "发送成功", "验证码已发送至您的邮箱，请查收")
+                StyledMessageDialog(self, title="发送成功", text="验证码已发送至您的邮箱，请查收", msg_type="information", buttons="ok").exec_()
             
             # 设置60秒倒计时
             self.forgot_countdown = 60
@@ -2191,17 +2190,17 @@ class LoginDialog(QDialog):
             return
         
         if not verification_code:
-            QMessageBox.warning(self, "警告", "请输入验证码")
+            StyledMessageDialog(self, title="警告", text="请输入验证码", msg_type="warning", buttons="ok").exec_()
             self.forgot_code_input.setFocus()
             return
         
         if not new_password:
-            QMessageBox.warning(self, "警告", "请输入新密码")
+            StyledMessageDialog(self, title="警告", text="请输入新密码", msg_type="warning", buttons="ok").exec_()
             self.forgot_new_password.setFocus()
             return
         
         if not confirm_password:
-            QMessageBox.warning(self, "警告", "请确认新密码")
+            StyledMessageDialog(self, title="警告", text="请确认新密码", msg_type="warning", buttons="ok").exec_()
             self.forgot_confirm_password.setFocus()
             return
         
@@ -2213,7 +2212,7 @@ class LoginDialog(QDialog):
         
         # 验证密码匹配
         if new_password != confirm_password:
-            QMessageBox.warning(self, "警告", "两次输入的密码不一致")
+            StyledMessageDialog(self, title="警告", text="两次输入的密码不一致", msg_type="warning", buttons="ok").exec_()
             self.forgot_confirm_password.setFocus()
             self.forgot_confirm_password.selectAll()
             return
@@ -2238,7 +2237,7 @@ class LoginDialog(QDialog):
         self.reset_password_button.setText("重置密码")
         
         if success:
-            QMessageBox.information(self, "重置成功", "密码已重置，请使用新密码登录")
+            StyledMessageDialog(self, title="重置成功", text="密码已重置，请使用新密码登录", msg_type="information", buttons="ok").exec_()
             # 清空输入框
             self.forgot_email_input.clear()
             self.forgot_new_password.clear()
@@ -2248,7 +2247,7 @@ class LoginDialog(QDialog):
             # 返回登录页面
             self.show_login_page()
         else:
-            QMessageBox.warning(self, "重置失败", msg)
+            StyledMessageDialog(self, title="重置失败", text=msg, msg_type="warning", buttons="ok").exec_()
             if "验证码" in msg:
                 self.forgot_code_input.setFocus()
                 self.forgot_code_input.selectAll()

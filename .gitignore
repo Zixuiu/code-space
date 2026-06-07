@@ -1,25 +1,21 @@
-# Python
-__pycache__/
+﻿__pycache__/
 *.pyc
 *.pyo
 *.egg-info/
 dist/
 build/
-
-# IDE
-.trae/
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
+*.log
+*.db
 .DS_Store
 Thumbs.db
-
-# Backup
-*.backup_*
-*.bak
-
-# Others
 nul
+cd
+python
+_fix_*.py
+_apply_*.py
+_font_preview.py
+_style_preview.py
+.trae/
+.vscode/
+工具/
+项目/

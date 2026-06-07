@@ -13,6 +13,7 @@ from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont
 from utils import get_screen_size, apply_styles_to_dialog, get_common_dialog_style, hash_password, STYLES_AVAILABLE, create_styled_button
+from beautiful_dialog import StyledMessageDialog
 try:
     from supabase_db import get_supabase_manager
     # 延迟初始化，避免启动时立即连接数据库
@@ -276,7 +277,7 @@ class AdminManager(QMainWindow):
             # 更新分页控件
             self.update_pagination_controls()
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"填充用户数据失败: {str(e)}")
+            StyledMessageDialog(self, title="错误", text=f"填充用户数据失败: {str(e)}", msg_type="critical", buttons="ok").exec_()
     
     def update_pagination_controls(self):
         """更新分页控件状态"""
@@ -706,10 +707,60 @@ class AdminManager(QMainWindow):
         
         # 每页显示数量选择
         pagination_layout.addWidget(QLabel("每页显示:"))
-        self.page_size_combo = QComboBox()
-        self.page_size_combo.addItems(["20", "50", "100", "200"])
-        self.page_size_combo.setCurrentText(str(self.page_size))  # 使用初始化的页面大小
-        self.page_size_combo.currentTextChanged.connect(self.on_page_size_changed)
+        self.page_size_combo = QPushButton(str(self.page_size))
+        self.page_size_combo.setFixedWidth(80)
+        self.page_size_combo.setCursor(Qt.PointingHandCursor)
+        self.page_size_combo.currentText = lambda: self.page_size_combo.text()
+        self.page_size_combo.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF;
+                color: #1D1D1F;
+                border: 1px solid #D1D1D6;
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-size: 13px;
+                font-weight: 500;
+                text-align: left;
+            }
+            QPushButton:hover {
+                border-color: #007AFF;
+            }
+            QPushButton::menu-indicator {
+                image: none;
+                width: 8px;
+                subcontrol-position: right center;
+                subcontrol-origin: padding;
+                padding-right: 10px;
+            }
+        """)
+        self._page_menu = QMenu(self.page_size_combo)
+        self._page_menu.setStyleSheet("""
+            QMenu {
+                background-color: #FFFFFF;
+                border: 1px solid #E8E8ED;
+                border-radius: 10px;
+                padding: 4px;
+            }
+            QMenu::item {
+                padding: 8px 18px;
+                border-radius: 6px;
+                min-height: 22px;
+                font-size: 13px;
+            }
+            QMenu::item:selected {
+                background-color: #007AFF;
+                color: white;
+            }
+        """)
+        for v in ["20", "50", "100", "200"]:
+            self._page_menu.addAction(v)
+        self._page_menu.triggered.connect(
+            lambda action: (
+                self.page_size_combo.setText(action.text()),
+                self.on_page_size_changed(action.text())
+            )
+        )
+        self.page_size_combo.setMenu(self._page_menu)
         pagination_layout.addWidget(self.page_size_combo)
         
         user_layout.addLayout(pagination_layout)
@@ -1186,7 +1237,7 @@ class AdminManager(QMainWindow):
         
         # 显示结果
         if error_count == 0:
-            QMessageBox.information(self, "成功", f"成功删除 {success_count} 个用户")
+            StyledMessageDialog(self, title="成功", text=f"成功删除 {success_count} 个用户", msg_type="information", buttons="ok").exec_()
         else:
             error_text = "\n".join(error_messages)
             self.show_message_box('warning', "部分失败", 
@@ -1934,7 +1985,7 @@ class CreateUserDialog(QDialog):
             if self.parent and hasattr(self.parent, 'show_message_box'):
                 self.parent.show_message_box('warning', "警告", "用户名和密码不能为空")
             else:
-                QMessageBox.warning(self, "警告", "用户名和密码不能为空")
+                StyledMessageDialog(self, title="警告", text="用户名和密码不能为空", msg_type="warning", buttons="ok").exec_()
             return
             
         password_hash = hash_password(password)
@@ -1969,7 +2020,7 @@ class CreateUserDialog(QDialog):
                     if self.parent and hasattr(self.parent, 'show_message_box'):
                         self.parent.show_message_box('warning', "警告", "用户名已存在")
                     else:
-                        QMessageBox.warning(self, "警告", "用户名已存在")
+                        StyledMessageDialog(self, title="警告", text="用户名已存在", msg_type="warning", buttons="ok").exec_()
                     return
                     
                 # 使用HybridDatabaseManager的create_user方法，传递单独的参数
@@ -1985,7 +2036,7 @@ class CreateUserDialog(QDialog):
                     if self.parent and hasattr(self.parent, 'show_message_box'):
                         self.parent.show_message_box('information', "成功", f"用户 {username} 创建成功")
                     else:
-                        QMessageBox.information(self, "成功", f"用户 {username} 创建成功")
+                        StyledMessageDialog(self, title="成功", text=f"用户 {username} 创建成功", msg_type="information", buttons="ok").exec_()
                     self.accept()
                     self.parent.load_users()
                 else:
@@ -1993,17 +2044,17 @@ class CreateUserDialog(QDialog):
                     if self.parent and hasattr(self.parent, 'show_message_box'):
                         self.parent.show_message_box('critical', "错误", "创建用户失败")
                     else:
-                        QMessageBox.critical(self, "错误", "创建用户失败")
+                        StyledMessageDialog(self, title="错误", text="创建用户失败", msg_type="critical", buttons="ok").exec_()
             else:
                 # 使用父类的show_message_box方法
                 if self.parent and hasattr(self.parent, 'show_message_box'):
                     self.parent.show_message_box('critical', "错误", "无法访问数据库连接")
                 else:
-                    QMessageBox.critical(self, "错误", "无法访问数据库连接")
+                    StyledMessageDialog(self, title="错误", text="无法访问数据库连接", msg_type="critical", buttons="ok").exec_()
             
         except Exception as e:
             # 使用父类的show_message_box方法
             if self.parent and hasattr(self.parent, 'show_message_box'):
                 self.parent.show_message_box('critical', "错误", f"创建用户失败: {str(e)}")
             else:
-                QMessageBox.critical(self, "错误", f"创建用户失败: {str(e)}")
+                StyledMessageDialog(self, title="错误", text=f"创建用户失败: {str(e)}", msg_type="critical", buttons="ok").exec_()

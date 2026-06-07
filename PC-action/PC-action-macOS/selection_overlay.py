@@ -9,6 +9,7 @@ from PyQt5.QtCore import Qt, QRect, QPoint, pyqtSignal, QEvent
 from PyQt5.QtGui import QPainter, QPen, QBrush, QColor, QPixmap, QFont, QGuiApplication
 import pyautogui
 import time
+from beautiful_dialog import StyledMessageDialog
 
 try:
     from styles import PRIMARY_GRADIENT, SECONDARY, ACCENT, TEXT, BORDER, BG, CARD, MUTED
@@ -26,6 +27,8 @@ class SelectionOverlay(QWidget):
     """选择覆盖层，用于屏幕截图和区域选择"""
     
     closed = pyqtSignal()  # 窗口关闭信号
+    win_key_detected = pyqtSignal(str)  # Win+key 系统钩子捕获信号
+    win_key_detected = pyqtSignal(str)  # Win+key 系统钩子捕获信号
     
     def __init__(self, parent=None, screen_pixmap=None, recording_dir=None, initial_operation_count=0):
         super().__init__()
@@ -39,6 +42,8 @@ class SelectionOverlay(QWidget):
         self.right_click_pressed = False  # 记录右键是否被按下
         self.right_click_dragged = False  # 记录右键是否被拖动
         self.operation_count = initial_operation_count  # 使用传入的初始操作计数
+        self._win_poll_timer = None  # Win键轮询定时器
+        self._win_last_recorded = ''  # 防重复
         
         # 设置窗口属性
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
@@ -106,12 +111,18 @@ class SelectionOverlay(QWidget):
         from PyQt5.QtCore import QTimer
         self.focus_timer = QTimer()
         self.focus_timer.timeout.connect(self.ensure_focus)
-        self.focus_timer.start(100)  # 每100毫秒检查一次焦点
+        # 如果刚刚录了 Win+key（可能打开了系统对话框），先不抢焦点
+        if getattr(self, '_win_last_recorded', '') == '':
+            self.focus_timer.start(100)  # 每100毫秒检查一次焦点
+        else:
+            print("[WinAPI] Win 刚被录制，延迟启动焦点定时器")
         
         print(f"SelectionOverlay: 窗口大小: {self.width()}x{self.height()}")
         print(f"SelectionOverlay: 窗口位置: {self.x()},{self.y()}")
         print(f"SelectionOverlay: 窗口状态: visible={self.isVisible()}, minimized={self.isMinimized()}")
         print(f"SelectionOverlay: 焦点状态: hasFocus={self.hasFocus()}")
+        # 启动 Win+key 轮询检测（GetAsyncKeyState 直读硬件状态）
+        self._start_win_hook()
     
     def ensure_focus(self):
         """确保窗口始终有焦点"""
@@ -186,7 +197,6 @@ class SelectionOverlay(QWidget):
             self.update()
         elif event.button() == Qt.MiddleButton:
             # 中键取消选择 - 添加确认对话框避免意外关闭
-            from PyQt5.QtWidgets import QMessageBox
             reply = QMessageBox.question(self, "确认退出", 
                                        "确定要退出选择模式吗？\n(ESC键也可以退出)", 
                                        QMessageBox.Yes | QMessageBox.No)
@@ -319,7 +329,6 @@ class SelectionOverlay(QWidget):
             import os
             from datetime import datetime
             from PyQt5.QtGui import QGuiApplication
-            from PyQt5.QtWidgets import QMessageBox
             
             # 获取主屏幕和设备像素比
             screen = QGuiApplication.primaryScreen()
@@ -396,7 +405,7 @@ class SelectionOverlay(QWidget):
                 
         except Exception as e:
             print(f"保存选择区域失败: {e}")
-            QMessageBox.critical(self, "错误", f"保存选择区域失败: {str(e)}")
+            StyledMessageDialog(self, title="错误", text=f"保存选择区域失败: {str(e)}", msg_type="critical", buttons="ok").exec_()
     
     def click_selection_center(self, x1, y1, x2, y2, button=Qt.LeftButton, image_path=None):
         """点击截取区域的中心点（基于图像识别）"""
@@ -544,6 +553,113 @@ class SelectionOverlay(QWidget):
             print(f"保存操作信息失败: {e}")
     
     # ---- 全局键盘钩子管理: 避免干扰输入法IME ----
+    def _start_win_hook(self):
+        """启动 Win+key 检测：Windows API GetAsyncKeyState 直接读硬件状态（无需权限，无视拦截）"""
+        from PyQt5.QtCore import QTimer
+
+        # 先停掉旧定时器，避免重复创建
+        if self._win_poll_timer is not None:
+            try:
+                self._win_poll_timer.stop()
+            except Exception:
+                pass
+            try:
+                self._win_poll_timer.deleteLater()
+            except Exception:
+                pass
+            self._win_poll_timer = None
+
+        # 连接信号（只连一次）
+        try:
+            self.win_key_detected.disconnect()
+        except TypeError:
+            pass
+        self.win_key_detected.connect(self._on_win_key_detected)
+
+        self._win_last_recorded = ''
+        self._win_poll_timer = QTimer(self)
+        self._win_poll_timer.timeout.connect(self._poll_win_key)
+        self._win_poll_timer.start(50)
+        print("[WinAPI] 轮询已启动 (GetAsyncKeyState)")
+
+    def _poll_win_key(self):
+        """每 50ms 查询 Win+key 状态（主线程，直接调 Windows API）"""
+        try:
+            import ctypes
+            user32 = ctypes.windll.user32
+            # VK_LWIN=0x5B  VK_RWIN=0x5C
+            win_down = (user32.GetAsyncKeyState(0x5B) & 0x8000) != 0
+            if not win_down:
+                win_down = (user32.GetAsyncKeyState(0x5C) & 0x8000) != 0
+            if win_down:
+                # Win 按住时暂停焦点争夺（让系统对话框正常工作）
+                if hasattr(self, 'focus_timer') and self.focus_timer is not None:
+                    if self.focus_timer.isActive():
+                        self.focus_timer.stop()
+                # 扫描 A-Z (0x41-0x5A)
+                for vk in range(0x41, 0x5B):
+                    if (user32.GetAsyncKeyState(vk) & 0x8000) != 0:
+                        letter = chr(vk + 0x20)  # 大写→小写
+                        key_str = f'win+{letter}'
+                        if self._win_last_recorded != key_str:
+                            self._win_last_recorded = key_str
+                            print(f"[WinAPI] win+{letter}")
+                            self.win_key_detected.emit(key_str)
+                        return
+                # 扫描 0-9 (0x30-0x39)
+                for vk in range(0x30, 0x3A):
+                    if (user32.GetAsyncKeyState(vk) & 0x8000) != 0:
+                        digit = chr(vk)
+                        key_str = f'win+{digit}'
+                        if self._win_last_recorded != key_str:
+                            self._win_last_recorded = key_str
+                            print(f"[WinAPI] win+{digit}")
+                            self.win_key_detected.emit(key_str)
+                        return
+            else:
+                self._win_last_recorded = ''
+                # Win 松开后，如果焦点定时器没在跑且窗口可见，立即启动
+                if hasattr(self, 'focus_timer') and self.focus_timer is not None:
+                    if not self.focus_timer.isActive() and self.isVisible():
+                        self.focus_timer.start(100)
+        except Exception as e:
+            print(f"[WinAPI] 轮询错误: {e}")
+
+    def _on_win_key_detected(self, key_str):
+        """主线程处理 Win+key 录制"""
+        try:
+            if not self.recording_dir:
+                from utils import get_recordings_path
+                from datetime import datetime
+                import os
+                recordings_dir = get_recordings_path()
+                os.makedirs(recordings_dir, exist_ok=True)
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                folder_name = f"流程_{timestamp}"
+                self.recording_dir = os.path.join(recordings_dir, folder_name)
+                os.makedirs(self.recording_dir, exist_ok=True)
+                if hasattr(self.parent, 'current_recording_dir'):
+                    self.parent.current_recording_dir = self.recording_dir
+                print(f"[WinAPI] 自动创建录制目录: {self.recording_dir}")
+            self.add_keyboard_shortcut(key_str)
+        except Exception as e:
+            print(f"[WinAPI] 错误: {e}")
+
+    def _stop_win_hook(self):
+        """停止轮询定时器"""
+        if hasattr(self, '_win_poll_timer') and self._win_poll_timer is not None:
+            try:
+                self._win_poll_timer.stop()
+            except Exception:
+                pass
+            try:
+                self._win_poll_timer.deleteLater()
+            except Exception:
+                pass
+            self._win_poll_timer = None
+        self._win_last_recorded = ''
+        print("[WinAPI] 轮询已停止")
+
     def _disable_global_hooks(self):
         """彻底停止键盘监听线程 + 卸载系统钩子，让输入法能正常工作"""
         import keyboard as _kb
@@ -722,9 +838,11 @@ class SelectionOverlay(QWidget):
             }
             
             # 保存操作
-            self.save_operation(operation)
+            self.save_operation_to_json(operation)
+            print(f"✅ 已录制快捷键: {key_str}")
             
             # 短暂延迟后重新开始选择
+            from PyQt5.QtCore import QTimer
             QTimer.singleShot(200, self.start_new_selection)
             
         except Exception as e:
@@ -1157,7 +1275,7 @@ class SelectionOverlay(QWidget):
             filename = f"screenshot_{int(time.time())}.png"
             filepath = os.path.join(self.recording_dir or ".", filename)
             pixmap.save(filepath)
-            QMessageBox.information(self, "成功", f"截图已保存到: {filepath}")
+            StyledMessageDialog(self, title="成功", text=f"截图已保存到: {filepath}", msg_type="information", buttons="ok").exec_()
         
         self.close()
     
@@ -1302,8 +1420,55 @@ class SelectionOverlay(QWidget):
             # 操作类型
             type_layout = QHBoxLayout()
             type_label = QLabel("操作类型:")
-            type_combo = QComboBox()
-            type_combo.addItems(["左键点击", "右键点击", "双击", "中键点击", "文本输入", "延迟"])
+            type_combo = QPushButton("左键点击")
+            type_combo.setCursor(Qt.PointingHandCursor)
+            type_combo.currentText = lambda: type_combo.text()
+            type_combo.setStyleSheet("""
+                QPushButton {
+                    background-color: #FFFFFF;
+                    color: #1D1D1F;
+                    border: 1px solid #D1D1D6;
+                    border-radius: 8px;
+                    padding: 6px 14px;
+                    font-size: 13px;
+                    font-weight: 500;
+                    text-align: left;
+                    min-width: 100px;
+                }
+                QPushButton:hover {
+                    border-color: #007AFF;
+                }
+                QPushButton::menu-indicator {
+                    image: none;
+                    width: 8px;
+                    subcontrol-position: right center;
+                    subcontrol-origin: padding;
+                    padding-right: 10px;
+                }
+            """)
+            self._type_menu = QMenu(type_combo)
+            self._type_menu.setStyleSheet("""
+                QMenu {
+                    background-color: #FFFFFF;
+                    border: 1px solid #E8E8ED;
+                    border-radius: 10px;
+                    padding: 4px;
+                }
+                QMenu::item {
+                    padding: 8px 18px;
+                    border-radius: 6px;
+                    min-height: 22px;
+                    font-size: 13px;
+                }
+                QMenu::item:selected {
+                    background-color: #007AFF;
+                    color: white;
+                }
+            """)
+            for t in ["左键点击", "右键点击", "双击", "中键点击", "文本输入", "延迟"]:
+                self._type_menu.addAction(t)
+            self._type_menu.triggered.connect(lambda action: type_combo.setText(action.text()))
+            type_combo.setMenu(self._type_menu)
             type_layout.addWidget(type_label)
             type_layout.addWidget(type_combo)
             edit_layout.addLayout(type_layout)
@@ -1392,7 +1557,7 @@ class SelectionOverlay(QWidget):
                         self.save_operation_sequence(sequence)
                         dialog.accept()
                     else:
-                        QMessageBox.warning(dialog, "警告", "请至少添加一个操作")
+                        StyledMessageDialog(dialog, title="警告", text="请至少添加一个操作", msg_type="warning", buttons="ok").exec_()
             
             save_btn.clicked.connect(save_sequence)
             
@@ -1410,7 +1575,7 @@ class SelectionOverlay(QWidget):
             
         except Exception as e:
             print(f"添加操作序列失败: {e}")
-            QMessageBox.critical(self, "错误", f"添加操作序列失败: {str(e)}")
+            StyledMessageDialog(self, title="错误", text=f"添加操作序列失败: {str(e)}", msg_type="critical", buttons="ok").exec_()
     
     def add_operation_to_list(self, operations_list, operation_type):
         """添加操作到列表"""
@@ -1577,10 +1742,12 @@ class SelectionOverlay(QWidget):
             
         except Exception as e:
             print(f"保存操作序列失败: {e}")
-            QMessageBox.critical(self, "错误", f"保存操作序列失败: {str(e)}")
+            StyledMessageDialog(self, title="错误", text=f"保存操作序列失败: {str(e)}", msg_type="critical", buttons="ok").exec_()
     
     def closeEvent(self, event):
         """窗口关闭事件"""
+        self._stop_win_hook()
+        
         # 停止焦点检查定时器
         if hasattr(self, 'focus_timer'):
             if self.focus_timer.isActive():

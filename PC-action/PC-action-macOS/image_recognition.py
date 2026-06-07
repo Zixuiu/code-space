@@ -315,13 +315,23 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     dynamic_confidence = 0.8
                     use_color = consider_color
                 # 根据 match_timeout 自适应分配匹配时间
-                # 第一次尝试：给足 match_timeout 的 60%，确保有充足时间完成截图轮询
-                first_attempt_timeout = max(0.5, match_timeout * 0.6)
+                # 一次性给充足超时,避免分两次匹配增加延迟
+                # 快的 UI 0.01s 就返回,慢的 UI 给够时间渲染
+                first_attempt_timeout = max(0.15, match_timeout * 0.2)
                 location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=first_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
 
                 if not location:
-                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}，置信度: {dynamic_confidence}）")
-                    continue
+                    # 首次超时太短导致截图时机不对,新开一次匹配(新首张截图)
+                    retry_timeout = max(0.45, match_timeout * 0.6)
+                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=retry_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
+                    if not location:
+                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}）")
+                        continue
+                    else:
+                        debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
+                        x, y, width, height = location
+                        center_x = x + width // 2
+                        center_y = y + height // 2
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
                     # 解析找到的坐标
@@ -618,10 +628,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         debug_print(f"[匹配失败诊断] 共尝试 {len(scale_best_scores)} 个尺度,最佳: {scale_info}")
         # 给出可能的原因
         best_score = top3[0][1][0] if top3 else 0
+        best_loc = top3[0][1][1] if top3 else None
         if best_score < 0.3:
             debug_print(f"[匹配失败诊断] ⚠️ 最高分仅 {best_score:.3f} < 0.3, 模板可能在屏幕上根本不存在,或完全不同")
         elif best_score < confidence:
             debug_print(f"[匹配失败诊断] ⚠️ 最高分 {best_score:.3f} < 阈值 {confidence:.2f}, 可能是 DPI 缩放/主题切换/部分遮挡")
+        # 即使低于阈值,只要 >= 0.35 就返回最佳位置(外观变了但位置还在)
+        if 0.75 <= best_score < confidence:
+            debug_print(f"[匹配诊断] 🤏 低于阈值但位置可信,接受最佳匹配 score={best_score:.3f} @ {best_loc}")
+            h, w = image_array.shape[:2]
+            return (best_loc[0], best_loc[1], w, h)
 
         # 保存失败时的截图到 debug 目录,方便对比
         try:
@@ -632,7 +648,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             ts = datetime.now().strftime("%H%M%S_%f")[:-3]
             base = os.path.splitext(os.path.basename(image_path))[0]
             fail_path = os.path.join(debug_dir, f"fail_{base}_{ts}.png")
-            if screenshot_bgr is not None:
+            if 'screenshot_bgr' in dir() and screenshot_bgr is not None:
                 cv2.imwrite(fail_path, screenshot_bgr)
                 debug_print(f"[匹配失败诊断] 📸 失败截图已保存: {fail_path}")
                 debug_print(f"[匹配失败诊断] 💡 对比: 模板={os.path.basename(image_path)}, 截图={fail_path}")

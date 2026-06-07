@@ -469,7 +469,7 @@ class RechargeDialog(QDialog):
             duration_font.setPointSize(14)
             duration_font.setBold(True)
             duration_label.setFont(duration_font)
-            duration_label.setStyleSheet(f"QLabel {{ color: {TEXT}; padding: 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
+            duration_label.setStyleSheet(f"QLabel {{ color: {TEXT}; padding: 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
             card_layout.addWidget(duration_label)
             
             # 价格标签
@@ -498,7 +498,7 @@ class RechargeDialog(QDialog):
             select_button = QPushButton("立即选择")
             select_button.clicked.connect(lambda checked, opt=option: self.process_recharge(opt))
             select_button.setStyleSheet(f"""
-                QPushButton {{
+QMessageBox QDialogButtonBox QPushButton{{
                     background: {THEME_PRIMARY};
                     color: white;
                     border: none;
@@ -506,7 +506,7 @@ class RechargeDialog(QDialog):
                     padding: 10px 20px;
                     font-weight: bold;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
                 background-color: #006AE0;
@@ -566,7 +566,7 @@ class RechargeDialog(QDialog):
             duration_font.setPointSize(14)
             duration_font.setBold(True)
             duration_label.setFont(duration_font)
-            duration_label.setStyleSheet(f"QLabel {{ color: {TEXT}; padding: 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
+            duration_label.setStyleSheet(f"QLabel {{ color: {TEXT}; padding: 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
             card_layout.addWidget(duration_label)
             
             # 价格标签
@@ -576,7 +576,7 @@ class RechargeDialog(QDialog):
             price_font.setPointSize(18)
             price_font.setBold(True)
             price_label.setFont(price_font)
-            price_label.setStyleSheet(f"QLabel {{ color: {ACCENT}; padding: 5px 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
+            price_label.setStyleSheet(f"QLabel {{ color: {ACCENT}; padding: 5px 0; margin: 0; background-color: transparent !important; border: none !important; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif; }}")
             card_layout.addWidget(price_label)
             
             # 生活化比喻描述
@@ -594,7 +594,7 @@ class RechargeDialog(QDialog):
             select_button = QPushButton("立即选择")
             select_button.clicked.connect(lambda checked, opt=option: self.process_recharge(opt))
             select_button.setStyleSheet(f"""
-                QPushButton {{
+QMessageBox QDialogButtonBox QPushButton{{
                     background: {THEME_PRIMARY};
                     color: white;
                     border: none;
@@ -602,7 +602,7 @@ class RechargeDialog(QDialog):
                     padding: 10px 20px;
                     font-weight: bold;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
                 background-color: #006AE0;
@@ -706,7 +706,7 @@ class RechargeDialog(QDialog):
                 padding: 4px 12px;
                 font-weight: bold;
                 font-size: {max(16, min(20, int(screen_width * 0.006)))}px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
                 min-height: {int(screen_height * 0.04)}px;
             }}
@@ -732,7 +732,7 @@ class RechargeDialog(QDialog):
                 padding: 4px 12px;
                 font-weight: bold;
                 font-size: {max(16, min(20, int(screen_width * 0.006)))}px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
                 min-height: {int(screen_height * 0.04)}px;
             }}
@@ -762,7 +762,7 @@ class RechargeDialog(QDialog):
         """模拟支付成功"""
         # 检查对话框是否仍然显示
         if payment_dialog.isVisible():
-            QMessageBox.information(payment_dialog, "支付成功", "模拟支付成功！")
+            self.show_beautiful_message('information', "支付成功", "模拟支付成功！", parent=payment_dialog)
             self._activate_vip()
             payment_dialog.accept()
             self.accept()
@@ -795,7 +795,7 @@ class RechargeDialog(QDialog):
         question_label = QLabel("请确认您已完成微信支付？")
         question_label.setAlignment(Qt.AlignCenter)
         question_font_size = int(screen_height * 0.025)
-        question_label.setStyleSheet(f"color: {TEXT}; font-size: {question_font_size}px; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        question_label.setStyleSheet(f"color: {TEXT}; font-size: {question_font_size}px; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(question_label)
         
         # 按钮布局
@@ -815,7 +815,7 @@ class RechargeDialog(QDialog):
                 border-radius: {int(screen_height * 0.015)}px;
                 font-weight: 500;
                 font-size: {int(screen_height * 0.02)}px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -839,7 +839,7 @@ class RechargeDialog(QDialog):
                 border-radius: {int(screen_height * 0.015)}px;
                 font-weight: 500;
                 font-size: {int(screen_height * 0.02)}px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #F0F0F2;
@@ -876,7 +876,7 @@ class RechargeDialog(QDialog):
         """激活VIP权限"""
         try:
             if not self.login_manager or not self.login_manager.current_user:
-                QMessageBox.warning(self, "错误", "用户未登录")
+                self.show_beautiful_message('warning', "错误", "用户未登录", parent=self)
                 return
             
             current_user = self.login_manager.current_user
@@ -885,20 +885,20 @@ class RechargeDialog(QDialog):
             success, message = DatabaseHelper.manage_vip_license(current_user, self.selected_months)
             
             if not success:
-                QMessageBox.warning(self, "错误", message)
+                self.show_beautiful_message('warning', "错误", message, parent=self)
                 return
             
             # 添加充值记录
             DatabaseHelper.add_recharge_record(current_user, self.selected_amount, self.selected_months)
             
-            QMessageBox.information(self, "充值成功", message)
+            self.show_beautiful_message('information', "充值成功", message, parent=self)
             
             # 通知父窗口更新状态
             if self.parent:
                 self.parent.update_status_display()
                 
         except Exception as e:
-            QMessageBox.warning(self, "错误", f"激活VIP失败: {str(e)}")
+            self.show_beautiful_message('warning', "错误", f"激活VIP失败: {str(e)}", parent=self)
     
     def _add_recharge_record(self, username, amount, months):
         """添加充值记录"""
@@ -968,7 +968,7 @@ class FeedbackDialog(QDialog):
                 color: white;
                 font-size: {int(font_size * 1.3)}px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background-color: transparent;
             }}
         """)
@@ -1065,7 +1065,7 @@ class FeedbackDialog(QDialog):
         label = QLabel(label_text)
         label.setWordWrap(False)
         label.setMinimumWidth(1)
-        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 4}px; font-weight: bold; margin-bottom: {spacing_v // 6}px; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 4}px; font-weight: bold; margin-bottom: {spacing_v // 6}px; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(label)
         
         # 创建下拉框
@@ -1086,7 +1086,7 @@ class FeedbackDialog(QDialog):
                 margin: 0;
                 font-size: {max(12, font_size)}px;
                 background-color: #ffffff;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 min-width: {int(screen_width * 0.25)}px;  # 与实际设置的最小宽度一致
                 max-width: {int(screen_width * 0.3)}px;   # 与实际设置的最大宽度一致
             }}
@@ -1111,7 +1111,7 @@ class FeedbackDialog(QDialog):
         label.setWordWrap(False)
         label.setMinimumWidth(1)
         label.setMinimumHeight(30)
-        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v}px; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v}px; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(label)
         
         section["group"] = QButtonGroup()
@@ -1126,7 +1126,7 @@ class FeedbackDialog(QDialog):
                 spacing: 6px;
                 font-size: {font_size - 2}px;
                 color: #2c3e50;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 padding: 4px 0;
             }}
             QRadioButton::indicator {{
@@ -1173,7 +1173,7 @@ class FeedbackDialog(QDialog):
         label.setMinimumWidth(1)
         label.setFixedHeight(40)
         label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v}px; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v}px; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(label)
         
         section["input"] = QLineEdit()
@@ -1191,7 +1191,7 @@ class FeedbackDialog(QDialog):
                 font-size: {max(12, font_size)}px;
                 color: #2c3e50;
                 background-color: #ffffff;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QLineEdit:focus {{
                 border: 2px solid #3498db;
@@ -1228,7 +1228,7 @@ class FeedbackDialog(QDialog):
         label.setMinimumWidth(1)
         label.setFixedHeight(40)
         label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v // 6}px; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        label.setStyleSheet(f"color: {TEXT}; font-size: {font_size + 2}px; font-weight: bold; margin-bottom: {spacing_v // 6}px; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(label)
         
         section["text"] = QTextEdit()
@@ -1250,7 +1250,7 @@ class FeedbackDialog(QDialog):
                 margin: 0;
                 font-size: {max(12, font_size)}px;
                 background-color: #ffffff;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 min-width: {int(screen_width * 0.3)}px;
                 max-width: {int(screen_width * 0.4)}px;
                 line-height: 1.5;
@@ -1289,7 +1289,7 @@ class FeedbackDialog(QDialog):
                 border-radius: {int(input_height/2)}px;
                 font-size: {button_font_size}px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -1314,7 +1314,7 @@ class FeedbackDialog(QDialog):
                 border-radius: {int(input_height/2)}px;
                 font-size: {button_font_size}px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #F0F0F2;
@@ -1340,7 +1340,7 @@ class FeedbackDialog(QDialog):
         contact = self.contact_input.text().strip()
 
         if not title or not detail:
-            QMessageBox.warning(self, "提示", "标题和详细描述不能为空")
+            self.show_beautiful_message('warning', "提示", "标题和详细描述不能为空", parent=self)
             return
 
         try:
@@ -1366,12 +1366,12 @@ class FeedbackDialog(QDialog):
             )
             
             if result:
-                QMessageBox.information(self, "成功", "反馈已提交，感谢您的意见！")
+                self.show_beautiful_message('information', "成功", "反馈已提交，感谢您的意见！", parent=self)
                 self.accept()
             else:
-                QMessageBox.warning(self, "失败", "提交反馈失败，请稍后再试")
+                self.show_beautiful_message('warning', "失败", "提交反馈失败，请稍后再试", parent=self)
         except Exception as e:
-            QMessageBox.warning(self, "失败", f"提交失败: {str(e)}")
+            self.show_beautiful_message('warning', "失败", f"提交失败: {str(e)}", parent=self)
 
     def _submit_feedback_to_supabase(self, feedback_data):
         """提交反馈到Supabase"""
@@ -1464,7 +1464,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 12px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
                 padding: 0 12px;
             }}
@@ -1643,14 +1643,14 @@ class FolderManager(QDialog):
             shortcut_btn = QPushButton(shortcut_text)
             shortcut_btn.setFixedSize(50, btn_height)
             shortcut_btn.setStyleSheet(f"""
-                QPushButton {{
+QMessageBox QDialogButtonBox QPushButton{{
                     background-color: #007AFF;
                     color: white;
                     border: none;
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: {shortcut_btn_font_size}px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     text-align: center;
                     padding-left: 5px;
                     padding-right: 5px;
@@ -1676,7 +1676,7 @@ class FolderManager(QDialog):
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: {rename_btn_font_size}px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     text-align: center;
                     padding: 0px;
                     margin: 0px;
@@ -1744,7 +1744,7 @@ class FolderManager(QDialog):
     def view_images(self, folder_path):
         folder_path = str(folder_path)
         if not os.path.isdir(folder_path):
-            QMessageBox.critical(self, "错误", f"无效的目录路径: {folder_path}")
+            self.show_beautiful_message('critical', "错误", f"无效的目录路径: {folder_path}", parent=self)
             return
         
         # 临时禁用·键的全局快捷键，避免在查看图片窗口中触发录制新流程
@@ -1834,7 +1834,7 @@ class FolderManager(QDialog):
                 self.show_coordinate_data(dialog, folder_path, recording_json_path)
                 return
             else:
-                QMessageBox.information(dialog, "提示", "该文件夹中没有图片文件！")
+                self.show_beautiful_message('information', "提示", "该文件夹中没有图片文件！", parent=dialog)
                 return
         
         # 从recording.json加载操作方式
@@ -2002,7 +2002,7 @@ class FolderManager(QDialog):
                 self.refresh_view_images(folder_path)
                 
             except Exception as e:
-                QMessageBox.critical(dialog, "错误", f"删除失败: {str(e)}")
+                self.show_beautiful_message('critical', "错误", f"删除失败: {str(e)}", parent=dialog)
 
         def _show_large_preview(img_path):
             """弹出大图预览窗口"""
@@ -2079,7 +2079,7 @@ class FolderManager(QDialog):
             del_btn.move(22, 0)
             pixmap = load_qpixmap(img_path)
             if pixmap is None:
-                QMessageBox.warning(dialog, "警告", f"无法加载图片: {img_file}")
+                self.show_beautiful_message('warning', "警告", f"无法加载图片: {img_file}", parent=dialog)
                 continue
             tl = QLabel(thumb_w)
             tp = pixmap.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -2220,7 +2220,7 @@ class FolderManager(QDialog):
                 border-radius: 20px;
                 font-weight: bold;
                 font-size: 16px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -2455,7 +2455,7 @@ class FolderManager(QDialog):
             
             # 显示错误信息
             from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(parent_dialog, "错误", f"继续添加操作失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"继续添加操作失败: {str(e)}", parent=parent_dialog)
             parent_dialog.close()
 
     def update_action(self, index, action, folder_path=None):
@@ -2485,7 +2485,7 @@ class FolderManager(QDialog):
             # 加载坐标数据
             recording_data = load_json_data(recording_json_path)
             if not isinstance(recording_data, list) or not recording_data:
-                QMessageBox.information(parent_dialog, "提示", "该文件夹中没有坐标数据！")
+                self.show_beautiful_message('information', "提示", "该文件夹中没有坐标数据！", parent=parent_dialog)
                 return
             
             # 创建坐标数据显示窗口
@@ -2589,7 +2589,7 @@ class FolderManager(QDialog):
         except Exception as e:
             # print(f"显示坐标数据失败: {e}")  # [日志已禁用]
             traceback.print_exc()
-            QMessageBox.critical(parent_dialog, "错误", f"显示坐标数据失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"显示坐标数据失败: {str(e, parent=parent_dialog)}")
     
     def show_key_input_dialog(self, index, folder_path):
         """显示按键输入对话框，用于修改按键"""
@@ -2634,7 +2634,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-size: 14px;
                             font-weight: bold;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                 background-color: #006AE0;
@@ -2656,7 +2656,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                             background-color: #F0F0F2;
@@ -2785,7 +2785,7 @@ class FolderManager(QDialog):
         except Exception as e:
             # print(f"修改按键失败: {e}")  # [日志已禁用]
             from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self.parent, "错误", f"修改按键失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"修改按键失败: {str(e, parent=self.parent)}")
 
     def show_scroll_input_dialog(self, index, folder_path):
         """显示滚动设置对话框，用于修改滚动参数"""
@@ -2856,7 +2856,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-size: 14px;
                             font-weight: bold;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                             background-color: #006AE0;
@@ -2878,7 +2878,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                             background-color: #F0F0F2;
@@ -2916,7 +2916,7 @@ class FolderManager(QDialog):
                 self.refresh_view_images(folder_path)
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self.parent, "错误", f"修改滚动设置失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"修改滚动设置失败: {str(e, parent=self.parent)}")
 
     def show_text_input_dialog(self, index, folder_path):
         """显示文本输入对话框，用于修改文本内容"""
@@ -2971,7 +2971,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-size: 14px;
                             font-weight: bold;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                             background-color: #006AE0;
@@ -2993,7 +2993,7 @@ class FolderManager(QDialog):
                             border-radius: 6px;
                             font-weight: bold;
                             font-size: 14px;
-                            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                         }}
                         QPushButton:hover {{
                             background-color: #F0F0F2;
@@ -3028,7 +3028,7 @@ class FolderManager(QDialog):
                 self.refresh_view_images(folder_path)
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self.parent, "错误", f"修改文本失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"修改文本失败: {str(e, parent=self.parent)}")
 
     def get_delay_for_step(self, folder_path, step_index):
         """获取指定步骤的延迟时间（秒）"""
@@ -3231,7 +3231,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3258,7 +3258,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3352,7 +3352,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3377,7 +3377,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3559,7 +3559,7 @@ class FolderManager(QDialog):
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     text-align: center;
                 }
                 QPushButton:hover {
@@ -3836,7 +3836,7 @@ class FolderManager(QDialog):
                 border-radius: 4px;  /* 减小圆角 */
                 font-weight: bold;
                 font-size: 12px;  /* 调整字体大小 */
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3865,7 +3865,7 @@ class FolderManager(QDialog):
                 border-radius: 4px;  /* 减小圆角 */
                 font-weight: bold;
                 font-size: 12px;  /* 调整字体大小 */
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3928,7 +3928,7 @@ class FolderManager(QDialog):
                     border-radius: 4px;  /* 减小圆角 */
                     font-weight: bold;
                     font-size: 11px;  /* 减小字体大小 */
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     text-align: center;
                 }
                 QPushButton:hover {
@@ -3964,7 +3964,7 @@ class FolderManager(QDialog):
                     border-radius: 4px;  /* 减小圆角 */
                     font-weight: bold;
                     font-size: 11px;  /* 减小字体大小 */
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     text-align: center;
                 }
                 QPushButton:hover {
@@ -4028,9 +4028,7 @@ class FolderManager(QDialog):
                 new_name = original_name + timestamp
                 new_path = os.path.join(base_path, new_name)
                 
-                reply = QMessageBox.question(self, "路径冲突", 
-                                           f"原路径已存在，将恢复为 '{new_name}'",
-                                           QMessageBox.Yes | QMessageBox.No)
+                reply = self.show_beautiful_message('question', "路径冲突",                     f"原路径已存在，将恢复为 '{new_name}'",                     buttons=QMessageBox.Yes | QMessageBox.No,                     default_button=QMessageBox.No)
                 if reply != QMessageBox.Yes:
                     return
                 
@@ -4089,7 +4087,7 @@ class FolderManager(QDialog):
                     border-radius: 6px;
                     font-size: 14px;
                     font-weight: bold;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
                 background-color: #006AE0;
@@ -4110,7 +4108,7 @@ class FolderManager(QDialog):
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
                     background-color: #F0F0F2;
@@ -4186,7 +4184,7 @@ class FolderManager(QDialog):
             
             success_dialog.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"删除失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"删除失败: {str(e, parent=self)}")
     
     def clear_trash(self, table):
         """清空回收站"""
@@ -4239,7 +4237,7 @@ class FolderManager(QDialog):
                     border-radius: 6px;
                     font-weight: bold;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 }}
                 QPushButton:hover {{
                     background-color: #F0F0F2;
@@ -4323,7 +4321,7 @@ class FolderManager(QDialog):
             
             success_dialog.exec_()
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"清空回收站失败: {str(e)}")
+            self.show_beautiful_message('critical', "错误", f"清空回收站失败: {str(e, parent=self)}")
     
     def remove_from_trash_index(self, trash_folder_name):
         """从回收站索引中移除指定项"""
@@ -4516,7 +4514,7 @@ class FolderManager(QDialog):
         instruction_label.setAlignment(Qt.AlignCenter)
         # 按屏幕比例设置字体大小
         instruction_font_size = int(screen_height * 0.025)  # 屏幕高度的2.5%
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
         layout.addWidget(instruction_label)
 
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
@@ -4531,7 +4529,7 @@ class FolderManager(QDialog):
             border-radius: 8px;
             background-color: white;
             min-height: 35px;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
         """)
         layout.addWidget(shortcut_label)
 
@@ -4547,7 +4545,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -4569,7 +4567,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -4591,7 +4589,7 @@ class FolderManager(QDialog):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -4723,7 +4721,7 @@ class FolderManager(QDialog):
                     continue
                 normalized_path = os.path.normpath(path)
                 if existing_shortcut == shortcut and normalized_path != normalized_folder_path:
-                    QMessageBox.warning(self, "警告", f"快捷键 '{shortcut}' 已被其他流程使用")
+                    self.show_beautiful_message('warning', "警告", f"快捷键 '{shortcut}' 已被其他流程使用", parent=self)
                     return
 
             # 清理无效路径
@@ -4825,31 +4823,44 @@ class AutoRecorderApp(QMainWindow):
         # 更新状态显示
         self.update_status_display()
     
+    
+    
+    
     def show_beautiful_message(self, msg_type, title, text, buttons=None, default_button=None, parent=None):
-        """
-        显示美化的消息框（风格10: 彩色标签）
-        """
+        """显示美化的消息框 - 直接使用 StyledMessageDialog（粉红色风格）"""
         from beautiful_dialog import StyledMessageDialog
         from PyQt5.QtWidgets import QMessageBox
 
         if parent is None:
             parent = self
 
-        if buttons is None:
-            btn_str = 'yes_no' if msg_type == 'question' else 'ok'
+        # 按钮类型映射
+        if buttons is not None:
+            if buttons & QMessageBox.Yes and buttons & QMessageBox.No and buttons & QMessageBox.Cancel:
+                btn_str = "yes_no_cancel"
+            elif buttons & QMessageBox.Yes and buttons & QMessageBox.No:
+                btn_str = "yes_no"
+            elif buttons & QMessageBox.Ok and buttons & QMessageBox.Cancel:
+                btn_str = "ok_cancel"
+            else:
+                btn_str = "ok"
+        elif msg_type == "question":
+            btn_str = "yes_no"
         else:
-            m = {QMessageBox.Ok: 'ok', QMessageBox.Ok|QMessageBox.Cancel: 'ok_cancel',
-                 QMessageBox.Yes|QMessageBox.No: 'yes_no',
-                 QMessageBox.Yes|QMessageBox.No|QMessageBox.Cancel: 'yes_no_cancel'}
-            btn_str = m.get(buttons, 'ok')
+            btn_str = "ok"
 
-        dlg = StyledMessageDialog(parent, title=title, text=text, msg_type=msg_type, buttons=btn_str)
-        dlg.exec_()
+        dialog = StyledMessageDialog(parent, title=title, text=text, msg_type=msg_type, buttons=btn_str)
+        dialog.exec_()
+        result = dialog.get_result()
 
-        r = {StyledMessageDialog.OK: QMessageBox.Ok, StyledMessageDialog.CANCEL: QMessageBox.Cancel,
-             StyledMessageDialog.YES: QMessageBox.Yes, StyledMessageDialog.NO: QMessageBox.No}
-        return r.get(dlg.get_result(), QMessageBox.Ok)
-    
+        result_map = {
+            StyledMessageDialog.OK: QMessageBox.Ok,
+            StyledMessageDialog.CANCEL: QMessageBox.Cancel,
+            StyledMessageDialog.YES: QMessageBox.Yes,
+            StyledMessageDialog.NO: QMessageBox.No,
+        }
+        return result_map.get(result, QMessageBox.No)
+
     def showEvent(self, event):
         super().showEvent(event)
         
@@ -4941,7 +4952,7 @@ class AutoRecorderApp(QMainWindow):
         from PIL import ImageGrab
         image = ImageGrab.grabclipboard()
         if image is None:
-            QMessageBox.information(dialog, '提示', '剪贴板中没有图片')
+            self.show_beautiful_message('information', '提示', '剪贴板中没有图片', parent=dialog)
             return
 
     def clear_layout(self, layout):
@@ -5132,7 +5143,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 font-size: 14px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -5152,7 +5163,7 @@ class AutoRecorderApp(QMainWindow):
                 border: 1px solid {BORDER};
                 border-radius: 6px;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: {CARD};
@@ -5172,7 +5183,7 @@ class AutoRecorderApp(QMainWindow):
         try:
             m = re.search(r'操作(\d+)', fname)
             if not m:
-                QMessageBox.critical(self, "错误", "无法从文件名中提取步骤号")
+                self.show_beautiful_message('critical', "错误", "无法从文件名中提取步骤号", parent=self)
                 return
             del_step = int(m.group(1))
             os.remove(img_path)
@@ -5269,11 +5280,9 @@ class AutoRecorderApp(QMainWindow):
     def change_action_type(self, button, new_action_type):
         """更新recording.json文件中的操作类型"""
         if new_action_type == 'right_click':
-            reply = QMessageBox.question(self, '⚠️ 右击风险提示',
-                                         '右击会弹出系统菜单，可能导致程序暂时无响应！\n'
-                                         '建议：\n1. 优先左击\n2. 若必须右击，确保目标在前台\n'
-                                         '3. 卡死可按ESC恢复', QMessageBox.Yes | QMessageBox.No,
-                                         QMessageBox.No)
+            reply = self.show_beautiful_message('question', '⚠️ 右击风险提示', '右击会弹出系统菜单，可能导致程序暂时无响应！\n'
+                '建议：\n1. 优先左击\n2. 若必须右击，确保目标在前台\n'
+                '3. 卡死可按ESC恢复', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
             if reply != QMessageBox.Yes:
                 return
         json_path = os.path.join(button.property("folder_path"), "recording.json")
@@ -5362,7 +5371,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 font-size: 12px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -5384,7 +5393,7 @@ class AutoRecorderApp(QMainWindow):
                 border: 1px solid {BORDER};
                 border-radius: 6px;
                 font-size: 12px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: {CARD};
@@ -5550,7 +5559,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 18px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -5561,7 +5570,7 @@ class AutoRecorderApp(QMainWindow):
             QLabel {
                 color: #2C3E50;
                 font-size: 20px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
         """)
 
@@ -5587,7 +5596,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 18px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #F0F0F2;
@@ -5712,7 +5721,7 @@ class AutoRecorderApp(QMainWindow):
                 color: #262626;
                 font-size: 14px;
                 font-weight: 500;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
             }
         """)
@@ -5775,7 +5784,7 @@ class AutoRecorderApp(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: {CARD};
@@ -5855,7 +5864,7 @@ class AutoRecorderApp(QMainWindow):
                 border: none;
                 border-radius: 6px;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 font-weight: bold;
             }}
             QPushButton:hover {{
@@ -5971,7 +5980,7 @@ class AutoRecorderApp(QMainWindow):
             QLabel {
                 color: #1a1a1a;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
             }
         """)
@@ -6108,7 +6117,7 @@ class AutoRecorderApp(QMainWindow):
             QLabel {
                 color: #2C3E50;
                 font-size: 18px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton {
                 background-color: #007AFF;
@@ -6118,7 +6127,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 16px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -6308,18 +6317,36 @@ class AutoRecorderApp(QMainWindow):
             
             # 清除图像缓存，确保使用最新的图像
             clear_image_cache()
-            
+
+            # ★ 保存回放前的鼠标位置，结束后恢复 ★
+            import pyautogui as _pg
+            _saved_x, _saved_y = _pg.position()
+
+            # ★ 修复：检测录制类型，选择正确的回放函数 ★
+            is_coord_only = all(
+                'image' not in op for op in recording_data
+            )
+
             # 执行回放
             self.debug_print(f"[回放] 开始执行回放: {folder_path}")
-            success_count, total_count = replay_coordinate_operations(
-                recording_data=recording_data,
-                folder_path=folder_path,
-                replay_interval=self.replay_interval,
-                consider_color=False,
-                region_center=None,
-                match_timeout=self.replay_timeout
-            )
+            if is_coord_only:
+                self.debug_print(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
+                success_count, total_count = replay_coordinates_only(
+                    recording_data=recording_data,
+                    replay_interval=self.replay_interval
+                )
+            else:
+                success_count, total_count = replay_coordinate_operations(
+                    recording_data=recording_data,
+                    folder_path=folder_path,
+                    replay_interval=self.replay_interval,
+                    consider_color=False,
+                    region_center=None,
+                    match_timeout=self.replay_timeout
+                )
             
+            _pg.moveTo(_saved_x, _saved_y, duration=0.15)
+
             # 回放完成
             self.is_replaying = False
             self.debug_print(f"[回放] 回放完成: {success_count}/{total_count} 操作成功")
@@ -6629,7 +6656,7 @@ class AutoRecorderApp(QMainWindow):
                         border-radius: 22px;
                         font-size: 18px;
                         font-weight: bold;
-                        font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                        font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     }
                     QPushButton:hover {
                         background-color: #FF453A;
@@ -6650,7 +6677,7 @@ class AutoRecorderApp(QMainWindow):
                         border-radius: 22px;
                         font-size: 18px;
                         font-weight: bold;
-                        font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                        font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     }
                     QPushButton:hover {
                         background-color: #FF453A;
@@ -6892,7 +6919,7 @@ class AutoRecorderApp(QMainWindow):
                 border: none;
                 border-radius: 8px;
                 padding: 8px 16px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: {THEME_SECONDARY};
@@ -6991,7 +7018,7 @@ class AutoRecorderApp(QMainWindow):
                     padding: 6px 12px;
                     min-width: 60px;
                     font-size: 14px;
-                    font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                    font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     color: {THEME_MUTED};
                     font-weight: 500;
                 }}
@@ -7111,7 +7138,7 @@ class AutoRecorderApp(QMainWindow):
 
                 painter.setPen(QColor(self._text_color))
                 font = QFont()
-                font.setFamilies(['PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', 'sans-serif'])
+                font.setFamilies(['PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', 'sans-serif'])
                 font.setPixelSize(15)
                 # PyQt5 没有 QFont.Medium(500),用数值 500
                 font.setWeight(500)
@@ -7236,7 +7263,7 @@ class AutoRecorderApp(QMainWindow):
                 text_color = QColor("#1a1a2e") if not self._recording else QColor("#FF453A")
                 painter.setPen(text_color)
                 font = QFont()
-                font.setFamilies(['PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', 'sans-serif'])
+                font.setFamilies(['PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', 'sans-serif'])
                 font.setPixelSize(15)
                 font.setBold(True)
                 painter.setFont(font)
@@ -7263,7 +7290,7 @@ class AutoRecorderApp(QMainWindow):
                 color: #1a1a2e;
                 font-size: 20px;
                 font-weight: 600;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
                 border: none;
             }
@@ -7303,7 +7330,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 32px 8px 16px;
                 font-size: 14px;
                 font-weight: 500;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 min-height: 36px;
             }
             QComboBox:hover {
@@ -7406,7 +7433,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 12px 20px;
                 font-size: 14px;
                 text-align: left;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -7426,7 +7453,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 12px 20px;
                 font-size: 14px;
                 text-align: left;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -7496,7 +7523,7 @@ class AutoRecorderApp(QMainWindow):
                     background-color: #ffc53d;
                 }
             """)
-            QMessageBox.information(self, "调试模式", "调试模式已开启\n\n回放和组合技运行时将输出详细调试信息到控制台")
+            self.show_beautiful_message('information', "调试模式", "调试模式已开启\n\n回放和组合技运行时将输出详细调试信息到控制台", parent=self)
         else:
             btn.setText("🐛 调试模式: 关")
             btn.setStyleSheet("""
@@ -7513,7 +7540,7 @@ class AutoRecorderApp(QMainWindow):
                     background-color: #73d13d;
                 }
             """)
-            QMessageBox.information(self, "调试模式", "调试模式已关闭")
+            self.show_beautiful_message('information', "调试模式", "调试模式已关闭", parent=self)
 
     def create_help_tab(self):
         """创建使用帮助Tab页面 - 分步引导教程"""
@@ -7540,7 +7567,7 @@ class AutoRecorderApp(QMainWindow):
                 font-size: 28px;
                 font-weight: bold;
                 color: #2C3E50;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
             }
         """)
@@ -7684,7 +7711,7 @@ class AutoRecorderApp(QMainWindow):
                 font-size: 22px;
                 font-weight: bold;
                 color: #2C3E50;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
             }
         """)
@@ -7718,7 +7745,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 10px;
                 font-size: 15px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover:!disabled {
                 background-color: #D1D1D6;
@@ -7742,7 +7769,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 10px;
                 font-size: 15px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -7849,7 +7876,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 padding: 8px 15px;
                 font-size: 12px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -7887,12 +7914,6 @@ class AutoRecorderApp(QMainWindow):
         configure_table(folder_table, get_table_stylesheet(
             cell_padding_v=8, cell_padding_h=12, row_height=44
         ))
-        folder_table.horizontalHeader().setStretchLastSection(False)
-        folder_table.setColumnWidth(0, 110)
-        folder_table.setColumnWidth(1, 170)
-        folder_table.setColumnWidth(2, 80)
-        folder_table.setColumnWidth(3, 50)
-        folder_table.setColumnWidth(4, 50)
 
         # 添加单击事件 - 点击流程名称打开查看图片窗口，点击Emoji执行操作
         def on_folder_table_click(row, column):
@@ -7938,7 +7959,7 @@ class AutoRecorderApp(QMainWindow):
         return tab
     
     def load_folders_to_table(self, table_widget):
-        print(f"[DEBUG] load_folders_to_table 被调用, 表格对象: {table_widget}")
+        """加载流程到表格"""
         table_widget.setRowCount(0)
         from utils import get_recordings_path
         recordings_dir = get_recordings_path()
@@ -7985,6 +8006,11 @@ class AutoRecorderApp(QMainWindow):
                 table_widget.setItem(row, 4, delete_item)
                 
             # 调整列宽 - 给按钮列更多空间
+            table_widget.setColumnWidth(0, 100)  # 时间
+            table_widget.setColumnWidth(1, 200)  # 流程名称
+            table_widget.setColumnWidth(2, 80)   # 快捷键
+            table_widget.setColumnWidth(3, 70)   # 重命名按钮
+            table_widget.setColumnWidth(4, 55)   # 删除按钮
                 
         except Exception as e:
             # print(f"加载流程列表失败: {e}")  # [日志已禁用]
@@ -8062,7 +8088,7 @@ class AutoRecorderApp(QMainWindow):
         instruction_label = QLabel("请按下快捷键组合...")
         instruction_label.setAlignment(Qt.AlignCenter)
         instruction_font_size = int(screen_height * 0.022)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #8c8c8c; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #8c8c8c; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(instruction_label)
         
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
@@ -8076,7 +8102,7 @@ class AutoRecorderApp(QMainWindow):
             border-radius: 12px;
             background-color: #FFFFFF;
             min-height: 40px;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             color: #FF453A;
         """)
         layout.addWidget(shortcut_label)
@@ -8094,7 +8120,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background: #ff7875;
@@ -8114,7 +8140,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: #006AE0;
@@ -8134,7 +8160,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QPushButton:hover {{
                 background-color: {CARD};
@@ -8206,7 +8232,7 @@ class AutoRecorderApp(QMainWindow):
                 for path, shortcut in self.shortcuts.items():
                     if shortcut == shortcut_str and path != folder_path:
                         from PyQt5.QtWidgets import QMessageBox
-                        QMessageBox.warning(self, "警告", f"快捷键 '{shortcut_str}' 已被其他流程使用")
+                        self.show_beautiful_message('warning', "警告", f"快捷键 '{shortcut_str}' 已被其他流程使用", parent=self)
                         return
                 
                 # 保存快捷键 - 使用规范化路径
@@ -8269,12 +8295,11 @@ class AutoRecorderApp(QMainWindow):
                 
                 self.load_folders_to_table(table_widget)
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"重命名失败: {e}")
+                self.show_beautiful_message('critical', "错误", f"重命名失败: {e}", parent=self)
     
     def delete_folder_in_tab(self, folder_path, table_widget):
         """在Tab中删除流程"""
-        reply = QMessageBox.question(self, "确认删除", f"确定要删除流程 '{os.path.basename(folder_path)}' 吗？", 
-                                     QMessageBox.Yes | QMessageBox.No)
+        reply = self.show_beautiful_message('question', "确认删除", f"确定要删除流程 '{os.path.basename(folder_path)}'?", buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
         if reply == QMessageBox.Yes:
             try:
                 # 移动到回收站
@@ -8289,286 +8314,444 @@ class AutoRecorderApp(QMainWindow):
                 self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
     
     def open_trash_dialog(self):
-        """打开回收站对话框 - 带复选框批量操作版"""
+        from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
+            QLabel, QPushButton, QHeaderView, QWidget,
+            QTableWidget, QTableWidgetItem, QAbstractItemView,
+            QMessageBox)
+        from PyQt5.QtCore import Qt
+        from PyQt5.QtGui import QColor
+
         dialog = QDialog(self)
         dialog.setWindowTitle("回收站")
-        dialog.setMinimumSize(600, 400)
-        layout = QVBoxLayout(dialog)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        dialog.resize(680, 500)
 
-        # 回收站表格（带复选框）
-        trash_table = QTableWidget()
-        trash_table.setColumnCount(2)
-        trash_table.setHorizontalHeaderLabels(["", "流程名称"])
-        from design_system import configure_table, get_table_stylesheet
-        configure_table(trash_table, get_table_stylesheet(
-            cell_padding_v=8, cell_padding_h=12, row_height=44
-        ))
-        trash_table.setColumnWidth(0, 50)  # 复选框列宽度
-        trash_table.horizontalHeader().setStretchLastSection(True)
-        layout.addWidget(trash_table)
+        # 主程序 ColorPalette 统一配色
+        BG_WIN  = "#F5F5F7"
+        BG_BAR  = "#FFFFFF"
+        SEP     = "#E8E8ED"
+        C1      = "#1D1D1F"
+        C2      = "#86868B"
+        AC      = "#007AFF"
+        DA      = "#FF3B30"
+        OK      = "#34C759"
+        FN      = '"PingFang SC", "Microsoft YaHei", "Helvetica Neue", "Segoe UI", sans-serif'
+        RADIUS  = "12px"
 
-        # 在表头第一列添加全选复选框
-        select_all_checkbox = QCheckBox()
-        select_all_checkbox.setStyleSheet("""
-            QCheckBox {
-                margin-left: 8px;
-            }
-            QCheckBox::indicator {
-                width: 16px;
-                height: 16px;
-            }
+        # 鼠标拖拽
+        dialog._drag_pos = None
+        def _mp(ev):
+            if ev.button() == Qt.LeftButton:
+                dialog._drag_pos = ev.globalPos() - dialog.frameGeometry().topLeft()
+                ev.accept()
+        def _mm(ev):
+            if ev.buttons() == Qt.LeftButton and dialog._drag_pos is not None:
+                dialog.move(ev.globalPos() - dialog._drag_pos)
+                ev.accept()
+        def _mr(ev):
+            dialog._drag_pos = None
+        dialog.mousePressEvent = _mp
+        dialog.mouseMoveEvent   = _mm
+        dialog.mouseReleaseEvent = _mr
+
+        container = QWidget(dialog)
+        container.setGeometry(0, 0, 680, 500)
+        container.setStyleSheet(f"""
+            QWidget#container {{
+                background: {BG_WIN};
+                border-radius: {RADIUS};
+                font-family: {FN};
+                color: {C1};
+            }}
         """)
-        trash_table.setCellWidget(-1, 0, select_all_checkbox)
-        
-        # 将复选框放置在表头区域
-        header_widget = QWidget()
-        header_layout = QHBoxLayout(header_widget)
-        header_layout.setContentsMargins(8, 0, 0, 0)
-        header_layout.addWidget(select_all_checkbox)
-        header_layout.addStretch()
-        trash_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
-        trash_table.setColumnWidth(0, 50)
-        trash_table.horizontalHeaderItem(0).setText("")
-        trash_table.horizontalHeader().setSectionHidden(0, False)
-        
-        # 创建一个容器来放置全选复选框在表头位置
-        header_checkbox_container = QWidget(trash_table.horizontalHeader())
-        header_checkbox_container.setGeometry(8, 8, 30, 20)
-        checkbox_layout = QHBoxLayout(header_checkbox_container)
-        checkbox_layout.setContentsMargins(0, 0, 0, 0)
-        checkbox_layout.addWidget(select_all_checkbox)
+        container.setObjectName("container")
 
-        # 加载回收站内容
+        main_layout = QVBoxLayout(container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # ── 标题栏 ──
+        title_bar = QWidget()
+        title_bar.setFixedHeight(52)
+        title_bar.setStyleSheet(f"background: {BG_BAR}; border-top-left-radius: {RADIUS}; border-top-right-radius: {RADIUS}; border-bottom: 1px solid {SEP};")
+        tl = QHBoxLayout(title_bar)
+        tl.setContentsMargins(16, 0, 16, 0)
+        icon = QLabel("\U0001f5d1")
+        icon.setStyleSheet("font-size: 18px; background: transparent; border: none;")
+        tl.addWidget(icon)
+        title_txt = QLabel("回收站")
+        title_txt.setStyleSheet(f"font-size: 15px; font-weight: 600; color: {C1}; background: transparent; border: none;")
+        tl.addWidget(title_txt)
+        count_label = QLabel("")
+        count_label.setStyleSheet(f"font-size: 12px; color: {C2}; background: transparent; border: none;")
+        tl.addWidget(count_label)
+        tl.addStretch()
+
+        # 关闭按钮 - macOS 大红点
+        close_title_btn = QPushButton("\u2715")
+        close_title_btn.setFixedSize(38, 38)
+        close_title_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: none;
+                border-radius: 19px;
+                font-size: 22px;
+                font-weight: 400;
+                color: {C2};
+                outline: none;
+            }}
+            QPushButton:hover {{
+                background: {DA};
+                color: white;
+            }}
+            QPushButton:pressed {{
+                background: #d62d20;
+            }}
+        """)
+        close_title_btn.setCursor(Qt.PointingHandCursor)
+        close_title_btn.clicked.connect(dialog.close)
+        tl.addWidget(close_title_btn)
+        main_layout.addWidget(title_bar)
+
+        # ── 表格 ──
+        trash_table = QTableWidget()
+        trash_table.setColumnCount(3)
+        trash_table.setHorizontalHeaderLabels(["", "流程名称", "删除时间"])
+        trash_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        trash_table.setColumnWidth(0, 80)
+        trash_table.setColumnWidth(2, 130)
+        trash_table.verticalHeader().setVisible(False)
+        trash_table.setShowGrid(False)
+        trash_table.setSelectionMode(QAbstractItemView.NoSelection)
+        trash_table.setAlternatingRowColors(False)
+        trash_table.setFocusPolicy(Qt.NoFocus)
+        trash_table.horizontalHeader().setStretchLastSection(False)
+        trash_table.setStyleSheet(f"""
+            QTableWidget {{ background: transparent; border: none; border-radius: 0; font-size: 13px; color: {C1}; }}
+            QTableWidget::item {{ border-bottom: 1px solid {SEP}; }}
+            QTableWidget::item:hover {{ background: rgba(0,122,255,0.04); }}
+            QTableWidget::item:selected {{ background: transparent; color: {C1}; }}
+            QTableWidget:focus {{ outline: none; }}
+            QTableWidget::indicator {{
+                width: 18px;
+                height: 18px;
+                border: 2px solid {C2};
+                border-radius: 4px;
+                background: white;
+                margin-left: 20px;
+            }}
+            QTableWidget::indicator:hover {{
+                border-color: {AC};
+                background: {AC}15;
+            }}
+            QTableWidget::indicator:checked {{
+                background: {AC};
+                border-color: {AC};
+            }}
+            QTableWidget::indicator:checked:hover {{
+                background: #0055CC;
+                border-color: #0055CC;
+            }}
+            QHeaderView::section {{ background: {BG_BAR}; border: none; border-bottom: 1px solid {SEP}; padding: 6px 8px; font-size: 11px; color: {C2}; font-weight: 500; }}
+            QScrollBar:vertical {{ background: transparent; width: 5px; margin: 0; }}
+            QScrollBar::handle:vertical {{ background: #D1D1D6; border-radius: 3px; min-height: 20px; }}
+            QScrollBar::handle:vertical:hover {{ background: #AEAEB2; }}
+        """)
+        main_layout.addWidget(trash_table)
+
+        # ── 底部操作栏 ──
+        bottom_bar = QWidget()
+        bottom_bar.setFixedHeight(60)
+        bottom_bar.setStyleSheet(f"background: {BG_BAR}; border-top: 1px solid {SEP}; border-bottom-left-radius: {RADIUS}; border-bottom-right-radius: {RADIUS};")
+        btl = QHBoxLayout(bottom_bar)
+        btl.setContentsMargins(16, 10, 16, 10)
+
+        # 全选按钮 - 选中时显示蓝色边框
+        select_all_btn = QPushButton("  全选")
+        select_all_btn.setCheckable(True)
+        select_all_btn.setFixedHeight(36)
+        select_all_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                border: 2px solid transparent;
+                border-radius: 6px;
+                font-size: 14px;
+                color: {C1};
+                font-family: {FN};
+                outline: none;
+                padding: 0 4px;
+            }}
+            QPushButton:hover {{
+                color: {AC};
+                background: {AC}10;
+            }}
+            QPushButton:checked {{
+                border-color: {AC};
+                color: {AC};
+                background: {AC}12;
+            }}
+        """)
+        select_all_btn.setCursor(Qt.PointingHandCursor)
+        select_all_btn.setFocusPolicy(Qt.NoFocus)
+        btl.addWidget(select_all_btn)
+        btl.addStretch()
+
+        # 批量还原 - 绿色
+        restore_btn = QPushButton("\u21a9 批量还原")
+        restore_btn.setFixedHeight(36)
+        restore_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {OK};
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 0 18px;
+                font-size: 13px;
+                font-weight: 500;
+                font-family: {FN};
+                outline: none;
+            }}
+            QPushButton:hover {{
+                background: #28a745;
+            }}
+            QPushButton:pressed {{
+                background: #1e7e34;
+                padding-top: 2px;
+            }}
+        """)
+        restore_btn.setCursor(Qt.PointingHandCursor)
+        btl.addWidget(restore_btn)
+
+        # 批量删除 - 红色
+        delete_btn = QPushButton("批量删除")
+        delete_btn.setFixedHeight(36)
+        delete_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {DA};
+                color: white;
+                border: none;
+                border-radius: 10px;
+                padding: 0 18px;
+                font-size: 13px;
+                font-weight: 500;
+                font-family: {FN};
+                outline: none;
+            }}
+            QPushButton:hover {{
+                background: #d62d20;
+            }}
+            QPushButton:pressed {{
+                background: #b0281a;
+                padding-top: 2px;
+            }}
+        """)
+        delete_btn.setCursor(Qt.PointingHandCursor)
+        btl.addWidget(delete_btn)
+
+        # 关闭 - 次要按钮
+        close_btn = QPushButton("关闭")
+        close_btn.setFixedHeight(36)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent;
+                color: {C1};
+                border: 1px solid {SEP};
+                border-radius: 10px;
+                padding: 0 18px;
+                font-size: 13px;
+                font-weight: 500;
+                font-family: {FN};
+                outline: none;
+            }}
+            QPushButton:hover {{
+                background: rgba(0,0,0,0.05);
+                border-color: {C2};
+            }}
+            QPushButton:pressed {{
+                background: rgba(0,0,0,0.1);
+                padding-top: 2px;
+            }}
+        """)
+        close_btn.setCursor(Qt.PointingHandCursor)
+        close_btn.clicked.connect(dialog.close)
+        btl.addWidget(close_btn)
+        main_layout.addWidget(bottom_bar)
+
+        import json, shutil
+        from datetime import datetime
         from utils import get_recordings_path
         trash_dir = os.path.join(get_recordings_path(), 'trash')
         trash_index_file = os.path.join(trash_dir, 'trash_index.json')
-        trash_items_map = {}  # 存储行号到实际文件夹名的映射
+        trash_items_map = {}
 
         def load_trash_items():
-            """加载回收站项目到表格"""
             trash_table.setRowCount(0)
             trash_items_map.clear()
-
             if not os.path.exists(trash_dir):
                 return
-
-            # 加载索引文件获取原始名称
             index_data = []
             if os.path.exists(trash_index_file):
                 try:
                     with open(trash_index_file, 'r', encoding='utf-8') as f:
                         index_data = json.load(f)
-                except Exception as e:
-                    # print(f"加载回收站索引失败: {e}")  # [日志已禁用]
+                except:
                     pass
-
-            # 创建索引映射
             index_map = {item['trash_folder_name']: item for item in index_data}
-
             row = 0
-            for item in os.listdir(trash_dir):
+            for item in sorted(os.listdir(trash_dir)):
                 if item == 'trash_index.json':
                     continue
-
-                # 获取原始名称
-                if item in index_map:
-                    display_name = index_map[item]['original_name']
-                else:
-                    display_name = item
-
+                display_name = index_map[item]['original_name'] if item in index_map else item
                 trash_table.insertRow(row)
+                trash_table.setRowHeight(row, 38)
 
-                # 复选框
-                checkbox = QCheckBox()
-                checkbox.setStyleSheet("QCheckBox { margin-left: 8px; }")
-                checkbox_widget = QWidget()
-                checkbox_layout = QHBoxLayout(checkbox_widget)
-                checkbox_layout.addWidget(checkbox)
-                checkbox_layout.setAlignment(Qt.AlignCenter)
-                checkbox_layout.setContentsMargins(0, 0, 0, 0)
-                trash_table.setCellWidget(row, 0, checkbox_widget)
+                # 复选框 - 使用 QTableWidgetItem::indicator 渲染
+                ci = QTableWidgetItem()
+                ci.setFlags(ci.flags() & ~Qt.ItemIsEditable & ~Qt.ItemIsSelectable)
+                ci.setCheckState(Qt.Unchecked)
+                trash_table.setItem(row, 0, ci)
 
-                # 名称
-                name_item = QTableWidgetItem(display_name)
-                name_item.setData(Qt.UserRole, item)  # 存储实际文件夹名
-                trash_table.setItem(row, 1, name_item)
+                # 流程名称
+                ni = QTableWidgetItem(display_name)
+                ni.setData(Qt.UserRole, item)
+                ni.setFlags(ni.flags() & ~Qt.ItemIsEditable & ~Qt.ItemIsSelectable)
+                trash_table.setItem(row, 1, ni)
+
+                # ✅ 删除时间 - 从索引获取并格式化
+                ti_text = ""
+                if item in index_map:
+                    raw = index_map[item].get('deleted_at', index_map[item].get('delete_time', ''))
+                    if raw:
+                        try:
+                            dt = datetime.fromisoformat(raw)
+                            ti_text = dt.strftime("%m-%d %H:%M")
+                        except:
+                            ti_text = raw
+                ti = QTableWidgetItem(ti_text)
+                ti.setFlags(ti.flags() & ~Qt.ItemIsEditable & ~Qt.ItemIsSelectable)
+                ti.setForeground(QColor(C2))
+                trash_table.setItem(row, 2, ti)
 
                 trash_items_map[row] = item
                 row += 1
+            count_label.setText(f"共 {row} 项")
 
         load_trash_items()
 
-        # 全选/取消全选功能
-        def toggle_select_all(state):
-            for row in range(trash_table.rowCount()):
-                checkbox_widget = trash_table.cellWidget(row, 0)
-                if checkbox_widget:
-                    checkbox = checkbox_widget.findChild(QCheckBox)
-                    if checkbox:
-                        checkbox.setChecked(state == Qt.Checked)
+        def toggle_all(checked):
+            state = Qt.Checked if checked else Qt.Unchecked
+            for r in range(trash_table.rowCount()):
+                ci = trash_table.item(r, 0)
+                if ci:
+                    ci.setCheckState(state)
+        select_all_btn.toggled.connect(toggle_all)
 
-        select_all_checkbox.stateChanged.connect(toggle_select_all)
+        def get_selected():
+            sel = []
+            for r in range(trash_table.rowCount()):
+                ci = trash_table.item(r, 0)
+                if ci and ci.checkState() == Qt.Checked:
+                    item = trash_table.item(r, 1)
+                    if item:
+                        sel.append((r, item.data(Qt.UserRole), item.text()))
+            return sel
 
-        # 按钮
-        btn_layout = QHBoxLayout()
-        restore_btn = QPushButton("批量还原")
-        restore_btn.setStyleSheet("background: #52c41a; color: white; padding: 8px 20px;")
-        delete_btn = QPushButton("批量删除")
-        delete_btn.setStyleSheet("background: #ff4d4f; color: white; padding: 8px 20px;")
-        close_btn = QPushButton("关闭")
-        close_btn.setStyleSheet("padding: 8px 20px;")
-        close_btn.clicked.connect(dialog.close)
-
-        btn_layout.addWidget(restore_btn)
-        btn_layout.addWidget(delete_btn)
-        btn_layout.addStretch()
-        btn_layout.addWidget(close_btn)
-        layout.addLayout(btn_layout)
-
-        # 获取选中的项目
-        def get_selected_items():
-            selected = []
-            for row in range(trash_table.rowCount()):
-                checkbox_widget = trash_table.cellWidget(row, 0)
-                if checkbox_widget:
-                    checkbox = checkbox_widget.findChild(QCheckBox)
-                    if checkbox and checkbox.isChecked():
-                        name_item = trash_table.item(row, 1)
-                        if name_item:
-                            trash_folder_name = name_item.data(Qt.UserRole)
-                            display_name = name_item.text()
-                            selected.append((row, trash_folder_name, display_name))
-            return selected
-
-        # 批量还原功能
         def restore_items():
-            selected = get_selected_items()
+            selected = get_selected()
             if not selected:
                 self.show_beautiful_message('warning', '提示', '请先选择要还原的项目', parent=dialog)
                 return
-
             success_count = 0
-            failed_items = []
-
-            for row, trash_folder_name, display_name in selected:
-                trash_folder_path = os.path.join(trash_dir, trash_folder_name)
-
-                # 从索引中获取原始路径
-                original_path = None
+            failed = []
+            for row, trash_name, disp_name in selected:
+                trash_path = os.path.join(trash_dir, trash_name)
+                orig_path = None
                 if os.path.exists(trash_index_file):
                     try:
                         with open(trash_index_file, 'r', encoding='utf-8') as f:
-                            index_data = json.load(f)
-                        for item in index_data:
-                            if item['trash_folder_name'] == trash_folder_name:
-                                original_path = item['original_path']
+                            idx = json.load(f)
+                        for it in idx:
+                            if it['trash_folder_name'] == trash_name:
+                                orig_path = it['original_path']
                                 break
-                    except Exception as e:
-                        # print(f"读取索引失败: {e}")  # [日志已禁用]
+                    except:
                         pass
-
-                # 如果没有找到原始路径，使用默认路径
-                if not original_path:
-                    recordings_dir = get_recordings_path()
-                    original_path = os.path.join(recordings_dir, display_name)
-
+                if not orig_path:
+                    orig_path = os.path.join(get_recordings_path(), disp_name)
                 try:
-                    # 如果目标位置已存在同名文件夹，添加后缀
-                    if os.path.exists(original_path):
-                        base_name = original_path
-                        counter = 1
-                        while os.path.exists(original_path):
-                            original_path = f"{base_name}_{counter}"
-                            counter += 1
-
-                    # 移动文件夹
-                    shutil.move(trash_folder_path, original_path)
+                    if os.path.exists(orig_path):
+                        base = orig_path
+                        c = 1
+                        while os.path.exists(orig_path):
+                            orig_path = f"{base}_{c}"
+                            c += 1
+                    shutil.move(trash_path, orig_path)
                     success_count += 1
-
                 except Exception as e:
-                    failed_items.append(f"{display_name}: {str(e)}")
-
-            # 更新索引文件
+                    failed.append(f"{disp_name}: {e}")
             if os.path.exists(trash_index_file):
                 try:
                     with open(trash_index_file, 'r', encoding='utf-8') as f:
-                        index_data = json.load(f)
-                    restored_names = [item[1] for item in selected]
-                    index_data = [item for item in index_data if item['trash_folder_name'] not in restored_names]
+                        idx = json.load(f)
+                    restored = [it[1] for it in selected]
+                    idx = [it for it in idx if it['trash_folder_name'] not in restored]
                     with open(trash_index_file, 'w', encoding='utf-8') as f:
-                        json.dump(index_data, f, ensure_ascii=False, indent=2)
-                except Exception as e:
-                    # print(f"更新索引失败: {e}")  # [日志已禁用]
+                        json.dump(idx, f, ensure_ascii=False, indent=2)
+                except:
                     pass
-
-            # 重新加载列表
             load_trash_items()
-            select_all_checkbox.setChecked(False)
-
-            # 显示结果
-            if failed_items:
-                self.show_beautiful_message('warning', '部分还原失败', f"成功还原 {success_count} 项\n失败项:\n" + "\n".join(failed_items), parent=dialog)
+            select_all_btn.setChecked(False)
+            if failed:
+                self.show_beautiful_message('warning', '部分还原失败',
+                    f"成功还原 {success_count} 项\n失败:\n" + "\n".join(failed), parent=dialog)
             else:
-                self.show_beautiful_message('information', '成功', f"已成功还原 {success_count} 个项目", parent=dialog)
-
-            # 刷新流程管理表格
+                self.show_beautiful_message('information', '成功',
+                    f"已成功还原 {success_count} 个项目", parent=dialog)
             if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
                 self.load_folders_to_table(self.manager_tab.folder_table)
 
-        # 批量删除功能
         def permanent_delete_items():
-            selected = get_selected_items()
+            selected = get_selected()
             if not selected:
                 self.show_beautiful_message('warning', '提示', '请先选择要删除的项目', parent=dialog)
                 return
-
-            reply = self.show_beautiful_message('question', '确认删除', f"确定要彻底删除选中的 {len(selected)} 个项目吗？此操作不可恢复！",
-                                         QMessageBox.Yes | QMessageBox.No)
+            reply = self.show_beautiful_message('question', "确认删除", f"确定要彻底删除选中的 {len(selected)} 个项目?",
+                buttons=QMessageBox.Yes | QMessageBox.No,
+                default_button=QMessageBox.No,
+                parent=dialog)
             if reply != QMessageBox.Yes:
                 return
-
             success_count = 0
-            failed_items = []
-
-            for row, trash_folder_name, display_name in selected:
-                trash_folder_path = os.path.join(trash_dir, trash_folder_name)
-
+            failed = []
+            for row, trash_name, disp_name in selected:
+                trash_path = os.path.join(trash_dir, trash_name)
                 try:
-                    # 彻底删除文件夹
-                    shutil.rmtree(trash_folder_path)
+                    shutil.rmtree(trash_path)
                     success_count += 1
                 except Exception as e:
-                    failed_items.append(f"{display_name}: {str(e)}")
-
-            # 更新索引文件
+                    failed.append(f"{disp_name}: {e}")
             if os.path.exists(trash_index_file):
                 try:
                     with open(trash_index_file, 'r', encoding='utf-8') as f:
-                        index_data = json.load(f)
-                    deleted_names = [item[1] for item in selected]
-                    index_data = [item for item in index_data if item['trash_folder_name'] not in deleted_names]
+                        idx = json.load(f)
+                    deleted = [it[1] for it in selected]
+                    idx = [it for it in idx if it['trash_folder_name'] not in deleted]
                     with open(trash_index_file, 'w', encoding='utf-8') as f:
-                        json.dump(index_data, f, ensure_ascii=False, indent=2)
-                except Exception as e:
-                    # print(f"更新索引失败: {e}")  # [日志已禁用]
+                        json.dump(idx, f, ensure_ascii=False, indent=2)
+                except:
                     pass
-
-            # 重新加载列表
             load_trash_items()
-            select_all_checkbox.setChecked(False)
-
-            # 显示结果
-            if failed_items:
-                self.show_beautiful_message('warning', '部分删除失败', f"成功删除 {success_count} 项\n失败项:\n" + "\n".join(failed_items), parent=dialog)
+            select_all_btn.setChecked(False)
+            if failed:
+                self.show_beautiful_message('warning', '部分删除失败',
+                    f"成功删除 {success_count} 项\n失败:\n" + "\n".join(failed), parent=dialog)
             else:
-                self.show_beautiful_message('information', '成功', f"已成功删除 {success_count} 个项目", parent=dialog)
+                self.show_beautiful_message('information', '成功',
+                    f"已成功删除 {success_count} 个项目", parent=dialog)
 
-        # 连接按钮信号
         restore_btn.clicked.connect(restore_items)
         delete_btn.clicked.connect(permanent_delete_items)
-
         dialog.exec_()
-    
     def open_view_images_in_tab(self, folder_path):
         """在Tab中打开查看图片窗口"""
         try:
@@ -8581,7 +8764,7 @@ class AutoRecorderApp(QMainWindow):
             # print(f"[Tab] 打开查看图片窗口失败: {e}")  # [日志已禁用]
             import traceback
             traceback.print_exc()
-            QMessageBox.critical(self, "错误", f"打开查看图片窗口失败: {e}")
+            self.show_beautiful_message('critical', "错误", f"打开查看图片窗口失败: {e}", parent=self)
     
     def open_folder_from_list(self, item):
         """从列表打开流程"""
@@ -8648,7 +8831,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 16px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -8931,13 +9114,13 @@ class AutoRecorderApp(QMainWindow):
             
             # 检查这个特定的组合技是否已经在运行
             if skill_id in self.runners and self.runners[skill_id].isRunning():
-                QMessageBox.warning(self, "提示", f"组合技 '{skill_name}' 正在运行中，请先停止后再执行")
+                self.show_beautiful_message('warning', "提示", f"组合技 '{skill_name}' 正在运行中，请先停止后再执行", parent=self)
                 return
             
             max_parallel = 3
             running_count = len([r for r in self.runners.values() if r.isRunning()])
             if running_count >= max_parallel:
-                QMessageBox.warning(self, "提示", f"最多同时运行{max_parallel}个组合技，当前已有{running_count}个在运行")
+                self.show_beautiful_message('warning', "提示", f"最多同时运行{max_parallel}个组合技，当前已有{running_count}个在运行", parent=self)
                 return
             
             # 清除这个runner的旧引用（如果存在但已停止）
@@ -8978,7 +9161,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"运行组合技失败: {e}")
+            self.show_beautiful_message('critical', "错误", f"运行组合技失败: {e}", parent=self)
     
     def stop_combo_skill(self, skill=None):
         """停止正在运行的组合技 - 停止后立即清理runner状态，以便下次运行从第一个流程重新开始
@@ -9053,7 +9236,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"停止组合技失败: {e}")
+            self.show_beautiful_message('critical', "错误", f"停止组合技失败: {e}", parent=self)
     
     def _on_combo_skill_finished(self, success, msg, skill_id=None):
         """组合技执行完成的回调"""
@@ -9243,7 +9426,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"批量启动组合技失败: {e}")
+            self.show_beautiful_message('critical', "错误", f"批量启动组合技失败: {e}", parent=self)
     
     def stop_selected_combo_skills(self, table_widget):
         """批量停止选中的组合技"""
@@ -9258,7 +9441,7 @@ class AutoRecorderApp(QMainWindow):
                         selected_skills.append(skill)
 
             if not selected_skills:
-                QMessageBox.information(self, "提示", "请先勾选要停止的组合技（勾选第一列的复选框）")
+                self.show_beautiful_message('information', "提示", "请先勾选要停止的组合技（勾选第一列的复选框）", parent=self)
                 return
 
             # 先设全局回放停止标志，立即中断所有匹配和等待
@@ -9296,7 +9479,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"批量停止组合技失败: {e}")
+            self.show_beautiful_message('critical', "错误", f"批量停止组合技失败: {e}", parent=self)
     
     def edit_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中编辑组合技"""
@@ -9322,8 +9505,9 @@ class AutoRecorderApp(QMainWindow):
     
     def delete_combo_skill_in_tab(self, skill, table_widget):
         """在Tab中删除组合技"""
-        reply = QMessageBox.question(self, "确认删除", f"确定要删除组合技 '{skill.get('name', '未命名')}' 吗？", 
-                                     QMessageBox.Yes | QMessageBox.No)
+        reply = self.show_beautiful_message('question', "确认删除", f"确定要删除组合技 '{skill.get('name', '未命名')}'?",
+            buttons=QMessageBox.Yes | QMessageBox.No,
+            default_button=QMessageBox.No)
         if reply == QMessageBox.Yes:
             try:
                 combo_manager = ComboSkillManager(self)
@@ -9331,7 +9515,7 @@ class AutoRecorderApp(QMainWindow):
                 combo_manager.save_combo_skills()
                 self.load_combo_skills_to_table(table_widget)
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"删除失败: {e}")
+                self.show_beautiful_message('critical', "错误", f"删除失败: {e}", parent=self)
     
     def set_combo_skill_stop_shortcut(self, skill, table_widget):
         """设置组合技的停止快捷键"""
@@ -9411,7 +9595,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 16px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #F0F0F2;
@@ -9433,7 +9617,7 @@ class AutoRecorderApp(QMainWindow):
                 padding: 8px 20px;
                 font-size: 16px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -9464,7 +9648,7 @@ class AutoRecorderApp(QMainWindow):
                 self.load_combo_skills_to_table(table_widget)
                 # print(f"已设置停止快捷键: {skill.get('name')} -> {shortcut_str}")  # [日志已禁用]
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"设置快捷键失败: {e}")
+                self.show_beautiful_message('critical', "错误", f"设置快捷键失败: {e}", parent=self)
     
     def open_combo_skill_editor(self, skill=None):
         """打开组合技编辑器"""
@@ -9535,7 +9719,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 20px;
                 font-size: 18px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 color: white;
             }}
             QPushButton:hover {{
@@ -9610,8 +9794,7 @@ class AutoRecorderApp(QMainWindow):
 
     def delete_recording(self, name):
         """删除录制流程"""
-        reply = QMessageBox.question(self, "确认删除", f"确定要删除 '{name}' 吗？",
-                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = self.show_beautiful_message('question', "确认删除", f"确定要删除 '{name}' 吗？", buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
         if reply == QMessageBox.Yes:
             try:
                 from utils import get_recordings_path
@@ -9619,11 +9802,11 @@ class AutoRecorderApp(QMainWindow):
                 path = os.path.join(get_recordings_path(), name)
                 if os.path.exists(path):
                     shutil.rmtree(path)
-                    QMessageBox.information(self, "成功", "删除成功！")
+                    self.show_beautiful_message('information', "成功", "删除成功！", parent=self)
                     # 刷新UI
                     self.refresh_ui()
             except Exception as e:
-                QMessageBox.warning(self, "错误", f"删除失败: {e}")
+                self.show_beautiful_message('warning', "错误", f"删除失败: {e}", parent=self)
 
     def refresh_ui(self):
         """刷新UI"""
@@ -9652,7 +9835,7 @@ class AutoRecorderApp(QMainWindow):
             }
             QMenu::item {
                 padding: 8px 20px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 color: #262626;
             }
             QMenu::item:selected {
@@ -9688,7 +9871,7 @@ class AutoRecorderApp(QMainWindow):
 
     def show_about_dialog(self):
         """显示关于对话框"""
-        QMessageBox.about(self, "关于",
+        self.show_beautiful_message('information', "关于",
             "<h3>PC录制助手</h3>"
             "<p>版本: 2.1.0</p>"
             "<p>专业的PC操作录制与回放工具</p>")
@@ -9717,7 +9900,7 @@ class AutoRecorderApp(QMainWindow):
                 font-size: 28px;
                 font-weight: bold;
                 color: #2C3E50;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 background: transparent;
             }
         """)
@@ -9735,7 +9918,7 @@ class AutoRecorderApp(QMainWindow):
         card_layout = QVBoxLayout(help_card)
 
         help_content = QLabel("""
-            <div style="font-size: 17px; line-height: 1.8; color: #2C3E50; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
+            <div style="font-size: 17px; line-height: 1.8; color: #2C3E50; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;">
             <p><b style="color: #FF453A;">🎬 录制</b></p>
             <p>&nbsp;&nbsp;开始录制屏幕操作</p>
             <br/>
@@ -9769,7 +9952,7 @@ class AutoRecorderApp(QMainWindow):
                 border-radius: 25px;
                 font-size: 18px;
                 font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton:hover {
                 background-color: #006AE0;
@@ -9843,7 +10026,7 @@ class AutoRecorderApp(QMainWindow):
                 color: #262626;
                 border: 1px solid #f0f0f0;
                 border-radius: {tray_menu_radius}px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QMenu::item {{
                 padding: 8px 20px;

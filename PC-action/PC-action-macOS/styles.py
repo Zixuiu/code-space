@@ -10,7 +10,7 @@ from utils import get_screen_size
 # macOS 风格字体栈
 # ============================================
 # PingFang SC 是 macOS 中文方字体，Helvetica Neue 是 macOS 无衬线英文字体
-MACOS_FONT_STACK = '"PingFang SC", "Microsoft YaHei UI", "Helvetica Neue", "Segoe UI", sans-serif'
+MACOS_FONT_STACK = '"PingFang SC", "SimHei", "Microsoft YaHei", "Helvetica Neue", "Segoe UI", sans-serif'
 
 # ============================================
 # macOS 风格配色方案
@@ -761,7 +761,7 @@ def get_table_style(screen_width=None, screen_height=None):
             border-radius: 12px;
             gridline-color: transparent;
             selection-background-color: #E8F0FE;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: 13px;
             alternate-background-color: #FAFAFC;
         }}
@@ -774,7 +774,7 @@ def get_table_style(screen_width=None, screen_height=None):
             border-top-left-radius: 12px;
             border-top-right-radius: 12px;
             font-weight: 600;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: 12px;
         }}
         QHeaderView::section:last {{
@@ -864,7 +864,7 @@ def get_message_box_style(screen_width=None, screen_height=None):
         }}
         QMessageBox QLabel {{
             color: #1D1D1F;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: {font_size}px;
             line-height: 1.5;
         }}
@@ -878,7 +878,7 @@ def get_message_box_style(screen_width=None, screen_height=None):
             border-radius: {button_radius}px;
             padding: 12px 24px;
             font-weight: 600;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', sans-serif;
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: 14px;
             min-width: 100px;
             min-height: 40px;

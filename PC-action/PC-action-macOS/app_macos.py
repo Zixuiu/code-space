@@ -1,4 +1,8 @@
 import os
+if os.name == "nt":
+    os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
+
+import os
 import json
 import math
 import sys
@@ -19,7 +23,7 @@ from PyQt5.QtCore import (
 )
 from PyQt5.QtGui import (
     QColor, QPainter, QBrush, QPen, QFont, QFontDatabase, QIcon, QPixmap,
-    QKeySequence, QLinearGradient, QRadialGradient
+    QKeySequence, QLinearGradient, QRadialGradient, QRegion, QPainterPath
 )
 
 from app import AutoRecorderApp
@@ -158,6 +162,8 @@ class MacOSSidebar(QWidget):
             QWidget {{
                 background-color: {MacOSColors.SIDEBAR_BG};
                 border-right: 1px solid {MacOSColors.SEPARATOR};
+                border-bottom-left-radius: 28px;
+                border-bottom-left-radius: 28px;
             }}
         """)
 
@@ -677,11 +683,11 @@ class RoundedPillButton(QPushButton):
 
         # 文字
         painter.setPen(QColor(self._text_color))
-        font = QFont("Microsoft YaHei" if sys.platform == "win32" else "PingFang SC")
-        font.setPixelSize(15)
+        font = QFont("SimHei" if sys.platform == "win32" else "PingFang SC")
+        font.setPixelSize(16)
         font.setWeight(QFont.Medium)
         font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
-        font.setHintingPreference(QFont.PreferFullHinting)
+        font.setHintingPreference(QFont.PreferNoHinting)
         painter.setFont(font)
         painter.drawText(rect, Qt.AlignCenter, self.text())
 
@@ -702,11 +708,12 @@ class RoundedPillButton(QPushButton):
 class MacOSToolbar(QWidget):
     def __init__(self, title="", parent=None):
         super().__init__(parent)
-        self.setFixedHeight(46)
+        self.setFixedHeight(48)
         self.setStyleSheet(f"""
             MacOSToolbar {{
                 background-color: {MacOSColors.TOOLBAR_BG};
                 border-bottom: 1px solid {MacOSColors.SEPARATOR};
+                border-radius: 28px 28px 0 0;
             }}
         """)
 
@@ -721,19 +728,18 @@ class MacOSToolbar(QWidget):
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(6)
 
-        for color in [MacOSColors.SYSTEM_RED, MacOSColors.SYSTEM_YELLOW, MacOSColors.SYSTEM_GREEN]:
-            dot = QFrame()
-            dot.setFixedSize(12, 12)
-            dot.setStyleSheet(f"""
-                QFrame {{
-                    background-color: {color};
-                    border: none;
-                    border-radius: 6px;
-                }}
-            """)
-            controls_layout.addWidget(dot)
-
-        layout.addWidget(controls)
+        self.min_btn = QFrame()
+        self.min_btn.setFixedSize(16, 16)
+        self.min_btn.setStyleSheet('QFrame{background-color:%s;border:none;border-radius:8px;}QFrame:hover{background-color:#FFBD3A;}'%MacOSColors.SYSTEM_YELLOW)
+        controls_layout.addWidget(self.min_btn)
+        self.max_btn = QFrame()
+        self.max_btn.setFixedSize(16, 16)
+        self.max_btn.setStyleSheet('QFrame{background-color:%s;border:none;border-radius:8px;}QFrame:hover{background-color:#28C840;}'%MacOSColors.SYSTEM_GREEN)
+        controls_layout.addWidget(self.max_btn)
+        self.close_btn = QFrame()
+        self.close_btn.setFixedSize(16, 16)
+        self.close_btn.setStyleSheet('QFrame{background-color:%s;border:none;border-radius:8px;}QFrame:hover{background-color:#FF6B5E;}'%MacOSColors.SYSTEM_RED)
+        controls_layout.addWidget(self.close_btn)
 
         self.title_label = QLabel(title)
         self.title_label.setStyleSheet(f"""
@@ -745,25 +751,27 @@ class MacOSToolbar(QWidget):
         layout.addWidget(self.title_label)
         layout.addStretch()
 
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("\U0001f50d 搜索")
-        self.search_input.setFixedWidth(200)
-        self.search_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {MacOSColors.SIDEBAR_BG};
-                border: none;
-                border-radius: {BorderRadiusSystem.MD}px;
-                padding: {SpacingSystem.SM}px {SpacingSystem.SM}px;
-                font-size: {TypographySystem.SIZE_BASE}px;
-                font-family: {TypographySystem.FONT_FAMILY};
-                color: {MacOSColors.TEXT_PRIMARY};
-            }}
-            QLineEdit:focus {{
-                background-color: {MacOSColors.CARD_BG};
-                border: 1px solid {MacOSColors.SEPARATOR};
-            }}
-        """)
-        layout.addWidget(self.search_input)
+        layout.addWidget(controls)
+
+    def mousePressEvent(self, e):
+        if self.close_btn.underMouse():
+            self.window().close()
+        elif self.min_btn.underMouse():
+            self.window().showMinimized()
+        elif self.max_btn.underMouse():
+            w = self.window()
+            if w.isMaximized():
+                w.showNormal()
+            else:
+                w.showMaximized()
+        elif e.button() == Qt.LeftButton:
+            MacOSToolbar._drag_pos = e.globalPos() - self.window().frameGeometry().topLeft()
+        super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e):
+        if e.buttons() == Qt.LeftButton and MacOSToolbar._drag_pos:
+            self.window().move(e.globalPos() - MacOSToolbar._drag_pos)
+        super().mouseMoveEvent(e)
 
     def set_title(self, title):
         self.title_label.setText(title)
@@ -789,7 +797,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def run_selected_combo_skills(self, table_widget):
         """macOS版本：批量运行选中的组合技"""
-        from PyQt5.QtWidgets import QMessageBox
         try:
             selected_skills = []
             for row in range(table_widget.rowCount()):
@@ -873,7 +880,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def run_combo_skill_in_tab(self, skill):
         """在macOS组合技tab页中运行单个组合技"""
-        from PyQt5.QtWidgets import QMessageBox
         try:
             skill_name = skill.get('name', '未命名')
             skill_id = skill.get('name', '')
@@ -943,10 +949,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         x = screen_geometry.x() + (screen_geometry.width() - width) // 2
         y = screen_geometry.y() + (screen_geometry.height() - height) // 2
         self.setGeometry(x, y, width, height)
-        self.setMinimumSize(1200, 700)
+        self.setMinimumSize(1200, 720)
 
+        self.setAttribute(Qt.WA_TranslucentBackground)
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
+        main_widget.setObjectName("centralContainer")
+        main_widget.setStyleSheet("QWidget#centralContainer{background-color:%s;border-radius:28px;}"%MacOSColors.WINDOW_BG)
+
         main_layout = QVBoxLayout(main_widget)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -955,24 +965,33 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         main_layout.addWidget(self.macos_toolbar)
 
         body = QWidget()
-        body.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
+        body.setStyleSheet("background: transparent; border: none;")
         print("[MACOS DEBUG] macOS initUI called, stylesheet cleared", flush=True)
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
 
         self.macos_sidebar = MacOSSidebar()
+        
         self.macos_sidebar.tab_changed.connect(self.on_macos_tab_changed)
         body_layout.addWidget(self.macos_sidebar)
 
         self.macos_stack = QStackedWidget()
-        self.macos_stack.setStyleSheet("background-color: transparent;")
+        self.macos_stack.setStyleSheet("background: transparent; border-bottom-right-radius: 28px;")
 
         self.record_tab = self.create_record_tab()
         self.manager_tab = self.create_manager_tab()
         self.combo_tab = self.create_combo_tab()
         self.settings_tab = self.create_settings_tab()
-        self.help_tab = self.create_help_tab()
+        try:
+            self.help_tab = self.create_help_tab()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"\n\n\U0001f525 create_help_tab \u62a5\u9519: {e}\n\n")
+            # \u521b\u5efa\u4e00\u4e2a\u7b80\u5355\u7684\u5e2e\u52a9\u9875\u907f\u514d\u5d29\u6e83
+            from PyQt5.QtWidgets import QLabel
+            self.help_tab = QLabel(f"\u52a0\u8f7d\u5931\u8d25: {e}")
 
         self.macos_stack.addWidget(self.record_tab)
         self.macos_stack.addWidget(self.manager_tab)
@@ -998,7 +1017,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         # 使用新的设计系统生成统一样式
         self.setStyleSheet(generate_macos_theme())
-        body.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
+        body.setStyleSheet("background: transparent; border: none;")
+        r = QRect(0, 0, self.width(), self.height())
+        path = QPainterPath(); path.addRoundedRect(QRectF(r), 16, 16); self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
+    def resizeEvent(self, e):
+        r = QRect(0, 0, self.width(), self.height())
+        path = QPainterPath(); path.addRoundedRect(QRectF(r), 16, 16); self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        super().resizeEvent(e)
 
     def on_macos_tab_changed(self, index):
         if self.macos_stack.currentIndex() == index:
@@ -1035,7 +1061,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
         layout.setSpacing(24)
-        layout.setContentsMargins(32, 28, 32, 12)
+        layout.setContentsMargins(32, 28, 32, 24)
         layout.setAlignment(Qt.AlignTop)
 
         main_card = MacOSCard()
@@ -1080,40 +1106,67 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         """)
         mode_layout.addWidget(mode_label)
 
-        self.record_mode_combo = QComboBox()
-        self.record_mode_combo.addItems(["图像录制", "坐标录制"])
-        self.record_mode_combo.setFixedWidth(180)
+        # ── 自定义 macOS 风格下拉框 ──
+        self.record_mode_combo = QPushButton("📷	图像录制")
+        self.record_mode_combo.setFixedWidth(200)
+        self.record_mode_combo.setCursor(Qt.PointingHandCursor)
+        # 兼容父类 currentText() 调用
+        self.record_mode_combo.currentText = lambda: self.record_mode_combo.text().replace("📷	", "").replace("📍	", "")
         self.record_mode_combo.setStyleSheet(f"""
-            QComboBox {{
+            QPushButton {{
                 background-color: {MacOSColors.CARD_BG};
                 color: {MacOSColors.TEXT_PRIMARY};
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: 8px;
-                padding: 8px 14px;
-                font-size: 14px;
+                border: 1.5px solid {MacOSColors.SEPARATOR};
+                border-radius: 10px;
+                padding: 9px 16px;
+                padding-right: 36px;
+                font-size: 13px;
                 font-weight: 500;
+                min-height: 22px;
+                text-align: left;
             }}
-            QComboBox:hover {{
+            QPushButton:hover {{
+                border-color: {MacOSColors.ACCENT};
+                background-color: {ColorPalette.BG_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {ColorPalette.GRAY_200};
                 border-color: {MacOSColors.ACCENT};
             }}
-            QComboBox:focus {{
-                border-color: {MacOSColors.ACCENT};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 28px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: 8px;
-                selection-background-color: {MacOSColors.ACCENT_BG};
-                selection-color: {MacOSColors.ACCENT};
-                padding: 4px;
+            QPushButton::menu-indicator {{
+                image: none;
+                width: 10px;
+                subcontrol-position: right center;
+                subcontrol-origin: padding;
+                padding-right: 14px;
             }}
         """)
-        mode_layout.addWidget(self.record_mode_combo)
+        self._record_menu = QMenu(self.record_mode_combo)
+        self._record_menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {MacOSColors.CARD_BG};
+                border: 1px solid {ColorPalette.GRAY_200};
+                border-radius: 0px;
+                padding: 6px;
+            }}
+            QMenu::item {{
+                padding: 10px 18px;
+                border-radius: 8px;
+                min-height: 24px;
+                font-size: 13px;
+                font-weight: 500;
+            }}
+            QMenu::item:selected {{
+                background-color: {MacOSColors.ACCENT};
+                color: white;
+            }}
+        """)
+        self._record_menu.addAction("📷	图像录制")
+        self._record_menu.addAction("📍	坐标录制")
+        self._record_menu.triggered.connect(
+            lambda action: self.record_mode_combo.setText(action.text())
+        )
+        self.record_mode_combo.setMenu(self._record_menu)
         mode_layout.addWidget(self.record_mode_combo)
         record_layout.addWidget(mode_widget)
         record_layout.addStretch()
@@ -1180,7 +1233,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         ))
         folder_table.horizontalHeader().setStretchLastSection(False)
         folder_table.setColumnWidth(0, 110)
-        folder_table.setColumnWidth(1, 170)
+        folder_table.setColumnWidth(1, 400)
+        folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         folder_table.setColumnWidth(2, 80)
         folder_table.setColumnWidth(3, 55)
         folder_table.setColumnWidth(4, 55)
@@ -1271,6 +1325,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             pass
 
     def set_folder_shortcut_in_tab(self, folder_path, table_widget):
+        from PyQt5.QtWidgets import QDialog
         from PyQt5.QtCore import Qt, QTimer
 
         folder_name = os.path.basename(folder_path)
@@ -1278,6 +1333,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         self.temporarily_disable_grave_hotkey()
 
+        dialog = QDialog(self)
+        dialog.setWindowTitle("设置快捷键 - %s" % folder_name)
         dialog.setWindowModality(Qt.WindowModal)
         dialog.setStyleSheet(f"""
             QDialog {{
@@ -1298,7 +1355,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         instruction_label.setStyleSheet(f"""
             font-size: {instruction_font_size}px;
             color: {MacOSColors.TEXT_SECONDARY};
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             background: transparent;
         """)
         layout.addWidget(instruction_label)
@@ -1314,7 +1371,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             border-radius: 12px;
             background-color: {MacOSColors.CARD_BG};
             min-height: 44px;
-            font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             color: {MacOSColors.ACCENT};
         """)
         layout.addWidget(shortcut_label)
@@ -1334,7 +1391,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border-radius: {BorderRadiusSystem.MD}px;
                 font-weight: 500;
                 font-size: 13px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
             }}
             QPushButton:hover {{
@@ -1358,7 +1415,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border-radius: {BorderRadiusSystem.MD}px;
                 font-weight: 500;
                 font-size: 13px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
             }}
             QPushButton:hover {{
@@ -1382,7 +1439,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border-radius: {BorderRadiusSystem.MD}px;
                 font-weight: 500;
                 font-size: 13px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
             }}
             QPushButton:hover {{
@@ -1406,7 +1463,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border-radius: 12px;
                 background-color: {MacOSColors.CARD_BG};
                 min-height: 44px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 color: {MacOSColors.TEXT_SECONDARY};
             """)
             normalized_path = os.path.normpath(str(folder_path))
@@ -1423,6 +1480,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             shortcut_str = shortcut_label.text()
             if shortcut_str and shortcut_str != "未设置":
                 normalized_path = os.path.normpath(str(folder_path))
+                # 检查快捷键是否已被其他流程使用（跳过不存在的文件夹）
+                for path, existing in self.shortcuts.items():
+                    if existing == shortcut_str and os.path.normpath(str(path)).lower() != normalized_path.lower():
+                        if not os.path.exists(os.path.normpath(str(path))):
+                            continue
+                        from beautiful_dialog import StyledMessageDialog
+                        _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被其他流程使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
+                        _d.exec_()
+                        return
                 self.shortcuts[normalized_path] = shortcut_str
                 self.save_shortcut_config()
                 self.update_shortcuts()
@@ -1508,7 +1574,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border-radius: 12px;
                 background-color: {MacOSColors.CARD_BG};
                 min-height: 44px;
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 color: {MacOSColors.ACCENT};
             """)
 
@@ -1559,7 +1625,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 font-size: 14px;
                 background: {MacOSColors.CARD_BG};
                 color: {MacOSColors.TEXT_PRIMARY};
-                font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QLineEdit:focus {{
                 border-color: {MacOSColors.ACCENT};
@@ -1757,11 +1823,22 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     os.makedirs(trash_dir)
                 import shutil
                 shutil.move(folder_path, os.path.join(trash_dir, os.path.basename(folder_path)))
+                # 同时清理该文件夹的快捷键
+                normalized_path = os.path.normpath(str(folder_path))
+                keys_to_delete = []
+                for key in self.shortcuts.keys():
+                    if os.path.normpath(str(key)).lower() == normalized_path.lower():
+                        keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    del self.shortcuts[key]
+                if keys_to_delete:
+                    self.save_shortcut_config()
                 self.load_folders_to_table(table_widget)
                 dialog.accept()
             except Exception as e:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.critical(self, "错误", f"删除失败: {e}")
+                from beautiful_dialog import StyledMessageDialog
+                _d = StyledMessageDialog(self, title="错误", text=f"删除失败: {e}", msg_type="critical", buttons="ok")
+                _d.exec_()
 
         delete_btn.clicked.connect(do_delete)
         cancel_btn.clicked.connect(dialog.reject)
@@ -1826,14 +1903,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         combo_table.setColumnCount(7)
         combo_table.setHorizontalHeaderLabels(["选择", "组合技名称", "流程数", "状态", "操作", "停止快捷键", "删除"])
         configure_table(combo_table, get_table_stylesheet(
-            bg_color="#FFFFFF",
-            header_bg="#000000",
-            header_color="#FFFFFF",
-            text_color="#000000",
-            border_color="#E0E0E0",
-            hover_color="#F0F0F0",
-            selected_color="#33333333",
-            alternate_color="#FAFAFA",
             cell_padding_v=6, cell_padding_h=12, row_height=44
         ))
         combo_table.verticalHeader().setDefaultSectionSize(44)
@@ -1899,7 +1968,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
         layout.setSpacing(12)
-        layout.setContentsMargins(24, 24, 24, 12)
+        layout.setContentsMargins(24, 0, 24, 24)
         layout.setAlignment(Qt.AlignTop)
 
         title = QLabel("系统设置")
@@ -1927,11 +1996,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             cl.setSpacing(16)
 
             icon_label = QLabel(icon)
-            icon_label.setFixedSize(36, 36)
+            icon_label.setFixedSize(44, 44)
             icon_label.setAlignment(Qt.AlignCenter)
             icon_label.setStyleSheet(f"""
                 background-color: {MacOSColors.ACCENT_BG};
-                border-radius: 18px;
+                border-radius: 22px;
                 font-size: 18px;
             """)
             cl.addWidget(icon_label)
@@ -1976,329 +2045,191 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
-        layout.setSpacing(20)
-        layout.setContentsMargins(24, 24, 24, 12)
+        layout.setContentsMargins(24, 0, 24, 24)
+        layout.setSpacing(0)
 
-        title = QLabel("📖 使用教程")
-        title.setStyleSheet(f"""
-            color: {MacOSColors.TEXT_PRIMARY};
-            font-size: 24px;
-            font-weight: 700;
-            padding-bottom: 4px;
-            background: transparent;
-        """)
+        title = QLabel("✅ 使用教程")
+        title.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 12px 0 8px 0; background: transparent;" % MacOSColors.TEXT_PRIMARY)
         layout.addWidget(title)
 
-        # 步骤数据
-        steps = [
-            {
-                "title": "步骤 1：快捷键介绍",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {accent_color};">⌨️ 记住这两个快捷键！</p>
-                    <p>&nbsp;&nbsp;• <b>· 键</b>（反引号键，在键盘数字1左边）：开始/停止录制</p>
-                    <p>&nbsp;&nbsp;• <b>Home 键</b>：一键回到主窗口</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
-                "icon": "⌨️"
-            },
-            {
-                "title": "步骤 2：开始录制你的第一个流程",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {accent_color};">🎬 开始录制</p>
-                    <p>&nbsp;&nbsp;1️⃣ 点击「录制」按钮（或按 · 键）开始</p>
-                    <p>&nbsp;&nbsp;2️⃣ 在屏幕上执行你要录制的操作</p>
-                    <p>&nbsp;&nbsp;3️⃣ 再次点击「录制」按钮（或按 · 键）停止</p>
-                    <p>&nbsp;&nbsp;💡 录制时会自动截图，方便后续编辑查看</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
-                "icon": "🎬"
-            },
-            {
-                "title": "步骤 3：管理录制的流程",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {accent_color};">🔧 查看和管理你的流程</p>
-                    <p>&nbsp;&nbsp;1️⃣ 点击「流程管理」标签页</p>
-                    <p>&nbsp;&nbsp;2️⃣ 点击流程名称查看录制的截图</p>
-                    <p>&nbsp;&nbsp;3️⃣ 在这里你可以：</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 重命名流程</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 设置快捷键一键执行</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 删除不需要的流程</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
-                "icon": "🔧"
-            },
-            {
-                "title": "步骤 4：编辑流程中的操作",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {accent_color};">✏️ 修改录制好的操作</p>
-                    <p>&nbsp;&nbsp;1️⃣ 在流程管理中，点击流程名称</p>
-                    <p>&nbsp;&nbsp;2️⃣ 每张图片下方都有操作标签</p>
-                    <p>&nbsp;&nbsp;3️⃣ 点击这些标签可以修改操作：</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 👆 左击/右击：切换点击类型</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• ⌨️ 按键：修改按键</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• 📝 文本：修改文本内容</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
-                "icon": "✏️"
-            },
-            {
-                "title": "步骤 5：创建组合技（进阶）",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {accent_color};">⚙️ 更强大的组合技</p>
-                    <p>&nbsp;&nbsp;1️⃣ 点击「组合技」标签页</p>
-                    <p>&nbsp;&nbsp;2️⃣ 可以把多个流程组合起来</p>
-                    <p>&nbsp;&nbsp;3️⃣ 设置条件，自动选择执行哪个流程</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, accent_color=MacOSColors.ACCENT),
-                "icon": "⚙️"
-            },
-            {
-                "title": "完成！开始使用吧！",
-                "content": """
-                    <div style="font-size: 15px; line-height: 2.2; color: {text_color}; font-family: 'PingFang SC', 'Microsoft YaHei UI', 'Helvetica Neue', 'Segoe UI', sans-serif;">
-                    <p style="font-weight: bold; color: {success_color};">🎉 恭喜你，已经掌握基本操作了！</p>
-                    <p>&nbsp;&nbsp;💡 建议先录制一个简单的测试流程试试</p>
-                    <p>&nbsp;&nbsp;💡 遇到问题随时回来查看</p>
-                    <p>&nbsp;&nbsp;祝你使用愉快！</p>
-                    </div>
-                """.format(text_color=MacOSColors.TEXT_PRIMARY, success_color=MacOSColors.SYSTEM_GREEN),
-                "icon": "🎉"
-            },
-        ]
-
-        # 当前步骤索引
-        current_step = [0]  # 使用列表让嵌套函数可以修改
+        steps = []
+        self._build_tutorial_steps(steps)
         total_steps = len(steps)
+        current_step = [0]
 
-        # 进度指示器容器
-        indicator_layout = QHBoxLayout()
-        indicator_layout.setSpacing(8)
-        indicator_layout.addStretch()
-        indicators = []
+        # 顶部标签导航
+        tab_bar = QWidget()
+        tab_bar.setFixedHeight(50)
+        tab_bar.setStyleSheet("background: white; border-radius: 10px;")
+        tl = QHBoxLayout(tab_bar)
+        tl.setContentsMargins(4, 4, 4, 4)
+        tl.setSpacing(0)
+        tab_btns = []
         for i in range(total_steps):
-            indicator = QPushButton(str(i + 1))
-            indicator.setFixedSize(28, 28)
-            indicator.setCursor(Qt.PointingHandCursor)
-            indicator.setFont(QFont('PingFang SC', 11, QFont.Bold))
-            if i == 0:
-                indicator.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: {MacOSColors.ACCENT};
-                        color: #FFFFFF;
-                        border: none;
-                        border-radius: 14px;
-                    }}
-                    QPushButton:hover {{
-                        background-color: {MacOSColors.ACCENT};
-                    }}
-                """)
-            else:
-                indicator.setStyleSheet(f"""
-                    QPushButton {{
-                        background-color: transparent;
-                        color: {MacOSColors.TEXT_SECONDARY};
-                        border: 2px solid {MacOSColors.SEPARATOR};
-                        border-radius: 14px;
-                    }}
-                    QPushButton:hover {{
-                        border-color: {MacOSColors.ACCENT};
-                        color: {MacOSColors.ACCENT};
-                    }}
-                """)
-            indicator_layout.addWidget(indicator)
-            indicators.append(indicator)
-            # 加连接线（除了最后一个）
-            if i < total_steps - 1:
-                line = QFrame()
-                line.setFixedWidth(32)
-                line.setFixedHeight(2)
-                line.setFrameShape(QFrame.HLine)
-                line.setStyleSheet(f"""
-                    QFrame {{
-                        background-color: {MacOSColors.SEPARATOR};
-                        border: none;
-                    }}
-                """)
-                indicator_layout.addWidget(line)
-        indicator_layout.addStretch()
-        layout.addLayout(indicator_layout)
+            btn = QPushButton(f"0{i+1}")
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(
+                "QPushButton { font-size: 14px; font-weight: %s; color: %s; "
+                "background: %s; border: none; border-radius: 8px; padding: 0; }"
+                "QPushButton:hover { color: #007AFF; }"
+                % ('700' if i==0 else '400',
+                   '#007AFF' if i==0 else '#8E8E93',
+                   'white' if i==0 else 'transparent')
+            )
+            tl.addWidget(btn, 1)
+            tab_btns.append(btn)
+        layout.addWidget(tab_bar)
+        layout.addSpacing(10)
 
         # 内容卡片
-        content_card = MacOSCard()
-        content_layout = QVBoxLayout(content_card)
-        content_layout.setContentsMargins(24, 24, 24, 24)
-        content_layout.setSpacing(16)
+        card = MacOSCard()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 10, 20, 10)
+        cl.setSpacing(8)
 
-        # 步骤标题
-        step_title = QLabel(f"{steps[0]['icon']} {steps[0]['title']}")
-        step_title.setStyleSheet(f"""
-            color: {MacOSColors.TEXT_PRIMARY};
-            font-size: 20px;
-            font-weight: 700;
-            background: transparent;
-        """)
-        content_layout.addWidget(step_title)
+        sh = QHBoxLayout()
+        icon_lbl = QLabel(steps[0]["icon"])
+        icon_lbl.setStyleSheet("font-size: 28px; background: transparent;")
+        sh.addWidget(icon_lbl)
+        title_lbl = QLabel(steps[0]["title"])
+        title_lbl.setTextFormat(Qt.RichText)
+        title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: bold; background: transparent;" % MacOSColors.TEXT_PRIMARY)
+        sh.addWidget(title_lbl)
+        sh.addStretch()
+        cl.addLayout(sh)
 
-        # 步骤内容
-        step_content = QLabel()
-        step_content.setWordWrap(True)
-        step_content.setText(steps[0]['content'])
-        step_content.setStyleSheet("background: transparent;")
-        content_layout.addWidget(step_content)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.viewport().setStyleSheet("margin:0;padding:0;background:transparent;")
+        body_lbl = QLabel(steps[0]["content"])
+        body_lbl.setWordWrap(True)
+        body_lbl.setAlignment(Qt.AlignTop)
+        body_lbl.setStyleSheet("background: transparent; margin:0; padding:0;")
+        bf = body_lbl.font()
+        bf.setBold(True)
+        body_lbl.setFont(bf)
+        scroll.setWidget(body_lbl)
+        cl.addWidget(scroll)
+        layout.addWidget(card)
 
-        layout.addWidget(content_card)
-
-        # 导航按钮
-        nav_layout = QHBoxLayout()
-        nav_layout.addStretch()
-
-        # 上一步按钮
+        # 底部导航
+        nav = QHBoxLayout()
+        nav.setSpacing(16)
         prev_btn = QPushButton("← 上一步")
-        prev_btn.setFixedSize(110, 44)
-        prev_btn.setEnabled(False)  # 第一步禁用
-        prev_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.SEPARATOR};
-                color: {MacOSColors.TEXT_PRIMARY};
-                border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: 600;
-            }}
-            QPushButton:hover:!disabled {{
-                background-color: {MacOSColors.ACCENT_BG};
-            }}
-
-            QPushButton:!enabled {{
-                opacity: 0.5;
-            }}
-        """)
-        nav_layout.addWidget(prev_btn)
-
-        nav_layout.addSpacing(20)
-
-        # 下一步按钮
+        prev_btn.setFixedSize(130, 42)
+        prev_btn.setEnabled(False)
+        prev_btn.setStyleSheet(
+            "QPushButton { background: %s; color: %s; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; }"
+            "QPushButton:hover:!disabled { background: %s; }"
+            "QPushButton:disabled { opacity: 0.5; }"
+            % (MacOSColors.SEPARATOR, MacOSColors.TEXT_PRIMARY, MacOSColors.ACCENT_BG)
+        )
         next_btn = QPushButton("下一步 →")
-        next_btn.setFixedSize(110, 44)
-        next_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.ACCENT};
-                color: white;
-                border: none;
-                border-radius: 10px;
-                font-size: 14px;
-                font-weight: 600;
-            }}
-            QPushButton:hover {{
-                background-color: #0056CC;
-            }}
-        """)
-        nav_layout.addWidget(next_btn)
+        next_btn.setFixedSize(130, 42)
+        next_btn.setStyleSheet(
+            "QPushButton { background: %s; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; }"
+            "QPushButton:hover { background: #0056CC; }"
+            % MacOSColors.ACCENT
+        )
+        nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(20); nav.addWidget(next_btn); nav.addStretch()
+        layout.addLayout(nav)
 
-        nav_layout.addStretch()
-        layout.addLayout(nav_layout)
-
-        layout.addStretch()
-
-        # 更新步骤的函数
-        def update_step(step_idx):
-            current_step[0] = step_idx
-            step = steps[step_idx]
-
-            # 更新内容
-            step_title.setText(f"{step['icon']} {step['title']}")
-            step_content.setText(step['content'])
-            for i, indicator in enumerate(indicators):
-                if i == step_idx:
-                    indicator.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: {MacOSColors.ACCENT};
-                            color: #FFFFFF;
-                            border: none;
-                            border-radius: 14px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: {MacOSColors.ACCENT};
-                        }}
-                    """)
-                elif i < step_idx:
-                    indicator.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: {MacOSColors.SYSTEM_GREEN};
-                            color: #FFFFFF;
-                            border: none;
-                            border-radius: 14px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: {MacOSColors.SYSTEM_GREEN};
-                        }}
-                    """)
-                else:
-                    indicator.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: transparent;
-                            color: {MacOSColors.TEXT_SECONDARY};
-                            border: 2px solid {MacOSColors.SEPARATOR};
-                            border-radius: 14px;
-                        }}
-                        QPushButton:hover {{
-                            border-color: {MacOSColors.ACCENT};
-                            color: {MacOSColors.ACCENT};
-                        }}
-                    """)
-            # 更新连接线颜色
-            for i in range(total_steps - 1):
-                line_item = indicator_layout.itemAt(i * 2 + 1)
-                if line_item and line_item.widget():
-                    if i < step_idx:
-                        line_item.widget().setStyleSheet(f"""
-                            QFrame {{
-                                background-color: {MacOSColors.SYSTEM_GREEN};
-                                border: none;
-                            }}
-                        """)
-                    else:
-                        line_item.widget().setStyleSheet(f"""
-                            QFrame {{
-                                background-color: {MacOSColors.SEPARATOR};
-                                border: none;
-                            }}
-                        """)
-            # 更新按钮状态
-            # 更新按钮状态
-            prev_btn.setEnabled(step_idx > 0)
-            if step_idx == total_steps - 1:
+        # 辅助函数
+        def go_to_step(idx):
+            current_step[0] = idx
+            s = steps[idx]
+            icon_lbl.setText(s["icon"])
+            title_lbl.setText(s["title"])
+            body_lbl.setText(s["content"])
+            for j, b in enumerate(tab_btns):
+                b.setStyleSheet(
+                    "QPushButton { font-size: 14px; font-weight: %s; color: %s; "
+                    "background: %s; border: none; border-radius: 8px; padding: 0; }"
+                    "QPushButton:hover { color: #007AFF; }"
+                    % ('700' if j==idx else '400',
+                       '#007AFF' if j==idx else '#8E8E93',
+                       'white' if j==idx else 'transparent')
+                )
+            prev_btn.setEnabled(idx > 0)
+            if idx == total_steps - 1:
                 next_btn.setText("重新开始 ↺")
             else:
                 next_btn.setText("下一步 →")
 
-        # 导航按钮点击事件
-        def go_prev():
-            if current_step[0] > 0:
-                update_step(current_step[0] - 1)
-
-        def go_next():
-            if current_step[0] < total_steps - 1:
-                update_step(current_step[0] + 1)
-            else:
-                update_step(0)  # 回到第一步
-
-        prev_btn.clicked.connect(go_prev)
-        next_btn.clicked.connect(go_next)
-
-        # 指示器点击事件
-        for i, indicator in enumerate(indicators):
-            def make_go_to_step(idx=i):
-                return lambda: update_step(idx)
-            indicator.clicked.connect(make_go_to_step())
+        for i, b in enumerate(tab_btns):
+            b.clicked.connect(lambda checked=False, idx=i: go_to_step(idx))
+        prev_btn.clicked.connect(lambda: current_step[0] > 0 and go_to_step(current_step[0] - 1))
+        next_btn.clicked.connect(lambda: go_to_step(0) if current_step[0] == total_steps - 1 else go_to_step(current_step[0] + 1))
 
         return tab
 
+    def _build_tutorial_steps(self, steps):
+        tc = MacOSColors.TEXT_PRIMARY
+        ac = MacOSColors.ACCENT
+        sc = MacOSColors.SYSTEM_GREEN
+        def h(b): return "<div style='font-size:17px;line-height:1.8;color:%s;font-family:Microsoft YaHei,sans-serif;'>%s</div>" % (tc, b)
+
+        data = [
+            ("⌨️", "<b>第一步</b>：你每天在当机器人吗？",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🤖 问问自己 —— 这些事情是不是每天都在做？</b></p>"
+             "<p style='margin:6px 0;'>• 早上打开 Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</p>"
+             "<p style='margin:6px 0;'>• 填日报：复制粘贴 → 改日期 → 改数据 → 发送</p>"
+             "<p style='margin:6px 0;'>• 登录系统：输账号 → 输密码 → 点登录</p>"
+             "<p style='margin:6px 0;'>• 导出数据：点菜单 → 点导出 → 选格式 → 保存</p>"
+             "<p style='margin:10px 0;'><b>一天两天没什么，但一年两年呢？</b></p>"
+             "<p style='margin:4px 0;color:#8E8E93;'>这些动作你重复了成千上万次，浪费了几百个小时。</p>"
+             "<p style='margin:10px 0 0 0;color:%s;'><b>💡 这个软件的意义：你只需要做一次，以后它替你干。</b></p>" % (ac, sc)),
+            ("🎬", "<b>第二步</b>：录一遍，以后就再也不用干了",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎯 就三步，让你彻底告别重复劳动</b></p>"
+             "<p style='margin:8px 0;'>❶ <b>点击〈录制〉</b><span style='color:#8E8E93;'> —— 按钮变红，框选视作点击</span></p>"
+             "<p style='margin:8px 0;'>❷ <b>框选要操作的位置</b><span style='color:#8E8E93;'> —— 框选视为点击，自动执行</span></p>"
+             "<p style='margin:8px 0;'>❸ <b>按 ESC 退出录制</b><span style='color:#8E8E93;'> —— 录制完毕，自动保存</span></p>"
+             "<p style='margin:12px 0 0 0;'>👇 去〈<b>流程管理</b>〉点〈回放〉，看它自动完成一遍</p>"
+             "<p style='margin:4px 0 0 0;color:%s;'><b>✔ 录一次，这个操作你一辈子都不用再亲手干了。</b></p>" % (ac, sc)),
+            ("🔧", "<b>第三步</b>：看它替你干活，很爽",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎥 点一下回放，它就开始「模仿」你</b></p>"
+             "<p style='margin:6px 0;color:#8E8E93;'>你坐在旁边看着它：</p>"
+             "<p style='margin:6px 0;'>• <b>自动打开软件</b> ✓</p>"
+             "<p style='margin:6px 0;'>• <b>自动输入文字</b> ✓</p>"
+             "<p style='margin:6px 0;'>• <b>自动点击按钮</b> ✓</p>"
+             "<p style='margin:6px 0;'>• <b>自动完成所有操作</b> ✓</p>"
+             "<p style='margin:8px 0;'>而你只需要 —— <b>喝杯咖啡，看着它干</b> ☕</p>"
+             "<p style='margin:6px 0;'>💡 <b>F12 键</b>可以随时叫停，完全由你控制</p>"
+             "<p style='margin:10px 0 0 0;color:%s;'><b>这种感觉，试过一次就回不去了。</b></p>" % (ac, sc)),
+            ("✏️", "<b>第四步</b>：不怕录错，改就完了",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🛠️ 录错了也不用重新来</b></p>"
+             "<p style='margin:6px 0;color:#8E8E93;'>以前录错了 → 重头再录一遍 → 浪费时间还烦躁</p>"
+             "<p style='margin:6px 0;'>现在录错了 → 在操作列表里找到那一步 → <b>直接修改</b></p>"
+             "<p style='margin:8px 0 4px 0;'>• <b>改按键</b><span style='color:#8E8E93;'>：按错了键？改成正确的就行</span></p>"
+             "<p style='margin:4px 0;'>• <b>改文字</b><span style='color:#8E8E93;'>：输错了内容？直接改掉</span></p>"
+             "<p style='margin:4px 0;'>• <b>调顺序</b><span style='color:#8E8E93;'>：步骤顺序不对？拖拽调整</span></p>"
+             "<p style='margin:4px 0 8px 0;'>• <b>删多余</b><span style='color:#8E8E93;'>：某一步不需要？点×删除</span></p>"
+             "<p style='margin:8px 0 0 0;color:%s;'><b>修改后自动保存，再回放就是完美版本。</b></p>" % (ac, sc)),
+            ("⚙️", "<b>第五步</b>：让电脑替你 7×24 工作",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>⏰ 组合技：把多个流程串起来，一次跑完</b></p>"
+             "<p style='margin:6px 0;color:#8E8E93;'>比如一个「每日晨会准备」的组合：</p>"
+             "<p style='margin:6px 0;'>• 流程A：打开日报系统 → 导出昨日数据</p>"
+             "<p style='margin:4px 0;'>• 流程B：打开邮箱 → 填入数据 → 发送晨会报告</p>"
+             "<p style='margin:4px 0;'>• 流程C：打开项目看板 → 刷新状态 → 截图保存</p>"
+             "<p style='margin:10px 0;'><b>想象一下：每天早上到公司，点一下，它自己全部搞定。</b></p>"
+             "<p style='margin:8px 0 0 0;color:%s;'><b>而你只需要坐下来，喝口热水，开始真正有意义的工作。</b></p>" % (ac, sc)),
+            ("🎉", "<b>第六步</b>：不再做重复劳动的奴隶",
+             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎊 从今天起，告别「低效重复」！</b></p>"
+             "<p style='margin:6px 0;color:#8E8E93;'>你学会了：</p>"
+             "<p style='margin:6px 0;'>✅ <b>录一次</b><span style='color:#8E8E93;'> —— 它记住你的操作</span></p>"
+             "<p style='margin:4px 0;'>✅ <b>无限回放</b><span style='color:#8E8E93;'> —— 以后不用再亲手干</span></p>"
+             "<p style='margin:4px 0;'>✅ <b>随意修改</b><span style='color:#8E8E93;'> —— 录错了直接改，不重录</span></p>"
+             "<p style='margin:4px 0 10px 0;'>✅ <b>组合串联</b><span style='color:#8E8E93;'> —— 复杂任务一键搞定</span></p>"
+
+             "<p style='margin:10px 0 0 0;color:%s;'><b>💡 你每天省下来的时间，可以做更重要的事。</b></p>"
+             "<p style='margin:6px 0 0 0;color:#8E8E93;'>祝你早点下班，把时间留给值得的人和事 🚀🎊</p>" % (ac, sc)),
+        ]
+        for icon, title, body in data:
+            steps.append({"icon": icon, "title": title, "content": h(body)})
     def load_combo_skills_to_table(self, table_widget):
         checked_names = set()
         for row in range(table_widget.rowCount()):
@@ -2432,6 +2363,137 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         from app import ComboSkillManager
         return ComboSkillManager(self)
 
+    def start_coordinate_recording(self):
+        """启动坐标录制模式（macOS版本）"""
+        try:
+            from utils import get_recordings_path
+            recordings_dir = get_recordings_path()
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.current_recording_dir = os.path.join(recordings_dir, f"坐标录制_{timestamp}")
+            os.makedirs(self.current_recording_dir, exist_ok=True)
+            self.operation_count = 0
+            self.coordinate_records = []
+            self.coord_recorder = CoordinateRecorder(self)
+            self.coord_recorder.closed.connect(self.on_coordinate_recording_finished)
+            self.coord_recorder.show()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._set_recording_state(False)
+            self.record_btn.setEnabled(True)
+            current_mode = self.record_mode_combo.currentText()
+            if current_mode == "图像录制":
+                self.record_btn.setText("图像录制")
+            elif current_mode == "坐标录制":
+                self.record_btn.setText("坐标录制")
+            if hasattr(self, 'record_action'):
+                self.record_action.setText("开始录制")
+            self.showNormal()
+            self.show_beautiful_message('critical', '错误', f"启动坐标录制失败: {str(e)}")
+
+
+class CoordinateRecorder(QWidget):
+    """坐标录制覆盖层 - 记录鼠标点击位置"""
+    closed = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__()
+        self.parent = parent
+        self.records = []
+        self.step_counter = 0
+        self._focus_timer = None
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setMouseTracking(True)
+        # 合并所有屏幕的总区域 (支持多显示器)
+        total_geo = QRect()
+        for s in QApplication.screens():
+            total_geo = total_geo.united(s.geometry())
+        if total_geo.isValid():
+            self.setGeometry(total_geo)
+        else:
+            self.setGeometry(0, 0, 1920, 1080)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        QTimer.singleShot(100, self._delayed_show)
+
+    def _delayed_show(self):
+        self.raise_()
+        self.activateWindow()
+        self.setFocus(Qt.ActiveWindowFocusReason)
+        QApplication.processEvents()
+        self._focus_timer = QTimer()
+        self._focus_timer.timeout.connect(self._ensure_focus)
+        self._focus_timer.start(200)
+
+    def _ensure_focus(self):
+        if not self.hasFocus():
+            self.raise_()
+            self.activateWindow()
+            self.setFocus(Qt.ActiveWindowFocusReason)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 100))
+
+        font = QFont("PingFang SC, SimHei", 17)
+        painter.setFont(font)
+        painter.setPen(QColor("#FFFFFF"))
+
+        if self.step_counter == 0:
+            text = "🖱️ 点击屏幕任意位置（记录并执行点击）\n按 Esc 或 右键 结束录制"
+        else:
+            text = f"✅ 已执行 {self.step_counter} 次点击\n🖱️ 请在当前界面选择下一个点击位置\n按 Esc 或 右键 结束录制"
+
+        painter.drawText(self.rect(), Qt.AlignCenter, text)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            self._finish_recording()
+            return
+        if event.button() == Qt.LeftButton:
+            self.step_counter += 1
+            # 获取 DPI 缩放因子 + 全局物理坐标
+            screen = QApplication.primaryScreen()
+            dpr = screen.devicePixelRatio() if screen else 1.0
+            global_logical = self.mapToGlobal(event.pos())
+            px = int(global_logical.x() * dpr)
+            py = int(global_logical.y() * dpr)
+            rec = {"step": self.step_counter, "action_type": "click", "x": px, "y": py, "delay": 0.3}
+            self.records.append(rec)
+            if self.parent and hasattr(self.parent, 'coordinate_records'):
+                self.parent.coordinate_records = self.records
+
+            self.hide()
+            QApplication.processEvents()
+
+            import pyautogui
+            import time
+            pyautogui.moveTo(px, py, duration=0.05)
+            time.sleep(0.05)
+            pyautogui.click()
+
+            time.sleep(0.25)
+
+            self.show()
+            self._delayed_show()
+            self.update()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape:
+            self._finish_recording()
+        super().keyPressEvent(event)
+
+    def _finish_recording(self):
+        if self._focus_timer:
+            self._focus_timer.stop()
+        self.closed.emit()
+        self.close()
+
+
 def start_macos_app():
     import sys
     import os
@@ -2440,6 +2502,11 @@ def start_macos_app():
     from PyQt5.QtWidgets import QApplication
     from PyQt5.QtGui import QFont
 
+    import ctypes
+    try:
+        ctypes.windll.kernel32.SetEnvironmentVariableW('QT_ENABLE_DIRECTWRITE', '1')
+    except:
+        pass
     QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
     QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 
@@ -2465,14 +2532,16 @@ def start_macos_app():
     else:
         font_name = "PingFang SC"  # macOS
     
-    font = QFont(font_name, 13)
+    font = QFont(font_name, 17)
+    font.setBold(True)
     font.setStyleStrategy(QFont.PreferAntialias | QFont.PreferQuality)
-    font.setHintingPreference(QFont.PreferFullHinting)
+    font.setHintingPreference(QFont.PreferNoHinting)
     app.setFont(font)
 
     app.setStyle("Fusion")
 
     app.setStyleSheet(f"""
+        QMainWindow, QWidget#centralWidget {{ border-radius: 16px; }}
         QToolTip {{
             background-color: {MacOSColors.CARD_BG};
             color: {MacOSColors.TEXT_PRIMARY};
@@ -2513,21 +2582,14 @@ def start_macos_app():
 
     login_manager = LoginManager()
     main_window = MacOSAutoRecorderApp(login_manager=login_manager)
+    main_window.setWindowFlags(Qt.FramelessWindowHint)
     main_window.show()
 
     main_window.create_replay_status_indicator()
+
 
     sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
     start_macos_app()
-
-
-
-
-
-
-
-
-

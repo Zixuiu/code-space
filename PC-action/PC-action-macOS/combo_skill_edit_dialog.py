@@ -22,6 +22,7 @@ T = {
 IS_DARK = False
 from design_system import ColorPalette, BorderRadiusSystem, TypographySystem
 from utils import get_recordings_path, get_screen_size
+from beautiful_dialog import StyledMessageDialog
 
 
 class ComboSkillEditDialog(QDialog):
@@ -88,7 +89,7 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -137,11 +138,12 @@ class ComboSkillEditDialog(QDialog):
                 outline: none;
             }}
             QHeaderView::section {{
-                background: {T['primary']};
-                color: white;
+                background: #F5F5F5;
+                color: #333333;
                 padding: 10px;
                 font-weight: bold;
                 border: none;
+                border-bottom: 1px solid #E0E0E0;
                 font-size: 13px;
             }}
         """)
@@ -173,15 +175,15 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {T['primary_hover']};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {T['primary']};
                 padding-top: 2px;
             }}
         """)
@@ -197,7 +199,7 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -223,7 +225,7 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -248,7 +250,7 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -288,15 +290,15 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {T['primary_hover']};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {T['primary']};
                 padding-top: 2px;
             }}
         """)
@@ -327,7 +329,7 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 18px;
                 min-height: 36px;
             }}
@@ -352,15 +354,15 @@ class ComboSkillEditDialog(QDialog):
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {700};
-                font-family: {'PingFang SC', 'Microsoft YaHei UI', sans-serif};
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 padding: 0 24px;
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: {T['primary']_HOVER};
+                background-color: {T['primary_hover']};
             }}
             QPushButton:pressed {{
-                background-color: {T['primary']_ACTIVE};
+                background-color: {T['primary']};
                 padding-top: 2px;
             }}
         """)
@@ -438,14 +440,48 @@ class ComboSkillEditDialog(QDialog):
         condition_combo.addItems(["总是执行", "找到图片", "找不到图片", "等待图片"])
         condition_combo.setCurrentIndex({"always": 0, "image_found": 1, "image_not_found": 2, "wait_for_image": 3}.get(condition, 0))
         condition_combo.setStyleSheet(f"""
-            font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox {{
+                background-color: {T['bg_card']};
+                color: {T['text_primary']};
+                border: 1.5px solid {T['border']};
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QComboBox:hover {{
+                border-color: {T['primary']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+                subcontrol-position: center right;
+                subcontrol-origin: padding;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid {T['text_secondary']};
+                width: 0;
+                height: 0;
+            }}
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
                 border: 1px solid {T['border']};
+                border-radius: 8px;
+                padding: 4px;
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 6px 10px;
+                border-radius: 6px;
+                min-height: 22px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {T['primary']};
+                color: white;
             }}
         """)
         condition_combo.setFixedWidth(120)
@@ -527,14 +563,48 @@ class ComboSkillEditDialog(QDialog):
 
         action_type_combo = QComboBox()
         action_type_combo.setStyleSheet(f"""
-            font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox {{
+                background-color: {T['bg_card']};
+                color: {T['text_primary']};
+                border: 1.5px solid {T['border']};
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QComboBox:hover {{
+                border-color: {T['primary']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+                subcontrol-position: center right;
+                subcontrol-origin: padding;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid {T['text_secondary']};
+                width: 0;
+                height: 0;
+            }}
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
                 border: 1px solid {T['border']};
+                border-radius: 8px;
+                padding: 4px;
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 6px 10px;
+                border-radius: 6px;
+                min-height: 22px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {T['primary']};
+                color: white;
             }}
         """)
         action_type_combo.setFixedWidth(120)
@@ -545,14 +615,48 @@ class ComboSkillEditDialog(QDialog):
 
         action_detail_combo = QComboBox()
         action_detail_combo.setStyleSheet(f"""
-            font-size: 12px;
-            QComboBox:hover {{ border: 1px solid {T['primary']}; }}
+            QComboBox {{
+                background-color: {T['bg_card']};
+                color: {T['text_primary']};
+                border: 1.5px solid {T['border']};
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 12px;
+                font-weight: 500;
+            }}
+            QComboBox:hover {{
+                border-color: {T['primary']};
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 24px;
+                subcontrol-position: center right;
+                subcontrol-origin: padding;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent;
+                border-right: 4px solid transparent;
+                border-top: 5px solid {T['text_secondary']};
+                width: 0;
+                height: 0;
+            }}
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                selection-background-color: {T['primary']}15;
-                selection-color: {T['primary']};
                 border: 1px solid {T['border']};
+                border-radius: 8px;
+                padding: 4px;
+                outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 6px 10px;
+                border-radius: 6px;
+                min-height: 22px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {T['primary']};
+                color: white;
             }}
         """)
         action_detail_combo.setFixedWidth(150)
@@ -852,14 +956,14 @@ class ComboSkillEditDialog(QDialog):
     def view_condition_image(self, image_edit):
         image_path = image_edit.text()
         if not image_path:
-            QMessageBox.information(self, "提示", "没有设置条件图片")
+            StyledMessageDialog(self, title="提示", text="没有设置条件图片", msg_type="information", buttons="ok").exec_()
             return
         if not os.path.isabs(image_path):
             recordings_path = get_recordings_path()
             image_path = os.path.join(recordings_path, image_path)
         image_path = os.path.normpath(image_path)
         if not os.path.exists(image_path):
-            QMessageBox.warning(self, "警告", f"图片文件不存在:\n{image_path}")
+            StyledMessageDialog(self, title="警告", text=f"图片文件不存在:\n{image_path}", msg_type="warning", buttons="ok").exec_()
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("查看条件图片")
@@ -872,7 +976,7 @@ class ComboSkillEditDialog(QDialog):
         layout.addWidget(path_label)
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
-            QMessageBox.warning(self, "警告", "无法加载图片")
+            StyledMessageDialog(self, title="警告", text="无法加载图片", msg_type="warning", buttons="ok").exec_()
             return
         screen = QApplication.primaryScreen().geometry()
         max_display_width = min(800, screen.width() - 100)
@@ -912,14 +1016,14 @@ class ComboSkillEditDialog(QDialog):
 
     def view_condition_image_path(self, image_path):
         if not image_path:
-            QMessageBox.information(self, "提示", "没有设置条件图片")
+            StyledMessageDialog(self, title="提示", text="没有设置条件图片", msg_type="information", buttons="ok").exec_()
             return
         if not os.path.isabs(image_path):
             recordings_path = get_recordings_path()
             image_path = os.path.join(recordings_path, image_path)
         image_path = os.path.normpath(image_path)
         if not os.path.exists(image_path):
-            QMessageBox.warning(self, "警告", f"图片文件不存在:\n{image_path}")
+            StyledMessageDialog(self, title="警告", text=f"图片文件不存在:\n{image_path}", msg_type="warning", buttons="ok").exec_()
             return
         dialog = QDialog(self)
         dialog.setWindowTitle("查看条件图片")
@@ -932,7 +1036,7 @@ class ComboSkillEditDialog(QDialog):
         layout.addWidget(path_label)
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
-            QMessageBox.warning(self, "警告", "无法加载图片")
+            StyledMessageDialog(self, title="警告", text="无法加载图片", msg_type="warning", buttons="ok").exec_()
             return
         screen = QApplication.primaryScreen().geometry()
         max_display_width = min(800, screen.width() - 100)
@@ -969,7 +1073,7 @@ class ComboSkillEditDialog(QDialog):
 
     def delete_flow(self):
         if len(self.flows) <= 1:
-            QMessageBox.information(self, "提示", "至少保留一个流程")
+            StyledMessageDialog(self, title="提示", text="至少保留一个流程", msg_type="information", buttons="ok").exec_()
             return
         self.flows.pop()
         self.build_flow_tree()
@@ -1000,7 +1104,7 @@ class ComboSkillEditDialog(QDialog):
     def get_skill_data(self):
         name = self.name_input.text().strip()
         if not name:
-            QMessageBox.warning(self, "提示", "请输入组合技名称")
+            StyledMessageDialog(self, title="提示", text="请输入组合技名称", msg_type="warning", buttons="ok").exec_()
             return None
 
         all_flows = []
@@ -1014,7 +1118,7 @@ class ComboSkillEditDialog(QDialog):
             all_flows.append(flow_copy)
 
         if not all_flows:
-            QMessageBox.warning(self, "提示", "请至少配置一个流程")
+            StyledMessageDialog(self, title="提示", text="请至少配置一个流程", msg_type="warning", buttons="ok").exec_()
             return None
 
         stop_shortcut = self.skill_data.get('stop_shortcut', '')
