@@ -1906,6 +1906,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             cell_padding_v=6, cell_padding_h=12, row_height=44
         ))
         combo_table.verticalHeader().setDefaultSectionSize(44)
+        combo_table.setColumnWidth(0, 60)
+        combo_table.setColumnWidth(1, 200)
+        combo_table.setColumnWidth(2, 70)
+        combo_table.setColumnWidth(3, 90)
+        combo_table.setColumnWidth(4, 80)
+        combo_table.setColumnWidth(5, 120)
+        combo_table.setColumnWidth(6, 80)
+        combo_table.horizontalHeader().setStretchLastSection(False)
 
         def on_combo_table_click(row, column):
             combo_table.setCurrentCell(row, column)
