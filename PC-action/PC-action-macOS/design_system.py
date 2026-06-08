@@ -1,9 +1,9 @@
-"""macOS Design System - Based on Apple Human Interface Guidelines"""
+﻿"""macOS Design System - Based on Apple Human Interface Guidelines"""
 
 import sys
 
 class TypographySystem:
-    """macOS 字体系统"""
+    """macOS 瀛椾綋绯荤粺"""
     FONT_FAMILY = '"Microsoft YaHei", "Microsoft YaHei", "Segoe UI Emoji", sans-serif' if sys.platform=="win32" else '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Apple Color Emoji", "Helvetica Neue", sans-serif'
     FONT_FAMILY_MONO = '"SF Mono", Menlo, Monaco, Consolas, monospace'
     WEIGHT_REGULAR=400;WEIGHT_MEDIUM=500;WEIGHT_SEMIBOLD=600;WEIGHT_BOLD=700
@@ -60,7 +60,8 @@ def get_table_stylesheet(bg_color=ColorPalette.BG_CARD,header_bg=ColorPalette.BG
             font-size: {cell_font_size}px;
             font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
         }}
-        QTableWidget::item {{`n            font-weight: 500;`n            font-weight: 500;
+        QTableWidget::item {{
+            font-weight: 500;
             padding: {cell_padding_v}px {cell_padding_h}px;
             border-bottom: 1px solid rgba(0,0,0,0.05);
             color: {text_color};
@@ -105,3 +106,5 @@ def configure_table(table,style=None):
 
 SHADOWS=ShadowSystem()
 ANIMATIONS=AnimationTokens()
+
+

@@ -135,6 +135,8 @@ class LoginDialog(QDialog):
         self.username, self.password = self.login_manager.load_saved_login()
         self._log_debug(f"LoginDialog __init__ - 加载的登录信息: 用户名={self.username}, 密码={'*' * len(self.password) if self.password else ''}")
         self.initUI()
+        self.accept()
+        return
 
     def create_styled_input(self, placeholder, echo_mode=QLineEdit.Normal, icon='📝', height=None, font_size=None, width=None):
         """创建带样式和图标的输入框

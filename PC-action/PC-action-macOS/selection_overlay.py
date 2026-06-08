@@ -873,7 +873,8 @@ class SelectionOverlay(QWidget):
                     self.setModal(True)
                     
                     # 设置窗口标志：Dialog 才能正确模态 + 置顶
-                    self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.WindowCloseButtonHint)
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+                    self.setAttribute(Qt.WA_TranslucentBackground)
                     
                     # 应用统一的对话框样式
                     from styles import apply_dialog_style
@@ -1248,7 +1249,8 @@ class SelectionOverlay(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("截图")
         dialog.setModal(True)
-        dialog.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         
         layout = QVBoxLayout(dialog)
         

@@ -1,4 +1,4 @@
-"""
+﻿"""
 文件: combo_skill_edit_dialog.py
 用途: 组合技编辑对话框 - 完整的流程编辑、条件设置、图片选择等功能
 """
@@ -6,7 +6,7 @@
 import os
 from PyQt5.QtCore import Qt, QEvent
 from PyQt5.QtGui import QColor, QPixmap
-from PyQt5.QtWidgets import (
+from PyQt5.QtWidgets import (QFrame,
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QWidget, QComboBox,
     QDoubleSpinBox, QSpinBox, QTextEdit, QStackedWidget, QFrame,
@@ -52,15 +52,37 @@ class ComboSkillEditDialog(QDialog):
         # 应用全局对话框样式
         self.setStyleSheet(f'background: {T["bg_main"]}; border-radius: 16px;')
 
-        # 计算动态圆角（与 apply_dialog_style 一致）
+        from PyQt5.QtCore import Qt
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         _, sh = get_screen_size()
         self._sh = sh
+        self._drag_pos = None
         btn_r = int(sh * 0.006)
         inp_r = int(sh * 0.006)
 
-        layout = QVBoxLayout(self)
-        layout.setSpacing(10)
-        layout.setContentsMargins(15, 15, 15, 15)
+        _outer = QVBoxLayout(self)
+        _outer.setContentsMargins(0,0,0,0)
+        _card = QFrame(self)
+        _card.setStyleSheet('QFrame{background-color:#FFFFFF;border-radius:12px;}')
+        _cl = QVBoxLayout(_card)
+        _cl.setSpacing(10)
+        _cl.setContentsMargins(15, 40, 15, 15)
+        _outer.addWidget(_card)
+        layout = _cl
+
+        # macOS close dot
+        _close = QFrame(_card)
+        _close.setFixedSize(14,14)
+        _close.setStyleSheet('QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}')
+        _close.setCursor(Qt.PointingHandCursor)
+        _close.move(self.width()-32, 12)
+        def _close_click(ev):
+            from PyQt5.QtCore import Qt as _QQt
+            if ev.button() == _QQt.LeftButton:
+                self.close()
+        _close.mousePressEvent = _close_click
+
 
         # ── 顶部栏：标题 + 名称 + 循环次数 + 备注 ──
         top_layout = QHBoxLayout()
@@ -370,6 +392,18 @@ class ComboSkillEditDialog(QDialog):
         bottom_layout.addWidget(save_btn)
 
         layout.addLayout(bottom_layout)
+
+    def mousePressEvent(self, e):
+        from PyQt5.QtCore import Qt
+        if e.button() == Qt.LeftButton:
+            self._drag_pos = e.globalPos() - self.frameGeometry().topLeft()
+        super().mousePressEvent(e)
+
+    def mouseMoveEvent(self, e):
+        from PyQt5.QtCore import Qt
+        if self._drag_pos and e.buttons() == Qt.LeftButton:
+            self.move(e.globalPos() - self._drag_pos)
+        super().mouseMoveEvent(e)
 
     def show_note_page(self):
         self.stacked_widget.setCurrentIndex(1)

@@ -1,4 +1,4 @@
-import os
+﻿import os
 if os.name == "nt":
     os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
@@ -1982,8 +1982,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.addWidget(title)
 
         settings_list = [
-            ("🎨", "字体大小设置", "调整界面字体大小", self.open_font_size_dialog),
-            ("⌨️", "快捷键设置", "配置全局快捷键", self.show_shortcut_settings),
             ("📋", "查看运行日志", "查看应用程序运行日志", self.show_log_window),
         ]
 
@@ -2402,6 +2400,7 @@ class CoordinateRecorder(QWidget):
         self.records = []
         self.step_counter = 0
         self._focus_timer = None
+
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
@@ -2416,7 +2415,6 @@ class CoordinateRecorder(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
-        QTimer.singleShot(100, self._delayed_show)
 
     def _delayed_show(self):
         self.raise_()
@@ -2450,13 +2448,28 @@ class CoordinateRecorder(QWidget):
 
         painter.drawText(self.rect(), Qt.AlignCenter, text)
 
+    def _send_click_to_target(self, px, py):
+        # PostMessage 直接发送点击到目标窗口，零残余事件
+        import ctypes
+        from ctypes import wintypes
+        pt = wintypes.POINT(px, py)
+        target_hwnd = ctypes.windll.user32.WindowFromPoint(pt)
+        if not target_hwnd:
+            return
+        rect = wintypes.RECT()
+        ctypes.windll.user32.GetWindowRect(target_hwnd, ctypes.byref(rect))
+        cx = px - rect.left
+        cy = py - rect.top
+        lparam = (cy << 16) | (cx & 0xFFFF)
+        ctypes.windll.user32.PostMessageW(target_hwnd, 0x201, 1, lparam)
+        ctypes.windll.user32.PostMessageW(target_hwnd, 0x202, 0, lparam)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.RightButton:
             self._finish_recording()
             return
         if event.button() == Qt.LeftButton:
             self.step_counter += 1
-            # 获取 DPI 缩放因子 + 全局物理坐标
             screen = QApplication.primaryScreen()
             dpr = screen.devicePixelRatio() if screen else 1.0
             global_logical = self.mapToGlobal(event.pos())
@@ -2467,19 +2480,15 @@ class CoordinateRecorder(QWidget):
             if self.parent and hasattr(self.parent, 'coordinate_records'):
                 self.parent.coordinate_records = self.records
 
+            # hide -> PostMessage -> show (零残余事件)
             self.hide()
             QApplication.processEvents()
-
-            import pyautogui
-            import time
-            pyautogui.moveTo(px, py, duration=0.05)
-            time.sleep(0.05)
-            pyautogui.click()
-
-            time.sleep(0.25)
-
+            self._send_click_to_target(px, py)
             self.show()
-            self._delayed_show()
+            self.raise_()
+            self.activateWindow()
+            self.setFocus(Qt.ActiveWindowFocusReason)
+            QApplication.processEvents()
             self.update()
 
     def keyPressEvent(self, event):
@@ -2593,3 +2602,9 @@ def start_macos_app():
 
 if __name__ == "__main__":
     start_macos_app()
+
+
+
+
+
+

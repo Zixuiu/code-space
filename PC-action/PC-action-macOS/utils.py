@@ -220,7 +220,8 @@ def configure_window(window, width_ratio=0.5, height_ratio=0.6, center=True, mod
     # 设置窗口标志
     if isinstance(window, QDialog):
         # 对话框：移除帮助按钮，添加最小化和关闭按钮
-        window.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        window.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        window.setAttribute(Qt.WA_TranslucentBackground)
         if modal:
             window.setModal(True)
     

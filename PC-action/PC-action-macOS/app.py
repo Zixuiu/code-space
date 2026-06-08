@@ -1,4 +1,4 @@
-"""
+﻿"""
 文件: app.py
 用途: 应用程序主模块，实现自动录制器的核心功能。
       包含UI界面实现、屏幕录制逻辑、操作管理以及与用户认证系统的集成。
@@ -773,7 +773,8 @@ QMessageBox QDialogButtonBox QPushButton{{
         confirm_dialog = QDialog(self)
         confirm_dialog.setWindowTitle("确认支付")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        confirm_dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        confirm_dialog.setAttribute(Qt.WA_TranslucentBackground)
         
         # 设置对话框大小
         screen_width, screen_height = get_screen_size()
@@ -916,7 +917,8 @@ class FeedbackDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("问题反馈")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
 
         # 获取屏幕尺寸
         screen_width, screen_height = get_screen_size()
@@ -1417,7 +1419,8 @@ class FolderManager(QDialog):
         # 连接信号到槽函数
         self._execute_add_operations_signal.connect(self._on_execute_add_operations)
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
         
         # 使用统一的动态尺寸计算 - 进一步减小窗口宽度
         width = int(get_screen_size(0.45)[0])
@@ -1754,7 +1757,8 @@ QMessageBox QDialogButtonBox QPushButton{{
         dialog = QDialog(self)
         dialog.setWindowTitle(f"查看图片 - {os.path.basename(str(folder_path))}")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         # 设置对话框大小为屏幕的60%，使界面更紧凑
         screen_width, screen_height = get_screen_size()
         dialog.resize(int(screen_width * 0.6), int(screen_height * 0.6))
@@ -1801,9 +1805,29 @@ QMessageBox QDialogButtonBox QPushButton{{
             self._view_images_grave_hotkey_id = None
         
         # 使用统一的样式函数
-        dialog.setStyleSheet(get_common_dialog_style())
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
+        dialog.setStyleSheet("background:transparent;border:none;")
         center_window(dialog)
         layout = QVBoxLayout(dialog)
+        # 白色圆角容器（包裹红点+滚动区，避免红点悬浮在透明背景上）
+        _container = QWidget()
+        _container.setStyleSheet("QWidget{background:white;border-radius:8px;}")
+        _cl = QVBoxLayout(_container)
+        _cl.setContentsMargins(0,0,0,0)
+        # 右上角红点关闭按钮
+        _dot = QFrame()
+        _dot.setFixedSize(14,14)
+        _dot.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
+        _dot.setCursor(Qt.PointingHandCursor)
+        def _closeD(ev):
+            if ev.button()==Qt.LeftButton: dialog.close()
+        _dot.mousePressEvent = _closeD
+        _dh = QHBoxLayout()
+        _dh.addStretch()
+        _dh.addWidget(_dot)
+        _cl.addLayout(_dh)
+        layout.addWidget(_container)
         scroll_area = QScrollArea()
         scroll_area.setStyleSheet("QScrollArea { background: white; border: none; }")
         scroll_root = QWidget()  # 最外层容器 (撑满滚动区)
@@ -2205,7 +2229,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             row_layout.addStretch()
             list_layout.addWidget(row_widget)
         scroll_area.setWidget(scroll_root)
-        layout.addWidget(scroll_area)
+        _cl.addWidget(scroll_area)
         # 添加底部按钮区域
         button_layout = QHBoxLayout()
         
@@ -2493,10 +2517,26 @@ QMessageBox QDialogButtonBox QPushButton{{
             coord_dialog.setWindowTitle(f"坐标录制数据 - {os.path.basename(str(folder_path))}")
             screen_width, screen_height = get_screen_size()
             coord_dialog.resize(int(screen_width * 0.5), int(screen_height * 0.6))
-            coord_dialog.setStyleSheet(get_common_dialog_style())
+            coord_dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+            coord_dialog.setStyleSheet("background-color:#FFFFFF;border:1.5px solid #1D1D1F;border-radius:16px;")
             center_window(coord_dialog)
             
             layout = QVBoxLayout(coord_dialog)
+            layout.setContentsMargins(20,16,20,20)
+            layout.setSpacing(12)
+            
+            from PyQt5.QtWidgets import QFrame as _DotF
+            _dot = _DotF()
+            _dot.setFixedSize(14,14)
+            _dot.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
+            _dot.setCursor(Qt.PointingHandCursor)
+            def _closeD(ev):
+                if ev.button()==Qt.LeftButton: coord_dialog.close()
+            _dot.mousePressEvent = _closeD
+            _dh = QHBoxLayout()
+            _dh.addStretch()
+            _dh.addWidget(_dot)
+            layout.addLayout(_dh)
             
             # 标题标签
             title_label = QLabel("📍 坐标录制数据")
@@ -2510,11 +2550,11 @@ QMessageBox QDialogButtonBox QPushButton{{
             """)
             title_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(title_label)
-            
+
             # 创建表格显示坐标数据
             table = QTableWidget()
-            table.setColumnCount(3)
-            table.setHorizontalHeaderLabels(["步骤", "操作类型", "坐标位置"])
+            table.setColumnCount(4)
+            table.setHorizontalHeaderLabels(["步骤", "操作类型", "坐标位置", "操作"])
             table.setRowCount(len(recording_data))
 
             from design_system import configure_table, get_table_stylesheet
@@ -2522,6 +2562,8 @@ QMessageBox QDialogButtonBox QPushButton{{
                 cell_padding_v=8, cell_padding_h=10, row_height=38,
                 border_radius=8
             ))
+            table.setColumnWidth(3, 50)
+            table.horizontalHeader().setStretchLastSection(False)
             
             # 填充数据
             for i, record in enumerate(recording_data):
@@ -2551,45 +2593,143 @@ QMessageBox QDialogButtonBox QPushButton{{
                 coord_item = QTableWidgetItem(f"({x}, {y})")
                 coord_item.setTextAlignment(Qt.AlignCenter)
                 table.setItem(i, 2, coord_item)
-            
+                # 删除按钮（第3列）
+                _del_w = QWidget()
+                _del_l = QHBoxLayout(_del_w)
+                _del_l.setContentsMargins(0,0,0,0)
+                _del_l.setAlignment(Qt.AlignCenter)
+                _del_b = QPushButton("✕")
+                _del_b.setFixedSize(26,26)
+                _del_b.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:13px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#E0342A;}")
+                _del_b.setCursor(Qt.PointingHandCursor)
+                _row_idx = i
+                def _del_row_cb(checked=False, idx=_row_idx):
+                    del recording_data[idx]
+                    for _ii,_oo in enumerate(recording_data,1): _oo["step"]=_ii
+                    save_json_data(recording_json_path, recording_data)
+                    _refresh_table()
+                _del_b.clicked.connect(_del_row_cb)
+                _del_l.addWidget(_del_b)
+                table.setCellWidget(i, 3, _del_w)
+
+            # 表格刷新函数（删除后调用）
+            def _refresh_table():
+                table.setRowCount(len(recording_data))
+                for _i,_o in enumerate(recording_data):
+                    _tm = {"left_click":"左键点击","right_click":"右键点击","double_click":"双击","middle_click":"中键点击"}
+                    table.setItem(_i,0,QTableWidgetItem(str(_o.get("step",_i+1)))); table.item(_i,0).setTextAlignment(Qt.AlignCenter)
+                    table.setItem(_i,1,QTableWidgetItem(_tm.get(_o.get("action_type"),_o.get("action_type")))); table.item(_i,1).setTextAlignment(Qt.AlignCenter)
+                    table.setItem(_i,2,QTableWidgetItem("("+str(_o.get("x",0))+", "+str(_o.get("y",0))+")")); table.item(_i,2).setTextAlignment(Qt.AlignCenter)
+                    # 重新添加删除按钮
+                    _dww = QWidget()
+                    _dll = QHBoxLayout(_dww)
+                    _dll.setContentsMargins(0,0,0,0)
+                    _dll.setAlignment(Qt.AlignCenter)
+                    _dbb = QPushButton("✕")
+                    _dbb.setFixedSize(26,26)
+                    _dbb.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:13px;font-size:13px;font-weight:bold;}QPushButton:hover{background:#E0342A;}")
+                    _dbb.setCursor(Qt.PointingHandCursor)
+                    _rii = _i
+                    def _drr(checked=False, idx2=_rii):
+                        del recording_data[idx2]
+                        for _ii2,_oo2 in enumerate(recording_data,1): _oo2["step"]=_ii2
+                        save_json_data(recording_json_path, recording_data)
+                        _refresh_table()
+                    _dbb.clicked.connect(_drr)
+                    _dll.addWidget(_dbb)
+                    table.setCellWidget(_i, 3, _dww)
+
             # 设置列宽
             table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
             table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
             table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-            
+            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+            table.setColumnWidth(3, 50)
+
             layout.addWidget(table)
-            
-            # 关闭按钮
-            close_btn = QPushButton("关闭")
-            close_btn.setStyleSheet("""
+
+            btn_layout = QHBoxLayout()
+            add_btn = QPushButton("+ 添加操作")
+            add_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #34C759;
                     color: white;
                     border: none;
-                    border-radius: 4px;
-                    padding: 10px 30px;
-                    font-size: 14px;
+                    border-radius: 6px;
+                    padding: 10px 20px;
+                    font-size: 13px;
+                    font-weight: bold;
                 }
                 QPushButton:hover {
-                background-color: #006AE0;
+                    background-color: #28A745;
                 }
             """)
+            def _add_op():
+                from PyQt5.QtGui import QPainter as _QP, QFont as _QFt, QColor as _QC
+                from PyQt5.QtCore import QTimer as _QT
+                _ov = QDialog(coord_dialog)
+                _ov.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+                _ov.setAttribute(Qt.WA_TranslucentBackground)
+                _ov.setMouseTracking(True)
+                _tg = QRect()
+                for _s in QApplication.screens():
+                    _tg = _tg.united(_s.geometry())
+                _ov.setGeometry(_tg)
+                def _mp(ev):
+                    if ev.button() == Qt.LeftButton:
+                        _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0; _x = int(ev.globalX() * _dpr); _y = int(ev.globalY() * _dpr)
+                        recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.3})
+                        for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+                        save_json_data(recording_json_path, recording_data)
+                        _refresh_table()
+                        _ov.accept()
+                    elif ev.button() == Qt.RightButton:
+                        _ov.reject()
+                _ov.mousePressEvent = _mp
+                def _pe(ev):
+                    _p = _QP(_ov)
+                    _p.setRenderHint(_p.Antialiasing)
+                    _p.fillRect(_ov.rect(), _QC(0,0,0,100))
+                    _f = _QFt("PingFang SC,SimHei",16)
+                    _p.setFont(_f)
+                    _p.setPen(_QC("#FFFFFF"))
+                    _p.drawText(_ov.rect(), Qt.AlignCenter, "🖱️ 点击目标位置添加左键操作\n右键/Esc 取消")
+                    _p.end()
+                _ov.paintEvent = _pe
+                def _kp(ev):
+                    if ev.key() == Qt.Key_Escape:
+                        _ov.reject()
+                    elif ev.key() in (Qt.Key_Return, Qt.Key_Enter):
+                        # 回车键：用鼠标当前位置作为坐标
+                        _cursor = QCursor.pos()
+                        _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
+                        _x = int(_cursor.x() * _dpr); _y = int(_cursor.y() * _dpr)
+                        recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.3})
+                        for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+                        save_json_data(recording_json_path, recording_data)
+                        _refresh_table()
+                        _ov.accept()
+                _ov.keyPressEvent = _kp
+                def _focus():
+                    _ov.raise_(); _ov.activateWindow(); _ov.setFocus()
+                _QT.singleShot(100, _focus)
+                _QT.singleShot(300, _focus)
+                _ov.exec_()
+            add_btn.clicked.connect(_add_op)
+            btn_layout.addWidget(add_btn)
+            btn_layout.addStretch()
+            close_btn = QPushButton("关闭")
+            close_btn.setStyleSheet("""QPushButton{background-color:#007AFF;color:white;border:none;border-radius:6px;padding:10px 24px;font-size:13px;font-weight:bold;}QPushButton:hover{background-color:#006AE0;}""")
             close_btn.clicked.connect(coord_dialog.close)
-            
-            btn_layout = QHBoxLayout()
-            btn_layout.addStretch()
             btn_layout.addWidget(close_btn)
-            btn_layout.addStretch()
             layout.addLayout(btn_layout)
-            
-            # 关闭父对话框，显示坐标对话框
             parent_dialog.close()
             coord_dialog.exec_()
             
         except Exception as e:
             # print(f"显示坐标数据失败: {e}")  # [日志已禁用]
             traceback.print_exc()
-            self.show_beautiful_message('critical', "错误", f"显示坐标数据失败: {str(e, parent=parent_dialog)}")
+            StyledMessageDialog(self, title='错误', text=f"显示坐标数据失败: {e}", msg_type='critical', buttons='ok').exec_()
     
     def show_key_input_dialog(self, index, folder_path):
         """显示按键输入对话框，用于修改按键"""
@@ -2605,7 +2745,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     self.setWindowTitle("修改按键")
                     self.setModal(True)
                     # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
-                    self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
                     
                     # 应用统一的对话框样式
                     apply_dialog_style(self, 0.3, 0.2)
@@ -2810,7 +2950,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     super().__init__(parent)
                     self.setWindowTitle("修改滚动设置")
                     self.setModal(True)
-                    self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
                     
                     apply_dialog_style(self, 0.3, 0.2)
                     
@@ -2943,7 +3083,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     self.setWindowTitle("修改文本")
                     self.setModal(True)
                     self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint |
-                                        Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+                                        Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 
                     apply_dialog_style(self, 0.35, 0.2)
 
@@ -4064,7 +4204,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             confirm_dialog.setWindowTitle("确认永久删除")
             confirm_dialog.setModal(True)
             # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
-            confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+            confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
             
             # 应用统一的对话框样式
             apply_dialog_style(confirm_dialog, 0.3, 0.2)
@@ -4148,7 +4288,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             success_dialog.setWindowTitle("成功")
             success_dialog.setModal(True)
             # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
-            success_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+            success_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
             
             # 应用统一的对话框样式
             apply_dialog_style(success_dialog, 0.3, 0.2)
@@ -4197,7 +4337,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             confirm_dialog.setWindowTitle("确认清空回收站")
             confirm_dialog.setModal(True)
             # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
-            confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+            confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
             
             # 应用统一的对话框样式
             apply_dialog_style(confirm_dialog, 0.3, 0.2)
@@ -4285,7 +4425,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             success_dialog.setWindowTitle("成功")
             success_dialog.setModal(True)
             # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
-            success_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint | Qt.WindowStaysOnTopHint)
+            success_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
             
             # 应用统一的对话框样式
             apply_dialog_style(success_dialog, 0.3, 0.2)
@@ -5071,7 +5211,8 @@ class AutoRecorderApp(QMainWindow):
         dialog = QDialog(self)
         dialog.setWindowTitle(f"查看录制图片 - {folder_name}")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         scr = self.screen_size()
         dialog.setMinimumSize(int(scr.width() * 0.8), int(scr.height() * 0.8))
         layout = QVBoxLayout(dialog)
@@ -5121,7 +5262,8 @@ class AutoRecorderApp(QMainWindow):
         confirm_dialog = QDialog(self)
         confirm_dialog.setWindowTitle("确认删除")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        confirm_dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        confirm_dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        confirm_dialog.setAttribute(Qt.WA_TranslucentBackground)
         confirm_dialog.setFixedSize(300, 120)
         layout = QVBoxLayout(confirm_dialog)
         layout.setSpacing(10)
@@ -5727,47 +5869,35 @@ class AutoRecorderApp(QMainWindow):
         """)
         title_layout.addWidget(title_label)
         title_layout.addStretch()
-        
-        # 最小化按钮 - 点击后隐藏窗口而不是最小化到任务栏
-        min_btn = QPushButton("−")
-        min_btn.setFixedSize(24, 24)
-        min_btn.setCursor(Qt.PointingHandCursor)
-        min_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #8c8c8c;
-                border: none;
-                border-radius: 4px;
-                font-size: 16px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #f0f0f0;
-                color: #262626;
-            }
-        """)
-        min_btn.clicked.connect(self.enter_main_program)
-        title_layout.addWidget(min_btn)
-        
-        # 关闭按钮
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(24, 24)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                color: #8c8c8c;
-                border: none;
-                border-radius: 4px;
-                font-size: 18px;
-            }
-            QPushButton:hover {
-                background-color: #ff4d4f;
-                color: white;
-            }
-        """)
-        close_btn.clicked.connect(self.close_replay_indicator)
-        title_layout.addWidget(close_btn)
+
+        from PyQt5.QtWidgets import QFrame as _QF2
+        _dots_w = QWidget()
+        _dots_w.setAttribute(Qt.WA_TranslucentBackground)
+        _dots_w.setStyleSheet("background:transparent;")
+        _dots_l = QHBoxLayout(_dots_w)
+        _dots_l.setContentsMargins(0,0,0,0)
+        _dots_l.setSpacing(6)
+        _d_close = _QF2()
+        _d_close.setFixedSize(14, 14)
+        _d_close.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
+        _d_close.setCursor(Qt.PointingHandCursor)
+        def _dclose_ev(ev):
+            if ev.button()==Qt.LeftButton: self.close_replay_indicator()
+        _d_close.mousePressEvent = _dclose_ev
+        _dots_l.addWidget(_d_close)
+        _d_min = _QF2()
+        _d_min.setFixedSize(14, 14)
+        _d_min.setStyleSheet("QFrame{background-color:#FFBD2E;border:none;border-radius:7px;}QFrame:hover{background-color:#FF9500;}")
+        _d_min.setCursor(Qt.PointingHandCursor)
+        def _dmin_ev(ev):
+            if ev.button()==Qt.LeftButton: self.enter_main_program()
+        _d_min.mousePressEvent = _dmin_ev
+        _dots_l.addWidget(_d_min)
+        _d_max = _QF2()
+        _d_max.setFixedSize(14, 14)
+        _d_max.setStyleSheet("QFrame{background-color:#28C840;border:none;border-radius:7px;}")
+        _dots_l.addWidget(_d_max)
+        title_layout.addWidget(_dots_w)
         
         main_layout.addLayout(title_layout)
         
@@ -6108,7 +6238,8 @@ class AutoRecorderApp(QMainWindow):
         
         dialog = QDialog(self)
         dialog.setWindowTitle("回放设置")
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         dialog.setFixedSize(280, 200)
         dialog.setStyleSheet("""
             QDialog {
@@ -8072,7 +8203,8 @@ class AutoRecorderApp(QMainWindow):
         
         dialog = QDialog(self)
         dialog.setWindowTitle("设置快捷键")
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         
         # 按比例设置对话框大小
         width, height = get_screen_size(0.3)
@@ -8325,6 +8457,8 @@ class AutoRecorderApp(QMainWindow):
         dialog.setWindowTitle("回收站")
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         dialog.resize(680, 500)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
+        dialog.setStyleSheet("background: transparent; border: none;")
 
         # 主程序 ColorPalette 统一配色
         BG_WIN  = "#F5F5F7"
@@ -8336,7 +8470,7 @@ class AutoRecorderApp(QMainWindow):
         DA      = "#FF3B30"
         OK      = "#34C759"
         FN      = '"PingFang SC", "Microsoft YaHei", "Helvetica Neue", "Segoe UI", sans-serif'
-        RADIUS  = "12px"
+        RADIUS  = "16px"
 
         # 鼠标拖拽
         dialog._drag_pos = None
@@ -8359,6 +8493,7 @@ class AutoRecorderApp(QMainWindow):
         container.setStyleSheet(f"""
             QWidget#container {{
                 background: {BG_WIN};
+                border: 1.5px solid #1D1D1F;
                 border-radius: {RADIUS};
                 font-family: {FN};
                 color: {C1};
@@ -8387,30 +8522,17 @@ class AutoRecorderApp(QMainWindow):
         tl.addWidget(count_label)
         tl.addStretch()
 
-        # 关闭按钮 - macOS 大红点
-        close_title_btn = QPushButton("\u2715")
-        close_title_btn.setFixedSize(38, 38)
-        close_title_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent;
-                border: none;
-                border-radius: 19px;
-                font-size: 22px;
-                font-weight: 400;
-                color: {C2};
-                outline: none;
-            }}
-            QPushButton:hover {{
-                background: {DA};
-                color: white;
-            }}
-            QPushButton:pressed {{
-                background: #d62d20;
-            }}
-        """)
-        close_title_btn.setCursor(Qt.PointingHandCursor)
-        close_title_btn.clicked.connect(dialog.close)
-        tl.addWidget(close_title_btn)
+        # macOS 三点点（只有关闭点，因为无最小化/最大化）
+        from PyQt5.QtWidgets import QFrame
+        dot_close = QFrame()
+        dot_close.setFixedSize(14, 14)
+        dot_close.setStyleSheet(f'QFrame{{background-color:#FF5F57;border:none;border-radius:7px;}}QFrame:hover{{background-color:#FF3B30;}}')
+        dot_close.setCursor(Qt.PointingHandCursor)
+        def _dot_close_click(ev):
+            if ev.button() == Qt.LeftButton:
+                dialog.close()
+        dot_close.mousePressEvent = _dot_close_click
+        tl.addWidget(dot_close)
         main_layout.addWidget(title_bar)
 
         # ── 表格 ──

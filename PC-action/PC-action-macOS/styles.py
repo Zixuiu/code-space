@@ -1,4 +1,4 @@
-"""
+﻿"""
 文件: styles.py
 用途: 提供统一的UI样式管理，避免在各个文件中重复定义样式
 """
@@ -436,7 +436,43 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
 
     # 设置窗口标志：移除帮助按钮，添加最小化按钮
     from PyQt5.QtCore import Qt
-    dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+    dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dialog.setAttribute(Qt.WA_TranslucentBackground)
+    dialog.setStyleSheet("QDialog{background-color:#FFFFFF;border-radius:12px;}")
+
+    # 添加 macOS 三点点（红 关闭 / 黄 最小化 / 绿 最大化）
+    from PyQt5.QtWidgets import QFrame as _DF, QWidget as _DW, QHBoxLayout as _DL
+    _bw = _DW(dialog)
+    _bw.setGeometry(dialog.width()-78, 12, 66, 14)
+    _bw.setStyleSheet("background:transparent;")
+    _bl = _DL(_bw)
+    _bl.setContentsMargins(0,0,0,0)
+    _bl.setSpacing(8)
+    
+    for _color,_hover,_action in [
+        ("#28C840","#23A839",lambda w: w.showMaximized() if not w.isMaximized() else w.showNormal()),
+        ("#FFBD2E","#E6A722",lambda w: w.showMinimized()),
+        ("#FF5F57","#FF3B30",lambda w: w.close()),
+    ]:
+        _d = _DF(_bw)
+        _d.setFixedSize(14,14)
+        _d.setStyleSheet("QFrame{background-color:"+_color+";border:none;border-radius:7px;}QFrame:hover{background-color:"+_hover+";}")
+        _d.setCursor(Qt.PointingHandCursor)
+        _bl.addWidget(_d)
+        import PyQt5.QtCore as _QC
+        class _Filt(_QC.QObject):
+            def __init__(self,fn): super().__init__(); self.fn=fn
+            def eventFilter(self,o,e):
+                if e.type()==_QC.QEvent.MouseButtonPress and e.button()==_QC.Qt.LeftButton:
+                    p=o.parent()
+                    while p and not isinstance(p,_QC.QDialog): p=p.parent()
+                    if p: self.fn(p)
+                    return True
+                return super().eventFilter(o,e)
+        _d.installEventFilter(_Filt(_action))
+    
+    _bw.show()
+    _bw.raise_()
 
     # 计算动态尺寸
     dialog_border_radius = int(screen_height * 0.012)
