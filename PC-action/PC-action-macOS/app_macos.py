@@ -2602,9 +2602,3 @@ def start_macos_app():
 
 if __name__ == "__main__":
     start_macos_app()
-
-
-
-
-
-
