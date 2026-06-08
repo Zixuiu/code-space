@@ -1901,19 +1901,19 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
-        combo_table.setHorizontalHeaderLabels(["选择", "组合技名称", "流程数", "状态", "操作", "停止快捷键", "删除"])
+        combo_table.setHorizontalHeaderLabels(["☐", "名称", "流程", "状态", "操作", "快捷键", "删除"])
         configure_table(combo_table, get_table_stylesheet(
             cell_padding_v=6, cell_padding_h=12, row_height=44
         ))
         combo_table.verticalHeader().setDefaultSectionSize(44)
-        combo_table.setColumnWidth(0, 60)
-        combo_table.setColumnWidth(1, 200)
-        combo_table.setColumnWidth(2, 70)
-        combo_table.setColumnWidth(3, 90)
-        combo_table.setColumnWidth(4, 80)
-        combo_table.setColumnWidth(5, 120)
-        combo_table.setColumnWidth(6, 80)
-        combo_table.horizontalHeader().setStretchLastSection(False)
+        combo_table.setColumnWidth(0, 50)
+        combo_table.setColumnWidth(1, 120)
+        combo_table.setColumnWidth(2, 60)
+        combo_table.setColumnWidth(3, 80)
+        combo_table.setColumnWidth(4, 100)
+        combo_table.setColumnWidth(5, 100)
+        combo_table.setColumnWidth(6, 60)
+        combo_table.horizontalHeader().setStretchLastSection(True)
 
         def on_combo_table_click(row, column):
             combo_table.setCurrentCell(row, column)
