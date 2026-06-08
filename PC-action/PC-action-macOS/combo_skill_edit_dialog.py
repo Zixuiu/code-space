@@ -23,6 +23,7 @@ IS_DARK = False
 from design_system import ColorPalette, BorderRadiusSystem, TypographySystem
 from utils import get_recordings_path, get_screen_size
 from beautiful_dialog import StyledMessageDialog
+from styles import apply_dialog_style
 
 
 class ComboSkillEditDialog(QDialog):

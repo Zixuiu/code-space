@@ -840,8 +840,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 normal_runners.append(runner)
 
                 _sid = skill_id
-                runner.finished.connect(lambda success, msg, sid=_sid: self._on_combo_skill_finished(success, msg, sid))
-                runner.step_signal.connect(lambda step_info, sid=_sid: self._on_combo_step_changed(step_info, sid))
+                runner._on_finished = lambda success, msg, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
+                runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
 
                 _t = _threading.Thread(target=runner.run, daemon=True)
                 runner._exec_thread = _t
@@ -864,8 +864,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     self.runners[skill_id] = runner
 
                     _sid = skill_id
-                    runner.finished.connect(lambda success, msg, sid=_sid: self._on_combo_skill_finished(success, msg, sid))
-                    runner.step_signal.connect(lambda step_info, sid=_sid: self._on_combo_step_changed(step_info, sid))
+                    runner._on_finished = lambda success, msg, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
+                    runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
 
                     _t = _threading.Thread(target=runner.run, daemon=True)
                     runner._exec_thread = _t
@@ -915,8 +915,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             runner.skill_id = skill_id
             self.runners[skill_id] = runner
 
-            runner.finished.connect(lambda success, msg, sid=skill_id: self._on_combo_skill_finished(success, msg, sid))
-            runner.step_signal.connect(lambda step_info, sid=skill_id: self._on_combo_step_changed(step_info, sid))
+            runner._on_finished = lambda success, msg, sid=skill_id: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
+            runner._on_step = lambda step_info, sid=skill_id: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
 
             _t = _threading.Thread(target=runner.run, daemon=True)
             runner._exec_thread = _t
@@ -2242,8 +2242,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         table_widget.setRowCount(0)
 
-        # 暂时不加载组合技，避免崩溃
-        combo_skills = []
+        combo_skills = self._get_combo_manager().combo_skills
 
         running_skill_ids = set()
         running_skill_names = []

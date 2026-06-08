@@ -1,4 +1,4 @@
-﻿"""
+"""
 文件: app.py
 用途: 应用程序主模块，实现自动录制器的核心功能。
       包含UI界面实现、屏幕录制逻辑、操作管理以及与用户认证系统的集成。
@@ -4927,8 +4927,8 @@ class AutoRecorderApp(QMainWindow):
         self.current_recording_dir = None
         self.replay_interval = 0.001  # 操作间隔1毫秒
         # 图像匹配超时时间（秒）：至少要 1.5s 才能确保小图标有足够时间匹配
-        self.replay_timeout = 1.5
-        self.replay_enabled = True  # 回放功能开关（默认开启，按钮显示"开始回放"）
+        self.replay_timeout = 2.0
+        self.replay_enabled = False  # 回放功能开关（默认关闭）
         self.shortcuts = {}
         self.shortcut_objects = []
         self.alt_press_count = 0  # ALT键按下次数
@@ -6514,13 +6514,13 @@ class AutoRecorderApp(QMainWindow):
                             runner.reset()
                         except Exception:
                             pass
-                # 等待所有线程真正结束
-                for skill_id, runner in runners_to_reset:
-                    try:
-                        if hasattr(runner, '_exec_thread') and runner._exec_thread is not None:
-                            runner._exec_thread.join(timeout=STOP_JOIN_TIMEOUT)
-                    except Exception:
-                        pass
+                # 注：移除主线程join等待，避免卡死UI，子线程会检测running标志自行退出
+                # for skill_id, runner in runners_to_reset:
+                #     try:
+                #         if hasattr(runner, '_exec_thread') and runner._exec_thread is not None:
+                #             runner._exec_thread.join(timeout=STOP_JOIN_TIMEOUT)
+                #     except Exception:
+                #         pass
                 # 清空 runners
                 self.runners.clear()
                 self.append_log("[组合技] 所有运行中的组合技已停止，下次运行将从第一个流程重新开始")
@@ -9102,8 +9102,8 @@ class AutoRecorderApp(QMainWindow):
         
         table_widget.setRowCount(0)
         
-        # 暂时不加载组合技，避免崩溃
-        combo_skills = []
+        # 从管理器加载组合技
+        combo_skills = self.combo_skills if hasattr(self, 'combo_skills') else []
         
         running_skill_ids = set()
         running_skill_names = []
@@ -9322,8 +9322,10 @@ class AutoRecorderApp(QMainWindow):
                         except Exception:
                             pass
                     # 等待线程真正结束，避免新旧线程同时运行
-                    _wait_runner_finish(runner, STOP_JOIN_TIMEOUT)
-                    # 线程结束后再从runners字典中移除
+                    # 不在主线程阻塞等待，避免界面卡死；线程会在检测到 running=False 后自行退出
+
+    # 找到当前代码块之前的缩进（通常为8个空格或2个tab，这里取上文标准）
+  # 唤醒可能正在 _wait_interruptible 中等待的线程
                     if skill_id in self.runners:
                         del self.runners[skill_id]
                     self.append_log(f"[{skill_name}] 已停止，下次运行将从第一个流程重新开始")
@@ -9384,6 +9386,8 @@ class AutoRecorderApp(QMainWindow):
     
     def _on_combo_step_changed(self, step_info, skill_id=None):
         """组合技步骤变化时的回调 - 更新状态显示"""
+        import time as _time
+        _t0 = _time.time()
         try:
             step_num = step_info.get('step_num', 0)
             total_steps = step_info.get('total_steps', 0)
@@ -9393,25 +9397,24 @@ class AutoRecorderApp(QMainWindow):
             loop = step_info.get('loop', 1)
             total_loops = step_info.get('total_loops', 1)
             
-            # 获取组合技名称
             skill_name = ""
             if skill_id and skill_id in self.runners:
                 runner = self.runners[skill_id]
                 if hasattr(runner, 'skill_data'):
                     skill_name = runner.skill_data.get('name', '')
             
-            # 构建状态文本
             loop_text = f"[第{loop}/{total_loops}轮] " if total_loops > 1 else ""
             branch_text = f"[{branch}] " if branch != "主分支" else ""
             name_text = f"[{skill_name}] " if skill_name else ""
             status_text = f"{name_text}{loop_text}步骤 {step_num}/{total_steps} {branch_text}- {condition} → {action}"
             
-            # 更新窗口标题显示当前步骤
             self._update_window_title_with_runner_status(status_text)
             
         except Exception as e:
-            # 状态更新失败不影响主流程
             pass
+        _elapsed = _time.time() - _t0
+        if _elapsed > 0.05:
+            print(f"[耗时-UI] ⚠️ _on_combo_step_changed 耗时: {_elapsed:.3f}s")
     
     def _update_window_title_with_runner_status(self, current_status=None):
         """更新窗口标题显示runner状态"""
@@ -10732,6 +10735,274 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             self.debug_print(f"[快捷键] 更新快捷键失败: {e}")
             pass
+
+
+
+class ComboSkillRunner:
+    """组合技执行器 - 在独立线程中运行组合技的各个流程（纯Python回调）"""
+
+    def __init__(self, skill_data, parent=None):
+        self.skill_data = skill_data
+        self.skill_id = ""
+        self.running = False
+        self.monitor_mode = False
+        self.monitor_target_runner = None
+        self._exec_thread = None
+        self._current_flow_index = 0
+        self._total_flows = len(skill_data.get("flows", []))
+        self._loop_count = skill_data.get("loop_count", 1)
+        self._current_loop = 1
+        self._main_app = parent
+        self.interrupt_event = threading.Event()  # 用于唤醒 _wait_interruptible 的中断事件
+        # 回调函数（线程安全，由主线程设置）
+        self._on_finished = None
+        self._on_log = None
+        self._on_step = None
+
+    def isRunning(self):
+        return self.running
+
+    def reset(self):
+        """重置执行状态，下次从第一个流程开始"""
+        self._current_flow_index = 0
+        self._current_loop = 1
+
+    def run(self):
+        """执行组合技的所有流程（支持条件、else分支、跳转）"""
+        import time as _time
+        self.running = True
+        self._consecutive_failures = 0
+        _run_start = _time.time()
+        if self._on_log:
+            self._on_log(f"组合技开始执行: {self.skill_data.get('name', '')}")
+            self._on_log(f"流程数: {len(self.skill_data.get('flows', []))}, 循环次数: {self._loop_count}")
+        try:
+            flows = self.skill_data.get("flows", [])
+            total_loops = max(1, self._loop_count)
+            _t0 = _time.time()
+            from image_recognition import find_image_with_timeout
+            _t1 = _time.time()
+            if self._on_log:
+                self._on_log(f"[耗时] find_image_with_timeout 导入: {_t1-_t0:.3f}s")
+                if flows:
+                    self._on_log(f"流程0数据: {str(flows[0])[:200]}")
+
+            for loop in range(1, total_loops + 1):
+                if not self.running:
+                    break
+                self._current_loop = loop
+                _loop_start = _time.time()
+
+                flow_index = 0
+                total_jumps = 0
+                max_jumps = max(200, len(flows) * 20)
+                while flow_index < len(flows):
+                    if not self.running:
+                        break
+                    _flow_start = _time.time()
+                    self._current_flow_index = flow_index
+                    flow = flows[flow_index]
+                    action = flow.get("action", "")
+                    condition = flow.get("condition", "always")
+                    else_branch = flow.get("else_branch") or {}
+
+                    # ====== 1. 判断条件 ======
+                    condition_met = True
+                    condition_image = flow.get("condition_image", "")
+                    _cond_start = _time.time()
+
+                    if condition == "image_found" and condition_image:
+                        loc = find_image_with_timeout(condition_image, confidence=0.7, timeout=0.3, consider_color=False, stop_check=lambda: not self.running)
+                        condition_met = loc is not None
+                        _cond_elapsed = _time.time() - _cond_start
+                        if self._on_log:
+                            self._on_log(f"[耗时] Flow{flow_index+1} image_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    elif condition == "image_not_found" and condition_image:
+                        loc = find_image_with_timeout(condition_image, confidence=0.7, timeout=0.3, consider_color=False, stop_check=lambda: not self.running)
+                        condition_met = loc is None
+                        _cond_elapsed = _time.time() - _cond_start
+                        if self._on_log:
+                            self._on_log(f"[耗时] Flow{flow_index+1} image_not_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    elif condition == "wait_for_image" and condition_image:
+                        wait_timeout = flow.get("wait_timeout", 30)
+                        loc = find_image_with_timeout(condition_image, confidence=0.7, timeout=float(wait_timeout), consider_color=False, stop_check=lambda: not self.running)
+                        condition_met = loc is not None
+                        _cond_elapsed = _time.time() - _cond_start
+                        if self._on_log:
+                            self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    elif condition == "always":
+                        if self._on_log:
+                            self._on_log(f"[耗时] Flow{flow_index+1} always 条件: 跳过判断")
+
+                    # ====== 2. 决定执行哪个分支的动作 ======
+                    use_branch = "main" if condition_met else "else"
+                    branch_label = "主分支" if condition_met else "Else分支"
+                    target_action = action if condition_met else else_branch.get("action", "")
+                    target_else_branch = else_branch if not condition_met else None
+
+                    step_info = {
+                        "step_num": flow_index + 1,
+                        "total_steps": len(flows),
+                        "condition": condition,
+                        "action": target_action,
+                        "branch": branch_label,
+                        "loop": loop,
+                        "total_loops": total_loops,
+                    }
+                    if self._on_step:
+                        self._on_step(step_info)
+
+                    # ====== 3. 处理跳转/结束 ======
+                    if target_action and target_action.startswith("跳转_"):
+                        if self._on_log:
+                            self._on_log(f"Flow {flow_index+1}: 条件满足 → 跳转 {target_action} (总跳转: {total_jumps+1})")
+                        try:
+                            target = int(target_action.split("_")[1])
+                        except (IndexError, ValueError):
+                            target = -1
+                        if 0 <= target < len(flows):
+                            total_jumps += 1
+                            if total_jumps > max_jumps:
+                                if self._on_log:
+                                    self._on_log(f"跳转次数超过上限({max_jumps})，停止")
+                                break
+                            flow_index = target
+                            if self._on_log:
+                                self._on_log(f"→ 跳转到流程 {target+1}")
+                            self._wait_interruptible(0.05)
+                            continue
+                        else:
+                            flow_index += 1
+                            continue
+                    elif target_action == "end":
+                        break
+
+                    # ====== 4. 执行动作 ======
+                    if target_action:
+                        _exec_start = _time.time()
+                        if self._on_log:
+                            self._on_log(f"Flow {flow_index+1}: 开始执行动作 '{target_action}'")
+                        _action_ok = self._execute_action(target_action)
+                        _exec_elapsed = _time.time() - _exec_start
+                        if self._on_log:
+                            self._on_log(f"[耗时] Flow{flow_index+1} 执行动作 '{target_action}': {_exec_elapsed:.3f}s 结果={'成功' if _action_ok else '失败'}")
+                        if not _action_ok:
+                            self._consecutive_failures += 1
+                            if self._consecutive_failures >= 3:
+                                if self._on_log:
+                                    self._on_log(f"连续 {self._consecutive_failures} 次执行失败，停止组合技")
+                                break
+                        else:
+                            self._consecutive_failures = 0
+
+                    _flow_elapsed = _time.time() - _flow_start
+                    if self._on_log:
+                        self._on_log(f"[耗时] Flow{flow_index+1} 总耗时: {_flow_elapsed:.3f}s")
+
+                    if self.running:
+                        self._wait_interruptible(0.03)
+                    flow_index += 1
+
+                _loop_elapsed = _time.time() - _loop_start
+                if self._on_log:
+                    self._on_log(f"[耗时] 第{loop}轮循环总耗时: {_loop_elapsed:.3f}s")
+                self.reset()
+
+            _run_elapsed = _time.time() - _run_start
+            if self.running:
+                if self._on_log:
+                    self._on_log(f"[耗时] 组合技总执行时间: {_run_elapsed:.3f}s")
+                if self._on_finished:
+                    self._on_finished(True, f"组合技 '{self.skill_data.get('name', '')}' 执行完成")
+            else:
+                if self._on_log:
+                    self._on_log(f"[耗时] 组合技被停止，已执行: {_run_elapsed:.3f}s")
+                if self._on_finished:
+                    self._on_finished(False, "已停止")
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            if self._on_finished:
+                self._on_finished(False, f"执行失败: {str(e)}")
+        finally:
+            self.running = False
+
+    def _execute_action(self, action):
+        import time as _time
+        if not action or action == "end":
+            return True
+        try:
+            _ea_start = _time.time()
+            from utils import get_recordings_path, load_json_data
+            folder_path = os.path.join(get_recordings_path(), action)
+            json_path = os.path.join(folder_path, "recording.json")
+            if not os.path.exists(json_path):
+                if self._on_log:
+                    self._on_log(f"[耗时] 找不到录制文件: {json_path} ({_time.time()-_ea_start:.3f}s)")
+                return False
+
+            _t_load0 = _time.time()
+            recording_data = load_json_data(json_path)
+            _t_load1 = _time.time()
+            if self._on_log:
+                self._on_log(f"[耗时] load_json_data: {_t_load1-_t_load0:.3f}s 步骤数={len(recording_data) if recording_data else 0}")
+            if not recording_data:
+                if self._on_log:
+                    self._on_log(f"录制数据为空: {action}")
+                return False
+
+            has_images = any(op.get("image", "") for op in recording_data)
+            if self._on_log:
+                self._on_log(f"[耗时] 动作 '{action}' 含图片={has_images}, 步骤数={len(recording_data)}")
+
+            from image_recognition import replay_coordinate_operations, replay_coordinates_only
+
+            if has_images:
+                _t_replay0 = _time.time()
+                ok, total = replay_coordinate_operations(
+                    recording_data, folder_path,
+                    replay_interval=0.3, consider_color=False,
+                    match_timeout=1.0,
+                    stop_check=lambda: not self.running,
+                    skip_cache_clear=True
+                )
+                _t_replay1 = _time.time()
+                if self._on_log:
+                    self._on_log(f"[耗时] replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+            else:
+                _t_replay0 = _time.time()
+                ok, total = replay_coordinates_only(
+                    recording_data, replay_interval=0.2,
+                    stop_check=lambda: not self.running
+                )
+                _t_replay1 = _time.time()
+                if self._on_log:
+                    self._on_log(f"[耗时] replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+
+            if ok == 0 and total > 0:
+                if self._on_log:
+                    self._on_log(f"执行失败: {action} 全部 {total} 个步骤均未成功")
+                return False
+
+            if self._on_log:
+                self._on_log(f"[耗时] 执行动作 '{action}' 总耗时: {_time.time()-_ea_start:.3f}s")
+            return True
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            if self._on_log:
+                self._on_log(f"执行动作失败: {e}")
+            return False
+
+    def _wait_interruptible(self, seconds):
+        import time
+        interval = 0.1
+        elapsed = 0
+        while self.running and elapsed < seconds:
+            time.sleep(interval)
+            elapsed += interval
+
 
 
 class ComboSkillManager:

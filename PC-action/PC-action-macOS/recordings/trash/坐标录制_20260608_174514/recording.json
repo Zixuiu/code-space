@@ -1,0 +1,156 @@
+[
+  {
+    "step": 1,
+    "action_type": "click",
+    "x": 1722,
+    "y": 1398,
+    "delay": 0.3
+  },
+  {
+    "step": 2,
+    "action_type": "click",
+    "x": 1710,
+    "y": 1372,
+    "delay": 0.3
+  },
+  {
+    "step": 3,
+    "action_type": "click",
+    "x": 1716,
+    "y": 1330,
+    "delay": 0.3
+  },
+  {
+    "step": 4,
+    "action_type": "click",
+    "x": 1716,
+    "y": 1330,
+    "delay": 0.3
+  },
+  {
+    "step": 5,
+    "action_type": "click",
+    "x": 1726,
+    "y": 1296,
+    "delay": 0.3
+  },
+  {
+    "step": 6,
+    "action_type": "click",
+    "x": 1652,
+    "y": 1064,
+    "delay": 0.3
+  },
+  {
+    "step": 7,
+    "action_type": "click",
+    "x": 1652,
+    "y": 1064,
+    "delay": 0.3
+  },
+  {
+    "step": 8,
+    "action_type": "click",
+    "x": 1656,
+    "y": 1150,
+    "delay": 0.3
+  },
+  {
+    "step": 9,
+    "action_type": "click",
+    "x": 1676,
+    "y": 1028,
+    "delay": 0.3
+  },
+  {
+    "step": 10,
+    "action_type": "click",
+    "x": 2008,
+    "y": 516,
+    "delay": 0.3
+  },
+  {
+    "step": 11,
+    "action_type": "click",
+    "x": 2354,
+    "y": 254,
+    "delay": 0.3
+  },
+  {
+    "step": 12,
+    "action_type": "click",
+    "x": 2550,
+    "y": 34,
+    "delay": 0.3
+  },
+  {
+    "step": 13,
+    "action_type": "click",
+    "x": 2210,
+    "y": 286,
+    "delay": 0.3
+  },
+  {
+    "step": 14,
+    "action_type": "click",
+    "x": 534,
+    "y": 868,
+    "delay": 0.3
+  },
+  {
+    "step": 15,
+    "action_type": "click",
+    "x": 98,
+    "y": 1238,
+    "delay": 0.3
+  },
+  {
+    "step": 16,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 17,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 18,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 19,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 20,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 21,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  },
+  {
+    "step": 22,
+    "action_type": "click",
+    "x": 1152,
+    "y": 1052,
+    "delay": 0.3
+  }
+]

@@ -1,0 +1,16 @@
+[
+  {
+    "step": 1,
+    "action_type": "click",
+    "x": 1698,
+    "y": 1408,
+    "delay": 0.3
+  },
+  {
+    "step": 2,
+    "action_type": "click",
+    "x": 1912,
+    "y": 712,
+    "delay": 0.3
+  }
+]

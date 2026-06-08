@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import time
 import re
@@ -112,8 +112,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     if stop_check is None:
         _replay_stop_flag = False
     
+    _replay_start = time.time()
     for i, operation in enumerate(recording_data):
-        # 检查是否收到停止信号（全局标志 + 各runner独立检查）
+        _step_start = time.time()
         if _replay_stop_flag or (stop_check and stop_check()):
             break
         try:
@@ -121,7 +122,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             step = operation.get('step', i + 1)
             action_type = operation.get('action_type', 'left_click')
             image_name = operation.get('image', '')
-            delay = operation.get('delay', 0)  # 获取每个操作的延迟时间，默认为0
+            delay = operation.get('delay', 0)
             
             # 处理不需要图像的操作类型
             if action_type in ['text_input', 'keyboard', 'keyboard_direct', 'scroll']:
@@ -317,26 +318,18 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 # 根据 match_timeout 自适应分配匹配时间
                 # 一次性给充足超时,避免分两次匹配增加延迟
                 # 快的 UI 0.01s 就返回,慢的 UI 给够时间渲染
-                first_attempt_timeout = max(0.15, match_timeout * 0.2)
-                location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=first_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
+                single_attempt_timeout = max(0.5, match_timeout * 0.8)
+                _match_t0 = time.time()
+                location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
+                _match_t1 = time.time()
+                print(f"[耗时-回放] 步骤{step} 图片匹配: {_match_t1-_match_t0:.3f}s 结果={'命中' if location else '失败'} 图片={image_name}")
 
                 if not location:
-                    # 首次超时太短导致截图时机不对,新开一次匹配(新首张截图)
-                    retry_timeout = max(0.45, match_timeout * 0.6)
-                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=retry_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
-                    if not location:
-                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}）")
-                        continue
-                    else:
-                        debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
-                        x, y, width, height = location
-                        center_x = x + width // 2
-                        center_y = y + height // 2
+                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}）")
+                    continue
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
-                    # 解析找到的坐标
                     x, y, width, height = location
-                    # 计算中心点
                     center_x = x + width // 2
                     center_y = y + height // 2
                     
@@ -365,15 +358,17 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             success_count += 1
             
-            # 极速模式：步骤间无延迟，立即执行下一步
-            # 注意：如果需要延迟，请在录制时设置，但建议保持为0以获得最快速度
+            _step_elapsed = time.time() - _step_start
+            if _step_elapsed > 0.3:
+                print(f"[耗时-回放] ⚠️ 步骤{step} 耗时较长: {_step_elapsed:.3f}s type={action_type}")
                 
         except Exception as e:
             import traceback
             traceback.print_exc()
             continue
     
-    # 清理缓存（有stop_check时表示被组合技runner调用，跳过缓存清理以免影响其他runner）
+    _replay_elapsed = time.time() - _replay_start
+    print(f"[耗时-回放] replay_coordinate_operations 总耗时: {_replay_elapsed:.3f}s 成功={success_count}/{total_operations}")
     if not skip_cache_clear:
         clear_image_cache()
     return success_count, total_operations
@@ -517,13 +512,21 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     import numpy as np
     import cv2
     
+    def _basename(p):
+        return p.replace('\\', '/').split('/')[-1] if p else ''
+    
+    _func_start = time.time()
     start_time = time.time()
     
+    _t_cache0 = time.time()
     image_array = get_cached_image(image_path)
+    _t_cache1 = time.time()
     if image_array is None:
         debug_print(f"[匹配诊断] ⚠️ get_cached_image 返回 None: {image_path}")
+        print(f"[耗时-匹配] get_cached_image 返回None: {_t_cache1-_t_cache0:.3f}s path={os.path.basename(image_path)}")
         return None
     debug_print(f"[匹配诊断] 图片加载成功 {image_array.shape} | 阈值 {confidence:.2f} | 超时 {timeout:.2f}s")
+    print(f"[耗时-匹配] get_cached_image: {_t_cache1-_t_cache0:.3f}s shape={image_array.shape} path={os.path.basename(image_path)}")
 
     # 必须先获取截图，后面诊断信息要用到 first_screenshot
     first_screenshot = _get_shared_screenshot()
@@ -531,7 +534,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     screenshot_w = first_screenshot.shape[1] if first_screenshot is not None else 0
 
     # 多尺度间隔从 2 改成 3,减少多尺度运行频率（每次多尺度太耗时），首次截图也会跑多尺度
-    multi_scale_interval = 3
+    multi_scale_interval = 5
     iteration = 0
 
     # 截图和模板尺寸（用于诊断 "明明有图却匹配不到" 问题）
@@ -544,20 +547,24 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     def _try_match(screenshot, skip_multi_scale=False):
         nonlocal iteration
         iteration += 1
+        _tm0 = time.time()
         result = _match_template_cuda(screenshot, image_array)
         if result is None:
             result = cv2.matchTemplate(screenshot, image_array, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+        _tm1 = time.time()
         scale_best_scores[1.0] = (max_val, max_loc)
-        # 调试:打印实际匹配分数,方便诊断"图片在却匹配不到"
         if iteration == 1 or iteration % 20 == 0:
             debug_print(f"[回放匹配] 迭代{iteration}: 最高置信度={max_val:.3f} (阈值={confidence:.2f}) 位置={max_loc}")
+            print(f"[耗时-匹配] _try_match 迭代{iteration}: matchTemplate={_tm1-_tm0:.4f}s score={max_val:.3f}")
         if max_val >= confidence:
             h, w = image_array.shape[:2]
             return (max_loc[0], max_loc[1], w, h)
-        # 第一次迭代不触发多尺度（避免卡死！），只在后面的迭代触发
         if not skip_multi_scale and (iteration % multi_scale_interval == 0):
+            _ms0 = time.time()
             loc, all_scores = fast_multi_scale_match(screenshot, image_array, confidence, consider_color, image_path, return_scores=True)
+            _ms1 = time.time()
+            print(f"[耗时-匹配] fast_multi_scale_match 迭代{iteration}: {_ms1-_ms0:.4f}s found={loc is not None}")
             # 记录每个尺度的最佳分数
             for sc, (mv, ml) in all_scores.items():
                 if sc not in scale_best_scores or scale_best_scores[sc][0] < mv:
@@ -570,28 +577,32 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         try:
             if _replay_stop_flag or (stop_check and stop_check()):
                 return None
-            # 首次截图：先快速尝试常规匹配
+            _first0 = time.time()
             result = _try_match(first_screenshot, skip_multi_scale=True)
             if result is not None:
+                print(f"[耗时-匹配] 首次截图快速匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                 return result
-            # 常规匹配失败后，立即在同一张截图上尝试多尺度匹配（无额外截图开销）
             if not (_replay_stop_flag or (stop_check and stop_check())):
                 result = _try_match(first_screenshot, skip_multi_scale=False)
                 if result is not None:
+                    print(f"[耗时-匹配] 首次截图多尺度匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                     return result
+            print(f"[耗时-匹配] 首次截图全部未命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
         except Exception as e:
             debug_print(f"[匹配诊断] ❗ 首次 _try_match 抛异常: {type(e).__name__}: {e}")
     else:
         debug_print(f"[匹配诊断] ⚠️ 首次 _get_shared_screenshot() 返回 None(截图服务未就绪?)")
 
     # 优化:轮询间隔从 15ms 降到 5ms,反应速度提升 3 倍
-    _POLL_INTERVAL = 0.005
+    _POLL_INTERVAL = 0.02
     _screenshot_none_count = 0   # 统计 _get_shared_screenshot 返回 None 的次数
     _exception_count = 0         # 统计 try_match 异常的次数
+    _loop_iter = 0
     while time.time() - start_time < timeout:
         if _replay_stop_flag or (stop_check and stop_check()):
             debug_print(f"[匹配诊断] ⏹ 循环中检测到停止信号,提前退出(timeout 还剩 {max(0, timeout - (time.time() - start_time)):.2f}s)")
             return None
+        _loop_iter += 1
         try:
             screenshot_bgr = _get_shared_screenshot()
             if screenshot_bgr is None:
@@ -601,12 +612,17 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
             result = _try_match(screenshot_bgr, skip_multi_scale=False)
             if result is not None:
+                _func_elapsed = time.time() - _func_start
+                print(f"[耗时-匹配] 循环匹配命中: 迭代{_loop_iter} 总耗时{_func_elapsed:.3f}s path={os.path.basename(image_path)}")
                 return result
         except Exception as e:
             _exception_count += 1
             debug_print(f"[匹配诊断] ❗ 循环中 _try_match 抛异常(第 {_exception_count} 次): {type(e).__name__}: {e}")
 
         _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
+
+    _func_elapsed = time.time() - _func_start
+    print(f"[耗时-匹配] 匹配超时失败: 迭代{_loop_iter} 总耗时{_func_elapsed:.3f}s timeout={timeout}s path={os.path.basename(image_path)}")
 
     # ========== 匹配失败的诊断信息 ==========
     # 关键:即使 scale_best_scores 为空,也要告诉用户为什么(截图全 None? 全部异常?)
@@ -641,7 +657,6 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
         # 保存失败时的截图到 debug 目录,方便对比
         try:
-            import os
             from datetime import datetime
             debug_dir = os.path.join(os.path.dirname(image_path) or '.', '_debug_failed_match')
             os.makedirs(debug_dir, exist_ok=True)
@@ -673,11 +688,11 @@ import threading
 _shared_screenshot_lock = threading.Lock()
 _shared_screenshot = None
 _shared_screenshot_time = 0
-_SHARED_SCREENSHOT_INTERVAL = 0.003  # 共享截图刷新间隔3ms（从15ms降到3ms）
+_SHARED_SCREENSHOT_INTERVAL = 0.015  # 共享截图刷新间隔3ms（从15ms降到3ms）
 
 # 多尺度匹配的预设尺度 - 覆盖常见 Windows DPI 缩放 (100%/125%/150%/175%/200%)
 # 原范围 [1.0, 0.95, 1.05] 太窄，换电脑/换 DPI 就会匹配不到
-_SCALES = [1.0, 0.85, 0.9, 0.95, 1.05, 1.1, 1.15, 1.25, 1.5, 1.75, 2.0]
+_SCALES = [1.0, 0.9, 0.95, 1.05, 1.1, 1.25, 1.5]
 
 # 线程局部的MSS实例（解决多线程问题）
 _mss_local = threading.local()
