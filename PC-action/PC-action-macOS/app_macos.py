@@ -1982,8 +1982,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.addWidget(title)
 
         settings_list = [
-            ("🎨", "字体大小设置", "调整界面字体大小", self.open_font_size_dialog),
-            ("⌨️", "快捷键设置", "配置全局快捷键", self.show_shortcut_settings),
             ("📋", "查看运行日志", "查看应用程序运行日志", self.show_log_window),
         ]
 
@@ -2593,3 +2591,6 @@ def start_macos_app():
 
 if __name__ == "__main__":
     start_macos_app()
+
+
+
