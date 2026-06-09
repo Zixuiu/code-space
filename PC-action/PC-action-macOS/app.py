@@ -374,7 +374,7 @@ class RechargeDialog(QDialog):
         self.title_container = QFrame()
         self.title_container.setStyleSheet(f"""
             QFrame {{
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 border-radius: 12px;
                 padding: 8px;
             }}
@@ -699,7 +699,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         screen_width, screen_height = get_screen_size()
         complete_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: {int(screen_height * 0.015)}px;
@@ -749,7 +749,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         cancel_btn.clicked.connect(confirm_dialog.reject)
         button_layout.addWidget(cancel_btn)
 
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         # 如果是模拟模式，自动模拟支付成功
         if self.mock_mode:
@@ -810,7 +810,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         yes_button.setMinimumHeight(int(screen_height * 0.05))
         yes_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: {int(screen_height * 0.015)}px;
@@ -854,7 +854,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         no_button.clicked.connect(confirm_dialog.reject)
         button_layout.addWidget(no_button)
         
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         # 居中显示对话框
         confirm_dialog.move(
@@ -1222,7 +1222,7 @@ class FeedbackDialog(QDialog):
         
         # 创建布局
         layout = QVBoxLayout(section["container"])
-        layout.setContentsMargins(8, 8, 8, 8)  # 设置内边距
+        layout.setContentsMargins(0, 0, 0, 0)  # 设置内边距
         layout.setSpacing(spacing_v // 3)  # 减小内部间距，从spacing_v // 2改为spacing_v // 3
         
         label = QLabel(label_text)
@@ -1285,7 +1285,7 @@ class FeedbackDialog(QDialog):
         submit_button = QPushButton("提交")
         submit_button.setStyleSheet(f"""
             QPushButton {{
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: {int(input_height/2)}px;
@@ -1647,7 +1647,7 @@ class FolderManager(QDialog):
             shortcut_btn.setFixedSize(50, btn_height)
             shortcut_btn.setStyleSheet(f"""
 QMessageBox QDialogButtonBox QPushButton{{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 6px;
@@ -1661,10 +1661,10 @@ QMessageBox QDialogButtonBox QPushButton{{
                     padding-bottom: 2px;
                 }}
                 QPushButton:hover {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
                 QPushButton:pressed {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
             """)
             shortcut_btn.clicked.connect(lambda _, p=normalized_path: self.set_shortcut(p))
@@ -1673,7 +1673,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             rename_btn.setFixedSize(50, btn_height)  # 增加按钮宽度确保完整显示
             rename_btn.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 6px;
@@ -1685,10 +1685,10 @@ QMessageBox QDialogButtonBox QPushButton{{
                     margin: 0px;
                 }}
                 QPushButton:hover {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
                 QPushButton:pressed {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
             """)
             rename_btn.clicked.connect(lambda _, p=normalized_path: self.rename_folder(p))
@@ -1804,46 +1804,80 @@ QMessageBox QDialogButtonBox QPushButton{{
             traceback.print_exc()
             self._view_images_grave_hotkey_id = None
         
-        # 使用统一的样式函数
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dialog.setAttribute(Qt.WA_TranslucentBackground)
-        dialog.setStyleSheet("background:transparent;border:none;")
         center_window(dialog)
+        dialog.setMinimumHeight(400)
         layout = QVBoxLayout(dialog)
-        # 白色圆角容器（包裹红点+滚动区，避免红点悬浮在透明背景上）
-        _container = QWidget()
-        _container.setStyleSheet("QWidget{background:white;border-radius:8px;}")
-        _cl = QVBoxLayout(_container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        # ── macOS 毛玻璃容器（唯一有边框）──
+        _outer = QFrame(dialog)
+        _outer.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #FFFFFF, stop:1 #F0F0F5);
+                border-radius: 18px;
+                border: 2px solid #8E8E93;
+            }
+        """)
+        _cl = QVBoxLayout(_outer)
         _cl.setContentsMargins(0,0,0,0)
-        # 右上角红点关闭按钮
-        _dot = QFrame()
-        _dot.setFixedSize(14,14)
-        _dot.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
-        _dot.setCursor(Qt.PointingHandCursor)
+        _cl.setSpacing(0)
+        # ── 交通灯（macOS 三色点）──
+        _dot_bar = QWidget()
+        _dot_bar.setFixedHeight(38)
+        _dot_bar.setStyleSheet("background:transparent; border:none;")
+        _dot_lo = QHBoxLayout(_dot_bar)
+        _dot_lo.setContentsMargins(16, 10, 16, 0)
+        _dot_lo.addStretch()
         def _closeD(ev):
             if ev.button()==Qt.LeftButton: dialog.close()
-        _dot.mousePressEvent = _closeD
-        _dh = QHBoxLayout()
-        _dh.addStretch()
-        _dh.addWidget(_dot)
-        _cl.addLayout(_dh)
-        layout.addWidget(_container)
+        _red_dot = QFrame()
+        _red_dot.setFixedSize(12, 12)
+        _red_dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
+        _red_dot.mousePressEvent = _closeD
+        _red_dot.setCursor(Qt.PointingHandCursor)
+        _dot_lo.addWidget(_red_dot)
+        _cl.addWidget(_dot_bar)
+        # ── 标题栏 ──
+        title_bar = QWidget()
+        title_bar.setFixedHeight(30)
+        title_bar.setStyleSheet("background:transparent; border:none;")
+        title_layout = QHBoxLayout(title_bar)
+        title_layout.setContentsMargins(16, 0, 16, 0)
+        title_label = QLabel(f"📁 {os.path.basename(str(folder_path))}")
+        title_label.setAlignment(Qt.AlignCenter)
+        title_label.setStyleSheet("font-size:13px; font-weight:600; color:#1C1C1E; background:transparent; border:none;")
+        title_layout.addStretch()
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        # 标题栏拖动窗口
+        def _start_drag(ev):
+            if ev.button() == Qt.LeftButton:
+                dialog._drag_pos = ev.globalPos() - dialog.pos()
+        def _do_drag(ev):
+            if hasattr(dialog, '_drag_pos') and ev.buttons() & Qt.LeftButton:
+                dialog.move(ev.globalPos() - dialog._drag_pos)
+        title_bar.mousePressEvent = _start_drag
+        title_bar.mouseMoveEvent = _do_drag
+        _cl.addWidget(title_bar)
         scroll_area = QScrollArea()
-        scroll_area.setStyleSheet("QScrollArea { background: white; border: none; }")
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("QScrollArea { background: #FEFCF3; border: none; }")
         scroll_root = QWidget()  # 最外层容器 (撑满滚动区)
-        scroll_root.setStyleSheet("background: white;")
+        scroll_root.setStyleSheet("background: #FEFCF3; border: none;")
         root_layout = QHBoxLayout(scroll_root)
         root_layout.setContentsMargins(0, 0, 0, 0)
 
         # 居中定宽容器：列表宽度不超过 560px，居中显示
         list_wrapper = QWidget()
-        list_wrapper.setMaximumWidth(560)
+        list_wrapper.setMaximumWidth(9999)
+        list_wrapper.setStyleSheet("background: transparent; border: none;")
         list_layout = QVBoxLayout(list_wrapper)
-        list_layout.setContentsMargins(16, 12, 16, 12)
-        list_layout.setSpacing(2)
-        root_layout.addStretch()
+        list_layout.setContentsMargins(12, 8, 12, 8)
+        list_layout.setSpacing(4)
         root_layout.addWidget(list_wrapper)
-        root_layout.addStretch()
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
         image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
         
@@ -1929,7 +1963,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_btn.setMinimumSize(60, 28)
             ok_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;
@@ -1952,12 +1986,12 @@ QMessageBox QDialogButtonBox QPushButton{{
                     font-size: 14px;
                 }
                 QPushButton:hover {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }
             """)
             button_layout.addWidget(cancel_btn)
             
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             
             ok_btn.clicked.connect(confirm_dialog.accept)
             cancel_btn.clicked.connect(confirm_dialog.reject)
@@ -2070,46 +2104,60 @@ QMessageBox QDialogButtonBox QPushButton{{
             img_path = os.path.join(folder_path, img_file)
             step_num = i + 1
 
-            # 每行 = 干净白色行 (仿通讯录风格)
-            row_widget = QWidget()
-            row_widget.setFixedHeight(row_height)
+            # 每行 = macOS 卡片风格
+            row_widget = QFrame()
+            row_widget.setFixedHeight(64)
             row_widget.setStyleSheet("""
-                QWidget#listRow {
-                    background-color: #FFFFFF;
+                QFrame#listRow {
+                    background: #FFF8F0;
+                    border-radius: 10px;
+                    border: none;
+                }
+                QFrame#listRow:hover {
+                    background: #F5EDE0;
                 }
             """)
             row_widget.setObjectName("listRow")
 
             row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(14, 4, 14, 4)
-            row_layout.setSpacing(12)
+            row_layout.setContentsMargins(12, 6, 12, 6)
+            row_layout.setSpacing(10)
 
-            # ── ① 编号圆点 (灰蓝) ──
+            # ── ① 编号徽章 (macOS badge 风格) ──
             step_label = QLabel(str(step_num))
-            step_label.setFixedSize(24, 24)
+            step_label.setFixedSize(26, 26)
             step_label.setAlignment(Qt.AlignCenter)
-            step_label.setStyleSheet("QLabel { background-color: #E8ECF0; color: #8E8E93; border-radius: 12px; font-size: 10px; font-weight: bold; }")
+            step_label.setStyleSheet("""
+                QLabel {
+                    background-color: #8D6E63;
+                    color: #FFFFFF;
+                    border-radius: 13px;
+                    font-size: 11px;
+                    font-weight: 700;
+                    font-family: 'Helvetica Neue', 'PingFang SC', sans-serif;
+                }
+            """)
             row_layout.addWidget(step_label)
 
-            # ── ② 圆形缩略图 (纯圆头像, 点击查看大图) ──
+            # ── ② 圆形缩略图 (稍大一点) ──
             thumb_w = QPushButton()
-            thumb_w.setFixedSize(40, 40)
-            thumb_w.setStyleSheet("QPushButton { background: #FFFFFF; border-radius: 20px; }")
+            thumb_w.setFixedSize(48, 48)
+            thumb_w.setStyleSheet("QPushButton { background: #F2F2F7; border-radius: 24px; }")
             del_btn = _create_hover_close_button(
                 thumb_w,
                 on_click=lambda checked=False, fn=img_file: delete_image(fn),
-                size=18
+                size=20
             )
-            del_btn.move(22, 0)
+            del_btn.move(26, 0)
             pixmap = load_qpixmap(img_path)
             if pixmap is None:
                 self.show_beautiful_message('warning', "警告", f"无法加载图片: {img_file}", parent=dialog)
                 continue
             tl = QLabel(thumb_w)
-            tp = pixmap.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            tp = pixmap.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             tl.setPixmap(tp)
-            tl.setGeometry(2, 2, 36, 36)
-            tl.setStyleSheet("QLabel { border-radius: 18px; }")
+            tl.setGeometry(2, 2, 44, 44)
+            tl.setStyleSheet("QLabel { border-radius: 22px; }")
             tl.lower()
             del_btn.raise_()
             pixmap = None
@@ -2166,7 +2214,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                         QComboBox {{ background: {c}; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
                         QComboBox:hover {{ background: #007AFF; }}
                         QComboBox::drop-down {{ width: 0; border: none; }}
-                        QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                        QComboBox QAbstractItemView {{ background: white; color: #FFFFFF; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
                     row_layout.addWidget(cb)
                 else:
@@ -2180,7 +2228,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                         QComboBox {{ background: #8E8E93; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
                         QComboBox:hover {{ background: #007AFF; }}
                         QComboBox::drop-down {{ width: 0; border: none; }}
-                        QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                        QComboBox QAbstractItemView {{ background: white; color: #FFFFFF; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
                     row_layout.addWidget(cb)
             else:
@@ -2194,7 +2242,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     QComboBox {{ background: #8E8E93; color: white; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; }}
                     QComboBox:hover {{ background: #007AFF; }}
                     QComboBox::drop-down {{ width: 0; border: none; }}
-                    QComboBox QAbstractItemView {{ background: white; color: #1C1C1E; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                    QComboBox QAbstractItemView {{ background: white; color: #FFFFFF; selection-background: #007AFF; selection-color: white; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                 """)
                 row_layout.addWidget(cb)
 
@@ -2230,21 +2278,23 @@ QMessageBox QDialogButtonBox QPushButton{{
             list_layout.addWidget(row_widget)
         scroll_area.setWidget(scroll_root)
         _cl.addWidget(scroll_area)
-        # 添加底部按钮区域
+        layout.addWidget(_outer)
+        # 添加底部按钮区域 - macOS风格
         button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(16, 8, 16, 12)
         
-        # 继续添加操作按钮 - macOS风格设计
+        # 继续添加操作按钮
         add_btn = QPushButton("➕ 继续添加操作")
-        add_btn.setFixedSize(160, 40)
+        add_btn.setFixedSize(180, 42)
         add_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
-                border-radius: 20px;
-                font-weight: bold;
-                font-size: 16px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                border-radius: 21px;
+                font-weight: 600;
+                font-size: 14px;
+                font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
                 text-align: center;
             }
             QPushButton:hover {
@@ -2259,7 +2309,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         
 
         
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         self.parent._view_images_dialog = dialog
         # 如果parent有folder_manager属性，也设置它
         if hasattr(self.parent, 'folder_manager') and self.parent.folder_manager:
@@ -2518,36 +2568,44 @@ QMessageBox QDialogButtonBox QPushButton{{
             screen_width, screen_height = get_screen_size()
             coord_dialog.resize(int(screen_width * 0.5), int(screen_height * 0.6))
             coord_dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-            coord_dialog.setStyleSheet("background-color:#FFFFFF;border:1.5px solid #1D1D1F;border-radius:16px;")
+            coord_dialog.setAttribute(Qt.WA_TranslucentBackground)
             center_window(coord_dialog)
             
-            layout = QVBoxLayout(coord_dialog)
-            layout.setContentsMargins(20,16,20,20)
-            layout.setSpacing(12)
+            # macOS 毛玻璃容器（唯一有边框）
+            _dlg_layout = QVBoxLayout(coord_dialog)
+            _dlg_layout.setContentsMargins(0, 0, 0, 0)
+            _dlg_layout.setSpacing(0)
+            _outer = QFrame(coord_dialog)
+            _outer.setStyleSheet("""
+                QFrame {
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                        stop:0 #FFFFFF, stop:1 #F0F0F5);
+                    border-radius: 18px;
+                    border: 2px solid #8E8E93;
+                }
+            """)
+            layout = QVBoxLayout(_outer)
+            layout.setContentsMargins(16, 12, 16, 16)
+            layout.setSpacing(8)
+            _dlg_layout.addWidget(_outer)
             
-            from PyQt5.QtWidgets import QFrame as _DotF
-            _dot = _DotF()
-            _dot.setFixedSize(14,14)
-            _dot.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
+            # 关闭红色圆点（右上角）
+            _dh = QHBoxLayout()
+            _dh.setContentsMargins(0, 0, 0, 0)
+            _dh.addStretch()
+            _dot = QFrame()
+            _dot.setFixedSize(12, 12)
+            _dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
             _dot.setCursor(Qt.PointingHandCursor)
             def _closeD(ev):
                 if ev.button()==Qt.LeftButton: coord_dialog.close()
             _dot.mousePressEvent = _closeD
-            _dh = QHBoxLayout()
-            _dh.addStretch()
             _dh.addWidget(_dot)
             layout.addLayout(_dh)
             
             # 标题标签
             title_label = QLabel("📍 坐标录制数据")
-            title_label.setStyleSheet("""
-                QLabel {
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #FF453A;
-                    padding: 10px;
-                }
-            """)
+            title_label.setStyleSheet("font-size:16px; font-weight:bold; color:#1C1C1E; padding:4px 0; background:transparent; border:none;")
             title_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(title_label)
 
@@ -2560,8 +2618,19 @@ QMessageBox QDialogButtonBox QPushButton{{
             from design_system import configure_table, get_table_stylesheet
             configure_table(table, get_table_stylesheet(
                 cell_padding_v=8, cell_padding_h=10, row_height=38,
-                border_radius=8
+                border_radius=8, border_color="transparent"
             ))
+            # 彻底清除表格所有边框（系统默认边框也不保留）
+            table.setStyleSheet(
+                "QTableWidget{background:#FFFFFF;border:none;border-radius:8px;gridline-color:transparent;outline:none;}"
+                "QTableWidget::item{padding:8px 10px;border:none;color:#1D1D1F;min-height:22px;}"
+                "QTableWidget::item:hover{background:#F0F0F2;}"
+                "QTableWidget::item:selected{background:#E8F0FE;color:#1D1D1F;}"
+                "QTableWidget:focus{border:none;outline:none;}"
+                "QHeaderView{border:none;}"
+                "QHeaderView::section{background:#FFFFFF;color:#86868B;padding:6px 10px;border:none;font-weight:600;font-size:12px;}"
+                "QTableCornerButton::section{background:#FFFFFF;border:none;}"
+            )
             table.setColumnWidth(3, 50)
             table.horizontalHeader().setStretchLastSection(False)
             
@@ -2805,7 +2874,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     """)
                     button_layout.addWidget(self.cancel_btn)
                     
-                    layout.addLayout(button_layout)
+                    _cl.addLayout(button_layout)
                     self.setLayout(layout)
                     
                     self.current_keys = []
@@ -3027,7 +3096,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     """)
                     button_layout.addWidget(self.cancel_btn)
                     
-                    layout.addLayout(button_layout)
+                    _cl.addLayout(button_layout)
                     self.setLayout(layout)
                     
                 def get_scroll_amount(self):
@@ -3142,7 +3211,7 @@ QMessageBox QDialogButtonBox QPushButton{{
                     """)
                     button_layout.addWidget(self.cancel_btn)
 
-                    layout.addLayout(button_layout)
+                    _cl.addLayout(button_layout)
                     self.setLayout(layout)
 
             dialog = TextInputDialog(self.parent, current_text)
@@ -3365,7 +3434,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         save_btn.setFixedSize(100, 36)
         save_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -3375,11 +3444,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
         """)
@@ -3392,7 +3461,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         cancel_btn.setFixedSize(100, 36)
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -3402,18 +3471,18 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
         """)
         cancel_btn.clicked.connect(dialog.reject)
         button_layout.addWidget(save_btn)
         button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         
         
@@ -3486,7 +3555,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         select_btn.setFixedSize(100, 36)
         select_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -3496,11 +3565,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
         """)
@@ -3511,7 +3580,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         cancel_btn.setFixedSize(100, 36)
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -3521,18 +3590,18 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
         """)
         cancel_btn.clicked.connect(dialog.reject)
         button_layout.addWidget(select_btn)
         button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         # 默认选择第一项并显示预览
         if list_widget.count() > 0:
@@ -3678,7 +3747,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_button.setFixedSize(100, 36)
             ok_button.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;
@@ -3693,7 +3762,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             cancel_button.setFixedSize(100, 36)
             cancel_button.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 6px;
@@ -3703,17 +3772,17 @@ QMessageBox QDialogButtonBox QPushButton{{
                     text-align: center;
                 }
                 QPushButton:hover {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
 
                 }
                 QPushButton:pressed {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
 
                 }
             """)
             button_layout.addWidget(ok_button)
             button_layout.addWidget(cancel_button)
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             
             dialog.setLayout(layout)
             
@@ -3970,7 +4039,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         clear_btn.setFixedSize(110, 32)  # 调整按钮大小
         clear_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 4px;  /* 减小圆角 */
@@ -3980,11 +4049,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
         """)
@@ -3999,7 +4068,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         close_btn.setFixedSize(80, 32)  # 调整按钮大小
         close_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 4px;  /* 减小圆角 */
@@ -4009,18 +4078,18 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
 
             }
         """)
         close_btn.clicked.connect(dialog.close)
         button_layout.addWidget(close_btn)
         
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         dialog.show()
     
     def load_trash_data(self, table):
@@ -4062,7 +4131,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             restore_btn.setFixedSize(80, 28)  # 减小按钮高度，避免与行高冲突
             restore_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;  /* 减小圆角 */
@@ -4098,7 +4167,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             delete_btn.setFixedSize(80, 28)  # 减小按钮高度，避免与行高冲突
             delete_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;  /* 减小圆角 */
@@ -4257,7 +4326,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             """)
             button_layout.addWidget(no_btn)
             
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             confirm_dialog.setLayout(layout)
             
             yes_btn.clicked.connect(confirm_dialog.accept)
@@ -4305,7 +4374,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_btn.setFixedSize(100, 36)
             ok_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;
@@ -4319,7 +4388,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_btn.clicked.connect(success_dialog.accept)
             button_layout.addWidget(ok_btn)
             
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             success_dialog.setLayout(layout)
             
             success_dialog.exec_()
@@ -4354,7 +4423,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             yes_btn.setFixedSize(100, 36)
             yes_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;
@@ -4386,7 +4455,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             """)
             button_layout.addWidget(no_btn)
             
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             confirm_dialog.setLayout(layout)
             
             yes_btn.clicked.connect(confirm_dialog.accept)
@@ -4442,7 +4511,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_btn.setFixedSize(100, 36)
             ok_btn.setStyleSheet("""
                 QPushButton {
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                     color: white;
                     border: none;
                     border-radius: 4px;
@@ -4456,7 +4525,7 @@ QMessageBox QDialogButtonBox QPushButton{{
             ok_btn.clicked.connect(success_dialog.accept)
             button_layout.addWidget(ok_btn)
             
-            layout.addLayout(button_layout)
+            _cl.addLayout(button_layout)
             success_dialog.setLayout(layout)
             
             success_dialog.exec_()
@@ -4679,7 +4748,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         clear_btn.setFixedSize(100, 36)
         clear_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -4689,11 +4758,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
         """)
@@ -4701,7 +4770,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         ok_btn.setFixedSize(100, 36)
         ok_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -4711,11 +4780,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
         """)
@@ -4723,7 +4792,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         cancel_btn.setFixedSize(100, 36)
         cancel_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 6px;
@@ -4733,11 +4802,11 @@ QMessageBox QDialogButtonBox QPushButton{{
                 text-align: center;
             }
             QPushButton:hover {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
             QPushButton:pressed {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 
             }
         """)
@@ -4747,7 +4816,7 @@ QMessageBox QDialogButtonBox QPushButton{{
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
         button_layout.addStretch()
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
 
         dialog.setLayout(layout)
 
@@ -5193,7 +5262,7 @@ class AutoRecorderApp(QMainWindow):
                     padding: 0px;
                 }}
                 QPushButton:hover {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
                 QPushButton:pressed {{
                     background-color: #004DB3;
@@ -5315,7 +5384,7 @@ class AutoRecorderApp(QMainWindow):
         """)
         button_layout.addWidget(cancel_btn)
 
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
 
         ok_btn.clicked.connect(confirm_dialog.accept)
         cancel_btn.clicked.connect(confirm_dialog.reject)
@@ -5458,7 +5527,7 @@ class AutoRecorderApp(QMainWindow):
                     padding: 0px;
                 }}
                 QPushButton:hover {{
-                    background-color: #007AFF;
+                    background-color: #0A84FF;
                 }}
                 QPushButton:pressed {{
                     background-color: #004DB3;
@@ -5545,7 +5614,7 @@ class AutoRecorderApp(QMainWindow):
         cancel_btn.clicked.connect(dialog.reject)
         button_layout.addWidget(cancel_btn)
         
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         # 显示对话框
         dialog.exec_()
@@ -5694,7 +5763,7 @@ class AutoRecorderApp(QMainWindow):
                 line-height: 1.6;
             }
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 22px;
@@ -5731,7 +5800,7 @@ class AutoRecorderApp(QMainWindow):
         clear_btn = QPushButton("🗑 清空")
         clear_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 22px;
@@ -6251,7 +6320,7 @@ class AutoRecorderApp(QMainWindow):
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 20px;
@@ -6622,9 +6691,9 @@ class AutoRecorderApp(QMainWindow):
         # 更新主窗口按钮文字（仅当它是普通 QPushButton 时才设置样式）
         if hasattr(self, 'replay_btn'):
             if self.replay_enabled:
-                self.replay_btn.setText("▶ 开始回放")
+                self.replay_btn.setText("⏹ 回放已开启")
             else:
-                self.replay_btn.setText("⏹ 回放已关闭")
+                self.replay_btn.setText("▶ 回放已关闭")
             # 强制刷新自绘按钮
             self.replay_btn.update()
             # 不要对 RoundedPillButton 调用 setStyleSheet，会破坏自绘
@@ -6776,12 +6845,12 @@ class AutoRecorderApp(QMainWindow):
         self.debug_print(f"[DEBUG] 回放开关状态改变: replay_enabled = {self.replay_enabled}")
         
         # 同步更新主界面按钮状态
+        self._update_replay_ui()
         if hasattr(self, 'replay_btn'):
             if self.replay_enabled:
-                self.replay_btn.setText("⏸ 回放已开启")
                 self.replay_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #007AFF;
+                        background-color: #0A84FF;
                         color: white;
                         border: none;
                         border-radius: 22px;
@@ -6799,7 +6868,6 @@ class AutoRecorderApp(QMainWindow):
                     }
                 """)
             else:
-                self.replay_btn.setText("▶ 回放已关闭")
                 self.replay_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #8E8E93;
@@ -7488,7 +7556,7 @@ class AutoRecorderApp(QMainWindow):
                 color: #1D1D1F;
                 border: 1px solid #D1D1D6;
                 border-radius: 12px;
-                selection-background-color: #007AFF;
+                selection-background-color: #0A84FF;
                 selection-color: white;
                 padding: 4px 0;
                 outline: none;
@@ -7501,7 +7569,7 @@ class AutoRecorderApp(QMainWindow):
                 background-color: #F0F4FF;
             }
             QComboBox QAbstractItemView::item:selected {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
             }
         """)
@@ -7800,7 +7868,7 @@ class AutoRecorderApp(QMainWindow):
             if i == 0:
                 indicator.setStyleSheet("""
                     QPushButton {
-                        background-color: #007AFF;
+                        background-color: #0A84FF;
                         color: white;
                         border-radius: 18px;
                         font-size: 16px;
@@ -7894,7 +7962,7 @@ class AutoRecorderApp(QMainWindow):
         next_btn.setFixedSize(120, 44)
         next_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 10px;
@@ -7929,7 +7997,7 @@ class AutoRecorderApp(QMainWindow):
                 if i == step_idx:
                     indicator.setStyleSheet("""
                         QPushButton {
-                            background-color: #007AFF;
+                            background-color: #0A84FF;
                             color: white;
                             border-radius: 18px;
                             font-size: 16px;
@@ -8306,7 +8374,7 @@ class AutoRecorderApp(QMainWindow):
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
         button_layout.addStretch()
-        layout.addLayout(button_layout)
+        _cl.addLayout(button_layout)
         
         dialog.setLayout(layout)
         
@@ -8946,7 +9014,7 @@ class AutoRecorderApp(QMainWindow):
         refresh_btn = QPushButton("🔄 刷新")
         refresh_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 20px;
@@ -9735,7 +9803,7 @@ class AutoRecorderApp(QMainWindow):
         ok_btn = QPushButton("确定")
         ok_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 20px;
@@ -9839,7 +9907,7 @@ class AutoRecorderApp(QMainWindow):
         # 统一按钮样式 - macOS风格
         grid_btn_style = f"""
             QPushButton {{
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 border: none;
                 border-radius: 20px;
                 font-size: 18px;
@@ -10071,7 +10139,7 @@ class AutoRecorderApp(QMainWindow):
         ok_btn.setFixedHeight(50)
         ok_btn.setStyleSheet("""
             QPushButton {
-                background-color: #007AFF;
+                background-color: #0A84FF;
                 color: white;
                 border: none;
                 border-radius: 25px;

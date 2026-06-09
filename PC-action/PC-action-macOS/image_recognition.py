@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import time
 import re
@@ -320,7 +320,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 # 快的 UI 0.01s 就返回,慢的 UI 给够时间渲染
                 single_attempt_timeout = max(0.5, match_timeout * 0.8)
                 _match_t0 = time.time()
-                location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check)
+                _roi_hint = None
+                if 'x' in operation and 'y' in operation:
+                    _roi_hint = (operation['x'], operation['y'])
+                location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
                 print(f"[耗时-回放] 步骤{step} 图片匹配: {_match_t1-_match_t0:.3f}s 结果={'命中' if location else '失败'} 图片={image_name}")
 
@@ -494,7 +497,7 @@ def _get_shared_screenshot():
         return _shared_screenshot
 
 
-def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None):
+def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None):
     """
     在屏幕上查找指定图像，支持超时等待，支持可中断停止
     
@@ -578,6 +581,72 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             if _replay_stop_flag or (stop_check and stop_check()):
                 return None
             _first0 = time.time()
+
+            if roi_hint is not None:
+                try:
+                    rx, ry = int(roi_hint[0]), int(roi_hint[1])
+                    img_h, img_w = image_array.shape[:2]
+                    pad = 200
+                    x1 = max(0, rx - pad)
+                    y1 = max(0, ry - pad)
+                    x2 = min(first_screenshot.shape[1], rx + img_w + pad)
+                    y2 = min(first_screenshot.shape[0], ry + img_h + pad)
+                    roi = first_screenshot[y1:y2, x1:x2]
+                    if roi.shape[0] >= img_h and roi.shape[1] >= img_w:
+                        debug_print(f"[匹配诊断] ROI快速尝试: 区域({x1},{y1},{x2},{y2})={roi.shape}")
+                        result = _match_template_cuda(roi, image_array)
+                        if result is None:
+                            result = cv2.matchTemplate(roi, image_array, cv2.TM_CCOEFF_NORMED)
+                        _, roi_max_val, _, roi_max_loc = cv2.minMaxLoc(result)
+                        print(f"[耗时-匹配] ROI快速匹配: {time.time()-_first0:.4f}s score={roi_max_val:.3f}")
+                        if roi_max_val >= confidence:
+                            h, w = image_array.shape[:2]
+                            print(f"[耗时-匹配] ROI快速命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
+                            return (roi_max_loc[0] + x1, roi_max_loc[1] + y1, w, h)
+                        debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 回退粗匹配")
+                except Exception as _roi_e:
+                    debug_print(f"[匹配诊断] ROI提取失败: {_roi_e}, 回退粗匹配")
+
+            _coarse_scale = 0.5
+            _coarse_thresh = confidence * 0.85
+            if screenshot_w > 1200 and screenshot_h > 800:
+                try:
+                    _cs0 = time.time()
+                    _small_screen = cv2.resize(first_screenshot, None, fx=_coarse_scale, fy=_coarse_scale, interpolation=cv2.INTER_AREA)
+                    _small_template = cv2.resize(image_array, None, fx=_coarse_scale, fy=_coarse_scale, interpolation=cv2.INTER_AREA)
+                    _small_h, _small_w = _small_template.shape[:2]
+                    if _small_screen.shape[0] >= _small_h and _small_screen.shape[1] >= _small_w:
+                        _cr = cv2.matchTemplate(_small_screen, _small_template, cv2.TM_CCOEFF_NORMED)
+                        _, _cv, _, _cl = cv2.minMaxLoc(_cr)
+                        _cs1 = time.time()
+                        print(f"[耗时-匹配] 粗匹配(50%): {_cs1-_cs0:.4f}s score={_cv:.3f} pos={_cl}")
+                        if _cv >= _coarse_thresh:
+                            _fx = int(_cl[0] / _coarse_scale) - 100
+                            _fy = int(_cl[1] / _coarse_scale) - 100
+                            _fw = int(_small_w / _coarse_scale) + 200
+                            _fh = int(_small_h / _coarse_scale) + 200
+                            _fx = max(0, _fx)
+                            _fy = max(0, _fy)
+                            _fx2 = min(screenshot_w, _fx + _fw)
+                            _fy2 = min(screenshot_h, _fy + _fh)
+                            _roi_full = first_screenshot[_fy:_fy2, _fx:_fx2]
+                            if _roi_full.shape[0] >= template_h and _roi_full.shape[1] >= template_w:
+                                _rr = cv2.matchTemplate(_roi_full, image_array, cv2.TM_CCOEFF_NORMED)
+                                _, _rv, _, _rl = cv2.minMaxLoc(_rr)
+                                _cs2 = time.time()
+                                print(f"[耗时-匹配] 精匹配(ROI): {_cs2-_cs1:.4f}s score={_rv:.3f}")
+                                if _rv >= confidence:
+                                    h, w = image_array.shape[:2]
+                                    print(f"[耗时-匹配] 粗+精命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
+                                    return (_rl[0] + _fx, _rl[1] + _fy, w, h)
+                                debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 回退全屏")
+                            else:
+                                debug_print(f"[匹配诊断] 精匹配ROI太小, 回退全屏")
+                        else:
+                            debug_print(f"[匹配诊断] 粗匹配未命中(score={_cv:.3f}<{_coarse_thresh:.2f}), 回退全屏")
+                except Exception as _ce:
+                    debug_print(f"[匹配诊断] 粗匹配异常: {_ce}, 回退全屏")
+
             result = _try_match(first_screenshot, skip_multi_scale=True)
             if result is not None:
                 print(f"[耗时-匹配] 首次截图快速匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")

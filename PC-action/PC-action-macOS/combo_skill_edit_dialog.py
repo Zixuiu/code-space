@@ -51,7 +51,7 @@ class ComboSkillEditDialog(QDialog):
         self.setFixedSize(900, 600)
 
         # 应用全局对话框样式
-        self.setStyleSheet(f'background: {T["bg_main"]}; border-radius: 16px;')
+        self.setStyleSheet('QDialog{background:transparent; border:none;}')
 
         from PyQt5.QtCore import Qt
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
@@ -63,26 +63,37 @@ class ComboSkillEditDialog(QDialog):
         inp_r = int(sh * 0.006)
 
         _outer = QVBoxLayout(self)
-        _outer.setContentsMargins(0,0,0,0)
+        _outer.setContentsMargins(0, 0, 0, 0)
+        _outer.setSpacing(0)
         _card = QFrame(self)
-        _card.setStyleSheet('QFrame{background-color:#FFFFFF;border-radius:12px;}')
+        _card.setStyleSheet("""
+            QFrame {
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #FFFFFF, stop:1 #F0F0F5);
+                border-radius: 18px;
+                border: 2px solid #8E8E93;
+            }
+        """)
         _cl = QVBoxLayout(_card)
         _cl.setSpacing(10)
-        _cl.setContentsMargins(15, 40, 15, 15)
+        _cl.setContentsMargins(15, 12, 15, 15)
         _outer.addWidget(_card)
         layout = _cl
 
-        # macOS close dot
-        _close = QFrame(_card)
-        _close.setFixedSize(14,14)
-        _close.setStyleSheet('QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}')
+        # macOS close dot (右上角)
+        _dot_lo = QHBoxLayout()
+        _dot_lo.setContentsMargins(0, 0, 0, 0)
+        _dot_lo.addStretch()
+        _close = QFrame()
+        _close.setFixedSize(12, 12)
+        _close.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
         _close.setCursor(Qt.PointingHandCursor)
-        _close.move(self.width()-32, 12)
         def _close_click(ev):
-            from PyQt5.QtCore import Qt as _QQt
-            if ev.button() == _QQt.LeftButton:
+            if ev.button() == Qt.LeftButton:
                 self.close()
         _close.mousePressEvent = _close_click
+        _dot_lo.addWidget(_close)
+        layout.addLayout(_dot_lo)
 
 
         # ── 顶部栏：标题 + 名称 + 循环次数 + 备注 ──
@@ -93,22 +104,25 @@ class ComboSkillEditDialog(QDialog):
 
         self.name_input = QLineEdit(self.skill_data.get('name', ''))
         self.name_input.setPlaceholderText("请输入组合技名称")
+        self.name_input.setStyleSheet("background:transparent; border:none; padding:4px 8px;")
         top_layout.addWidget(self.name_input, 1)
 
         loop_label = QLabel("循环:")
+        loop_label.setStyleSheet("background:transparent; border:none;")
         top_layout.addWidget(loop_label)
 
         self.loop_count_spin = QSpinBox()
         self.loop_count_spin.setRange(1, 9999)
         self.loop_count_spin.setValue(self.skill_data.get('loop_count', 1))
+        self.loop_count_spin.setStyleSheet("background:transparent; border:none;")
         top_layout.addWidget(self.loop_count_spin)
 
         note_btn = QPushButton("📝 备注")
         note_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: #8E8E93;
-                border: 1px solid #D1D1D6;
+                border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
@@ -119,7 +133,6 @@ class ComboSkillEditDialog(QDialog):
             QPushButton:hover {{
                 background-color: #F0F0F2;
                 color: #6E6E73;
-                border: 1px solid #D1D1D6;
             }}
             QPushButton:pressed {{
                 background-color: #E8E8ED;
@@ -132,9 +145,11 @@ class ComboSkillEditDialog(QDialog):
         layout.addLayout(top_layout)
 
         self.stacked_widget = QStackedWidget()
+        self.stacked_widget.setStyleSheet('background:transparent; border:none;')
 
         # ========== 页面1: 流程编辑页面 ==========
         self.flow_page = QWidget()
+        self.flow_page.setStyleSheet('background:transparent; border:none;')
         flow_layout = QVBoxLayout(self.flow_page)
         flow_layout.setContentsMargins(0, 0, 0, 0)
         flow_layout.setSpacing(10)
@@ -143,14 +158,13 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setHeaderLabels(["执行条件", "条件图片", "执行操作", "等待时间(s)"])
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
-                background: {T['bg_card']};
-                border-radius: 6px;
-                border: 1px solid {T['border']};
+                background: transparent;
+                border: none;
                 outline: none;
             }}
             QTreeWidget::item {{
                 padding: 8px;
-                border-bottom: 1px solid {T['border']}55;
+                border-bottom: none;
                 min-height: 45px;
                 outline: none;
                 border: none;
@@ -161,12 +175,12 @@ class ComboSkillEditDialog(QDialog):
                 outline: none;
             }}
             QHeaderView::section {{
-                background: #F5F5F5;
+                background: transparent;
                 color: #333333;
                 padding: 10px;
                 font-weight: bold;
                 border: none;
-                border-bottom: 1px solid #E0E0E0;
+                border-bottom: none;
                 font-size: 13px;
             }}
         """)
@@ -175,6 +189,7 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setColumnWidth(2, 280)
         self.tree_widget.setColumnWidth(3, 90)
 
+        self.tree_widget.setFrameShape(QFrame.NoFrame)
         self.tree_widget.setSelectionMode(QTreeWidget.SingleSelection)
         self.dragged_item = None
         self.dragged_index = None
@@ -242,9 +257,9 @@ class ComboSkillEditDialog(QDialog):
         up_btn = QPushButton("↑ 上移")
         up_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: #8E8E93;
-                border: 1px solid #D1D1D6;
+                border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
@@ -267,9 +282,9 @@ class ComboSkillEditDialog(QDialog):
         down_btn = QPushButton("↓ 下移")
         down_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: #8E8E93;
-                border: 1px solid #D1D1D6;
+                border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
@@ -346,9 +361,9 @@ class ComboSkillEditDialog(QDialog):
         cancel_btn = QPushButton("取消")
         cancel_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: #8E8E93;
-                border: 1px solid #D1D1D6;
+                border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
                 font-weight: {600};
@@ -478,7 +493,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1.5px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 6px 12px;
                 font-size: 12px;
@@ -504,7 +519,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 4px;
                 outline: none;
@@ -601,7 +616,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1.5px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 6px 12px;
                 font-size: 12px;
@@ -627,7 +642,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 4px;
                 outline: none;
@@ -653,7 +668,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1.5px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 6px 12px;
                 font-size: 12px;
@@ -679,7 +694,7 @@ class ComboSkillEditDialog(QDialog):
             QComboBox QAbstractItemView {{
                 background-color: {T['bg_card']};
                 color: {T['text_primary']};
-                border: 1px solid {T['border']};
+                border: none;
                 border-radius: 8px;
                 padding: 4px;
                 outline: none;

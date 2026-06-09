@@ -1,4 +1,4 @@
-﻿import os
+import os
 if os.name == "nt":
     os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
@@ -188,7 +188,7 @@ class MacOSSidebar(QWidget):
             ("\U0001f4ca", "录制控制"),
             ("\U0001f4c1", "流程管理"),
             ("\U0001f3af", "组合技"),
-            ("\u2699\ufe0f", "系统设置"),
+            ("⚙️", "设置"),
             ("📖", "使用帮助"),
         ]
 
@@ -982,7 +982,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.record_tab = self.create_record_tab()
         self.manager_tab = self.create_manager_tab()
         self.combo_tab = self.create_combo_tab()
-        self.settings_tab = self.create_settings_tab()
         try:
             self.help_tab = self.create_help_tab()
         except Exception as e:
@@ -996,6 +995,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.macos_stack.addWidget(self.record_tab)
         self.macos_stack.addWidget(self.manager_tab)
         self.macos_stack.addWidget(self.combo_tab)
+        self.settings_tab = self.create_settings_tab()
         self.macos_stack.addWidget(self.settings_tab)
         self.macos_stack.addWidget(self.help_tab)
 
@@ -1009,7 +1009,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         self._macos_titles = [
             "录制控制", "流程管理", "组合技",
-            "系统设置", "使用帮助"
+            "设置",
+            "使用帮助"
         ]
 
         self.fade_animation = None
@@ -1027,29 +1028,41 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         super().resizeEvent(e)
 
     def on_macos_tab_changed(self, index):
+        import time
+        t0 = time.perf_counter()
         if self.macos_stack.currentIndex() == index:
             return
         self.macos_toolbar.set_title(self._macos_titles[index])
+        t1 = time.perf_counter()
+        print(f"[PERF] set_title: {t1-t0:.4f}s")
 
         new_page = self.macos_stack.widget(index)
+        if new_page is None:
+            return
+        t2 = time.perf_counter()
+        print(f"[PERF] get_widget: {t2-t1:.4f}s")
 
-        opacity_effect = QGraphicsOpacityEffect(new_page)
-        new_page.setGraphicsEffect(opacity_effect)
-        opacity_effect.setOpacity(0)
+        if hasattr(self, '_combo_refresh_timer') and self._combo_refresh_timer.isActive():
+            self._combo_refresh_timer.stop()
+        t3 = time.perf_counter()
+        print(f"[PERF] stop_timer: {t3-t2:.4f}s")
 
         self.macos_stack.setCurrentIndex(index)
+        t4 = time.perf_counter()
+        print(f"[PERF] setCurrentIndex: {t4-t3:.4f}s")
 
-        self.fade_animation = QPropertyAnimation(opacity_effect, b"opacity")
-        self.fade_animation.setDuration(250)
-        self.fade_animation.setStartValue(0.0)
-        self.fade_animation.setEndValue(1.0)
-        self.fade_animation.setEasingCurve(QEasingCurve.OutCubic)
-        self.fade_animation.start()
+        if index == 2 and hasattr(self, '_combo_refresh_timer'):
+            self._combo_refresh_timer.start(3000)
+            self.load_combo_skills_to_table(self.combo_tab.combo_table)
+        t5 = time.perf_counter()
+        print(f"[PERF] combo_refresh: {t5-t4:.4f}s")
+        print(f"[PERF] === TOTAL: {t5-t0:.4f}s ===")
 
     def showEvent(self, event):
         super().showEvent(event)
         if not hasattr(self, 'replay_status_widget'):
             self.create_replay_status_indicator()
+            self._update_replay_ui()
         elif hasattr(self, 'replay_status_label'):
             self.update_replay_status_indicator()
 
@@ -1183,7 +1196,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         replay_layout.setSpacing(16)
         replay_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.replay_btn = MacOSSecondaryButton("▶ 开始回放")
+        self.replay_btn = MacOSSecondaryButton("▶ 回放已关闭")
         self.replay_btn.setFixedHeight(48)
         self.replay_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE + 20)
         self.replay_btn.clicked.connect(self.toggle_replay_status_only)
@@ -1967,9 +1980,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         self._combo_refresh_timer = QTimer(self)
         self._combo_refresh_timer.timeout.connect(lambda: self.load_combo_skills_to_table(combo_table))
-        self._combo_refresh_timer.start(1000)
+        self._combo_refresh_timer.start(3000)
 
         return tab
+
 
     def create_settings_tab(self):
         tab = QWidget()
@@ -1979,71 +1993,46 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setContentsMargins(24, 0, 24, 24)
         layout.setAlignment(Qt.AlignTop)
 
-        title = QLabel("系统设置")
-        title.setStyleSheet(f"""
-            color: {MacOSColors.TEXT_PRIMARY};
-            font-size: 24px;
-            font-weight: 700;
-            padding-bottom: 8px;
-            background: transparent;
-        """)
-        layout.addWidget(title)
-
         settings_list = [
             ("📋", "查看运行日志", "查看应用程序运行日志", self.show_log_window),
         ]
-
         for icon, name, desc, handler in settings_list:
             card = MacOSCard()
-            card.setCursor(Qt.PointingHandCursor)
-            card.setMinimumHeight(60)
             cl = QHBoxLayout(card)
-            cl.setContentsMargins(20, 14, 20, 14)
-            cl.setSpacing(16)
-
+            cl.setContentsMargins(16, 12, 16, 12)
+            cl.setSpacing(12)
             icon_label = QLabel(icon)
-            icon_label.setFixedSize(44, 44)
-            icon_label.setAlignment(Qt.AlignCenter)
             icon_label.setStyleSheet(f"""
                 background-color: {MacOSColors.ACCENT_BG};
                 border-radius: 22px;
                 font-size: 18px;
+                min-width: 44px;
+                max-width: 44px;
+                min-height: 44px;
+                max-height: 44px;
             """)
+            icon_label.setAlignment(Qt.AlignCenter)
             cl.addWidget(icon_label)
-
             text_container = QVBoxLayout()
             text_container.setSpacing(2)
             name_label = QLabel(name)
-            name_label.setStyleSheet(f"""
-                color: {MacOSColors.TEXT_PRIMARY};
-                font-size: 15px;
-                font-weight: 600;
-                background: transparent;
-            """)
-            text_container.addWidget(name_label)
-
+            name_label.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 15px; font-weight: 600; background: transparent;")
             desc_label = QLabel(desc)
-            desc_label.setStyleSheet(f"""
-                color: {MacOSColors.TEXT_SECONDARY};
-                font-size: 13px;
-                background: transparent;
-            """)
+            desc_label.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 12px; background: transparent;")
+            text_container.addWidget(name_label)
             text_container.addWidget(desc_label)
             cl.addLayout(text_container, 1)
-
             arrow = QLabel("›")
             arrow.setStyleSheet(f"""
                 color: {MacOSColors.SYSTEM_GRAY};
-                font-size: 22px;
-                font-weight: 300;
+                font-size: 20px;
                 background: transparent;
             """)
             cl.addWidget(arrow)
-
+            card.setCursor(Qt.PointingHandCursor)
+            if handler:
+                card.mousePressEvent = lambda e, h=handler: h()
             layout.addWidget(card)
-
-            card.mousePressEvent = lambda e, h=handler: (h(), e.accept()) if h else QFrame.mousePressEvent(card, e)
-
         layout.addStretch()
         return tab
 
@@ -2054,7 +2043,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setContentsMargins(24, 0, 24, 24)
         layout.setSpacing(0)
 
-        title = QLabel("✅ 使用教程")
+        title = QLabel("")
         title.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 12px 0 8px 0; background: transparent;" % MacOSColors.TEXT_PRIMARY)
         layout.addWidget(title)
 
@@ -2237,6 +2226,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         for icon, title, body in data:
             steps.append({"icon": icon, "title": title, "content": h(body)})
     def load_combo_skills_to_table(self, table_widget):
+        import time
+        t0 = time.perf_counter()
         checked_names = set()
         for row in range(table_widget.rowCount()):
             check_item = table_widget.item(row, 0)
@@ -2247,10 +2238,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     if raw.startswith("🏃 "):
                         raw = raw[2:]
                     checked_names.add(raw)
+        t1 = time.perf_counter()
+        print(f"[PERF] load_combo checked_names: {t1-t0:.4f}s")
 
         table_widget.setRowCount(0)
 
         combo_skills = self._get_combo_manager().combo_skills
+        t2 = time.perf_counter()
+        print(f"[PERF] load_combo get_skills: {t2-t1:.4f}s")
 
         running_skill_ids = set()
         running_skill_names = []

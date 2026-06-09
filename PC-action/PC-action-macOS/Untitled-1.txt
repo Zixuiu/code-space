@@ -1,0 +1,361 @@
+# -*- coding: utf-8 -*-
+"""
+🎨 10 种「查看具体流程」窗口 — 只有最外层有边框！
+运行: python preview_10_styles.py
+"""
+import sys, random
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
+
+
+# ============================================================
+#  10 套 — 只有 dialog 最外层有边框，内部统统无边框
+# ============================================================
+
+def build_1_mac_glass(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setAttribute(Qt.WA_TranslucentBackground)
+    dlg.setFixedSize(340, 420)
+
+    # 最外层唯一容器（承载边框）
+    outer = QFrame(dlg)
+    outer.setGeometry(8, 8, 324, 404)
+    outer.setStyleSheet("""
+        QFrame {
+            background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                stop:0 #FFFFFF, stop:1 #F0F0F5);
+            border-radius: 18px;
+            border: 2px solid #8E8E93;
+        }
+    """)
+    # 交通灯
+    for i, c in enumerate(["#FF5F57", "#FEBC2E", "#28C840"]):
+        d = QLabel(outer)
+        d.setGeometry(16 + i*18, 12, 12, 12)
+        d.setStyleSheet(f"background:{c}; border-radius:6px; border:none;")
+    title = QLabel("📁 操作流程", outer)
+    title.setGeometry(0, 8, 324, 24)
+    title.setAlignment(Qt.AlignCenter)
+    title.setStyleSheet("font-size:12px; font-weight:600; color:#1C1C1E; background:transparent; border:none;")
+    for i in range(5):
+        c = QFrame(outer)
+        c.setGeometry(16, 40 + i*64, 292, 56)
+        c.setStyleSheet("background:rgba(255,255,255,0.85); border-radius:12px; border:none;")
+        n = QLabel(f"{i+1}", c)
+        n.setGeometry(12, 12, 32, 32)
+        n.setAlignment(Qt.AlignCenter)
+        n.setStyleSheet("background:#007AFF; color:white; border-radius:16px; font-size:13px; font-weight:bold; border:none;")
+        nm = QLabel(f"操作 {i+1}  —  左键点击", c)
+        nm.setGeometry(52, 8, 200, 20)
+        nm.setStyleSheet("font-size:11px; color:#1C1C1E; background:transparent; border:none;")
+        de = QLabel("坐标 (850, 1332) · 延时 0.3s", c)
+        de.setGeometry(52, 28, 200, 16)
+        de.setStyleSheet("font-size:9px; color:#8E8E93; background:transparent; border:none;")
+    btn = QPushButton("✕ 关闭", outer)
+    btn.setGeometry(122, 366, 80, 28)
+    btn.setStyleSheet("background:#007AFF; color:white; border:none; border-radius:14px; font-size:11px;")
+    return dlg
+
+
+def build_2_win11(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #F2F2F2;
+            border: 2px solid #8E8E93;
+            border-radius: 12px;
+        }
+        QWidget { border: none; }
+    """)
+    top = QFrame(dlg)
+    top.setGeometry(0, 0, 340, 48)
+    top.setStyleSheet("background:#FFFFFF; border-radius:12px 12px 0 0; border:none;")
+    QLabel("📁 操作流程名称", top).setGeometry(0, 12, 340, 24)
+    # 改用 QWidget 统一设置 border:none，所有子控件都无边框
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(12, 60 + i*66, 316, 58)
+        c.setStyleSheet("background:#FFFFFF; border-radius:8px; border:none;")
+        n = QLabel(f"{i+1}", c)
+        n.setGeometry(10, 10, 38, 38)
+        n.setAlignment(Qt.AlignCenter)
+        n.setStyleSheet("background:#E8E8ED; color:#1C1C1E; border-radius:6px; font-size:14px; font-weight:600; border:none;")
+        QLabel(f"操作 {i+1}  —  左键点击", c).setGeometry(106, 8, 180, 20)
+        QLabel("坐标 (850, 1332) · 延时 0.3s", c).setGeometry(106, 28, 180, 16)
+    return dlg
+
+
+def build_3_neon_dash(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #0A0A0F;
+            border: 2px solid #00D4FF;
+            border-radius: 14px;
+        }
+        QWidget { border: none; }
+    """)
+    QLabel("  ◆  操 作 流 程", dlg).setGeometry(0, 6, 340, 40)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(14, 52 + i*64, 312, 56)
+        c.setStyleSheet("background:#141420; border-radius:8px; border:none;")
+        # 光条
+        g = QFrame(c); g.setGeometry(0, 4, 3, 48)
+        g.setStyleSheet("background:#00D4FF; border-radius:2px; border:none;")
+        QLabel(f"0{i+1}.", c).setGeometry(14, 6, 40, 20)
+        QLabel(f"操作 {i+1}", c).setGeometry(14, 26, 80, 20)
+        QLabel("● 已就绪", c).setGeometry(220, 12, 80, 20)
+        QLabel("(850, 1332)", c).setGeometry(220, 32, 80, 16)
+        for w in c.findChildren(QLabel):
+            w.setStyleSheet("color:#E8E8ED; font-size:11px; background:transparent; border:none;")
+    QPushButton("▶ 执行", dlg).setGeometry(120, 380, 100, 28)
+    return dlg
+
+
+def build_4_terminal(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #0D0D0D;
+            border: 3px solid #33FF33;
+            border-radius: 4px;
+        }
+        QWidget { border: none; }
+    """)
+    QLabel("> PROCESS_VIEW.EXE  v1.0", dlg).setGeometry(14, 8, 320, 22)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(14, 40 + i*62, 312, 54)
+        c.setStyleSheet("background:#0D0D0D; border:none;")
+        QLabel(f" [{i+1}]", c).setGeometry(6, 4, 40, 20)
+        QLabel(f"$ execute step_{i+1}", c).setGeometry(6, 22, 200, 18)
+        QLabel("> left_click @ (850,1332)", c).setGeometry(6, 38, 280, 14)
+        for w in c.findChildren(QLabel):
+            w.setStyleSheet("color:#33FF33; font-size:10px; font-family:'Courier New'; background:transparent; border:none;")
+        b = QFrame(c); b.setGeometry(290, 22, 8, 14)
+        b.setStyleSheet("background:#33FF33; border:none;")
+    QPushButton("> RUN", dlg).setGeometry(130, 382, 80, 26)
+    return dlg
+
+
+def build_5_social(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #F5F5F7;
+            border: 2px solid #8E8E93;
+            border-radius: 14px;
+        }
+        QWidget { border: none; }
+    """)
+    top = QFrame(dlg)
+    top.setGeometry(0, 0, 340, 50)
+    top.setStyleSheet("background:#FFFFFF; border-radius:14px 14px 0 0; border:none;")
+    QLabel("📱 操作动态", top).setGeometry(60, 14, 200, 22)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(54, 58 + i*64, 270, 56)
+        c.setStyleSheet("background:#FFFFFF; border-radius:10px; border:none;")
+        QLabel(f"操作 {i+1}", c).setGeometry(10, 6, 100, 18)
+        QLabel("左键点击 · 坐标 (850, 1332)", c).setGeometry(10, 26, 200, 16)
+        for w in c.findChildren(QLabel):
+            w.setStyleSheet("font-size:11px; color:#1C1C1E; background:transparent; border:none;")
+    return dlg
+
+
+def build_6_waterfall(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #1C1C1E;
+            border: 2px solid #FFFFFF;
+            border-radius: 12px;
+        }
+        QWidget { border: none; }
+    """)
+    QLabel("📷 操作截图预览", dlg).setGeometry(14, 10, 310, 24)
+    colors = ["#FF453A", "#FF9F0A", "#30D158", "#0A84FF", "#BF5AF2"]
+    rects = [(12,44,150,120),(170,44,158,160),(12,172,150,130),(170,212,158,110),(12,310,316,70)]
+    for i, (x,y,w,h) in enumerate(rects):
+        img = QFrame(dlg)
+        img.setGeometry(x, y, w, h)
+        img.setStyleSheet(f"background:{colors[i]}; border-radius:8px; border:none;")
+        QLabel(f"操作 {i+1}", img).setGeometry(8, h-26, w-16, 20)
+    return dlg
+
+
+def build_7_split(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #F2F2F7;
+            border: 2px solid #8E8E93;
+            border-radius: 10px;
+        }
+        QWidget { border: none; }
+    """)
+    QFrame(dlg).setGeometry(0,0,340,40)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(4, 44 + i*44, 112, 38)
+        c.setStyleSheet(f"background:{'#FFFFFF' if i==0 else 'transparent'}; border-radius:6px; border:none;")
+    detail = QFrame(dlg)
+    detail.setGeometry(120, 40, 220, 340)
+    detail.setStyleSheet("background:#FFFFFF; border-radius:0 0 10px 0; border:none;")
+    QLabel("步骤 1  详情", detail).setGeometry(12, 12, 200, 22)
+    return dlg
+
+
+def build_8_handdrawn(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #FFFDF5;
+            border: 3px solid #5C4033;
+            border-radius: 6px;
+        }
+        QWidget { border: none; }
+    """)
+    QLabel("📝 操作清单", dlg).setGeometry(0, 10, 340, 28)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(14, 50 + i*64, 312, 56)
+        c.setStyleSheet("background:#FFFDF5; border-radius:6px; border:none;")
+        QLabel(f"☞ 操作 {i+1} ： 左键点击", c).setGeometry(38, 8, 250, 20)
+        QLabel("↳ 坐标 (850, 1332)  延时 0.3s", c).setGeometry(38, 28, 250, 16)
+    return dlg
+
+
+def build_9_neumorph(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #E0E5EC;
+            border: 2px solid #A3B1C6;
+            border-radius: 18px;
+        }
+        QWidget { border: none; }
+    """)
+    QLabel("📁 流程名称", dlg).setGeometry(0, 16, 340, 24)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(14, 52 + i*64, 312, 56)
+        c.setStyleSheet("background:#E0E5EC; border-radius:14px; border:none;")
+        QLabel(f"{i+1}", c).setGeometry(10, 10, 36, 36)
+        QLabel(f"操作 {i+1}  —  左键点击", c).setGeometry(56, 8, 200, 22)
+        QLabel("坐标 (850, 1332) · 延时 0.3s", c).setGeometry(56, 30, 200, 16)
+    QPushButton("开 始", dlg).setGeometry(110, 384, 120, 28)
+    return dlg
+
+
+def build_10_win95(parent=None):
+    dlg = QDialog(parent)
+    dlg.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dlg.setFixedSize(340, 420)
+    dlg.setStyleSheet("""
+        QDialog {
+            background: #C0C0C0;
+            border: 3px solid #000080;
+            border-radius: 2px;
+        }
+        QWidget { border: none; }
+    """)
+    tb = QFrame(dlg)
+    tb.setGeometry(0, 0, 340, 28)
+    tb.setStyleSheet("background:qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #000080, stop:1 #1084D0); border:none;")
+    QLabel("  查看流程", tb).setGeometry(2, 0, 280, 28)
+    for i in range(5):
+        c = QFrame(dlg)
+        c.setGeometry(6, 36 + i*62, 328, 56)
+        c.setStyleSheet("background:#FFFFFF; border-radius:2px; border:none;")
+        n = QLabel(f"{i+1}", c)
+        n.setGeometry(6, 6, 24, 24)
+        n.setAlignment(Qt.AlignCenter)
+        n.setStyleSheet("background:#000080; color:white; border-radius:2px; font-size:12px; font-weight:bold; border:none;")
+        QLabel(f"操作 {i+1}.left_click", c).setGeometry(36, 6, 200, 18)
+        QLabel("坐标: (850, 1332)", c).setGeometry(36, 26, 200, 14)
+    QLabel("就绪      |      5 项操作", dlg).setGeometry(0, 398, 340, 22)
+    for l in dlg.findChildren(QLabel):
+        if l.parent() is tb: l.setStyleSheet("color:white; font-size:11px; font-weight:bold; background:transparent; border:none;")
+    return dlg
+
+
+# ============================================================
+STYLES = [
+    ("1  macOS 毛玻璃", build_1_mac_glass),
+    ("2  Windows 11", build_2_win11),
+    ("3  霓虹仪表盘", build_3_neon_dash),
+    ("4  复古终端", build_4_terminal),
+    ("5  社交时间线", build_5_social),
+    ("6  瀑布相册", build_6_waterfall),
+    ("7  分栏面板", build_7_split),
+    ("8  手绘风", build_8_handdrawn),
+    ("9  新拟态", build_9_neumorph),
+    ("10 经典 Win95", build_10_win95),
+]
+
+
+class MainWindow(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("🎨 10 种 UI  —  仅最外层有边框")
+        self.resize(1800, 960)
+        self.setStyleSheet("background:#F2F2F7;")
+        lo = QVBoxLayout(self)
+        lo.setContentsMargins(20, 16, 20, 16)
+        title = QLabel("🎨 10 种风格 · 只有最外层有边框 ✅  内部统统无边框")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet("font-size:20px; font-weight:bold; color:#1C1C1E; padding:12px; background:#FFFFFF; border-radius:12px;")
+        lo.addWidget(title)
+        grid = QGridLayout()
+        grid.setSpacing(16)
+        for idx, (name, builder) in enumerate(STYLES):
+            wrap = QFrame()
+            wrap.setFixedSize(340, 460)
+            wl = QVBoxLayout(wrap)
+            wl.setContentsMargins(0, 0, 0, 0)
+            lbl = QLabel(f"[{name}]")
+            lbl.setAlignment(Qt.AlignCenter)
+            lbl.setStyleSheet("font-size:13px; font-weight:700; color:#1C1C1E; padding:4px; background:#FFFFFF; border-radius:8px;")
+            wl.addWidget(lbl)
+            dlg = builder(wrap)
+            dlg.setParent(wrap)
+            dlg.setWindowFlags(Qt.Widget)
+            dlg.setVisible(True)
+            wl.addWidget(dlg)
+            row, col = divmod(idx, 5)
+            grid.addWidget(wrap, row, col)
+        lo.addLayout(grid)
+        tip = QLabel("💡 告诉我编号（如 3），我直接应用到 app.py！")
+        tip.setAlignment(Qt.AlignCenter)
+        tip.setStyleSheet("font-size:15px; color:#8E8E93; padding:14px; background:#FFFFFF; border-radius:12px;")
+        lo.addWidget(tip)
+
+
+def main():
+    app = QApplication(sys.argv)
+    w = MainWindow()
+    w.show()
+    sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    main()
