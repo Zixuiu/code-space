@@ -3934,164 +3934,124 @@ QMessageBox QDialogButtonBox QPushButton{{
         """打开回收站窗口"""
         dialog = QDialog(self)
         dialog.setWindowTitle("回收站")
-        # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-        # 按屏幕比例设置对话框最小尺寸，增加高度确保内容完整显示
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
         screen_width, screen_height = get_screen_size()
         dialog.setMinimumSize(int(screen_width * 0.35), int(screen_height * 0.5))
-        
-        # 应用统一的对话框样式
-        apply_dialog_style(dialog, 0.35, 0.5)
-        
+        center_window(dialog)
+
         layout = QVBoxLayout(dialog)
-        layout.setContentsMargins(2, 10, 2, 10)
-        layout.setSpacing(10)
-        
-        # 创建表格
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        _outer = QFrame(dialog)
+        _outer.setObjectName("trashOuter")
+        _outer.setStyleSheet("""
+            QFrame#trashOuter {
+                background-color: #FFFFFF;
+                border-radius: 14px;
+                border: none;
+            }
+        """)
+        _cl = QVBoxLayout(_outer)
+        _cl.setContentsMargins(0, 0, 0, 0)
+        _cl.setSpacing(0)
+
+        _header = QWidget()
+        _header.setFixedHeight(44)
+        _header.setStyleSheet("background-color: #1C1C1E; border-top-left-radius: 14px; border-top-right-radius: 14px; border: 2px solid #1C1C1E; border-bottom: none;")
+        _hdr_lo = QHBoxLayout(_header)
+        _hdr_lo.setContentsMargins(16, 0, 16, 0)
+        _hdr_lo.setSpacing(8)
+        _hdr_title = QLabel("回收站")
+        _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
+        _hdr_lo.addWidget(_hdr_title)
+        _hdr_lo.addStretch()
+        def _closeD(ev):
+            if ev.button() == Qt.LeftButton: dialog.close()
+        _red_dot = QFrame()
+        _red_dot.setFixedSize(14, 14)
+        _red_dot.setStyleSheet("background:#FF5F57; border-radius:7px; border:none;")
+        _red_dot.mousePressEvent = _closeD
+        _red_dot.setCursor(Qt.PointingHandCursor)
+        _hdr_lo.addWidget(_red_dot)
+        def _start_drag(ev):
+            if ev.button() == Qt.LeftButton:
+                dialog._drag_pos = ev.globalPos() - dialog.pos()
+        def _do_drag(ev):
+            if hasattr(dialog, '_drag_pos') and ev.buttons() & Qt.LeftButton:
+                dialog.move(ev.globalPos() - dialog._drag_pos)
+        _header.mousePressEvent = _start_drag
+        _header.mouseMoveEvent = _do_drag
+        _cl.addWidget(_header)
+
+        content = QWidget()
+        content.setStyleSheet("background-color: #FFFFFF; border: none; border-left: 2px solid #1C1C1E; border-right: 2px solid #1C1C1E; border-bottom: 2px solid #1C1C1E; border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(16, 12, 16, 16)
+        content_layout.setSpacing(10)
+
         table = QTableWidget()
         table.setColumnCount(4)
         table.setHorizontalHeaderLabels(["原名称", "删除时间", "恢复", "永久删除"])
-        table.verticalHeader().setVisible(False)  # 隐藏行号列
-
-        # 应用表格样式 - 与主界面保持一致
+        table.verticalHeader().setVisible(False)
         table.setStyleSheet(self.table_style + """
-            QTableWidget::item {
-                padding: 5px;  /* 增加内边距确保文字不被遮挡 */
-                margin: 0px;   /* 保持0外边距 */
-                vertical-align: middle;  /* 确保垂直居中 */
-                text-align: center;  /* 确保水平居中 */
-            }
-            /* 禁用按钮列的悬停效果 */
-            QTableWidget::item:hover {
-                background: transparent;
-            }
-            /* 只对非按钮列启用悬停效果 */
+            QTableWidget::item { padding: 5px; margin: 0px; }
+            QTableWidget::item:hover { background: transparent; }
             QTableWidget::item:nth-child(1):hover, QTableWidget::item:nth-child(2):hover {
                 background: rgba(195, 240, 202, 0.3);
             }
-            /* 隐藏单元格焦点矩形和选中状态 */
-            QTableWidget::item:focus {
-                outline: none;
-                selection-background-color: transparent;
-                selection-color: #212529;
-            }
-            /* 隐藏表格焦点 */
-            QTableWidget:focus {
-                outline: none;
-            }
-            /* 禁用单元格选中效果 */
-            QTableWidget::item:selected {
-                background: transparent;
-                color: #212529;
-            }
-            /* 禁用行选中效果 */
-            QTableWidget::item:selected:!active {
-                background: transparent;
-                color: #212529;
-            }
+            QTableWidget::item:focus { outline: none; selection-background-color: transparent; selection-color: #212529; }
+            QTableWidget:focus { outline: none; }
+            QTableWidget::item:selected { background: transparent; color: #212529; }
+            QTableWidget::item:selected:!active { background: transparent; color: #212529; }
         """)
-        
-        # 设置表格字体 - 按屏幕比例计算字体大小
         font = table.font()
         font.setFamily("PingFang SC")
-        font.setPointSize(max(9, int(screen_height * 0.01)))  # 增大字体大小为屏幕高度的1%，最小9pt
+        font.setPointSize(max(9, int(screen_height * 0.01)))
         table.setFont(font)
-        
-        # 设置列宽 - 所有列都可调整，默认填满窗口
         header = table.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.Interactive)  # 原名称列可调整
-        header.setSectionResizeMode(1, QHeaderView.Interactive)  # 删除时间列可调整
-        header.setSectionResizeMode(2, QHeaderView.Interactive)  # 恢复按钮列可调整
-        header.setSectionResizeMode(3, QHeaderView.Interactive)  # 永久删除按钮列可调整
-        
-        # 先添加表格到布局，然后再设置列宽
-        layout.addWidget(table)
-        
-        # 延迟设置列宽，确保窗口已经完全布局
+        header.setSectionResizeMode(0, QHeaderView.Interactive)
+        header.setSectionResizeMode(1, QHeaderView.Interactive)
+        header.setSectionResizeMode(2, QHeaderView.Interactive)
+        header.setSectionResizeMode(3, QHeaderView.Interactive)
+        content_layout.addWidget(table)
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(0, lambda: self.setup_trash_table_columns(table))
-
-        
-        # 设置表格行高 - 按屏幕比例计算，增加行高确保内容完整显示
-        table.verticalHeader().setDefaultSectionSize(max(50, int(screen_height * 0.05)))  # 增加行高为屏幕高度的5%，最小50像素
-        table.verticalHeader().setVisible(False)  # 隐藏序号列
-        
-        # 设置表头字体 - 按屏幕比例计算字体大小
+        table.verticalHeader().setDefaultSectionSize(max(50, int(screen_height * 0.05)))
+        table.verticalHeader().setVisible(False)
         header_font = table.horizontalHeader().font()
-        header_font.setPointSize(max(9, int(screen_height * 0.009)))  # 表头字体大小为屏幕高度的0.9%，最小9pt
+        header_font.setPointSize(max(9, int(screen_height * 0.009)))
         header_font.setFamily("PingFang SC")
         table.horizontalHeader().setFont(header_font)
-        
-        # 设置表格选择行为，禁用选中效果
         table.setSelectionMode(QAbstractItemView.NoSelection)
         table.setFocusPolicy(Qt.NoFocus)
-        
-        # 加载回收站数据
         self.load_trash_data(table)
-        
-        # 添加底部按钮布局，增加上边距确保不与表格内容重叠
+
         button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(0, 15, 0, 0)  # 增加上边距
-        button_layout.setSpacing(20)  # 增加按钮间距
-        
-        # 清空回收站按钮
+        button_layout.setContentsMargins(0, 15, 0, 0)
+        button_layout.setSpacing(20)
         clear_btn = QPushButton("清空回收站")
-        clear_btn.setFixedSize(110, 32)  # 调整按钮大小
+        clear_btn.setObjectName("clearTrashBtn")
+        clear_btn.setFixedSize(110, 32)
         clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border: none;
-                border-radius: 4px;  /* 减小圆角 */
-                font-weight: bold;
-                font-size: 12px;  /* 调整字体大小 */
+            QPushButton#clearTrashBtn {
+                background-color: #0A84FF; color: white; border: none; border-radius: 4px;
+                font-weight: bold; font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                text-align: center;
             }
-            QPushButton:hover {
-                background-color: #0A84FF;
-
-            }
-            QPushButton:pressed {
-                background-color: #0A84FF;
-
-            }
+            QPushButton#clearTrashBtn:hover { background-color: #006AE0; }
+            QPushButton#clearTrashBtn:pressed { background-color: #004DB3; }
         """)
         clear_btn.clicked.connect(lambda: self.clear_trash(table))
         button_layout.addWidget(clear_btn)
-        
-        # 添加弹性空间，使按钮靠右对齐
         button_layout.addStretch()
-        
-        # 关闭按钮
-        close_btn = QPushButton("关闭")
-        close_btn.setFixedSize(80, 32)  # 调整按钮大小
-        close_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border: none;
-                border-radius: 4px;  /* 减小圆角 */
-                font-weight: bold;
-                font-size: 12px;  /* 调整字体大小 */
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #0A84FF;
+        content_layout.addLayout(button_layout)
 
-            }
-            QPushButton:pressed {
-                background-color: #0A84FF;
-
-            }
-        """)
-        close_btn.clicked.connect(dialog.close)
-        button_layout.addWidget(close_btn)
-        
-        _cl.addLayout(button_layout)
+        _cl.addWidget(content)
+        layout.addWidget(_outer)
         dialog.show()
-    
+
     def load_trash_data(self, table):
         """加载回收站数据到表格"""
         from utils import get_recordings_path
@@ -5736,6 +5696,11 @@ class AutoRecorderApp(QMainWindow):
         """显示日志窗口"""
         if not hasattr(self, 'log_window') or self.log_window is None:
             self.create_log_window()
+        screen = QApplication.primaryScreen().geometry()
+        self.log_window.move(
+            screen.center().x() - self.log_window.width() // 2,
+            screen.center().y() - self.log_window.height() // 2
+        )
         self.log_window.show()
         self.log_window.raise_()
         self.log_window.activateWindow()
@@ -5748,90 +5713,100 @@ class AutoRecorderApp(QMainWindow):
         self.log_window = QDialog(self)
         self.log_window.setWindowTitle("运行日志")
         self.log_window.setMinimumSize(700, 500)
-        self.log_window.setStyleSheet("""
-            QDialog {
+        self.log_window.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.log_window.setAttribute(Qt.WA_TranslucentBackground)
+        center_window(self.log_window)
+
+        layout = QVBoxLayout(self.log_window)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        _outer = QFrame(self.log_window)
+        _outer.setObjectName("logOuter")
+        _outer.setStyleSheet("""
+            QFrame#logOuter {
                 background-color: #FFFFFF;
+                border-radius: 14px;
+                border: none;
             }
+        """)
+        _cl = QVBoxLayout(_outer)
+        _cl.setContentsMargins(0, 0, 0, 0)
+        _cl.setSpacing(0)
+
+        _header = QWidget()
+        _header.setFixedHeight(44)
+        _header.setStyleSheet("background-color: #1C1C1E; border-top-left-radius: 14px; border-top-right-radius: 14px; border: 2px solid #1C1C1E; border-bottom: none;")
+        _hdr_lo = QHBoxLayout(_header)
+        _hdr_lo.setContentsMargins(16, 0, 16, 0)
+        _hdr_lo.setSpacing(8)
+        _hdr_title = QLabel("运行日志")
+        _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
+        _hdr_lo.addWidget(_hdr_title)
+        _hdr_lo.addStretch()
+        def _closeD(ev):
+            if ev.button() == Qt.LeftButton: self.log_window.close()
+        _red_dot = QFrame()
+        _red_dot.setFixedSize(14, 14)
+        _red_dot.setStyleSheet("background:#FF5F57; border-radius:7px; border:none;")
+        _red_dot.mousePressEvent = _closeD
+        _red_dot.setCursor(Qt.PointingHandCursor)
+        _hdr_lo.addWidget(_red_dot)
+        def _start_drag(ev):
+            if ev.button() == Qt.LeftButton:
+                self.log_window._drag_pos = ev.globalPos() - self.log_window.pos()
+        def _do_drag(ev):
+            if hasattr(self.log_window, '_drag_pos') and ev.buttons() & Qt.LeftButton:
+                self.log_window.move(ev.globalPos() - self.log_window._drag_pos)
+        _header.mousePressEvent = _start_drag
+        _header.mouseMoveEvent = _do_drag
+        _cl.addWidget(_header)
+
+        content = QWidget()
+        content.setStyleSheet("background-color: #FFFFFF; border: none; border-left: 2px solid #1C1C1E; border-right: 2px solid #1C1C1E; border-bottom: 2px solid #1C1C1E; border-bottom-left-radius: 14px; border-bottom-right-radius: 14px;")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(16, 12, 16, 16)
+        content_layout.setSpacing(10)
+
+        clear_btn = QPushButton("清空")
+        clear_btn.setObjectName("clearLogBtn")
+        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setStyleSheet("""
+            QPushButton#clearLogBtn {
+                background-color: #0A84FF; color: white; border: none; border-radius: 4px;
+                padding: 6px 16px; font-weight: bold; font-size: 12px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            }
+            QPushButton#clearLogBtn:hover { background-color: #006AE0; }
+            QPushButton#clearLogBtn:pressed { background-color: #004DB3; }
+        """)
+        clear_btn.clicked.connect(self.clear_log)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(clear_btn)
+        content_layout.addLayout(btn_row)
+
+        self.log_text_edit = QTextEdit()
+        self.log_text_edit.setReadOnly(True)
+        self.log_text_edit.setStyleSheet("""
             QTextEdit {
                 background-color: #FFFFFF;
                 color: #2C3E50;
-                border: 2px solid #D1D1D6;
+                border: 1px solid #D1D1D6;
                 border-radius: 8px;
                 padding: 12px;
                 font-family: "Consolas", "Courier New", monospace;
                 font-size: 14px;
-                line-height: 1.6;
-            }
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border: none;
-                border-radius: 22px;
-                padding: 8px 20px;
-                font-size: 18px;
-                font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton:hover {
-                background-color: #006AE0;
-            }
-            QPushButton:pressed {
-                background-color: #004DB3;
-            }
-            QLabel {
-                color: #2C3E50;
-                font-size: 20px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
         """)
+        content_layout.addWidget(self.log_text_edit)
 
-        layout = QVBoxLayout(self.log_window)
-        layout.setSpacing(15)
-        layout.setContentsMargins(20, 20, 20, 20)
+        hint_label = QLabel("提示：日志仅在调试模式开启时记录。可在设置中开启/关闭调试模式。")
+        hint_label.setStyleSheet("color: #8E8E93; font-size: 12px; background: transparent; border: none;")
+        content_layout.addWidget(hint_label)
 
-        # 标题栏
-        title_layout = QHBoxLayout()
-        title_label = QLabel("📝 调试日志输出")
-        title_label.setStyleSheet("font-size: 28px; font-weight: bold; color: #2C3E50; background: transparent;")
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-
-        # 清空按钮
-        clear_btn = QPushButton("🗑 清空")
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border: none;
-                border-radius: 22px;
-                padding: 8px 20px;
-                font-size: 18px;
-                font-weight: bold;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton:hover {
-                background-color: #F0F0F2;
-                color: #007AFF;
-                border-color: #007AFF;
-            }
-            QPushButton:pressed {
-                background-color: #004DB3;
-                color: white;
-            }
-        """)
-        clear_btn.clicked.connect(self.clear_log)
-        title_layout.addWidget(clear_btn)
-        layout.addLayout(title_layout)
-
-        # 日志文本框
-        self.log_text_edit = QTextEdit()
-        self.log_text_edit.setReadOnly(True)
-        layout.addWidget(self.log_text_edit)
-
-        # 提示信息
-        hint_label = QLabel("💡 提示：日志仅在调试模式开启时记录。可在设置中开启/关闭调试模式。")
-        hint_label.setStyleSheet("color: #8E8E93; font-size: 18px; background: transparent;")
-        layout.addWidget(hint_label)
+        _cl.addWidget(content)
+        layout.addWidget(_outer)
 
     def save_debug_mode_setting(self):
         """保存调试模式设置"""
