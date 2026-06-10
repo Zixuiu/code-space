@@ -15,14 +15,13 @@ from PyQt5.QtWidgets import (
     QCheckBox, QTextEdit, QComboBox, QSlider, QSpinBox, QDoubleSpinBox,
     QTableWidget, QTableWidgetItem, QHeaderView, QMenu, QSystemTrayIcon,
     QMessageBox, QPlainTextEdit, QListWidget, QListWidgetItem, QInputDialog,
-    QAbstractItemView, QShortcut, QDialog, QGraphicsDropShadowEffect, QStyle
+    QAbstractItemView, QShortcut, QDialog, QGraphicsDropShadowEffect
 )
 from PyQt5.QtCore import (
     Qt, QTimer, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve,
     QPoint, QSize, QRect, QRectF
 )
 from PyQt5.QtGui import (
-    QGuiApplication,
     QColor, QPainter, QBrush, QPen, QFont, QFontDatabase, QIcon, QPixmap,
     QKeySequence, QLinearGradient, QRadialGradient, QRegion, QPainterPath
 )
@@ -707,7 +706,6 @@ class RoundedPillButton(QPushButton):
 
 
 class MacOSToolbar(QWidget):
-    _drag_pos = None  # 修复：提前初始化，防止 mouseMoveEvent 先被调用时报错
     def __init__(self, title="", parent=None):
         super().__init__(parent)
         self.setFixedHeight(48)
@@ -796,7 +794,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         if self.current_user is None:
             self.current_user = username
         self._initializing = False
-        self.is_recording = False
 
     def run_selected_combo_skills(self, table_widget):
         """macOS版本：批量运行选中的组合技"""
@@ -958,10 +955,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_widget.setObjectName("centralContainer")
-        main_widget.setStyleSheet("QWidget#centralContainer{background-color:%s;border-radius:28px;border:3px solid #1C1C1E;}"%MacOSColors.WINDOW_BG)
+        main_widget.setStyleSheet("QWidget#centralContainer{background-color:%s;border-radius:28px;}"%MacOSColors.WINDOW_BG)
 
         main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(3, 3, 3, 3)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
         self.macos_toolbar = MacOSToolbar("录制控制")
@@ -969,6 +966,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         body = QWidget()
         body.setStyleSheet("background: transparent; border: none;")
+        print("[MACOS DEBUG] macOS initUI called, stylesheet cleared", flush=True)
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
@@ -1030,22 +1028,35 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         super().resizeEvent(e)
 
     def on_macos_tab_changed(self, index):
+        import time
+        t0 = time.perf_counter()
         if self.macos_stack.currentIndex() == index:
             return
         self.macos_toolbar.set_title(self._macos_titles[index])
+        t1 = time.perf_counter()
+        print(f"[PERF] set_title: {t1-t0:.4f}s")
 
         new_page = self.macos_stack.widget(index)
         if new_page is None:
             return
+        t2 = time.perf_counter()
+        print(f"[PERF] get_widget: {t2-t1:.4f}s")
 
         if hasattr(self, '_combo_refresh_timer') and self._combo_refresh_timer.isActive():
             self._combo_refresh_timer.stop()
+        t3 = time.perf_counter()
+        print(f"[PERF] stop_timer: {t3-t2:.4f}s")
 
         self.macos_stack.setCurrentIndex(index)
+        t4 = time.perf_counter()
+        print(f"[PERF] setCurrentIndex: {t4-t3:.4f}s")
 
         if index == 2 and hasattr(self, '_combo_refresh_timer'):
             self._combo_refresh_timer.start(3000)
             self.load_combo_skills_to_table(self.combo_tab.combo_table)
+        t5 = time.perf_counter()
+        print(f"[PERF] combo_refresh: {t5-t4:.4f}s")
+        print(f"[PERF] === TOTAL: {t5-t0:.4f}s ===")
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -1276,17 +1287,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.load_folders_to_table(folder_table)
         tab.folder_table = folder_table
         return tab
-
-    def open_view_images_in_tab(self, folder_path):
-        try:
-            from app import FolderManager
-            folder_manager = FolderManager(self)
-            self.folder_manager = folder_manager
-            folder_manager.view_images(folder_path)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            self.show_beautiful_message('critical', '错误', f'打开查看图片窗口失败: {e}', parent=self)
 
     def load_folders_to_table(self, table_widget):
         table_widget.setRowCount(0)
@@ -2225,80 +2225,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         ]
         for icon, title, body in data:
             steps.append({"icon": icon, "title": title, "content": h(body)})
-    def create_tray_icon(self):
-        """创建系统托盘图标"""
-        if hasattr(self, "tray_icon") and self.tray_icon:
-            return
-        from PyQt5.QtWidgets import QSystemTrayIcon
-        if not QSystemTrayIcon.isSystemTrayAvailable():
-            return
-        self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-        self.tray_icon.setToolTip("PC-action")
-        tray_menu = QMenu(self)
-        show_action = tray_menu.addAction("显示主窗口")
-        show_action.triggered.connect(self.show_and_raise)
-        quit_action = tray_menu.addAction("退出")
-        quit_action.triggered.connect(self.quit_application)
-        self.tray_icon.setContextMenu(tray_menu)
-        self.tray_icon.activated.connect(self.on_tray_activated)
-        self.tray_icon.show()
-
-    def on_tray_activated(self, reason):
-        from PyQt5.QtWidgets import QSystemTrayIcon
-        if reason == QSystemTrayIcon.DoubleClick:
-            self.show_and_raise()
-
-    def show_and_raise(self):
-        self.show()
-        self.raise_()
-        self.activateWindow()
-
-    def quit_application(self):
-        self.close()
-        QApplication.quit()
-
-    def open_combo_skill_editor(self, skill=None):
-        """打开组合技编辑器"""
-        from combo_skill_edit_dialog import ComboSkillEditDialog
-        from PyQt5.QtWidgets import QDialog as _QD
-        from combo_skill_manager import ComboSkillManager
-        dialog = ComboSkillEditDialog(self, skill)
-        if dialog.exec_() == _QD.Accepted:
-            skill_data = dialog.get_skill_data()
-            if skill_data:
-                combo_manager = ComboSkillManager(self)
-                if skill:
-                    for i, s in enumerate(combo_manager.combo_skills):
-                        if s.get("name") == skill.get("name"):
-                            combo_manager.combo_skills[i] = skill_data
-                            break
-                else:
-                    combo_manager.combo_skills.append(skill_data)
-                combo_manager.save_combo_skills()
-                if hasattr(self, "combo_tab") and hasattr(self.combo_tab, "combo_table"):
-                    self.load_combo_skills_to_table(self.combo_tab.combo_table)
-    def edit_combo_skill_in_tab(self, skill, combo_table):
-        """在组合技tab页中编辑组合技"""
-        self.open_combo_skill_editor(skill)
-        self.load_combo_skills_to_table(combo_table)
-
-    def delete_combo_skill_in_tab(self, skill, combo_table):
-        """在组合技tab页中删除组合技"""
-        from combo_skill_manager import ComboSkillManager
-        from PyQt5.QtWidgets import QMessageBox
-        skill_name = skill.get('name', '')
-        reply = QMessageBox.question(None, '确认删除', f'确定要删除组合技 \"{skill_name}\" 吗？', QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.Yes:
-            combo_manager = ComboSkillManager(self)
-            combo_manager.combo_skills = [s for s in combo_manager.combo_skills if s.get('name') != skill.get('name')]
-            combo_manager.save_combo_skills()
-            self.load_combo_skills_to_table(combo_table)
-
-
-
     def load_combo_skills_to_table(self, table_widget):
         import time
+        t0 = time.perf_counter()
         checked_names = set()
         for row in range(table_widget.rowCount()):
             check_item = table_widget.item(row, 0)
@@ -2309,10 +2238,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     if raw.startswith("🏃 "):
                         raw = raw[2:]
                     checked_names.add(raw)
+        t1 = time.perf_counter()
+        print(f"[PERF] load_combo checked_names: {t1-t0:.4f}s")
 
         table_widget.setRowCount(0)
 
         combo_skills = self._get_combo_manager().combo_skills
+        t2 = time.perf_counter()
+        print(f"[PERF] load_combo get_skills: {t2-t1:.4f}s")
 
         running_skill_ids = set()
         running_skill_names = []
@@ -2429,238 +2362,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def _get_combo_manager(self):
         from app import ComboSkillManager
         return ComboSkillManager(self)
-
-    def stop_combo_skill(self, skill=None):
-        STOP_JOIN_TIMEOUT = 3.0
-        def _wait_runner_finish(runner, timeout):
-            try:
-                if hasattr(runner, '_exec_thread') and runner._exec_thread is not None:
-                    runner._exec_thread.join(timeout=timeout)
-            except Exception:
-                pass
-            return True
-        try:
-            if skill is not None:
-                skill_id = skill.get('name', '')
-                if skill_id in self.runners and self.runners[skill_id].isRunning():
-                    skill_name = skill.get('name', '未命名')
-                    runner = self.runners[skill_id]
-                    from image_recognition import set_replay_stop_flag
-                    set_replay_stop_flag(True)
-                    runner.running = False
-                    if hasattr(runner, 'reset'):
-                        try:
-                            runner.reset()
-                        except Exception:
-                            pass
-                    _wait_runner_finish(runner, STOP_JOIN_TIMEOUT)
-                    if skill_id in self.runners:
-                        del self.runners[skill_id]
-                    self.append_log(f'[{skill_name}] 已停止')
-            else:
-                from image_recognition import set_replay_stop_flag
-                set_replay_stop_flag(True)
-                runners_to_reset = []
-                for skill_id, runner in list(self.runners.items()):
-                    if runner.isRunning():
-                        runner.running = False
-                        runners_to_reset.append((skill_id, runner))
-                for skill_id, runner in runners_to_reset:
-                    if hasattr(runner, 'reset'):
-                        try:
-                            runner.reset()
-                        except Exception:
-                            pass
-                for skill_id, runner in runners_to_reset:
-                    _wait_runner_finish(runner, STOP_JOIN_TIMEOUT)
-                self.runners.clear()
-                self.append_log('[组合技] 所有运行中的组合技已停止')
-            if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
-                self.load_combo_skills_to_table(self.combo_tab.combo_table)
-        except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
-
-    def stop_selected_combo_skills(self, table_widget):
-        STOP_JOIN_TIMEOUT = 3.0
-        try:
-            selected_skills = []
-            for row in range(table_widget.rowCount()):
-                check_item = table_widget.item(row, 0)
-                if check_item and check_item.checkState() == Qt.Checked:
-                    skill = check_item.data(Qt.UserRole)
-                    if skill:
-                        selected_skills.append(skill)
-            if not selected_skills:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.information(self, '提示', '请先勾选要停止的组合技（勾选第一列的复选框）')
-                return
-            from image_recognition import set_replay_stop_flag
-            set_replay_stop_flag(True)
-            stop_count = 0
-            for skill in selected_skills:
-                skill_id = skill.get('name', '')
-                if skill_id in self.runners and self.runners[skill_id].isRunning():
-                    runner = self.runners[skill_id]
-                    runner.running = False
-                    if hasattr(runner, 'reset'):
-                        try:
-                            runner.reset()
-                        except Exception:
-                            pass
-                    stop_count += 1
-                    if skill_id in self.runners:
-                        del self.runners[skill_id]
-            if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
-                self.load_combo_skills_to_table(self.combo_tab.combo_table)
-            if stop_count > 0:
-                self.append_log(f'已停止 {stop_count} 个组合技')
-        except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
-
-    def _set_recording_state(self, state: bool):
-        """统一设置录制状态并同步到 record_btn"""
-        self.is_recording = state
-        if hasattr(self, 'record_btn') and self.record_btn is not None:
-            if hasattr(self.record_btn, 'set_is_recording'):
-                self.record_btn.set_is_recording(state)
-
-    def toggle_recording(self):
-        """切换录制状态"""
-        if self.is_recording:
-            # 正在录制 → 停止（关闭坐标录制覆盖层）
-            if hasattr(self, 'coord_recorder') and self.coord_recorder is not None:
-                self.coord_recorder.close()
-            self._set_recording_state(False)
-            self.record_btn.setEnabled(True)
-            current_mode = self.record_mode_combo.currentText()
-            if current_mode == "图像录制":
-                self.record_btn.setText("图像录制")
-            elif current_mode == "坐标录制":
-                self.record_btn.setText("坐标录制")
-            if hasattr(self, 'record_action'):
-                self.record_action.setText("开始录制")
-            self.showNormal()
-        else:
-            try:
-                self._set_recording_state(True)
-                self.record_btn.setEnabled(False)
-                self.record_btn.setText('录\n制\n中')
-                if hasattr(self, 'record_action'):
-                    self.record_action.setEnabled(False)
-                    self.record_action.setText('🔴 录制中...')
-                current_mode = self.record_mode_combo.currentText()
-                self.showMinimized()
-                if current_mode == "坐标录制":
-                    QTimer.singleShot(300, self.start_coordinate_recording)
-                else:
-                    QTimer.singleShot(300, self.start_image_recording)
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                self._set_recording_state(False)
-                current_mode = self.record_mode_combo.currentText()
-                if current_mode == "图像录制":
-                    self.record_btn.setText("图像录制")
-                elif current_mode == "坐标录制":
-                    self.record_btn.setText("坐标录制")
-                if hasattr(self, 'record_action'):
-                    self.record_action.setText("开始录制")
-                self.showNormal()
-                self.show_beautiful_message('critical', '错误', f"启动录制失败: {str(e)}")
-
-    def start_image_recording(self):
-        try:
-            from PyQt5.QtGui import QGuiApplication
-            screen = QGuiApplication.primaryScreen()
-            screen_pixmap = screen.grabWindow(0)
-            self.current_recording_dir = None
-            self.operation_count = 0
-            if hasattr(self, 'selection_overlay') and self.selection_overlay:
-                try:
-                    self.selection_overlay.close()
-                    self.selection_overlay.deleteLater()
-                except:
-                    pass
-                self.selection_overlay = None
-            from selection_overlay import SelectionOverlay
-            self.selection_overlay = SelectionOverlay(self, screen_pixmap=screen_pixmap, recording_dir=None)
-            self.selection_overlay.closed.connect(self.on_recording_finished)
-            self.selection_overlay.show()
-            self.selection_overlay.activateWindow()
-            self.selection_overlay.raise_()
-            self.selection_overlay.setFocus()
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            self._set_recording_state(False)
-            current_mode = self.record_mode_combo.currentText()
-            if current_mode == '图像录制':
-                self.record_btn.setText('图像录制')
-            elif current_mode == '坐标录制':
-                self.record_btn.setText('坐标录制')
-            if hasattr(self, 'record_action'):
-                self.record_action.setText('开始录制')
-            self.showNormal()
-            self.show_beautiful_message('critical', '错误', f'启动选择界面失败: {e}')
-
-    def on_recording_finished(self):
-        self._set_recording_state(False)
-        self.record_btn.setEnabled(True)
-        self.record_btn.setText('录\n制')
-        if hasattr(self, 'manage_recordings_btn'):
-            self.manage_recordings_btn.setEnabled(True)
-        if hasattr(self, 'record_action'):
-            self.record_action.setEnabled(True)
-            self.record_action.setText('开始录制')
-        self.showNormal()
-        self.raise_()
-        self.activateWindow()
-        if hasattr(self, 'selection_overlay') and self.selection_overlay:
-            try:
-                self.selection_overlay.deleteLater()
-            except:
-                pass
-            self.selection_overlay = None
-        if hasattr(self, 'folder_manager') and self.folder_manager.isVisible():
-            self.folder_manager.load_folders()
-        if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
-            self.load_folders_to_table(self.manager_tab.folder_table)
-        self.refresh_floating_window_list()
-        self.current_recording_dir = None
-        import gc
-        gc.collect()
-
-    def on_coordinate_recording_finished(self):
-        """坐标录制完成处理"""
-        if hasattr(self, 'coordinate_records') and self.coordinate_records:
-            try:
-                import json
-                recording_json_path = os.path.join(self.current_recording_dir, "recording.json")
-                with open(recording_json_path, 'w', encoding='utf-8') as f:
-                    json.dump(self.coordinate_records, f, indent=2, ensure_ascii=False)
-            except Exception:
-                pass
-        self._set_recording_state(False)
-        self.record_btn.setEnabled(True)
-        current_mode = self.record_mode_combo.currentText()
-        if current_mode == "图像录制":
-            self.record_btn.setText("图像录制")
-        elif current_mode == "坐标录制":
-            self.record_btn.setText("坐标录制")
-        if hasattr(self, 'record_action'):
-            self.record_action.setEnabled(True)
-            self.record_action.setText('开始录制')
-        if hasattr(self, 'coord_recorder'):
-            try:
-                self.coord_recorder.deleteLater()
-            except:
-                pass
-            self.coord_recorder = None
-        if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
-            self.load_folders_to_table(self.manager_tab.folder_table)
-        self.showNormal()
 
     def start_coordinate_recording(self):
         """启动坐标录制模式（macOS版本）"""

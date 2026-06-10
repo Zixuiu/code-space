@@ -34,7 +34,6 @@ class HybridDatabaseManager:
             return False
             
         try:
-            print(f"尝试连接到Supabase: {self.supabase_url}")
             self.supabase_client = create_client(self.supabase_url, self.supabase_key)
             # 测试连接
             test_response = self.supabase_client.table('users').select('id').limit(1).execute()
@@ -42,8 +41,6 @@ class HybridDatabaseManager:
             self.use_supabase = True
             return True
         except Exception as e:
-            print(f"连接Supabase失败: {e}")
-            print(f"请检查网络连接和Supabase配置: URL={self.supabase_url}")
             self.supabase_client = None
             self.use_supabase = False
             return False

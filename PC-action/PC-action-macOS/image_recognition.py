@@ -83,7 +83,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return _replay_stop_flag or (stop_check and stop_check())
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=1.5, stop_check=None, skip_cache_clear=False):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -318,12 +318,15 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 # 根据 match_timeout 自适应分配匹配时间
                 # 一次性给充足超时,避免分两次匹配增加延迟
                 # 快的 UI 0.01s 就返回,慢的 UI 给够时间渲染
-                single_attempt_timeout = max(0.5, match_timeout * 0.8)
+                single_attempt_timeout = match_timeout * 0.8
                 _match_t0 = time.time()
                 _roi_hint = None
                 if 'x' in operation and 'y' in operation:
                     _roi_hint = (operation['x'], operation['y'])
-                location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
+                if single_attempt_timeout <= 0.03:
+                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.001, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
+                else:
+                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
                 print(f"[耗时-回放] 步骤{step} 图片匹配: {_match_t1-_match_t0:.3f}s 结果={'命中' if location else '失败'} 图片={image_name}")
 
@@ -497,6 +500,54 @@ def _get_shared_screenshot():
         return _shared_screenshot
 
 
+def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None):
+    try:
+        arr = get_cached_image(image_path)
+        if arr is None:
+            return None
+        if _replay_stop_flag or (stop_check and stop_check()):
+            return None
+        screenshot = _mss_grab_array()
+        if screenshot is None:
+            return None
+        if consider_color:
+            result = cv2.matchTemplate(screenshot, arr, cv2.TM_CCOEFF_NORMED)
+        else:
+            gray_s = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            gray_t = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+            result = cv2.matchTemplate(gray_s, gray_t, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+        if max_val >= confidence:
+            h, w = arr.shape[:2]
+            return (max_loc[0], max_loc[1], w, h)
+    except:
+        pass
+    return None
+
+def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None):
+    try:
+        arr = get_cached_image(image_path)
+        if arr is None:
+            return None
+        if _replay_stop_flag or (stop_check and stop_check()):
+            return None
+        screenshot = _mss_grab_array()
+        if screenshot is None:
+            return None
+        if consider_color:
+            result = cv2.matchTemplate(screenshot, arr, cv2.TM_CCOEFF_NORMED)
+        else:
+            gray_s = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            gray_t = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+            result = cv2.matchTemplate(gray_s, gray_t, cv2.TM_CCOEFF_NORMED)
+        _, max_val, _, max_loc = cv2.minMaxLoc(result)
+        if max_val >= confidence:
+            h, w = arr.shape[:2]
+            return (max_loc[0], max_loc[1], w, h)
+    except:
+        pass
+    return None
+
 def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None):
     """
     在屏幕上查找指定图像，支持超时等待，支持可中断停止
@@ -518,6 +569,9 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     def _basename(p):
         return p.replace('\\', '/').split('/')[-1] if p else ''
     
+    if timeout <= 0.01:
+        return _find_image_flash(image_path, confidence, consider_color, stop_check)
+
     _func_start = time.time()
     start_time = time.time()
     
@@ -652,7 +706,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 print(f"[耗时-匹配] 首次截图快速匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                 return result
             if not (_replay_stop_flag or (stop_check and stop_check())):
-                result = _try_match(first_screenshot, skip_multi_scale=False)
+                if timeout > 0.1:  # 超时>0.1s才做多尺度匹配
+                    result = _try_match(first_screenshot, skip_multi_scale=False)
                 if result is not None:
                     print(f"[耗时-匹配] 首次截图多尺度匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                     return result

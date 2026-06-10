@@ -2,29 +2,22 @@
   {
     "step": 1,
     "action_type": "click",
-    "x": 1994,
+    "x": 2246,
     "y": 628,
     "delay": 0.3
   },
   {
     "step": 2,
     "action_type": "click",
-    "x": 2226,
-    "y": 618,
+    "x": 2230,
+    "y": 632,
     "delay": 0.3
   },
   {
     "step": 3,
     "action_type": "click",
-    "x": 2226,
-    "y": 618,
-    "delay": 0.3
-  },
-  {
-    "step": 4,
-    "action_type": "click",
-    "x": 1368,
-    "y": 950,
+    "x": 1374,
+    "y": 952,
     "delay": 0.3
   }
 ]

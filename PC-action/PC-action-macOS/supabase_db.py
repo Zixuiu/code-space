@@ -43,7 +43,6 @@ class SupabaseManager:
             self._retry_count = 0
             return True
         except Exception as e:
-            print(f"连接Supabase失败: {e}")
             self._connection_status = False
             self._last_check_time = time.time()
             return False

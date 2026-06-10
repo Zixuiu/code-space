@@ -113,7 +113,6 @@ class LoginManager:
         
         # 调试信息
         sender_email = os.getenv('SENDER_EMAIL', '')
-        print(f"SMTP配置加载结果: SENDER_EMAIL={'已配置' if sender_email else '未配置'}")
         if sender_email:
             # 隐藏密码中间部分，只显示首尾
             sender_password = os.getenv('SENDER_PASSWORD', '')
@@ -123,7 +122,6 @@ class LoginManager:
         
         # 如果仍未加载到SMTP配置，尝试从.env.example复制一份到当前目录
         if not sender_email or not sender_password:
-            print("未找到有效的SMTP配置")
             # 查找.env.example文件
             example_locations = []
             if getattr(sys, 'frozen', False):
@@ -148,7 +146,6 @@ class LoginManager:
         try:
             # 检查数据库是否可用
             if not DB_AVAILABLE or not hybrid_db_manager.is_connected():
-                print("数据库不可用，跳过本地用户同步")
                 return
             
             # 读取本地JSON文件中的所有用户

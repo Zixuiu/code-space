@@ -7,6 +7,6 @@
     "width": 20,
     "height": 81,
     "action_type": "left_click",
-    "delay": 0
+    "delay": 0.2
   }
 ]
