@@ -191,7 +191,7 @@ export default {
 			uni.navigateTo({ url: '/pages/transfer/transfer' })
 		},
 		showAll() {
-			uni.showToast({ title: '查看全部交易记录', icon: 'none' })
+			uni.navigateTo({ url: '/pages/transaction/transaction' })
 		},
 		}
 }
@@ -207,78 +207,78 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: calc(44px + env(safe-area-inset-top)) 24px 20px;
+	padding: calc(88rpx + env(safe-area-inset-top)) 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-left {
-	width: 44px;
+	width: 88rpx;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .balance-hero {
 	background: linear-gradient(135deg, #10B981, #059669);
-	margin: 16px 24px;
-	border-radius: 24px;
-	padding: 28px;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.3);
+	margin: 32rpx 48rpx;
+	border-radius: 48rpx;
+	padding: 56rpx;
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.3);
 }
 
 .balance-label {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: rgba(255, 255, 255, 0.8);
 	font-weight: 600;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .balance-amount {
 	display: flex;
 	align-items: baseline;
-	margin-bottom: 24px;
+	margin-bottom: 48rpx;
 }
 
 .currency-symbol {
-	font-size: 22px;
+	font-size: 44rpx;
 	color: #FFFFFF;
 	font-weight: 600;
-	margin-right: 4px;
+	margin-right: 8rpx;
 }
 
 .amount {
-	font-size: 44px;
+	font-size: 88rpx;
 	font-weight: 900;
 	color: #FFFFFF;
-	letter-spacing: -1px;
+	letter-spacing: -2rpx;
 }
 
 .balance-actions {
 	display: flex;
-	gap: 16px;
-	padding: 0 8px;
+	gap: 32rpx;
+	padding: 0 16rpx;
 }
 
 .action-btn {
 	flex: 1;
-	border-radius: 20px;
-	padding: 16px 8px;
+	border-radius: 40rpx;
+	padding: 32rpx 16rpx;
 	text-align: center;
-	backdrop-filter: blur(10px);
+	backdrop-filter: blur(20rpx);
 }
 
 .action-recharge {
@@ -295,11 +295,11 @@ export default {
 
 .action-icon {
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .action-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }
@@ -308,10 +308,10 @@ export default {
 	display: flex;
 	align-items: center;
 	background: #FFFFFF;
-	margin: 0 24px 16px;
-	border-radius: 20px;
-	padding: 20px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	margin: 0 48rpx 32rpx;
+	border-radius: 40rpx;
+	padding: 40rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .stat-item {
@@ -320,79 +320,79 @@ export default {
 }
 
 .stat-value {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 900;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .stat-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 600;
 }
 
 .stat-divider {
-	width: 1px;
-	height: 40px;
+	width: 2rpx;
+	height: 80rpx;
 	background: #E2E8F0;
 }
 
 .section {
-	margin: 0 24px;
+	margin: 0 48rpx;
 }
 
 .section-header {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .section-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 800;
 	color: #1E293B;
 }
 
 .section-more {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #10B981;
 	font-weight: 600;
 }
 
 .empty-state {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 48px 24px;
+	border-radius: 40rpx;
+	padding: 80rpx 48rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .empty-icon {
 	display: block;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .empty-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #94A3B8;
 	font-weight: 600;
 }
 
 .transaction-list {
 	background: #FFFFFF;
-	border-radius: 20px;
+	border-radius: 40rpx;
 	overflow: hidden;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .transaction-item {
 	display: flex;
 	align-items: center;
-	padding: 16px 20px;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 32rpx 40rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .transaction-item:last-child {
@@ -400,14 +400,14 @@ export default {
 }
 
 .trans-icon {
-	width: 44px;
-	height: 44px;
-	border-radius: 12px;
+	width: 88rpx;
+	height: 88rpx;
+	border-radius: 24rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 20px;
-	margin-right: 14px;
+	font-size: 40rpx;
+	margin-right: 28rpx;
 }
 
 .trans-icon.recharge {
@@ -431,20 +431,20 @@ export default {
 }
 
 .trans-title {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .trans-time {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 }
 
 .trans-amount {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 800;
 	color: #1E293B;
 }
@@ -454,6 +454,6 @@ export default {
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

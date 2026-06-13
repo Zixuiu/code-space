@@ -196,38 +196,38 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .add-btn {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #10B981;
-	width: 60px;
+	width: 120rpx;
 	text-align: right;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .stats-card {
 	display: flex;
 	align-items: center;
 	background: linear-gradient(135deg, #10B981, #059669);
-	margin: 16px 24px;
-	border-radius: 20px;
-	padding: 24px;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+	margin: 32rpx 48rpx;
+	border-radius: 40rpx;
+	padding: 48rpx;
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.25);
 }
 
 .stat-item {
@@ -236,93 +236,93 @@ export default {
 }
 
 .stat-value {
-	font-size: 24px;
+	font-size: 48rpx;
 	font-weight: 900;
 	color: #FFFFFF;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .stat-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: rgba(255, 255, 255, 0.8);
 	font-weight: 600;
 }
 
 .stat-divider {
-	width: 1px;
-	height: 40px;
+	width: 2rpx;
+	height: 80rpx;
 	background: rgba(255, 255, 255, 0.3);
 }
 
 .section {
-	padding: 0 24px;
+	padding: 0 48rpx;
 }
 
 .section-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .empty-state {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 48px 24px;
+	border-radius: 40rpx;
+	padding: 80rpx 48rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .empty-icon {
-	font-size: 48px;
+	font-size: 96rpx;
 	display: block;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .empty-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .empty-text {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
 }
 
 .skills-list {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 32rpx;
 }
 
 .skill-card {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 20px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 40rpx;
+	padding: 40rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .skill-header {
 	display: flex;
 	align-items: center;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .skill-icon {
-	width: 52px;
-	height: 52px;
+	width: 104rpx;
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 14px;
+	border-radius: 28rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 26px;
-	margin-right: 14px;
+	font-size: 52rpx;
+	margin-right: 28rpx;
 }
 
 .skill-info {
@@ -330,23 +330,23 @@ export default {
 }
 
 .skill-name {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .skill-category {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 }
 
 .skill-status {
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 700;
-	padding: 4px 12px;
-	border-radius: 12px;
+	padding: 8rpx 24rpx;
+	border-radius: 24rpx;
 }
 
 .skill-status.active {
@@ -360,18 +360,18 @@ export default {
 }
 
 .skill-desc {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #64748B;
 	line-height: 1.5;
-	margin-bottom: 14px;
+	margin-bottom: 28rpx;
 }
 
 .skill-footer {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding-bottom: 14px;
-	border-bottom: 1px solid #F1F5F9;
+	padding-bottom: 28rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .skill-price {
@@ -380,47 +380,47 @@ export default {
 }
 
 .price-symbol {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #10B981;
 	font-weight: 700;
 }
 
 .price-value {
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 900;
 	color: #10B981;
 }
 
 .price-unit {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
-	margin-left: 2px;
+	margin-left: 4rpx;
 }
 
 .skill-stats {
 	display: flex;
-	gap: 16px;
+	gap: 32rpx;
 }
 
 .stat {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 600;
 }
 
 .skill-actions {
 	display: flex;
-	gap: 12px;
-	margin-top: 14px;
+	gap: 24rpx;
+	margin-top: 28rpx;
 }
 
 .action-btn {
 	flex: 1;
 	text-align: center;
-	padding: 10px;
+	padding: 20rpx;
 	background: #F8FAFC;
-	border-radius: 12px;
-	font-size: 12px;
+	border-radius: 24rpx;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 600;
 }
@@ -430,6 +430,6 @@ export default {
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

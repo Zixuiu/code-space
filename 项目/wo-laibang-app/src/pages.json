@@ -319,7 +319,9 @@
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "我来帮",
 		"navigationBarBackgroundColor": "#EFF7EF",
-		"backgroundColor": "#EFF7EF"
+		"backgroundColor": "#EFF7EF",
+		"rpxCalcMaxDeviceWidth": 360,
+		"rpxCalcBaseDeviceWidth": 360
 	},
 	"tabBar": {
 		"color": "#999999",
@@ -327,11 +329,26 @@
 		"backgroundColor": "#FFFFFF",
 		"borderStyle": "white",
 		"list": [
-			{ "pagePath": "pages/index/index", "text": "发现" },
-			{ "pagePath": "pages/publish/publish", "text": "发布" },
-			{ "pagePath": "pages/orders/orders", "text": "订单" },
-			{ "pagePath": "pages/messages/messages", "text": "消息" },
-			{ "pagePath": "pages/profile/profile", "text": "我的" }
+			{
+				"pagePath": "pages/index/index",
+				"text": "发现"
+			},
+			{
+				"pagePath": "pages/publish/publish",
+				"text": "发布"
+			},
+			{
+				"pagePath": "pages/orders/orders",
+				"text": "订单"
+			},
+			{
+				"pagePath": "pages/messages/messages",
+				"text": "消息"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的"
+			}
 		]
 	},
 	"uniIdRouter": {},

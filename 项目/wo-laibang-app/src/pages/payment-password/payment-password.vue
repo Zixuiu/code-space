@@ -160,64 +160,64 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .desc-card {
 	text-align: center;
-	padding: 40px 24px;
+	padding: 80rpx 48rpx;
 	background: #FFFFFF;
-	margin: 16px 24px;
-	border-radius: 24px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	margin: 32rpx 48rpx;
+	border-radius: 48rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .desc-icon {
-	font-size: 64px;
+	font-size: 128rpx;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .desc-title {
-	font-size: 20px;
+	font-size: 40rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .desc-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .form-card {
 	background: #FFFFFF;
-	margin: 0 24px 16px;
-	border-radius: 20px;
-	padding: 20px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	margin: 0 48rpx 32rpx;
+	border-radius: 40rpx;
+	padding: 40rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .input-group {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .input-group:last-child {
@@ -225,91 +225,91 @@ export default {
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	margin-bottom: 8px;
+	letter-spacing: 1rpx;
+	margin-bottom: 16rpx;
 	display: block;
 }
 
 .input-wrapper {
 	background: #F8FAFC;
-	border-radius: 14px;
-	padding: 14px 16px;
-	border: 1px solid transparent;
+	border-radius: 28rpx;
+	padding: 28rpx 32rpx;
+	border: 2rpx solid transparent;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 	transition: all 0.3s;
 }
 
 .input-wrapper:focus-within {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.08);
 }
 
 .input-field {
 	flex: 1;
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #1E293B;
 	border: none;
 	outline: none;
 	background: transparent;
-	letter-spacing: 4px;
+	letter-spacing: 8rpx;
 }
 
 .toggle-pwd {
-	font-size: 18px;
+	font-size: 36rpx;
 	cursor: pointer;
-	padding: 4px;
+	padding: 8rpx;
 }
 
 .tips-section {
-	margin: 0 24px 24px;
-	padding: 16px;
+	margin: 0 48rpx 48rpx;
+	padding: 32rpx;
 	background: #F0FDF4;
-	border-radius: 14px;
+	border-radius: 28rpx;
 }
 
 .tips-header {
 	display: flex;
 	align-items: center;
-	margin-bottom: 10px;
+	margin-bottom: 20rpx;
 }
 
 .tips-icon {
-	font-size: 16px;
-	margin-right: 8px;
+	font-size: 32rpx;
+	margin-right: 16rpx;
 }
 
 .tips-title {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #059669;
 }
 
 .tips-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .btn-primary {
-	margin: 0 24px;
-	width: calc(100% - 48px);
-	height: 52px;
+	margin: 0 48rpx;
+	width: calc(100% - 96rpx);
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -322,9 +322,9 @@ export default {
 }
 
 .spinner {
-	width: 20px;
-	height: 20px;
-	border: 2px solid rgba(255, 255, 255, 0.3);
+	width: 40rpx;
+	height: 40rpx;
+	border: 4rpx solid rgba(255, 255, 255, 0.3);
 	border-top-color: #FFFFFF;
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
@@ -336,45 +336,45 @@ export default {
 
 .status-card {
 	text-align: center;
-	padding: 40px 24px;
+	padding: 80rpx 48rpx;
 	background: #FFFFFF;
-	margin: 16px 24px;
-	border-radius: 24px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	margin: 32rpx 48rpx;
+	border-radius: 48rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .status-icon {
-	font-size: 64px;
+	font-size: 128rpx;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .status-title {
-	font-size: 20px;
+	font-size: 40rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .status-desc {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .action-list {
-	margin: 24px;
+	margin: 48rpx;
 	background: #FFFFFF;
-	border-radius: 20px;
+	border-radius: 40rpx;
 	overflow: hidden;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .action-item {
 	display: flex;
 	align-items: center;
-	padding: 18px 20px;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 36rpx 40rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .action-item:last-child {
@@ -382,23 +382,23 @@ export default {
 }
 
 .action-icon {
-	font-size: 20px;
-	margin-right: 14px;
+	font-size: 40rpx;
+	margin-right: 28rpx;
 }
 
 .action-name {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 }
 
 .action-arrow {
-	font-size: 16px;
+	font-size: 32rpx;
 	color: #CBD5E1;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

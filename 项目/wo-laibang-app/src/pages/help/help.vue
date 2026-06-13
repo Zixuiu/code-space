@@ -174,48 +174,48 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .search-section {
-	padding: 16px 24px;
+	padding: 32rpx 48rpx;
 }
 
 .search-box {
 	display: flex;
 	align-items: center;
 	background: #FFFFFF;
-	border-radius: 24px;
-	padding: 12px 20px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 48rpx;
+	padding: 24rpx 40rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .search-icon {
-	margin-right: 12px;
+	margin-right: 24rpx;
 	display: flex;
 	align-items: center;
 }
 
 .search-input {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -224,58 +224,58 @@ export default {
 }
 
 .category-section {
-	padding: 0 24px 20px;
+	padding: 0 48rpx 40rpx;
 }
 
 .section-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .category-grid {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .category-item {
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 20px 12px;
+	border-radius: 32rpx;
+	padding: 40rpx 24rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .cat-icon {
-	margin-bottom: 10px;
+	margin-bottom: 20rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .cat-name {
-	font-size: 12px;
+	font-size: 24rpx;
 	font-weight: 600;
 	color: #1E293B;
 }
 
 .faq-section {
-	padding: 0 24px 20px;
+	padding: 0 48rpx 40rpx;
 }
 
 .faq-list {
 	background: #FFFFFF;
-	border-radius: 20px;
+	border-radius: 40rpx;
 	overflow: hidden;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .faq-item {
-	padding: 16px 20px;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 32rpx 40rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .faq-item:last-child {
@@ -289,7 +289,7 @@ export default {
 }
 
 .faq-q {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #1E293B;
 	flex: 1;
@@ -297,35 +297,35 @@ export default {
 
 .faq-arrow {
 	color: #94A3B8;
-	margin-left: 12px;
+	margin-left: 24rpx;
 	display: flex;
 	align-items: center;
 }
 
 .faq-answer {
-	margin-top: 12px;
-	padding-top: 12px;
-	border-top: 1px dashed #E2E8F0;
-	font-size: 13px;
+	margin-top: 24rpx;
+	padding-top: 24rpx;
+	border-top: 2rpx dashed #E2E8F0;
+	font-size: 26rpx;
 	color: #64748B;
 	line-height: 1.6;
 }
 
 .contact-section {
-	padding: 0 24px 24px;
+	padding: 0 48rpx 48rpx;
 }
 
 .contact-card {
 	background: linear-gradient(135deg, #10B981, #059669);
-	border-radius: 20px;
-	padding: 24px;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+	border-radius: 40rpx;
+	padding: 48rpx;
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.25);
 }
 
 .contact-item {
 	display: flex;
 	align-items: center;
-	margin-bottom: 20px;
+	margin-bottom: 40rpx;
 }
 
 .contact-item:last-child {
@@ -333,15 +333,15 @@ export default {
 }
 
 .contact-icon {
-	margin-right: 16px;
+	margin-right: 32rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .contact-emoji {
-	font-size: 28px;
-	margin-right: 16px;
+	font-size: 56rpx;
+	margin-right: 32rpx;
 }
 
 .contact-info {
@@ -349,69 +349,69 @@ export default {
 }
 
 .contact-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: rgba(255, 255, 255, 0.8);
 }
 
 .label-row {
 	display: flex;
 	align-items: center;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .label-icon {
-	margin-right: 6px;
+	margin-right: 12rpx;
 }
 
 .contact-value {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 
 .empty-search {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 48px 24px;
+	border-radius: 40rpx;
+	padding: 80rpx 48rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .empty-icon {
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .empty-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .empty-desc {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
 	display: block;
-	margin-bottom: 24px;
+	margin-bottom: 48rpx;
 }
 
 .empty-actions {
 	display: flex;
-	gap: 12px;
+	gap: 24rpx;
 	justify-content: center;
 }
 
 .action-btn {
-	padding: 12px 24px;
+	padding: 24rpx 48rpx;
 	background: #F8FAFC;
-	border-radius: 24px;
-	font-size: 13px;
+	border-radius: 48rpx;
+	font-size: 26rpx;
 	font-weight: 600;
 	color: #64748B;
 }

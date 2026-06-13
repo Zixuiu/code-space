@@ -205,28 +205,30 @@ export const useUserStore = defineStore('user', {
     },
 
     addCommission(amount, shareUserId, orderTitle, reward) {
-      if (!this.currentUser.commissionEarned) {
-        this.currentUser.commissionEarned = 0
+      if (shareUserId) {
+        const shareWalletKey = getWalletKey(shareUserId)
+        const shareWallet = uni.getStorageSync(shareWalletKey) || { balance: 0 }
+        shareWallet.balance = parseFloat(shareWallet.balance || 0) + amount
+        uni.setStorageSync(shareWalletKey, shareWallet)
       }
-      this.currentUser.commissionEarned += amount
-
-      const walletKey = getWalletKey(this.currentUser.id)
-      const wallet = uni.getStorageSync(walletKey) || { balance: 0 }
-      wallet.balance = parseFloat(wallet.balance || 0) + amount
-      uni.setStorageSync(walletKey, wallet)
-
-      if (this.walletInfo) {
-        this.walletInfo.balance = wallet.balance
-      }
-
-      if (this.currentUser.sharedNeeds && this.currentUser.sharedNeeds.length > 0) {
-        const sharedNeed = this.currentUser.sharedNeeds.find(sn => sn.needTitle === orderTitle)
-        if (sharedNeed) {
-          sharedNeed.earned = (sharedNeed.earned || 0) + amount
+      if (shareUserId === this.currentUser.id) {
+        if (!this.currentUser.commissionEarned) {
+          this.currentUser.commissionEarned = 0
         }
+        this.currentUser.commissionEarned += amount
+        if (this.walletInfo) {
+          const myWalletKey = getWalletKey(this.currentUser.id)
+          const myWallet = uni.getStorageSync(myWalletKey) || { balance: 0 }
+          this.walletInfo.balance = parseFloat(myWallet.balance) || 0
+        }
+        if (this.currentUser.sharedNeeds && this.currentUser.sharedNeeds.length > 0) {
+          const sharedNeed = this.currentUser.sharedNeeds.find(sn => sn.needTitle === orderTitle)
+          if (sharedNeed) {
+            sharedNeed.earned = (sharedNeed.earned || 0) + amount
+          }
+        }
+        uni.setStorageSync('userInfo', this.currentUser)
       }
-
-      uni.setStorageSync('userInfo', this.currentUser)
     },
 
     deductBalance(amount) {

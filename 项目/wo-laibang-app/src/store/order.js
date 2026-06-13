@@ -184,6 +184,11 @@ export const useOrderStore = defineStore('order', {
       }
 
       if (order.helperConfirmed && order.publisherConfirmed) {
+        if (order.settled) {
+          order.status = ORDER_STATUS.COMPLETED
+          order.completedAt = Date.now()
+          return { success: true }
+        }
         order.status = ORDER_STATUS.COMPLETED
         order.completedAt = Date.now()
 
@@ -195,10 +200,11 @@ export const useOrderStore = defineStore('order', {
           userStore.addCommission(shareCommission, order.shareUserId, order.title, order.reward)
         }
 
-        const actualReward = order.reward - platformCommission
+        const actualReward = order.reward - platformCommission - shareCommission
         if (order.helper && order.helper.id) {
           userStore.addBalanceToUser(order.helper.id, actualReward)
         }
+        order.settled = true
 
         const allConvs = uni.getStorageSync('conversations') || []
         allConvs.forEach((conv) => {
@@ -213,7 +219,7 @@ export const useOrderStore = defineStore('order', {
     },
 
     cancelOrder(orderId) {
-      const order = this.orders.find(o => o.id === orderId)
+      const order = this.orders.find(o => o.id === orderId || o.needId === orderId)
       if (!order) {
         return { success: false, message: '订单不存在' }
       }
@@ -232,6 +238,36 @@ export const useOrderStore = defineStore('order', {
 
       order.status = ORDER_STATUS.CANCELLED
       order.cancelledAt = Date.now()
+
+      const reward = order.reward || 0
+      if (reward > 0 && !order.settled && order.publisher && order.publisher.id) {
+        userStore.addBalanceToUser(order.publisher.id, reward)
+        const transactions = uni.getStorageSync('walletTransactions') || []
+        transactions.unshift({
+          id: Date.now(),
+          type: 'refund',
+          title: '取消订单退款：' + order.title,
+          amount: reward,
+          time: Date.now()
+        })
+        uni.setStorageSync('walletTransactions', transactions)
+      }
+
+      try {
+        const { useNeedStore } = require('./need')
+        const needStore = useNeedStore()
+        const need = needStore.needs.find(n => n.id === order.needId)
+        if (need) {
+          if (isHelper) {
+            need.status = 'open'
+            need.helper = null
+            need.acceptedAt = null
+          } else {
+            need.status = 'cancelled'
+            need.cancelledAt = Date.now()
+          }
+        }
+      } catch(e) {}
 
       const allConvs = uni.getStorageSync('conversations') || []
       if (isPublisher && order.publisher?.id) {
@@ -253,60 +289,51 @@ export const useOrderStore = defineStore('order', {
 
     completeOrder(orderId) {
       const order = this.orders.find(o => o.id === orderId)
-      const userStore = useUserStore()
-
-      if (order) {
+      if (!order) return { success: false, message: '订单不存在' }
+      if (order.status !== ORDER_STATUS.PENDING_CONFIRM) {
+        return { success: false, message: '请先申请完成并等待对方确认' }
+      }
+      if (order.settled) {
         order.status = ORDER_STATUS.COMPLETED
         order.completedAt = Date.now()
-
-        const platformCommission = order.reward * COMMISSION_RATE
-        let shareCommission = 0
-
-        if (order.shareUserId) {
-          shareCommission = order.reward * SHARE_COMMISSION_RATE
-          const actualPlatformCommission = platformCommission - shareCommission
-
-          userStore.addCommission(shareCommission, order.shareUserId, order.title, order.reward)
-
-          const transaction = {
-            id: `trans_${Date.now()}`,
-            type: 'commission',
-            amount: shareCommission,
-            orderId: order.id,
-            orderTitle: order.title,
-            fromUserId: order.shareUserId,
-            time: this.formatTime(Date.now()),
-            status: 'completed'
-          }
-          const transactions = uni.getStorageSync('transactions') || []
-          transactions.unshift(transaction)
-          uni.setStorageSync('transactions', transactions)
-        }
-
-        order.platformCommission = platformCommission
-        order.shareCommission = shareCommission
-        order.actualPlatformCommission = platformCommission - shareCommission
-
-        const actualReward = order.reward - platformCommission
-        if (order.helper && order.helper.id) {
-          userStore.addBalanceToUser(order.helper.id, actualReward)
-        }
-
-        const allConvs = uni.getStorageSync('conversations') || []
-        if (order.publisher?.id) {
-          const convIndex = allConvs.findIndex(c => c.userId === order.publisher.id)
-          if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
-            allConvs[convIndex].relatedOrder.status = ORDER_STATUS.COMPLETED
-          }
-        }
-        if (order.helper?.id) {
-          const convIndex = allConvs.findIndex(c => c.userId === order.helper.id)
-          if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
-            allConvs[convIndex].relatedOrder.status = ORDER_STATUS.COMPLETED
-          }
-        }
-        uni.setStorageSync('conversations', allConvs)
+        return order
       }
+
+      if (!order.helperConfirmed || !order.publisherConfirmed) {
+        return { success: false, message: '需要双方确认后才能完成订单' }
+      }
+
+      const userStore = useUserStore()
+
+      order.status = ORDER_STATUS.COMPLETED
+      order.completedAt = Date.now()
+
+      const platformCommission = order.reward * COMMISSION_RATE
+      let shareCommission = 0
+      if (order.shareUserId) {
+        shareCommission = order.reward * SHARE_COMMISSION_RATE
+        userStore.addCommission(shareCommission, order.shareUserId, order.title, order.reward)
+      }
+      const actualReward = order.reward - platformCommission - shareCommission
+      if (order.helper && order.helper.id) {
+        userStore.addBalanceToUser(order.helper.id, actualReward)
+      }
+      order.settled = true
+
+      const allConvs = uni.getStorageSync('conversations') || []
+      if (order.publisher?.id) {
+        const convIndex = allConvs.findIndex(c => c.userId === order.publisher.id)
+        if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
+          allConvs[convIndex].relatedOrder.status = ORDER_STATUS.COMPLETED
+        }
+      }
+      if (order.helper?.id) {
+        const convIndex = allConvs.findIndex(c => c.userId === order.helper.id)
+        if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
+          allConvs[convIndex].relatedOrder.status = ORDER_STATUS.COMPLETED
+        }
+      }
+      uni.setStorageSync('conversations', allConvs)
       return order
     },
 

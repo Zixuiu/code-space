@@ -258,21 +258,21 @@ export default {
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 700;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 40px;
+	width: 80rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .mark-read-btn {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #10B981;
 	font-weight: 600;
 }
@@ -315,36 +315,36 @@ export default {
 }
 
 .content-scroll {
-	height: calc(100vh - 140px);
+	height: calc(100vh - 280rpx);
 }
 
 .empty-state {
-	padding-top: 120px;
+	padding-top: 80rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 }
 
 .empty-icon-wrapper {
-	width: 100px;
-	height: 100px;
+	width: 200rpx;
+	height: 200rpx;
 	background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
-	border-radius: 28px;
+	border-radius: 56rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-bottom: 20px;
+	margin-bottom: 40rpx;
 }
 
 .empty-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #374151;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .empty-subtitle {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #9CA3AF;
 }
 
@@ -357,7 +357,7 @@ export default {
 }
 
 .date-label {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #64748B;
 	margin-bottom: 16rpx;
@@ -501,19 +501,19 @@ export default {
 }
 
 .timeline-title {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #1E293B;
 	flex: 1;
 }
 
 .timeline-time {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
 }
 
 .timeline-desc {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #64748B;
 	line-height: 1.5;
 	display: -webkit-box;

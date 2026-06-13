@@ -173,91 +173,91 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 	position: relative;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .app-info-section {
 	text-align: center;
-	padding: 48px 24px 32px;
+	padding: 80rpx 48rpx 64rpx;
 	background: #FFFFFF;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .app-logo {
-	width: 100px;
-	height: 100px;
+	width: 200rpx;
+	height: 200rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 24px;
+	border-radius: 48rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin: 0 auto 20px;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.25);
+	margin: 0 auto 40rpx;
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.25);
 }
 
 .logo-icon {
-	font-size: 48px;
+	font-size: 96rpx;
 }
 
 .app-name {
-	font-size: 28px;
+	font-size: 56rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .app-slogan {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .app-version {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
 	background: #F1F5F9;
-	padding: 6px 16px;
-	border-radius: 20px;
+	padding: 12rpx 32rpx;
+	border-radius: 40rpx;
 	display: inline-block;
 }
 
 .card-section {
-	padding: 0 24px;
-	margin-bottom: 16px;
+	padding: 0 48rpx;
+	margin-bottom: 32rpx;
 }
 
 .card {
 	background: #FFFFFF;
-	border-radius: 20px;
+	border-radius: 40rpx;
 	overflow: hidden;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .card-item {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 18px 20px;
+	padding: 36rpx 40rpx;
 }
 
 .card-left {
@@ -266,50 +266,50 @@ export default {
 }
 
 .card-icon {
-	font-size: 20px;
-	margin-right: 14px;
+	font-size: 40rpx;
+	margin-right: 28rpx;
 }
 
 .card-text {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 }
 
 .card-value {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
 }
 
 .card-arrow {
-	font-size: 18px;
+	font-size: 36rpx;
 	color: #CBD5E1;
 }
 
 .card-divider {
-	height: 1px;
+	height: 2rpx;
 	background: #F1F5F9;
-	margin: 0 20px;
+	margin: 0 40rpx;
 }
 
 .copyright-section {
 	text-align: center;
-	padding: 32px 24px;
+	padding: 64rpx 48rpx;
 }
 
 .copyright-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 	display: block;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .icp-text {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #CBD5E1;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

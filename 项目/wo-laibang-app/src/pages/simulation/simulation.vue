@@ -247,7 +247,7 @@ const getStatusText = (status) => {
 
 .header {
   text-align: center;
-  padding: 40rpx 0;
+  padding: 60rpx 0;
   background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
   border-radius: 24rpx;
   margin-bottom: 30rpx;
@@ -588,7 +588,7 @@ const getStatusText = (status) => {
 
 .empty-log {
   text-align: center;
-  padding: 80rpx 0;
+  padding: 60rpx 0;
   color: #9CA3AF;
   font-size: 28rpx;
 }

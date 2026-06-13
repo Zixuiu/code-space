@@ -131,52 +131,52 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .type-section {
-	padding: 24px 24px 16px;
+	padding: 48rpx 48rpx 32rpx;
 }
 
 .section-title {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 14px;
+	margin-bottom: 28rpx;
 }
 
 .type-grid {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .type-item {
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 20px 12px;
+	border-radius: 32rpx;
+	padding: 40rpx 24rpx;
 	text-align: center;
-	border: 2px solid transparent;
+	border: 4rpx solid transparent;
 	transition: all 0.2s;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .type-item.selected {
@@ -186,11 +186,11 @@ export default {
 
 .type-icon {
 	display: block;
-	margin: 0 auto 10px;
+	margin: 0 auto 20rpx;
 }
 
 .type-name {
-	font-size: 12px;
+	font-size: 24rpx;
 	font-weight: 600;
 	color: #64748B;
 }
@@ -200,19 +200,19 @@ export default {
 }
 
 .content-section {
-	padding: 0 24px 16px;
+	padding: 0 48rpx 32rpx;
 }
 
 .textarea-card {
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 16px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	border-radius: 32rpx;
+	padding: 32rpx;
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .textarea {
 	width: 100%;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -223,36 +223,36 @@ export default {
 }
 
 .word-count {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 	text-align: right;
 	display: block;
-	margin-top: 8px;
+	margin-top: 16rpx;
 }
 
 .contact-section {
-	padding: 0 24px 16px;
+	padding: 0 48rpx 32rpx;
 }
 
 .input-card {
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 14px 16px;
+	border-radius: 32rpx;
+	padding: 28rpx 32rpx;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	gap: 24rpx;
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .input-icon {
-	font-size: 18px;
-	width: 20px;
+	font-size: 36rpx;
+	width: 40rpx;
 	text-align: center;
 }
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -261,19 +261,19 @@ export default {
 }
 
 .submit-section {
-	padding: 16px 24px;
+	padding: 32rpx 48rpx;
 }
 
 .btn-primary {
 	width: 100%;
-	height: 52px;
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -281,8 +281,8 @@ export default {
 }
 
 .btn-primary:active:not(:disabled) {
-	transform: translateY(-2px);
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+	transform: translateY(-4rpx);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.4);
 }
 
 .btn-primary:disabled {
@@ -291,39 +291,39 @@ export default {
 }
 
 .tips-section {
-	margin: 0 24px;
-	padding: 16px;
+	margin: 0 48rpx;
+	padding: 32rpx;
 	background: #F0FDF4;
-	border-radius: 14px;
+	border-radius: 28rpx;
 }
 
 .tips-header {
 	display: flex;
 	align-items: center;
-	margin-bottom: 10px;
+	margin-bottom: 20rpx;
 }
 
 .tips-icon {
-	font-size: 18px;
-	width: 20px;
+	font-size: 36rpx;
+	width: 40rpx;
 	text-align: center;
-	margin-right: 8px;
+	margin-right: 16rpx;
 }
 
 .tips-title {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #059669;
 }
 
 .tips-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

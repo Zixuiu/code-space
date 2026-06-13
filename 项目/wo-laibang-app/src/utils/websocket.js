@@ -18,6 +18,11 @@ class WebSocketService {
     if (this.isConnected) return
     if (this.isManualClose) return
 
+    if (CONFIG.USE_MOCK) {
+      console.log('WebSocket: Skipped in mock mode')
+      return
+    }
+
     const token = uni.getStorageSync('token')
     if (!token) {
       console.warn('WebSocket: No token available')

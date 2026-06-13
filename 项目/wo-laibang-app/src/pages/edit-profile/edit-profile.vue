@@ -263,35 +263,35 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .save-btn {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #10B981;
-	width: 44px;
+	width: 88rpx;
 	text-align: right;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .avatar-section {
 	text-align: center;
-	padding: 32px 24px;
+	padding: 64rpx 48rpx;
 	background: #FFFFFF;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .avatar-wrapper {
@@ -300,14 +300,14 @@ export default {
 }
 
 .avatar {
-	width: 96px;
-	height: 96px;
+	width: 192rpx;
+	height: 192rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 40px;
+	font-size: 80rpx;
 	color: #FFFFFF;
 	font-weight: 800;
 }
@@ -316,8 +316,8 @@ export default {
 	position: absolute;
 	bottom: 0;
 	right: 0;
-	width: 36px;
-	height: 36px;
+	width: 72rpx;
+	height: 72rpx;
 	background: #FFFFFF;
 	border-radius: 50%;
 	display: flex;
@@ -328,27 +328,27 @@ export default {
 }
 
 .avatar-hint {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
-	margin-top: 12px;
+	margin-top: 24rpx;
 	display: block;
 }
 
 .form-section {
-	padding: 0 24px;
+	padding: 0 48rpx;
 }
 
 .form-card {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 8px 0;
-	margin-bottom: 16px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 40rpx;
+	padding: 16rpx 0;
+	margin-bottom: 32rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .form-item {
-	padding: 14px 20px;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 28rpx 40rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .form-item:last-child {
@@ -356,13 +356,13 @@ export default {
 }
 
 .form-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 1rpx;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .form-input {
@@ -373,7 +373,7 @@ export default {
 
 .form-input input {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -382,22 +382,22 @@ export default {
 }
 
 .arrow {
-	font-size: 18px;
+	font-size: 36rpx;
 	color: #94A3B8;
 }
 
 .tag {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #10B981;
 	background: #F0FDF4;
-	padding: 4px 10px;
-	border-radius: 10px;
+	padding: 8rpx 20rpx;
+	border-radius: 20rpx;
 	font-weight: 700;
 }
 
 .gender-select {
 	display: flex;
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .gender-item {
@@ -405,11 +405,11 @@ export default {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: 12px;
+	padding: 24rpx;
 	background: #F8FAFC;
-	border-radius: 14px;
-	border: 2px solid transparent;
-	font-size: 24px;
+	border-radius: 28rpx;
+	border: 4rpx solid transparent;
+	font-size: 48rpx;
 }
 
 .gender-item.selected {
@@ -418,9 +418,9 @@ export default {
 }
 
 .gender-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
-	margin-top: 4px;
+	margin-top: 8rpx;
 	font-weight: 600;
 }
 
@@ -430,7 +430,7 @@ export default {
 
 .form-textarea textarea {
 	width: 100%;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -440,14 +440,14 @@ export default {
 }
 
 .char-count {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
 	text-align: right;
 	display: block;
-	margin-top: 4px;
+	margin-top: 8rpx;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

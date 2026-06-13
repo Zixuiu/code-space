@@ -222,18 +222,18 @@ export default {
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 40px;
+	width: 80rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 89px);
+	height: calc(100vh - 178rpx);
 	padding: 24rpx;
 }
 
@@ -242,7 +242,7 @@ export default {
 	border-radius: 24rpx;
 	padding: 32rpx 24rpx;
 	margin-bottom: 24rpx;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .step-indicator {
@@ -317,7 +317,7 @@ export default {
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 1rpx;
 	margin-bottom: 12rpx;
 	display: block;
 }
@@ -392,7 +392,7 @@ export default {
 
 .success-content {
 	text-align: center;
-	padding: 40rpx 0;
+	padding: 60rpx 0;
 }
 
 .success-icon {

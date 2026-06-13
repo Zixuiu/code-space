@@ -177,6 +177,9 @@ export const useNeedStore = defineStore('need', {
         return { success: false, message: '该需求已被接单' }
       }
 
+      if (need.publisher.id === userStore.currentUser.id) {
+        return { success: false, message: '不能接自己发布的需求' }
+      }
       const alreadyAccepted = need.helper && need.helper.id === userStore.currentUser.id
       if (alreadyAccepted) {
         return { success: false, message: '您已接过此单' }
@@ -270,11 +273,37 @@ export const useNeedStore = defineStore('need', {
     cancelNeed(needId) {
       const userStore = useUserStore()
       const need = this.needs.find(n => n.id === needId)
-      if (!need || need.status !== NEED_STATUS.OPEN || need.publisher.id !== userStore.currentUser.id) {
-        return { success: false, message: '取消失败' }
+      if (!need) {
+        return { success: false, message: '需求不存在' }
       }
+      if (need.publisher.id !== userStore.currentUser.id) {
+        return { success: false, message: '只有发布者才能取消' }
+      }
+      if (need.status !== NEED_STATUS.OPEN && need.status !== NEED_STATUS.ACCEPTED) {
+        return { success: false, message: '当前状态无法取消' }
+      }
+      const reward = need.reward || 0
       need.status = NEED_STATUS.CANCELLED
-      return { success: true, message: '已取消' }
+      need.cancelledAt = Date.now()
+      const orderStore = useOrderStore()
+      const order = orderStore.orders.find(o => o.needId === needId)
+      if (reward > 0 && !(order && order.settled)) {
+        userStore.addBalanceToUser(need.publisher.id, reward)
+        const transactions = uni.getStorageSync('walletTransactions') || []
+        transactions.unshift({
+          id: Date.now(),
+          type: 'refund',
+          title: '取消需求退款：' + need.title,
+          amount: reward,
+          time: Date.now()
+        })
+        uni.setStorageSync('walletTransactions', transactions)
+      }
+      if (order) {
+        order.status = NEED_STATUS.CANCELLED
+        order.cancelledAt = Date.now()
+      }
+      return { success: true, message: '已取消，赏金已退回钱包' }
     },
 
     markComplete(needId) {
@@ -289,12 +318,14 @@ export const useNeedStore = defineStore('need', {
       
       need.status = NEED_STATUS.PENDING_CONFIRM
       need.markedCompleteAt = Date.now()
+      need.helperConfirmed = true
 
       const orderStore = useOrderStore()
       const order = orderStore.orders.find(o => o.needId === needId)
       if (order) {
         order.status = NEED_STATUS.PENDING_CONFIRM
         order.markedCompleteAt = Date.now()
+        order.helperConfirmed = true
       }
 
       const allConvs = uni.getStorageSync('conversations') || []
@@ -319,14 +350,32 @@ export const useNeedStore = defineStore('need', {
         return { success: false, message: '只有发布者才能确认完成' }
       }
 
+      need.publisherConfirmed = true
+
+      const orderStore = useOrderStore()
+      const order = orderStore.orders.find(o => o.needId === needId)
+      if (order) {
+        order.publisherConfirmed = true
+      }
+
+      if (!need.helperConfirmed) {
+        this.sendCompleteNotification(need, 'publisher')
+        return { success: true, message: '已确认，等待帮手确认后订单完成' }
+      }
+
       const helper = need.helper
       const reward = need.reward
+
+      if (order && order.settled) {
+        need.status = NEED_STATUS.COMPLETED
+        need.completedAt = Date.now()
+        this.sendCompleteNotification(need, 'publisher')
+        return { success: true, message: '确认完成，订单已结束' }
+      }
       
       need.status = NEED_STATUS.COMPLETED
       need.completedAt = Date.now()
 
-      const orderStore = useOrderStore()
-      const order = orderStore.orders.find(o => o.needId === needId)
       if (order) {
         order.status = NEED_STATUS.COMPLETED
         order.completedAt = Date.now()
@@ -340,9 +389,13 @@ export const useNeedStore = defineStore('need', {
         userStore.addCommission(shareCommission, order.shareUserId, need.title, reward)
       }
       
-      const actualReward = reward - platformCommission
+      const actualReward = reward - platformCommission - shareCommission
       if (helper && helper.id) {
         userStore.addBalanceToUser(helper.id, actualReward)
+      }
+
+      if (order) {
+        order.settled = true
       }
 
       const allConvs = uni.getStorageSync('conversations') || []

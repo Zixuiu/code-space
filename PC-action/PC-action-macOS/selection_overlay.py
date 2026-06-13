@@ -968,6 +968,7 @@ class SelectionOverlay(QWidget):
                     # 用于标识是否是滚动操作
                     self.is_scroll = False
                     self.scroll_amount = 0
+                    self.scroll_direction = 1
                     
                 def showEvent(self, event):
                     """重写showEvent，确保对话框显示时立即获取焦点"""
@@ -978,18 +979,18 @@ class SelectionOverlay(QWidget):
                     self.setFocus()
                     
                 def wheelEvent(self, event):
-                    """处理滚轮事件，记录滚动操作"""
-                    # 获取滚动量（正数向上，负数向下）
                     delta = event.angleDelta().y()
                     if delta > 0:
-                        self.scroll_amount = 3  # 向上滚动3格
-                        self.line_edit.setText("🔄 向上滚动")
+                        self.scroll_direction = 1
                     else:
-                        self.scroll_amount = -3  # 向下滚动3格
-                        self.line_edit.setText("🔄 向下滚动")
+                        self.scroll_direction = -1
                     self.is_scroll = True
-                    # 滚轮操作已记录，自动确认关闭对话框
-                    self.accept()
+                    direction_text = "向上" if self.scroll_direction > 0 else "向下"
+                    self.hint_label.setText(f"已检测到{direction_text}滚动，请输入滚动量:")
+                    self.line_edit.setReadOnly(False)
+                    self.line_edit.setText("3")
+                    self.line_edit.selectAll()
+                    self.line_edit.setFocus()
                     event.accept()
                     
                 def keyPressEvent(self, event):
@@ -1061,8 +1062,11 @@ class SelectionOverlay(QWidget):
             if input_dialog.exec_() == QDialog.Accepted:
                 # 检查是否是滚动操作
                 if input_dialog.is_scroll:
-                    # 处理滚动操作
-                    scroll_amount = input_dialog.scroll_amount
+                    try:
+                        amount = int(input_dialog.line_edit.text())
+                    except (ValueError, AttributeError):
+                        amount = 3
+                    scroll_amount = input_dialog.scroll_direction * amount
                     ok = True
                     key = ""
                 else:

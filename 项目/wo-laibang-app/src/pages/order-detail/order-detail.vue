@@ -65,9 +65,9 @@
 			<view class="detail-item" v-if="order.status === 'completed' && order.rating">
 				<view class="label">服务评价</view>
 				<view class="value">
-						<IconFont name="star" :size="24" style="margin-right: 4px; color: #F59E0B;" />{{ order.rating }} 分
+						<IconFont name="star" :size="24" style="margin-right: 8rpx; color: #F59E0B;" />{{ order.rating }} 分
 					</view>
-				<view class="value desc" v-if="order.comment" style="margin-top: 5px;">"{{ order.comment }}"</view>
+				<view class="value desc" v-if="order.comment" style="margin-top: 10rpx;">"{{ order.comment }}"</view>
 			</view>
 
 			<view class="detail-item">
@@ -79,6 +79,8 @@
 			<view class="btn-group">
 				<!-- 发布者取消按钮 -->
 				<button v-if="order.status === 'open' && isPublisher" class="btn btn-cancel" @click="cancelOrder">取消订单</button>
+				<!-- 发布者取消已接单订单 -->
+				<button v-if="order.status === 'accepted' && isPublisher" class="btn btn-cancel" @click="cancelOrder">取消订单</button>
 				<!-- 帮手取消按钮 -->
 				<button v-if="order.status === 'accepted' && !isPublisher" class="btn btn-cancel" @click="cancelOrder">取消接单</button>
 				<!-- 帮手申请完成按钮 -->
@@ -359,8 +361,8 @@ export default {
 
 			if (!isConfirmed) return
 
-			const needId = this.order.needId || this.order.id
-			const result = this.orderStore.cancelOrder(needId)
+			const orderId = this.order.id
+			const result = this.orderStore.cancelOrder(orderId)
 
 			if (result.success) {
 				this.order.status = 'cancelled'
@@ -472,40 +474,40 @@ export default {
 }
 
 .nav-header {
-	padding: 44px 20px 10px;
+	padding: 80rpx 40rpx 20rpx;
 }
 
 .screen {
-	padding: 0 30px;
-	height: calc(100vh - 80px);
+	padding: 0 60rpx;
+	height: calc(100vh - 160rpx);
 }
 
 .hero-title {
-	font-size: 32px;
+	font-size: 64rpx;
 	font-weight: 800;
-	margin: 20px 0 40px;
-	letter-spacing: -1px;
+	margin: 40rpx 0 80rpx;
+	letter-spacing: -2rpx;
 	color: #1F2937;
 	line-height: 1.2;
 }
 
 .detail-item {
-	margin-bottom: 35px;
-	border-left: 3px solid #D1FAE5;
-	padding-left: 20px;
+	margin-bottom: 70rpx;
+	border-left: 6rpx solid #D1FAE5;
+	padding-left: 40rpx;
 }
 
 .label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #6B7280;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2rpx;
 }
 
 .value {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 600;
 	color: #1F2937;
 }
@@ -519,39 +521,39 @@ export default {
 
 .value.highlight {
 	color: #10B981;
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 800;
 }
 
 .value.desc {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 400;
 	color: #4B5563;
 	line-height: 1.6;
 }
 
 .value.time-node {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #6B7280;
 }
 
 .image-wrapper {
-	margin-top: 10px;
-	border-radius: 12px;
+	margin-top: 20rpx;
+	border-radius: 24rpx;
 	overflow: hidden;
 }
 
 .order-image {
 	width: 100%;
-	height: 200px;
-	border-radius: 12px;
+	height: 400rpx;
+	border-radius: 24rpx;
 }
 
 .no-image {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #9CA3AF;
 	font-style: italic;
-	margin-top: 8px;
+	margin-top: 16rpx;
 }
 
 .deadline-text {
@@ -562,7 +564,7 @@ export default {
 .people-minimal {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: 20rpx;
 }
 
 .person {
@@ -572,22 +574,22 @@ export default {
 }
 
 .p-role {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #9CA3AF;
 }
 
 .p-name {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #374151;
 }
 
 .btn-group {
-	margin-top: 40px;
-	padding-bottom: 40px;
+	margin-top: 80rpx;
+	padding-bottom: 80rpx;
 	display: flex;
 	flex-direction: column;
-	gap: 15px;
+	gap: 30rpx;
 }
 
 button {
@@ -602,13 +604,13 @@ button {
 }
 
 .btn {
-	height: 56px;
-	border-radius: 28px;
+	height: 112rpx;
+	border-radius: 56rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-weight: 700;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none !important;
 	outline: none !important;
 	box-shadow: none !important;
@@ -623,7 +625,7 @@ button {
 .btn-p {
 	background: #10B981;
 	color: white;
-	box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+	box-shadow: 0 20rpx 40rpx rgba(16, 185, 129, 0.2);
 }
 
 .btn-s {

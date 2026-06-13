@@ -6,12 +6,6 @@
 		</view>
 
 		<scroll-view class="content-scroll" scroll-y>
-			<view class="logo-section">
-				<view class="logo-box"><IconFont name="lock" :size="48" /></view>
-				<text class="logo-title">忘记密码了？</text>
-				<text class="logo-subtitle">没关系，我们来帮您找回</text>
-			</view>
-
 			<view class="form-card">
 				<view class="step-indicator">
 					<view class="step-item" :class="{ active: step >= 1, completed: step > 1 }">
@@ -240,84 +234,55 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
-.logo-section {
-	text-align: center;
-	padding: 32px 24px 24px;
-}
 
-.logo-box {
-	width: 72px;
-	height: 72px;
-	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 50%;
-	margin: 0 auto 16px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 36px;
-	box-shadow: 0 10px 28px rgba(16, 185, 129, 0.25);
-}
 
-.logo-title {
-	font-size: 22px;
-	font-weight: 900;
-	color: #1E293B;
-	display: block;
-	margin-bottom: 6px;
-	letter-spacing: -0.5px;
-}
 
-.logo-subtitle {
-	font-size: 14px;
-	color: #64748B;
-	font-weight: 500;
-}
 
 .form-card {
-	margin: 0 24px;
-	padding: 28px 24px 32px;
+	margin: 0 48rpx;
+	padding: 56rpx 48rpx 64rpx;
 }
 
 .step-indicator {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-bottom: 32px;
+	margin-bottom: 64rpx;
 }
 
 .step-item {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
+	gap: 12rpx;
 }
 
 .step-circle {
-	width: 32px;
-	height: 32px;
+	width: 64rpx;
+	height: 64rpx;
 	border-radius: 50%;
 	background: #E2E8F0;
 	color: #94A3B8;
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	display: flex;
 	align-items: center;
@@ -328,7 +293,7 @@ export default {
 .step-item.active .step-circle {
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.3);
 }
 
 .step-item.completed .step-circle {
@@ -337,7 +302,7 @@ export default {
 }
 
 .step-label {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
 	font-weight: 600;
 	white-space: nowrap;
@@ -348,11 +313,11 @@ export default {
 }
 
 .step-line {
-	width: 40px;
-	height: 2px;
+	width: 80rpx;
+	height: 4rpx;
 	background: #E2E8F0;
-	margin: 0 8px;
-	margin-bottom: 20px;
+	margin: 0 16rpx;
+	margin-bottom: 40rpx;
 	transition: all 0.3s;
 }
 
@@ -365,50 +330,50 @@ export default {
 }
 
 @keyframes fadeIn {
-	from { opacity: 0; transform: translateY(10px); }
+	from { opacity: 0; transform: translateY(20rpx); }
 	to { opacity: 1; transform: translateY(0); }
 }
 
 .input-group {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	margin-bottom: 8px;
+	letter-spacing: 1rpx;
+	margin-bottom: 16rpx;
 	display: block;
 }
 
 .input-wrapper {
 	background: #F8FAFC;
-	border-radius: 14px;
-	padding: 14px 16px;
-	border: 1px solid transparent;
+	border-radius: 28rpx;
+	padding: 28rpx 32rpx;
+	border: 2rpx solid transparent;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 	transition: all 0.3s;
 }
 
 .input-wrapper:focus-within {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.08);
 }
 
 .input-icon {
-	font-size: 18px;
-	width: 20px;
+	font-size: 36rpx;
+	width: 40rpx;
 	text-align: center;
 }
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -417,22 +382,22 @@ export default {
 }
 
 .toggle-pwd {
-	font-size: 18px;
+	font-size: 36rpx;
 	cursor: pointer;
-	padding: 4px;
+	padding: 8rpx;
 }
 
 .code-wrapper {
-	padding-right: 8px;
+	padding-right: 16rpx;
 }
 
 .code-btn {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #10B981;
 	background: transparent;
 	border: none;
-	padding: 8px 12px;
+	padding: 16rpx 24rpx;
 	white-space: nowrap;
 	cursor: pointer;
 }
@@ -444,36 +409,36 @@ export default {
 
 .tips-card {
 	background: #F0FDF4;
-	border-radius: 12px;
-	padding: 14px 16px;
-	margin-bottom: 20px;
+	border-radius: 24rpx;
+	padding: 28rpx 32rpx;
+	margin-bottom: 40rpx;
 }
 
 .tips-title {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #059669;
 	font-weight: 700;
 	display: block;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .tips-item {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 2px;
+	margin-bottom: 4rpx;
 }
 
 .btn-primary {
 	width: 100%;
-	height: 52px;
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -481,53 +446,53 @@ export default {
 }
 
 .btn-primary:active {
-	transform: translateY(-2px);
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+	transform: translateY(-4rpx);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.4);
 }
 
 .success-content {
 	text-align: center;
-	padding: 20px 0;
+	padding: 40rpx 0;
 }
 
 .success-icon {
-	width: 80px;
-	height: 80px;
+	width: 160rpx;
+	height: 160rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
 	border-radius: 50%;
-	margin: 0 auto 24px;
+	margin: 0 auto 48rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 40px;
+	font-size: 80rpx;
 	color: #FFFFFF;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.3);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.3);
 }
 
 .success-title {
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 900;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .success-subtitle {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 24px;
+	margin-bottom: 48rpx;
 }
 
 .countdown-card {
 	background: #F8FAFC;
-	border-radius: 12px;
-	padding: 14px;
-	margin-bottom: 24px;
+	border-radius: 24rpx;
+	padding: 28rpx;
+	margin-bottom: 48rpx;
 }
 
 .countdown-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 	font-weight: 600;
 }

@@ -101,6 +101,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     global _replay_stop_flag
     
     success_count = 0
+    recording_data = sorted(recording_data, key=lambda op: op.get('step', 0))
     total_operations = len(recording_data)
     
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)
@@ -136,6 +137,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         # 使用剪贴板方式支持中文输入
                         import pyperclip
                         pyperclip.copy(text)
+                        time.sleep(0.15)
                         pyautogui.hotkey('ctrl', 'v')
                         success_count += 1
                         debug_print(f"[回放] 步骤 {step}: 文本输入完成")
@@ -395,6 +397,7 @@ def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None
     global _replay_stop_flag
     
     success_count = 0
+    recording_data = sorted(recording_data, key=lambda op: op.get('step', 0))
     total_operations = len(recording_data)
     
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)

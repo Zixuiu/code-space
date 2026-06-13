@@ -91,37 +91,37 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
-	padding: 0 24px;
+	height: calc(100vh - 144rpx);
+	padding: 0 48rpx;
 }
 
 .last-updated {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
-	padding: 16px 0;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 32rpx 0;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .section {
-	padding: 20px 0;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 40rpx 0;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .section:last-child {
@@ -129,19 +129,19 @@ export default {
 }
 
 .section-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .section-content {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 	line-height: 1.8;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .section-content:last-child {
@@ -154,6 +154,6 @@ export default {
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

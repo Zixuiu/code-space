@@ -6,13 +6,6 @@
 		</view>
 
 		<scroll-view class="content-scroll" scroll-y>
-			<view class="logo-section">
-				<view class="logo-box">
-					<IconFont name="flower" :size="48" />
-			</view>
-				<text class="logo-title">创建账号</text>
-				<text class="logo-subtitle">加入邻里互助大家庭</text>
-			</view>
 
 			<view class="form-card">
 				<view class="input-group">
@@ -348,95 +341,67 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
-.logo-section {
-	text-align: center;
-	padding: 32px 24px 28px;
-}
 
-.logo-box {
-	width: 72px;
-	height: 72px;
-	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 22px;
-	margin: 0 auto 16px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow: 0 10px 28px rgba(16, 185, 129, 0.25);
-}
 
-.logo-title {
-	font-size: 24px;
-	font-weight: 900;
-	color: #1E293B;
-	display: block;
-	margin-bottom: 6px;
-	letter-spacing: -0.5px;
-}
 
-.logo-subtitle {
-	font-size: 14px;
-	color: #64748B;
-	font-weight: 500;
-}
 
 .form-card {
-	margin: 0 24px;
-	padding: 28px 24px 32px;
+	margin: 0 48rpx;
+	padding: 56rpx 48rpx 64rpx;
 }
 
 .input-group {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	margin-bottom: 8px;
+	letter-spacing: 1rpx;
+	margin-bottom: 16rpx;
 	display: block;
 }
 
 .input-wrapper {
 	background: #F8FAFC;
-	border-radius: 14px;
-	padding: 14px 16px;
-	border: 1px solid transparent;
+	border-radius: 28rpx;
+	padding: 28rpx 32rpx;
+	border: 2rpx solid transparent;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 	transition: all 0.3s;
 }
 
 .input-wrapper:focus-within {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.08);
 }
 
 .input-icon {
-	width: 20px;
+	width: 40rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -444,7 +409,7 @@ export default {
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -454,23 +419,23 @@ export default {
 
 .toggle-pwd {
 	cursor: pointer;
-	padding: 4px;
+	padding: 8rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .code-wrapper {
-	padding-right: 8px;
+	padding-right: 16rpx;
 }
 
 .code-btn {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #10B981;
 	background: transparent;
 	border: none;
-	padding: 8px 12px;
+	padding: 16rpx 24rpx;
 	white-space: nowrap;
 	cursor: pointer;
 }
@@ -481,20 +446,20 @@ export default {
 }
 
 .strength-card {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .strength-bars {
 	display: flex;
-	gap: 6px;
-	margin-bottom: 6px;
+	gap: 12rpx;
+	margin-bottom: 12rpx;
 }
 
 .strength-bar {
 	flex: 1;
-	height: 4px;
+	height: 8rpx;
 	background: #E2E8F0;
-	border-radius: 2px;
+	border-radius: 4rpx;
 	transition: all 0.3s;
 }
 
@@ -503,7 +468,7 @@ export default {
 .strength-bar.strong { background: #10B981; }
 
 .strength-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	font-weight: 600;
 }
 
@@ -513,18 +478,18 @@ export default {
 
 .rules-card {
 	background: #F8FAFC;
-	border-radius: 12px;
-	padding: 12px 14px;
-	margin-bottom: 20px;
+	border-radius: 24rpx;
+	padding: 24rpx 28rpx;
+	margin-bottom: 40rpx;
 }
 
 .rule-item {
 	display: flex;
 	align-items: center;
-	gap: 8px;
-	font-size: 12px;
+	gap: 16rpx;
+	font-size: 24rpx;
 	color: #64748B;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .rule-item:last-child {
@@ -532,13 +497,13 @@ export default {
 }
 
 .rule-icon {
-	width: 16px;
-	height: 16px;
+	width: 32rpx;
+	height: 32rpx;
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 10px;
+	font-size: 20rpx;
 	font-weight: 800;
 	background: #E2E8F0;
 	color: white;
@@ -552,20 +517,20 @@ export default {
 .agreement-row {
 	display: flex;
 	align-items: flex-start;
-	gap: 12px;
-	margin-bottom: 24px;
+	gap: 24rpx;
+	margin-bottom: 48rpx;
 }
 
 .checkbox-wrap {
-	width: 22px;
-	height: 22px;
-	border-radius: 6px;
-	border: 2px solid #E2E8F0;
+	width: 44rpx;
+	height: 44rpx;
+	border-radius: 12rpx;
+	border: 4rpx solid #E2E8F0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	margin-top: 2px;
+	margin-top: 4rpx;
 	transition: all 0.2s;
 }
 
@@ -576,12 +541,12 @@ export default {
 
 .check-icon {
 	color: #FFFFFF;
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: bold;
 }
 
 .agreement-text {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #64748B;
 	line-height: 1.5;
 	flex: 1;
@@ -594,14 +559,14 @@ export default {
 
 .btn-primary {
 	width: 100%;
-	height: 52px;
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -614,9 +579,9 @@ export default {
 }
 
 .spinner {
-	width: 20px;
-	height: 20px;
-	border: 2px solid rgba(255, 255, 255, 0.3);
+	width: 40rpx;
+	height: 40rpx;
+	border: 4rpx solid rgba(255, 255, 255, 0.3);
 	border-top-color: #FFFFFF;
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
@@ -630,22 +595,22 @@ export default {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	margin-top: 24px;
+	margin-top: 48rpx;
 }
 
 .link-prefix {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .link-action {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #10B981;
 	font-weight: 700;
-	margin-left: 4px;
+	margin-left: 8rpx;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

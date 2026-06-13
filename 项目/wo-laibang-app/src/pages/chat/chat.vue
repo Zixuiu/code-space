@@ -80,7 +80,7 @@
 			</view>
 		</scroll-view>
 
-		<view class="input-area" :style="{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 'px' : 'calc(12px + env(safe-area-inset-bottom))' }">
+		<view class="input-area" :style="{ paddingBottom: keyboardHeight > 0 ? keyboardHeight + 'px' : 'calc(24rpx + env(safe-area-inset-bottom))' }">
 			<view class="input-main">
 				<IconFont name="camera" :size="32" class="add-btn" @click="chooseImage" />
 				<view class="input-wrapper">
@@ -96,7 +96,7 @@
 					@confirm="sendMessage"
 				/>
 				</view>
-				<text class="emoji-btn" @click="toggleEmoji" style="font-size: 20px;">😀</text>
+				<text class="emoji-btn" @click="toggleEmoji" style="font-size: 40rpx;">😀</text>
 				<view
 					class="send-btn"
 					:class="{ active: inputText.trim() }"
@@ -161,9 +161,9 @@ export default {
 			if (!this.relatedOrder) return ''
 			const currentUserId = this.userStore.currentUser?.id
 			if (this.relatedOrder.publisher?.id === currentUserId) {
-				return '发单人'
-			} else if (this.relatedOrder.helper?.id === currentUserId) {
 				return '接单人'
+			} else if (this.relatedOrder.helper?.id === currentUserId) {
+				return '发单人'
 			}
 			return ''
 		}
@@ -598,15 +598,15 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 20px 24px;
-	padding-top: 44px;
+	padding: 40rpx 48rpx;
+	padding-top: 80rpx;
 	background: #FFFFFF;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 	flex-shrink: 0;
 }
 
 .header-left {
-	width: 44px;
+	width: 88rpx;
 }
 
 .header-info {
@@ -617,38 +617,38 @@ export default {
 .header-title-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 16rpx;
 }
 
 .header-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
 }
 
 .role-label {
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 600;
-	padding: 2px 8px;
+	padding: 4rpx 16rpx;
 	background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
 	color: white;
-	border-radius: 8px;
+	border-radius: 16rpx;
 }
 
 .header-status {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #10B981;
 	font-weight: 600;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .message-list {
 	flex: 1;
-	padding: 16px 20px;
+	padding: 32rpx 40rpx;
 	box-sizing: border-box;
 	overflow-y: auto;
 	-webkit-overflow-scrolling: touch;
@@ -663,24 +663,24 @@ export default {
 }
 
 .empty-icon {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .empty-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #94A3B8;
 }
 
 .messages-wrapper {
-	padding-bottom: 20px;
+	padding-bottom: 40rpx;
 }
 
 .message-item {
 	display: flex;
-	margin-bottom: 20px;
+	margin-bottom: 40rpx;
 	align-items: flex-start;
 	justify-content: flex-start;
 }
@@ -690,14 +690,14 @@ export default {
 }
 
 .avatar {
-	width: 36px;
-	height: 36px;
-	border-radius: 12px;
+	width: 72rpx;
+	height: 72rpx;
+	border-radius: 24rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	flex-shrink: 0;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
 }
 
 .self-avatar {
@@ -705,14 +705,14 @@ export default {
 }
 
 .avatar-text {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }
 
 .message-content {
 	max-width: 70%;
-	margin: 0 16px;
+	margin: 0 32rpx;
 }
 
 .self-content {
@@ -722,25 +722,25 @@ export default {
 }
 
 .bubble {
-	border-radius: 20px;
-	padding: 12px 16px;
+	border-radius: 40rpx;
+	padding: 24rpx 32rpx;
 	position: relative;
 }
 
 .bubble-other {
 	background: #FFFFFF;
-	border-bottom-left-radius: 6px;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+	border-bottom-left-radius: 12rpx;
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
 }
 
 .bubble-self {
 	background: linear-gradient(135deg, #10B981, #059669);
-	border-bottom-right-radius: 6px;
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+	border-bottom-right-radius: 12rpx;
+	box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.25);
 }
 
 .bubble-text {
-	font-size: 15px;
+	font-size: 30rpx;
 	color: #1E293B;
 	line-height: 1.5;
 }
@@ -750,9 +750,9 @@ export default {
 }
 
 .image-bubble {
-	padding: 6px;
+	padding: 12rpx;
 	background: #FFFFFF;
-	border-radius: 16px;
+	border-radius: 32rpx;
 }
 
 .self-bubble {
@@ -760,14 +760,14 @@ export default {
 }
 
 .chat-image {
-	max-width: 200px;
-	border-radius: 12px;
+	max-width: 400rpx;
+	border-radius: 24rpx;
 }
 
 .message-time {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
-	margin-top: 6px;
+	margin-top: 12rpx;
 	display: block;
 }
 
@@ -777,20 +777,20 @@ export default {
 
 .input-area {
 	background: #FFFFFF;
-	padding: 12px 20px;
-	border-top: 1px solid #F1F5F9;
+	padding: 24rpx 40rpx;
+	border-top: 2rpx solid #F1F5F9;
 	z-index: 999;
 }
 
 .input-main {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .add-btn {
-	width: 40px;
-	height: 40px;
+	width: 80rpx;
+	height: 80rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -801,10 +801,10 @@ export default {
 .input-wrapper {
 	flex: 1;
 	background: #F8FAFC;
-	border-radius: 22px;
-	border: 1px solid transparent;
+	border-radius: 44rpx;
+	border: 2rpx solid transparent;
 	transition: all 0.3s;
-	min-height: 44px;
+	min-height: 88rpx;
 	display: flex;
 	align-items: center;
 }
@@ -812,27 +812,27 @@ export default {
 .input-wrapper:focus-within {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+	box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.1);
 }
 
 .input-box {
 	flex: 1;
-	padding: 10px 16px;
-	font-size: 15px;
+	padding: 20rpx 32rpx;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
 	outline: none;
 	background: transparent;
-	height: 44px;
-	line-height: 24px;
+	height: 88rpx;
+	line-height: 48rpx;
 }
 
 .send-btn {
-	width: 44px;
-	height: 44px;
+	width: 88rpx;
+	height: 88rpx;
 	background: #E2E8F0;
-	border-radius: 22px;
+	border-radius: 44rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -842,11 +842,11 @@ export default {
 
 .send-btn.active {
 	background: linear-gradient(135deg, #10B981, #059669);
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.35);
 }
 
 .send-text {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #94A3B8;
 }
@@ -863,32 +863,32 @@ export default {
 }
 
 .emoji-btn {
-	font-size: 28px;
-	padding: 8px;
+	font-size: 56rpx;
+	padding: 16rpx;
 	flex-shrink: 0;
 }
 
 .emoji-picker {
 	background: #FFFFFF;
-	border-top: 1px solid #E2E8F0;
-	padding: 16px;
+	border-top: 2rpx solid #E2E8F0;
+	padding: 32rpx;
 }
 
 .emoji-scroll {
-	max-height: 200px;
+	max-height: 400rpx;
 }
 
 .emoji-grid {
 	display: grid;
 	grid-template-columns: repeat(8, 1fr);
-	gap: 8px;
+	gap: 16rpx;
 }
 
 .emoji-item {
-	font-size: 24px;
+	font-size: 48rpx;
 	text-align: center;
-	padding: 6px;
-	border-radius: 8px;
+	padding: 12rpx;
+	border-radius: 16rpx;
 	transition: background 0.2s;
 }
 
@@ -898,13 +898,13 @@ export default {
 
 .chat-view-order-btn {
 	background: linear-gradient(135deg, #10B981, #059669);
-	padding: 4px 10px;
-	border-radius: 12px;
+	padding: 8rpx 20rpx;
+	border-radius: 24rpx;
 }
 
 .chat-view-order-text {
 	color: #FFFFFF;
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 600;
 }
 </style>

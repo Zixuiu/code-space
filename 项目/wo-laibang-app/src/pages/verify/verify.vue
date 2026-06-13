@@ -326,113 +326,113 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .status-card {
 	text-align: center;
-	padding: 40px 24px;
+	padding: 80rpx 48rpx;
 	background: #FFFFFF;
-	margin: 16px 24px;
-	border-radius: 24px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	margin: 32rpx 48rpx;
+	border-radius: 48rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .status-icon {
-	font-size: 64px;
+	font-size: 128rpx;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .status-icon-wrapper {
-	width: 80px;
-	height: 80px;
+	width: 160rpx;
+	height: 160rpx;
 	background: linear-gradient(135deg, #FEF3C7, #FDE68A);
-	border-radius: 24px;
+	border-radius: 48rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin: 0 auto 16px;
+	margin: 0 auto 32rpx;
 }
 
 .status-icon-emoji {
-	font-size: 40px;
+	font-size: 80rpx;
 }
 
 .status-title {
-	font-size: 20px;
+	font-size: 40rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .status-desc {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .form-section {
-	padding: 0 24px 16px;
+	padding: 0 48rpx 32rpx;
 }
 
 .input-group {
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	margin-bottom: 8px;
+	letter-spacing: 1rpx;
+	margin-bottom: 16rpx;
 	display: block;
 }
 
 .input-wrapper {
 	background: #FFFFFF;
-	border-radius: 14px;
-	padding: 14px 16px;
-	border: 1px solid transparent;
+	border-radius: 28rpx;
+	padding: 28rpx 32rpx;
+	border: 2rpx solid transparent;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 	transition: all 0.3s;
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
 }
 
 .input-wrapper:focus-within {
 	border-color: #10B981;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.08);
 }
 
 .input-icon {
-	font-size: 18px;
-	width: 20px;
+	font-size: 36rpx;
+	width: 40rpx;
 	text-align: center;
 }
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -441,16 +441,16 @@ export default {
 }
 
 .code-wrapper {
-	padding-right: 8px;
+	padding-right: 16rpx;
 }
 
 .code-btn {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #10B981;
 	background: transparent;
 	border: none;
-	padding: 8px 12px;
+	padding: 16rpx 24rpx;
 	white-space: nowrap;
 	cursor: pointer;
 }
@@ -461,22 +461,22 @@ export default {
 }
 
 .tips-section {
-	margin: 0 24px 24px;
-	padding: 16px;
+	margin: 0 48rpx 48rpx;
+	padding: 32rpx;
 	background: #F0FDF4;
-	border-radius: 14px;
+	border-radius: 28rpx;
 }
 
 .id-card-upload {
 	display: flex;
-	gap: 16px;
-	margin-bottom: 8px;
+	gap: 32rpx;
+	margin-bottom: 16rpx;
 }
 
 .id-card-item {
 	flex: 1;
-	height: 120px;
-	border-radius: 14px;
+	height: 240rpx;
+	border-radius: 28rpx;
 	overflow: hidden;
 	position: relative;
 }
@@ -485,21 +485,21 @@ export default {
 	width: 100%;
 	height: 100%;
 	background: #FFFFFF;
-	border: 2px dashed #E5E7EB;
-	border-radius: 14px;
+	border: 4rpx dashed #E5E7EB;
+	border-radius: 28rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	gap: 16rpx;
 }
 
 .placeholder-icon {
-	font-size: 32px;
+	font-size: 64rpx;
 }
 
 .placeholder-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 	font-weight: 600;
 }
@@ -516,61 +516,61 @@ export default {
 
 .remove-btn {
 	position: absolute;
-	top: 6px;
-	right: 6px;
-	width: 22px;
-	height: 22px;
+	top: 12rpx;
+	right: 12rpx;
+	width: 44rpx;
+	height: 44rpx;
 	background: rgba(0, 0, 0, 0.5);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #FFFFFF;
 }
 
 .upload-hint {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
 	display: block;
-	margin-top: 4px;
+	margin-top: 8rpx;
 }
 
 .tips-header {
 	display: flex;
 	align-items: center;
-	margin-bottom: 10px;
+	margin-bottom: 20rpx;
 }
 
 .tips-icon {
-	font-size: 16px;
-	margin-right: 8px;
+	font-size: 32rpx;
+	margin-right: 16rpx;
 }
 
 .tips-title {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #059669;
 }
 
 .tips-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .btn-primary {
-	margin: 0 24px;
-	width: calc(100% - 48px);
-	height: 52px;
+	margin: 0 48rpx;
+	width: calc(100% - 96rpx);
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -583,9 +583,9 @@ export default {
 }
 
 .spinner {
-	width: 20px;
-	height: 20px;
-	border: 2px solid rgba(255, 255, 255, 0.3);
+	width: 40rpx;
+	height: 40rpx;
+	border: 4rpx solid rgba(255, 255, 255, 0.3);
 	border-top-color: #FFFFFF;
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
@@ -596,58 +596,58 @@ export default {
 }
 
 .verified-state {
-	padding: 24px;
+	padding: 48rpx;
 }
 
 .success-card {
 	text-align: center;
-	padding: 40px 24px;
+	padding: 80rpx 48rpx;
 	background: #FFFFFF;
-	border-radius: 24px;
-	margin-bottom: 16px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 48rpx;
+	margin-bottom: 32rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .success-icon {
-	width: 80px;
-	height: 80px;
+	width: 160rpx;
+	height: 160rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
 	border-radius: 50%;
-	margin: 0 auto 20px;
+	margin: 0 auto 40rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 40px;
+	font-size: 80rpx;
 	color: #FFFFFF;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.3);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.3);
 }
 
 .success-title {
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 900;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .success-desc {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .info-card {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 20px;
-	margin-bottom: 16px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 40rpx;
+	padding: 40rpx;
+	margin-bottom: 32rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .info-item {
 	display: flex;
 	justify-content: space-between;
-	padding: 12px 0;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 24rpx 0;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .info-item:last-child {
@@ -655,35 +655,35 @@ export default {
 }
 
 .info-label {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .info-value {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #1E293B;
 }
 
 .benefit-section {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 20px;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	border-radius: 40rpx;
+	padding: 40rpx;
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .benefit-title {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .benefit-item {
 	display: flex;
 	align-items: center;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .benefit-item:last-child {
@@ -691,16 +691,16 @@ export default {
 }
 
 .benefit-icon {
-	font-size: 16px;
-	margin-right: 12px;
+	font-size: 32rpx;
+	margin-right: 24rpx;
 }
 
 .benefit-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

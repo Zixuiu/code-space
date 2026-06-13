@@ -1,0 +1,24 @@
+[
+  {
+    "step": 2,
+    "action_type": "text_input",
+    "text": "没有解决问题！请你问我问题去详细了解",
+    "delay": 0.0
+  },
+  {
+    "step": 1,
+    "image": "操作1.png",
+    "x": 856,
+    "y": 595,
+    "width": 288,
+    "height": 67,
+    "action_type": "left_click",
+    "delay": 0.0
+  },
+  {
+    "step": 3,
+    "action_type": "keyboard",
+    "key": "enter",
+    "delay": 0
+  }
+]

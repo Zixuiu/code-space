@@ -97,7 +97,7 @@ export default {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: 100rpx 60rpx;
+	padding: 60rpx 60rpx;
 }
 
 .guide-icon-wrapper {
@@ -140,7 +140,7 @@ export default {
 	display: flex;
 	justify-content: center;
 	gap: 16rpx;
-	padding: 40rpx 0;
+	padding: 60rpx 0;
 }
 
 .dot {

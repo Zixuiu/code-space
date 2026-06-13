@@ -116,14 +116,14 @@ export default {
 	bottom: 0;
 	left: 0;
 	right: 0;
-	height: 50px;
+	height: 100rpx;
 	background: white;
 	display: flex;
 	justify-content: space-around;
 	align-items: center;
 	padding-bottom: constant(safe-area-inset-bottom);
 	padding-bottom: env(safe-area-inset-bottom);
-	border-top: 1px solid #eee;
+	border-top: 2rpx solid #eee;
 	z-index: 9999;
 }
 .nav-item {
@@ -131,17 +131,17 @@ export default {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: 0 10px;
+	padding: 0 20rpx;
 	position: relative;
 }
 .icon-wrapper {
 	position: relative;
 }
 .nav-icon {
-	margin-bottom: 2px;
+	margin-bottom: 4rpx;
 	color: #999;
 }
-.nav-text { font-size: 12px; color: #999; }
+.nav-text { font-size: 24rpx; color: #999; }
 .nav-item.active .nav-icon {
 	color: #10B981;
 }
@@ -150,19 +150,19 @@ export default {
 .green-text { color: #10B981 !important; }
 .badge {
 	position: absolute;
-	top: -6px;
-	right: -10px;
-	min-width: 18px;
-	height: 18px;
+	top: -12rpx;
+	right: -20rpx;
+	min-width: 36rpx;
+	height: 36rpx;
 	background: #EF4444;
-	border-radius: 9px;
+	border-radius: 18rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0 5px;
+	padding: 0 10rpx;
 }
 .badge-text {
-	font-size: 10px;
+	font-size: 20rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }

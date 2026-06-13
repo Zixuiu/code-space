@@ -251,18 +251,18 @@ export default {
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 40px;
+	width: 80rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 89px);
+	height: calc(100vh - 178rpx);
 	padding: 24rpx;
 }
 
@@ -350,7 +350,7 @@ export default {
 	font-weight: 700;
 	color: #64748B;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2rpx;
 	margin-bottom: 12rpx;
 	padding-left: 4rpx;
 }

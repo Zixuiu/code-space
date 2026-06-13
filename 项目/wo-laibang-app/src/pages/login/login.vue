@@ -1,13 +1,6 @@
 <template>
 	<view class="login-container">
 		<scroll-view class="content-scroll" scroll-y>
-			<view class="logo-section">
-				<view class="logo-box">
-					<IconFont name="flower" :size="40" />
-				</view>
-				<text class="app-name">我来帮</text>
-				<text class="app-slogan">邻里互助，温暖你我</text>
-			</view>
 
 			<view class="form-card">
 				<view class="hint-block">
@@ -187,97 +180,69 @@ export default {
 	height: 100vh;
 }
 
-.logo-section {
-	text-align: center;
-	padding: 48px 24px 24px;
-}
 
-.logo-box {
-	width: 80px;
-	height: 80px;
-	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 24px;
-	margin: 0 auto 20px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.25);
-}
 
-.app-name {
-	font-size: 28px;
-	font-weight: 900;
-	color: #1E293B;
-	display: block;
-	margin-bottom: 8px;
-	letter-spacing: -0.5px;
-}
 
-.app-slogan {
-	font-size: 14px;
-	color: #64748B;
-	font-weight: 500;
-}
 
 .form-card {
-	margin: 0 24px;
-	padding: 28px 24px 32px;
+	margin: 0 48rpx;
+	padding: 56rpx 48rpx 64rpx;
 }
 
 .hint-block {
-	margin-bottom: 28px;
+	margin-bottom: 56rpx;
 }
 
 .hint-badge {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #10B981;
 	font-weight: 800;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2rpx;
 	display: block;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .hint-title {
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 800;
 	color: #1E293B;
 	line-height: 1.3;
 }
 
 .input-group {
-	margin-bottom: 18px;
+	margin-bottom: 36rpx;
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	margin-bottom: 8px;
+	letter-spacing: 1rpx;
+	margin-bottom: 16rpx;
 	display: block;
 }
 
 .input-wrapper {
 	background: #F8FAFC;
-	border-radius: 14px;
-	padding: 14px 16px;
-	border: 1px solid transparent;
+	border-radius: 28rpx;
+	padding: 28rpx 32rpx;
+	border: 2rpx solid transparent;
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 	transition: all 0.3s;
 }
 
 .input-wrapper:focus-within {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 6px 16px rgba(16, 185, 129, 0.08);
+	box-shadow: 0 12rpx 32rpx rgba(16, 185, 129, 0.08);
 }
 
 .input-icon {
-	width: 20px;
+	width: 40rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -285,7 +250,7 @@ export default {
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -295,7 +260,7 @@ export default {
 
 .toggle-pwd {
 	cursor: pointer;
-	padding: 4px;
+	padding: 8rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -304,25 +269,25 @@ export default {
 .forgot-row {
 	display: flex;
 	justify-content: flex-end;
-	margin-bottom: 24px;
+	margin-bottom: 48rpx;
 }
 
 .forgot-link {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #10B981;
 	font-weight: 600;
 }
 
 .btn-primary {
 	width: 100%;
-	height: 52px;
+	height: 104rpx;
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
-	border-radius: 26px;
+	border-radius: 52rpx;
 	font-weight: 800;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: none;
-	box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+	box-shadow: 0 16rpx 48rpx rgba(16, 185, 129, 0.35);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -330,8 +295,8 @@ export default {
 }
 
 .btn-primary:active:not(:disabled) {
-	transform: translateY(-2px);
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4);
+	transform: translateY(-4rpx);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.4);
 }
 
 .btn-primary:disabled {
@@ -340,9 +305,9 @@ export default {
 }
 
 .spinner {
-	width: 20px;
-	height: 20px;
-	border: 2px solid rgba(255, 255, 255, 0.3);
+	width: 40rpx;
+	height: 40rpx;
+	border: 4rpx solid rgba(255, 255, 255, 0.3);
 	border-top-color: #FFFFFF;
 	border-radius: 50%;
 	animation: spin 0.8s linear infinite;
@@ -356,22 +321,22 @@ export default {
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	margin-top: 24px;
+	margin-top: 48rpx;
 }
 
 .hint-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .link-action {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #10B981;
 	font-weight: 700;
-	margin-left: 4px;
+	margin-left: 8rpx;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

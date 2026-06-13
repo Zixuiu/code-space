@@ -437,7 +437,7 @@ export default {
 
 /* Header */
 .header {
-	padding: 64px 24px 16px;
+	padding: 80rpx 48rpx 32rpx;
 	background: #FFFFFF;
 	display: flex;
 	justify-content: space-between;
@@ -448,7 +448,7 @@ export default {
 	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
-	letter-spacing: -0.5px;
+	letter-spacing: -1rpx;
 	text-align: center;
 }
 
@@ -498,29 +498,29 @@ export default {
 }
 
 .order-list {
-	padding: 15px 20px;
+	padding: 30rpx 40rpx;
 }
 
 .order-item {
 	background: #FFFFFF;
-	border-radius: 24px;
-	padding: 20px;
-	margin-bottom: 15px;
-	box-shadow: 0 4px 12px rgba(16, 185, 129, 0.05);
-	border: 1px solid rgba(16, 185, 129, 0.05);
+	border-radius: 48rpx;
+	padding: 40rpx;
+	margin-bottom: 30rpx;
+	box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.05);
+	border: 2rpx solid rgba(16, 185, 129, 0.05);
 }
 
 .item-main {
 	display: flex;
-	gap: 15px;
-	margin-bottom: 15px;
+	gap: 30rpx;
+	margin-bottom: 30rpx;
 }
 
 .item-icon {
-	width: 52px;
-	height: 52px;
+	width: 104rpx;
+	height: 104rpx;
 	background: #ECFDF5;
-	border-radius: 18px;
+	border-radius: 36rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -540,17 +540,17 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .order-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 700;
 	color: #111827;
 }
 
 .order-price {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 800;
 	color: #10B981;
 }
@@ -558,38 +558,38 @@ export default {
 .order-meta {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 16rpx;
 	flex-wrap: wrap;
 }
 
 .order-desc {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #9CA3AF;
 }
 
 .loc-tag {
 	display: inline-flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4rpx;
 	background: #F3F4F6;
-	padding: 1px 4px;
-	border-radius: 4px;
+	padding: 2rpx 8rpx;
+	border-radius: 8rpx;
 }
 
 .loc-icon {
-	font-size: 8px;
+	font-size: 16rpx;
 	color: #6B7280;
 }
 
 .loc-text {
-	font-size: 9px;
+	font-size: 18rpx;
 	color: #6B7280;
 	font-weight: 400;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 .order-distance {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #10B981;
 	font-weight: 600;
 }
@@ -597,19 +597,19 @@ export default {
 .dist-tag {
 	display: inline-flex;
 	align-items: center;
-	gap: 2px;
+	gap: 4rpx;
 	background: #ECFDF5;
-	padding: 1px 6px;
-	border-radius: 4px;
+	padding: 2rpx 12rpx;
+	border-radius: 8rpx;
 }
 
 .dist-icon {
-	font-size: 8px;
+	font-size: 16rpx;
 	color: #10B981;
 }
 
 .dist-text {
-	font-size: 9px;
+	font-size: 18rpx;
 	color: #10B981;
 	font-weight: 600;
 	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -619,16 +619,16 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding-top: 15px;
-	border-top: 1px solid #F3F4F6;
+	padding-top: 30rpx;
+	border-top: 2rpx solid #F3F4F6;
 }
 
 .status-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	font-weight: 700;
 	color: #9CA3AF;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 1rpx;
 }
 
 .status-text.accepted {
@@ -641,46 +641,46 @@ export default {
 
 .action-btn {
 	background: #10B981;
-	padding: 4px 12px;
-	border-radius: 8px;
+	padding: 8rpx 24rpx;
+	border-radius: 16rpx;
 }
 
 .btn-text {
 	color: #FFFFFF;
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 600;
 }
 
 .complete-btn {
 	background: #F59E0B;
-	padding: 4px 12px;
-	border-radius: 8px;
-	margin-left: 8px;
+	padding: 8rpx 24rpx;
+	border-radius: 16rpx;
+	margin-left: 16rpx;
 }
 
 .complete-btn-text {
 	color: #FFFFFF;
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 600;
 }
 
 /* Empty State */
 .empty-state {
-	padding-top: 100px;
+	padding-top: 80rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 }
 
 .empty-bg {
-	width: 80px;
-	height: 80px;
+	width: 160rpx;
+	height: 160rpx;
 	background: #ECFDF5;
-	border-radius: 30px;
+	border-radius: 60rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	margin-bottom: 20px;
+	margin-bottom: 40rpx;
 }
 
 .empty-icon {
@@ -690,31 +690,31 @@ export default {
 }
 
 .empty-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #374151;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .empty-subtitle {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #9CA3AF;
 }
 
 .bottom-space {
-	height: 100px;
+	height: 200rpx;
 }
 
 .debug-btn {
-	margin-top: 30px;
-	padding: 12px 32px;
+	margin-top: 60rpx;
+	padding: 24rpx 64rpx;
 	background: #10B981;
-	border-radius: 100px;
+	border-radius: 200rpx;
 }
 
 .debug-btn-text {
 	color: #FFFFFF;
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 600;
 }
 </style>

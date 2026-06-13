@@ -776,7 +776,7 @@ export default {
 
 /* 头部样式 */
 .header-section {
-	padding: 100rpx 40rpx 30rpx;
+	padding: 60rpx 40rpx 30rpx;
 	background: #FFFFFF;
 	border-radius: 0 0 60rpx 60rpx;
 	box-shadow: 0 4rpx 30rpx rgba(0, 0, 0, 0.02);
@@ -1170,37 +1170,37 @@ export default {
 .loc-wrap {
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
+	gap: 16rpx;
 	flex-wrap: wrap;
 }
 
 .loc-tag {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: 8rpx;
 	background: #F3F4F6;
-	padding: 4px 8px;
-	border-radius: 6px;
+	padding: 8rpx 16rpx;
+	border-radius: 12rpx;
 }
 
 .loc-tag .icon {
-	font-size: 10px;
+	font-size: 20rpx;
 	color: #6B7280;
 }
 
 .loc-text {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #6B7280;
 	font-weight: 400;
 }
 
 .dist-tag {
-	font-size: 10px;
+	font-size: 20rpx;
 	color: #10B981;
 	font-weight: 600;
 	background: #ECFDF5;
-	padding: 4px 8px;
-	border-radius: 6px;
+	padding: 8rpx 16rpx;
+	border-radius: 12rpx;
 }
 
 .dist-tag.unknown {
@@ -1257,7 +1257,7 @@ export default {
 .bottom-space { height: 100rpx; }
 
 .empty-state {
-	padding: 100rpx 40rpx;
+	padding: 60rpx 40rpx;
 	text-align: center;
 	display: flex;
 	flex-direction: column;
@@ -1301,7 +1301,7 @@ export default {
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
-	backdrop-filter: blur(4px);
+	backdrop-filter: blur(8rpx);
 }
 
 .share-sheet {
@@ -1504,7 +1504,7 @@ export default {
 	width: 600rpx;
 	background: #FFFFFF;
 	border-radius: 40rpx;
-	padding: 60rpx 40rpx 40rpx;
+	padding: 30rpx 40rpx 40rpx;
 	text-align: center;
 	box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
 	animation: popup 0.3s ease;

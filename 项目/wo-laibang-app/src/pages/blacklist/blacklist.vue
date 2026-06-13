@@ -114,62 +114,62 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .empty-state {
 	text-align: center;
-	padding: 80px 24px;
+	padding: 80rpx 48rpx;
 }
 
 .empty-icon {
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .empty-title {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .empty-text {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #94A3B8;
 }
 
 .blacklist-list {
-	margin: 16px 24px;
+	margin: 32rpx 48rpx;
 	background: #FFFFFF;
-	border-radius: 20px;
+	border-radius: 40rpx;
 	overflow: hidden;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .blacklist-item {
 	display: flex;
 	align-items: center;
-	padding: 16px 20px;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 32rpx 40rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .blacklist-item:last-child {
@@ -177,17 +177,17 @@ export default {
 }
 
 .user-avatar {
-	width: 48px;
-	height: 48px;
+	width: 96rpx;
+	height: 96rpx;
 	background: linear-gradient(135deg, #64748B, #94A3B8);
 	border-radius: 50%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 18px;
+	font-size: 36rpx;
 	color: #FFFFFF;
 	font-weight: 700;
-	margin-right: 14px;
+	margin-right: 28rpx;
 }
 
 .user-info {
@@ -195,60 +195,60 @@ export default {
 }
 
 .user-name {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .user-phone {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 }
 
 .action-btn {
-	padding: 8px 16px;
+	padding: 16rpx 32rpx;
 	background: #F8FAFC;
-	border-radius: 12px;
-	font-size: 12px;
+	border-radius: 24rpx;
+	font-size: 24rpx;
 	font-weight: 600;
 	color: #64748B;
 }
 
 .tips-section {
-	margin: 24px;
-	padding: 16px;
+	margin: 48rpx;
+	padding: 32rpx;
 	background: #F0FDF4;
-	border-radius: 14px;
+	border-radius: 28rpx;
 }
 
 .tips-header {
 	display: flex;
 	align-items: center;
-	margin-bottom: 10px;
+	margin-bottom: 20rpx;
 }
 
 .tips-icon {
-	margin-right: 8px;
+	margin-right: 16rpx;
 	display: flex;
 	align-items: center;
 }
 
 .tips-title {
-	font-size: 13px;
+	font-size: 26rpx;
 	font-weight: 700;
 	color: #059669;
 }
 
 .tips-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

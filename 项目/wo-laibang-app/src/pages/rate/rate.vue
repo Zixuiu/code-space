@@ -10,10 +10,10 @@
         <text class="order-title">{{ order.title }}</text>
         <view class="order-meta">
           <text class="meta-item">
-            <IconFont name="coin" :size="12" style="margin-right: 4px;" />¥{{ order.reward }}
+            <IconFont name="coin" :size="12" style="margin-right: 8rpx;" />¥{{ order.reward }}
           </text>
           <text class="meta-item">
-            <IconFont name="map-pin" :size="12" style="margin-right: 4px;" />{{ order.location }}
+            <IconFont name="map-pin" :size="12" style="margin-right: 8rpx;" />{{ order.location }}
           </text>
         </view>
       </view>
@@ -251,14 +251,14 @@ export default {
 
 .header-title {
   flex: 1;
-  font-size: 18px;
+  font-size: 36rpx;
   font-weight: 800;
   color: #1E293B;
   text-align: center;
 }
 
 .header-right {
-  width: 40px;
+  width: 80rpx;
 }
 
 .content {
@@ -266,58 +266,58 @@ export default {
 }
 
 .bottom-space {
-  height: 40px;
+  height: 80rpx;
 }
 
 /* 订单卡片 */
 .order-card {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 20px;
-  border-left: 4px solid #10B981;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin-bottom: 40rpx;
+  border-left: 8rpx solid #10B981;
 }
 
 .order-title {
-  font-size: 16px;
+  font-size: 32rpx;
   font-weight: 600;
   color: #1E293B;
-  margin-bottom: 8px;
+  margin-bottom: 16rpx;
   display: block;
 }
 
 .order-meta {
   display: flex;
-  gap: 16px;
+  gap: 32rpx;
 }
 
 .meta-item {
-  font-size: 13px;
+  font-size: 26rpx;
   color: #64748B;
 }
 
 /* 评分区域 */
 .rate-section {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 32rpx;
+  padding: 40rpx;
+  margin-bottom: 40rpx;
   text-align: center;
 }
 
 .section-title {
-  font-size: 15px;
+  font-size: 30rpx;
   font-weight: 600;
   color: #1E293B;
-  margin-bottom: 16px;
+  margin-bottom: 32rpx;
   display: block;
 }
 
 .star-container {
   display: flex;
   justify-content: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .star {
@@ -341,7 +341,7 @@ export default {
 }
 
 .rate-text {
-  font-size: 14px;
+  font-size: 28rpx;
   color: #10B981;
   font-weight: 600;
 }
@@ -349,9 +349,9 @@ export default {
 /* 匿名评价 */
 .anonymous-section {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 32rpx;
+  padding: 40rpx;
+  margin-bottom: 40rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -360,7 +360,7 @@ export default {
 .anonymous-left {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 24rpx;
 }
 
 .anonymous-icon {
@@ -373,13 +373,13 @@ export default {
 }
 
 .anonymous-title {
-  font-size: 15px;
+  font-size: 30rpx;
   font-weight: 600;
   color: #1E293B;
 }
 
 .anonymous-desc {
-  font-size: 12px;
+  font-size: 24rpx;
   color: #94A3B8;
 }
 
@@ -417,24 +417,24 @@ export default {
 /* 评价内容 */
 .comment-section {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 20px;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin-bottom: 40rpx;
 }
 
 .comment-input {
   width: 100%;
-  min-height: 100px;
-  padding: 12px;
+  min-height: 200rpx;
+  padding: 24rpx;
   background: #F8FAFC;
-  border-radius: 12px;
-  font-size: 14px;
+  border-radius: 24rpx;
+  font-size: 28rpx;
   color: #1E293B;
-  margin-bottom: 8px;
+  margin-bottom: 16rpx;
 }
 
 .char-count {
-  font-size: 12px;
+  font-size: 24rpx;
   color: #94A3B8;
   text-align: right;
   display: block;
@@ -443,23 +443,23 @@ export default {
 /* 快捷标签 */
 .tags-section {
   background: #FFFFFF;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 20px;
+  border-radius: 32rpx;
+  padding: 32rpx;
+  margin-bottom: 40rpx;
 }
 
 .tags-container {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 20rpx;
 }
 
 .tag {
-  font-size: 13px;
+  font-size: 26rpx;
   color: #64748B;
   background: #F1F5F9;
-  padding: 8px 14px;
-	border-radius: 20px;
+  padding: 16rpx 28rpx;
+	border-radius: 40rpx;
 }
 
 .tag.selected {
@@ -470,10 +470,10 @@ export default {
 /* 提交按钮 */
 .submit-btn {
   background: #10B981;
-  border-radius: 14px;
-  padding: 16px 0;
+  border-radius: 28rpx;
+  padding: 32rpx 0;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 8rpx 24rpx rgba(16, 185, 129, 0.2);
 }
 
 .submit-btn.disabled {
@@ -482,7 +482,7 @@ export default {
 
 .btn-text {
   color: #FFFFFF;
-  font-size: 16px;
+  font-size: 32rpx;
   font-weight: 600;
 }
 
@@ -491,11 +491,11 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 160rpx);
 }
 
 .loading-text {
-  font-size: 16px;
+  font-size: 32rpx;
   color: #64748B;
 }
 </style>

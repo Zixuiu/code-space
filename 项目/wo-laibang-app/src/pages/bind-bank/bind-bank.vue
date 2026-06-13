@@ -221,18 +221,18 @@ export default {
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 40px;
+	width: 80rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 89px);
+	height: calc(100vh - 178rpx);
 	padding: 24rpx;
 }
 
@@ -249,11 +249,11 @@ export default {
 }
 
 .input-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 0.5px;
+	letter-spacing: 1rpx;
 	margin-bottom: 12rpx;
 	display: block;
 }
@@ -276,7 +276,7 @@ export default {
 }
 
 .input-icon {
-	width: 20px;
+	width: 40rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -285,7 +285,7 @@ export default {
 
 .input-field {
 	flex: 1;
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1E293B;
 	border: none;
@@ -302,7 +302,7 @@ export default {
 }
 
 .input-hint {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 	margin-top: 8rpx;
 	display: block;
@@ -327,7 +327,7 @@ export default {
 }
 
 .tip-title {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #059669;
 	display: block;
@@ -335,7 +335,7 @@ export default {
 }
 
 .tip-text {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #64748B;
 	line-height: 1.5;
 }
@@ -346,7 +346,7 @@ export default {
 	background: linear-gradient(135deg, #10B981, #059669);
 	color: #FFFFFF;
 	border-radius: 50rpx;
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 800;
 	border: none;
 	display: flex;

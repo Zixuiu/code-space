@@ -306,7 +306,7 @@ export default {
 
 /* 用户信息区域 */
 .profile-header {
-	padding: 100rpx 40rpx 40rpx;
+	padding: 60rpx 40rpx 40rpx;
 	display: flex;
 	align-items: center;
 	gap: 30rpx;

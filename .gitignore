@@ -1,21 +1,22 @@
-﻿__pycache__/
-*.pyc
-*.pyo
-*.egg-info/
+﻿# Dependencies
+node_modules/
+
+# Build outputs
 dist/
-build/
-*.log
-*.db
+unpackage/
+
+# IDE
+.vscode/
+.idea/
+.hbuilderx/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
 nul
-cd
-python
-_fix_*.py
-_apply_*.py
-_font_preview.py
-_style_preview.py
-.trae/
-.vscode/
-工具/
-项目/

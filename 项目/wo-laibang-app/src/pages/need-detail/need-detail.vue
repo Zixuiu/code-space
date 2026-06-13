@@ -309,25 +309,20 @@ export default {
 		},
 		cancelNeed() {
 			this.confirmTitle = '提示'
-			this.confirmContent = '确定要取消这个需求吗？'
+			this.confirmContent = '确定要取消这个需求吗？取消后赏金将退回钱包。'
 			this.confirmConfirmText = '确定'
 			this.confirmCancelText = '取消'
 			this.onConfirm = () => {
-				this.need.status = 'cancelled'
-				this.need.cancelledAt = Date.now()
-				const needInStore = this.needStore.needs.find(n => n.id === this.need.id)
-				if (needInStore) {
-					needInStore.status = 'cancelled'
-					needInStore.cancelledAt = Date.now()
+				const result = this.needStore.cancelNeed(this.need.id)
+				if (result.success) {
+					this.need.status = 'cancelled'
+					this.need.cancelledAt = Date.now()
+					this.sendCancelNotification()
+					this.$forceUpdate()
+					uni.showToast({ title: result.message, icon: 'success' })
+				} else {
+					uni.showToast({ title: result.message, icon: 'none' })
 				}
-				const orderInStore = this.orderStore.orders.find(o => o.needId === this.need.id)
-				if (orderInStore) {
-					orderInStore.status = 'cancelled'
-					orderInStore.cancelledAt = Date.now()
-				}
-				this.sendCancelNotification()
-				this.$forceUpdate()
-				uni.showToast({ title: '已取消', icon: 'success' })
 			}
 			this.confirmVisible = true
 		},
@@ -415,40 +410,40 @@ export default {
 }
 
 .nav-header {
-	padding: 44px 20px 10px;
+	padding: 80rpx 40rpx 20rpx;
 }
 
 .screen {
-	padding: 0 30px;
-	height: calc(100vh - 80px);
+	padding: 0 60rpx;
+	height: calc(100vh - 160rpx);
 }
 
 .hero-title {
-	font-size: 32px;
+	font-size: 64rpx;
 	font-weight: 800;
-	margin: 20px 0 40px;
-	letter-spacing: -1px;
+	margin: 40rpx 0 80rpx;
+	letter-spacing: -2rpx;
 	color: #1F2937;
 	line-height: 1.2;
 }
 
 .detail-item {
-	margin-bottom: 35px;
-	border-left: 3px solid #D1FAE5;
-	padding-left: 20px;
+	margin-bottom: 70rpx;
+	border-left: 6rpx solid #D1FAE5;
+	padding-left: 40rpx;
 }
 
 .label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #6B7280;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 	font-weight: 700;
 	text-transform: uppercase;
-	letter-spacing: 1px;
+	letter-spacing: 2rpx;
 }
 
 .value {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 600;
 	color: #1F2937;
 }
@@ -464,41 +459,41 @@ export default {
 }
 
 .value.desc {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 400;
 	color: #4B5563;
 	line-height: 1.6;
 }
 
 .map-link {
-	margin-top: 10px;
-	font-size: 13px;
+	margin-top: 20rpx;
+	font-size: 26rpx;
 	color: #10B981;
 	font-weight: 600;
 }
 
 .map-icon {
-	margin-right: 4px;
+	margin-right: 8rpx;
 	vertical-align: middle;
 }
 
 .image-wrapper {
-	margin-top: 10px;
-	border-radius: 12px;
+	margin-top: 20rpx;
+	border-radius: 24rpx;
 	overflow: hidden;
 }
 
 .need-image {
 	width: 100%;
-	height: 200px;
-	border-radius: 12px;
+	height: 400rpx;
+	border-radius: 24rpx;
 }
 
 .no-image {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #9CA3AF;
 	font-style: italic;
-	margin-top: 8px;
+	margin-top: 16rpx;
 }
 
 .deadline-text {
@@ -507,8 +502,8 @@ export default {
 }
 
 .btn-group {
-	margin-top: 40px;
-	padding-bottom: 40px;
+	margin-top: 80rpx;
+	padding-bottom: 80rpx;
 }
 
 button {
@@ -523,13 +518,13 @@ button::after {
 }
 
 .btn {
-	height: 56px;
-	border-radius: 28px;
+	height: 112rpx;
+	border-radius: 56rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	font-weight: 700;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: 0;
 	border-style: solid;
 	border-width: 0;
@@ -546,13 +541,13 @@ button::after {
 .btn-p {
 	background: #10B981;
 	color: white;
-	box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+	box-shadow: 0 20rpx 40rpx rgba(16, 185, 129, 0.2);
 }
 
 .btn-confirm {
 	background: #F59E0B;
 	color: white;
-	box-shadow: 0 10px 20px rgba(245, 158, 11, 0.2);
+	box-shadow: 0 20rpx 40rpx rgba(245, 158, 11, 0.2);
 }
 
 .btn-s {
@@ -598,7 +593,7 @@ button::after {
 	width: 560rpx;
 	background: #FFFFFF;
 	border-radius: 32rpx;
-	padding: 60rpx 40rpx 40rpx;
+	padding: 30rpx 40rpx 40rpx;
 	text-align: center;
 	box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
 }

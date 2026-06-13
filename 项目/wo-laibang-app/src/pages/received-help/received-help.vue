@@ -95,33 +95,33 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 44px 24px 20px;
+	padding: 80rpx 48rpx 40rpx;
 	background: #FFFFFF;
 }
 
 .header-title {
 	flex: 1;
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
 	text-align: center;
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 72px);
+	height: calc(100vh - 144rpx);
 }
 
 .stats-hero {
 	background: linear-gradient(135deg, #10B981, #059669);
-	margin: 16px 24px;
-	border-radius: 24px;
-	padding: 32px;
+	margin: 32rpx 48rpx;
+	border-radius: 48rpx;
+	padding: 64rpx;
 	text-align: center;
-	box-shadow: 0 12px 32px rgba(16, 185, 129, 0.3);
+	box-shadow: 0 24rpx 64rpx rgba(16, 185, 129, 0.3);
 }
 
 .total-stat {
@@ -129,108 +129,108 @@ export default {
 }
 
 .stat-value {
-	font-size: 56px;
+	font-size: 112rpx;
 	font-weight: 900;
 	color: #FFFFFF;
 	display: block;
-	letter-spacing: -2px;
+	letter-spacing: -4rpx;
 }
 
 .stat-label {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: rgba(255, 255, 255, 0.8);
 	font-weight: 600;
 }
 
 .stats-grid {
 	display: flex;
-	gap: 12px;
-	padding: 0 24px;
-	margin-bottom: 24px;
+	gap: 24rpx;
+	padding: 0 48rpx;
+	margin-bottom: 48rpx;
 }
 
 .stat-card {
 	flex: 1;
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 16px 12px;
+	border-radius: 32rpx;
+	padding: 32rpx 24rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .card-value {
-	font-size: 22px;
+	font-size: 44rpx;
 	font-weight: 900;
 	color: #10B981;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .card-label {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #94A3B8;
 	font-weight: 600;
 }
 
 .section {
-	padding: 0 24px;
+	padding: 0 48rpx;
 }
 
 .section-title {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 800;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 }
 
 .empty-state {
 	background: #FFFFFF;
-	border-radius: 20px;
-	padding: 48px 24px;
+	border-radius: 40rpx;
+	padding: 80rpx 48rpx;
 	text-align: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .empty-icon {
-	font-size: 48px;
+	font-size: 96rpx;
 	display: block;
-	margin-bottom: 12px;
+	margin-bottom: 24rpx;
 }
 
 .empty-title {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .empty-text {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #94A3B8;
 }
 
 .records-list {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .record-card {
 	background: #FFFFFF;
-	border-radius: 16px;
-	padding: 16px;
+	border-radius: 32rpx;
+	padding: 32rpx;
 	display: flex;
 	align-items: center;
-	box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+	box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.04);
 }
 
 .record-icon {
-	width: 44px;
-	height: 44px;
+	width: 88rpx;
+	height: 88rpx;
 	background: linear-gradient(135deg, #10B981, #34D399);
-	border-radius: 12px;
+	border-radius: 24rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -241,25 +241,25 @@ export default {
 }
 
 .record-title {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #1E293B;
 	display: block;
-	margin-bottom: 4px;
+	margin-bottom: 8rpx;
 }
 
 .record-time {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 }
 
 .record-amount {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #10B981;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 </style>

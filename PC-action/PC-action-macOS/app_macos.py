@@ -1,4 +1,4 @@
-import os
+﻿import os
 if os.name == "nt":
     os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
@@ -201,51 +201,6 @@ class MacOSSidebar(QWidget):
 
         layout.addStretch()
 
-        user_frame = QFrame()
-        user_frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {MacOSColors.CARD_BG};
-                border-radius: 12px;
-            }}
-        """)
-
-        user_layout = QHBoxLayout(user_frame)
-        user_layout.setContentsMargins(12, 10, 12, 10)
-        user_layout.setSpacing(12)
-
-        avatar = QLabel("\U0001f464")
-        avatar.setFixedSize(38, 38)
-        avatar.setAlignment(Qt.AlignCenter)
-        avatar.setStyleSheet(f"""
-            background-color: {MacOSColors.ACCENT_BG};
-            border-radius: 19px;
-            font-size: 18px;
-        """)
-        user_layout.addWidget(avatar)
-
-        user_info = QVBoxLayout()
-        user_info.setSpacing(2)
-
-        self.name_label = QLabel("用户")
-        self.name_label.setStyleSheet(f"""
-            color: {MacOSColors.TEXT_PRIMARY};
-            font-size: 15px;
-            font-weight: 600;
-        """)
-        user_info.addWidget(self.name_label)
-
-        self.status_label = QLabel("● 在线")
-        self.status_label.setStyleSheet(f"""
-            color: {MacOSColors.SYSTEM_GREEN};
-            font-size: 12px;
-        """)
-        user_info.addWidget(self.status_label)
-
-        user_layout.addLayout(user_info)
-        user_layout.addStretch()
-
-        layout.addWidget(user_frame)
-
         self.set_active_tab(0)
 
     def set_active_tab(self, index):
@@ -254,7 +209,7 @@ class MacOSSidebar(QWidget):
         self.tab_changed.emit(index)
 
     def set_username(self, username):
-        self.name_label.setText(username)
+        pass
 
 
 class MacOSCard(QFrame):
@@ -716,7 +671,7 @@ class MacOSToolbar(QWidget):
                 background-color: {MacOSColors.TOOLBAR_BG};
                 border-bottom: 1px solid {MacOSColors.SEPARATOR};
                 border-radius: 28px 28px 0 0;
-            }}
+                }}
         """)
 
         layout = QHBoxLayout(self)
@@ -725,7 +680,7 @@ class MacOSToolbar(QWidget):
 
         controls = QWidget()
         controls.setAttribute(Qt.WA_TranslucentBackground)
-        controls.setStyleSheet("background: transparent;")
+        controls.setStyleSheet("background-color: transparent;")
         controls_layout = QHBoxLayout(controls)
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(6)
@@ -958,17 +913,17 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
         main_widget.setObjectName("centralContainer")
-        main_widget.setStyleSheet("QWidget#centralContainer{background-color:%s;border-radius:28px;border:3px solid #1C1C1E;}"%MacOSColors.WINDOW_BG)
+        main_widget.setStyleSheet("QWidget#centralContainer{background-color:%s;border-radius:28px;}"%MacOSColors.WINDOW_BG)
 
         main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(3, 3, 3, 3)
+        main_layout.setContentsMargins(1, 1, 1, 1)
         main_layout.setSpacing(0)
 
         self.macos_toolbar = MacOSToolbar("录制控制")
         main_layout.addWidget(self.macos_toolbar)
 
         body = QWidget()
-        body.setStyleSheet("background: transparent; border: none;")
+        body.setStyleSheet("background-color: transparent; border: none;")
         body_layout = QHBoxLayout(body)
         body_layout.setContentsMargins(0, 0, 0, 0)
         body_layout.setSpacing(0)
@@ -979,7 +934,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         body_layout.addWidget(self.macos_sidebar)
 
         self.macos_stack = QStackedWidget()
-        self.macos_stack.setStyleSheet("background: transparent; border-bottom-right-radius: 28px;")
+        self.macos_stack.setStyleSheet("background-color: transparent; border-bottom-right-radius: 28px;")
 
         self.record_tab = self.create_record_tab()
         self.manager_tab = self.create_manager_tab()
@@ -1006,9 +961,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         self.create_tray_icon()
 
-        if self.current_user:
-            self.macos_sidebar.set_username(self.current_user)
-
         self._macos_titles = [
             "录制控制", "流程管理", "组合技",
             "设置",
@@ -1020,13 +972,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         # 使用新的设计系统生成统一样式
         self.setStyleSheet(generate_macos_theme())
-        body.setStyleSheet("background: transparent; border: none;")
-        r = QRect(0, 0, self.width(), self.height())
-        path = QPainterPath(); path.addRoundedRect(QRectF(r), 16, 16); self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        body.setStyleSheet("background-color: transparent; border: none;")
+        _bo = QFrame(main_widget)
+        _bo.setObjectName("borderOverlay")
+        _bo.setStyleSheet("QFrame#borderOverlay{background:transparent;border:1px solid #1C1C1E;border-radius:28px;}")
+        _bo.setGeometry(main_widget.rect())
+        _bo.raise_()
+        _bo.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._border_overlay = _bo
 
     def resizeEvent(self, e):
-        r = QRect(0, 0, self.width(), self.height())
-        path = QPainterPath(); path.addRoundedRect(QRectF(r), 16, 16); self.setMask(QRegion(path.toFillPolygon().toPolygon()))
+        if hasattr(self, "_border_overlay") and self._border_overlay:
+            self._border_overlay.setGeometry(self.centralWidget().rect())
         super().resizeEvent(e)
 
     def on_macos_tab_changed(self, index):
@@ -1076,14 +1033,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             color: {MacOSColors.TEXT_PRIMARY};
             font-size: 20px;
             font-weight: 600;
-            background: transparent;
+            background-color: transparent;
             border: none;
         """)
         card_layout.addWidget(record_title)
 
         record_area = QWidget()
         record_area.setFixedHeight(130)
-        record_area.setStyleSheet("background: transparent; border: none;")
+        record_area.setStyleSheet("background-color: transparent; border: none;")
         record_layout = QHBoxLayout(record_area)
         record_layout.setSpacing(16)
         record_layout.setContentsMargins(0, 0, 0, 0)
@@ -1094,7 +1051,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         record_layout.addWidget(self.record_btn)
 
         mode_widget = QWidget()
-        mode_widget.setStyleSheet("background: transparent; border: none;")
+        mode_widget.setStyleSheet("background-color: transparent; border: none;")
         mode_layout = QVBoxLayout(mode_widget)
         mode_layout.setSpacing(8)
         mode_layout.setContentsMargins(0, 0, 0, 0)
@@ -1104,7 +1061,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             color: {MacOSColors.TEXT_SECONDARY};
             font-size: 13px;
             font-weight: 500;
-            background: transparent;
+            background-color: transparent;
         """)
         mode_layout.addWidget(mode_label)
 
@@ -1180,7 +1137,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card_layout.addWidget(separator)
 
         replay_area = QWidget()
-        replay_area.setStyleSheet("background: transparent; border: none;")
+        replay_area.setStyleSheet("background-color: transparent; border: none;")
         replay_layout = QHBoxLayout(replay_area)
         replay_layout.setSpacing(16)
         replay_layout.setContentsMargins(0, 0, 0, 0)
@@ -1205,7 +1162,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def create_manager_tab(self):
         tab = QWidget()
-        tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
+        tab.setStyleSheet("background-color: #FFFFFF; border-radius: 20px;")
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
@@ -1213,14 +1170,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header = QHBoxLayout()
         header.setSpacing(10)
 
-        refresh_btn = MacOSSecondaryButton("🔄 刷新")
+        refresh_btn = MacOSButton("🔄 刷新", MacOSColors.ACCENT)
         refresh_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
         header.addWidget(refresh_btn)
-        _attach_button_shadow(refresh_btn, "#000000", blur_radius=12, offset_y=2, alpha=25)
+        _attach_button_shadow(refresh_btn, MacOSColors.ACCENT)
 
-        trash_btn = MacOSSecondaryButton("🗑 回收站")
+        trash_btn = MacOSButton("🗑 回收站", MacOSColors.ACCENT)
         trash_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(trash_btn)
+        _attach_button_shadow(trash_btn, MacOSColors.ACCENT)
         header.addStretch()
         layout.addLayout(header)
 
@@ -1231,7 +1189,20 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
         configure_table(folder_table, get_table_stylesheet(
-            cell_padding_v=10, cell_padding_h=12, row_height=46
+            bg_color="rgba(255, 255, 255, 0.72)",
+            header_bg="rgba(255, 255, 255, 0.5)",
+            header_color="#6E6E73",
+            text_color="#1D1D1F",
+            border_color="rgba(255, 255, 255, 0.5)",
+            hover_color="rgba(0, 122, 255, 0.06)",
+            selected_color="rgba(0, 122, 255, 0.12)",
+            alternate_color="rgba(255, 255, 255, 0.4)",
+            border_radius=20,
+            header_font_size=12,
+            cell_font_size=13,
+            cell_padding_v=14,
+            cell_padding_h=18,
+            row_height=50
         ))
         folder_table.horizontalHeader().setStretchLastSection(False)
         folder_table.setColumnWidth(0, 110)
@@ -1369,7 +1340,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             font-size: {instruction_font_size}px;
             color: {MacOSColors.TEXT_SECONDARY};
             font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            background: transparent;
+            background-color: transparent;
         """)
         layout.addWidget(instruction_label)
 
@@ -1624,7 +1595,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             font-size: 14px;
             color: {MacOSColors.TEXT_PRIMARY};
             font-weight: 500;
-            background: transparent;
+            background-color: transparent;
         """)
         layout.addWidget(label)
 
@@ -1763,7 +1734,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             font-size: 15px;
             color: {MacOSColors.TEXT_PRIMARY};
             font-weight: 500;
-            background: transparent;
+            background-color: transparent;
         """)
         msg_label.setWordWrap(True)
         layout.addWidget(msg_label)
@@ -1772,7 +1743,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         hint_label.setStyleSheet(f"""
             font-size: 12px;
             color: {MacOSColors.TEXT_SECONDARY};
-            background: transparent;
+            background-color: transparent;
         """)
         layout.addWidget(hint_label)
 
@@ -1871,11 +1842,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         status_layout.setContentsMargins(16, 10, 16, 10)
 
         status_text = QLabel("组合技运行状态：空闲")
-        status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background: transparent;")
+        status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
         status_layout.addWidget(status_text)
 
         running_names_label = QLabel("")
-        running_names_label.setStyleSheet(f"font-size: 12px; color: {MacOSColors.SYSTEM_GREEN}; background: transparent;")
+        running_names_label.setStyleSheet(f"font-size: 12px; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
         status_layout.addWidget(running_names_label)
         status_layout.addStretch()
 
@@ -2016,9 +1987,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             text_container = QVBoxLayout()
             text_container.setSpacing(2)
             name_label = QLabel(name)
-            name_label.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 15px; font-weight: 600; background: transparent;")
+            name_label.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 15px; font-weight: 600; background-color: transparent;")
             desc_label = QLabel(desc)
-            desc_label.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 12px; background: transparent;")
+            desc_label.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 12px; background-color: transparent;")
             text_container.addWidget(name_label)
             text_container.addWidget(desc_label)
             cl.addLayout(text_container, 1)
@@ -2026,7 +1997,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             arrow.setStyleSheet(f"""
                 color: {MacOSColors.SYSTEM_GRAY};
                 font-size: 20px;
-                background: transparent;
+                background-color: transparent;
             """)
             cl.addWidget(arrow)
             card.setCursor(Qt.PointingHandCursor)
@@ -2044,7 +2015,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setSpacing(0)
 
         title = QLabel("")
-        title.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 12px 0 8px 0; background: transparent;" % MacOSColors.TEXT_PRIMARY)
+        title.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 12px 0 8px 0; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
         layout.addWidget(title)
 
         steps = []
@@ -2084,11 +2055,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         sh = QHBoxLayout()
         icon_lbl = QLabel(steps[0]["icon"])
-        icon_lbl.setStyleSheet("font-size: 28px; background: transparent;")
+        icon_lbl.setStyleSheet("font-size: 28px; background-color: transparent;")
         sh.addWidget(icon_lbl)
         title_lbl = QLabel(steps[0]["title"])
         title_lbl.setTextFormat(Qt.RichText)
-        title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: bold; background: transparent;" % MacOSColors.TEXT_PRIMARY)
+        title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: bold; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
         sh.addWidget(title_lbl)
         sh.addStretch()
         cl.addLayout(sh)
@@ -2096,14 +2067,14 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet("background: transparent; border: none;")
+        scroll.setStyleSheet("background-color: transparent; border: none;")
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll.viewport().setStyleSheet("margin:0;padding:0;background:transparent;")
         body_lbl = QLabel(steps[0]["content"])
         body_lbl.setWordWrap(True)
         body_lbl.setAlignment(Qt.AlignTop)
-        body_lbl.setStyleSheet("background: transparent; margin:0; padding:0;")
+        body_lbl.setStyleSheet("background-color: transparent; margin:0; padding:0;")
         bf = body_lbl.font()
         bf.setBold(True)
         body_lbl.setFont(bf)
@@ -2330,13 +2301,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
                 if running_count > 0:
                     tab.status_text.setText(f"运行中（{running_count}个组合技锛?")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background: transparent;")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
                     tab.running_names_label.setText("  ".join(running_skill_names))
                     tab.running_names_label.setVisible(True)
                     tab.stop_all_btn.setVisible(True)
                 else:
                     tab.status_text.setText("组合技运行状态：空闲")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background: transparent;")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
                     tab.running_names_label.setText("")
                     tab.running_names_label.setVisible(False)
                     tab.stop_all_btn.setVisible(False)
@@ -2861,7 +2832,7 @@ def start_macos_app():
             font-size: 11px;
         }}
         QScrollBar:vertical {{
-            background: transparent;
+            background-color: transparent;
             width: 7px;
             margin: 0;
         }}
@@ -2874,7 +2845,7 @@ def start_macos_app():
             background: {MacOSColors.SYSTEM_GRAY2}50;
         }}
         QScrollBar:horizontal {{
-            background: transparent;
+            background-color: transparent;
             height: 7px;
             margin: 0;
         }}

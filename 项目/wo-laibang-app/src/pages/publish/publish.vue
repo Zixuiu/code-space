@@ -2,41 +2,27 @@
 	<view class="container">
 		<!-- Header -->
 		<view class="header">
-			<text class="header-title">创建任务</text>
+			<text class="header-title">{{ currentStep === 1 ? '需求内容' : currentStep === 2 ? '地点时间' : currentStep === 3 ? '支付方式' : '发布成功' }}</text>
+
 			<view class="header-right">
 				<text class="test-btn" @click="fillTestData">测试</text>
 			</view>
 		</view>
 
-		<!-- Step Indicators -->
-		<view class="steps-bar">
-			<view class="step-line"></view>
-			<view class="step-item" :class="{ active: currentStep >= 1 }">
-				<view class="step-dot">1</view>
-				<text class="step-label">需求内容</text>
-			</view>
-			<view class="step-item" :class="{ active: currentStep >= 2 }">
-				<view class="step-dot">2</view>
-				<text class="step-label">地点时间</text>
-			</view>
-			<view class="step-item" :class="{ active: currentStep >= 3 }">
-				<view class="step-dot">3</view>
-				<text class="step-label">支付方式</text>
-			</view>
-			<view class="step-item" :class="{ active: currentStep >= 4 }">
-				<view class="step-dot">4</view>
-				<text class="step-label">发布成功</text>
-			</view>
+		<view class="header-steps" style="padding:0 32rpx 16rpx;">
+			<view class="hs-dot" :class="{ active: currentStep >= 1 }">1</view>
+			<view class="hs-line" :class="{ active: currentStep >= 2 }"></view>
+			<view class="hs-dot" :class="{ active: currentStep >= 2 }">2</view>
+			<view class="hs-line" :class="{ active: currentStep >= 3 }"></view>
+			<view class="hs-dot" :class="{ active: currentStep >= 3 }">3</view>
+			<view class="hs-line" :class="{ active: currentStep >= 4 }"></view>
+			<view class="hs-dot" :class="{ active: currentStep >= 4 }">4</view>
 		</view>
 
 		<!-- Content Area -->
 		<view class="content-container">
 			<!-- Step 1: 你想找人帮什么忙？ -->
 			<view v-if="currentStep === 1" class="step-content animate-in">
-				<view class="side-hint">
-					<view class="hint-label">第一步</view>
-					<view class="hint-title">你想找人帮什么忙？</view>
-				</view>
 				
 				<view class="input-section">
 					<view class="input-card">
@@ -97,11 +83,6 @@
 
 			<!-- Step 2: 具体地点和时间 -->
 			<view v-if="currentStep === 2" class="step-content animate-in">
-				<view class="side-hint">
-					<view class="hint-label">第二步</view>
-					<view class="hint-title">具体地点和时间</view>
-				</view>
-
 				<view class="input-section">
 					<view class="input-card clickable" @click="openMapPicker" :class="{ focused: activeField === 'location' }">
 						<text class="card-label">在哪里</text>
@@ -185,11 +166,6 @@
 
 			<!-- Step 3: 支付方式 -->
 			<view v-if="currentStep === 3" class="step-content animate-in">
-				<view class="side-hint">
-					<view class="hint-label">第三步</view>
-					<view class="hint-title">选择支付方式</view>
-				</view>
-
 				<view class="input-section">
 					<view class="input-card">
 						<text class="card-label">支付方式</text>
@@ -247,11 +223,11 @@
 						</view>
 
 						<view v-if="paymentMethod === 'wallet'" class="payment-tip success">
-							<IconFont name="check" :size="24" style="margin-right: 6px;" />
+							<IconFont name="check" :size="24" style="margin-right: 12rpx;" />
 							<text>使用钱包支付，0手续费</text>
 						</view>
 						<view v-else class="payment-tip warning">
-							<IconFont name="sparkles" :size="24" style="margin-right: 6px;" />
+							<IconFont name="sparkles" :size="24" style="margin-right: 12rpx;" />
 							<text>建议使用钱包支付，0手续费更划算</text>
 						</view>
 					</view>
@@ -613,6 +589,10 @@ export default {
 				uni.showToast({ title: '请选择服务时间', icon: 'none' })
 				return false
 			}
+			if (!this.form.reward || Number(this.form.reward) <= 0) {
+				uni.showToast({ title: '请输入有效的报酬金额', icon: 'none' })
+				return false
+			}
 			return true
 		},
 		selectPayment(method) {
@@ -660,17 +640,36 @@ export default {
 						return
 					}
 					this.userStore.deductBalance(rewardAmount)
-					
-					const transactions = uni.getStorageSync('walletTransactions') || []
-					transactions.unshift({
-						id: Date.now(),
-						type: 'expense',
-						title: `发布需求：${this.form.title}`,
-						amount: -rewardAmount,
-						time: Date.now()
+				} else {
+					const payMethodName = this.paymentMethod === 'wechat' ? '微信' : '支付宝'
+					const payConfirmed = await new Promise((resolve) => {
+						uni.showModal({
+							title: '确认支付',
+							content: `需支付 ¥${rewardAmount}（${payMethodName}），确认后将从钱包扣除`,
+							confirmColor: '#10B981',
+							success: (res) => resolve(res.confirm)
+						})
 					})
-					uni.setStorageSync('walletTransactions', transactions)
+					if (!payConfirmed) {
+						this.isSubmitting = false
+						return
+					}
+					if (this.walletBalance < rewardAmount) {
+						uni.showToast({ title: '钱包余额不足，请先充值', icon: 'none' })
+						this.isSubmitting = false
+						return
+					}
+					this.userStore.deductBalance(rewardAmount)
 				}
+				const transactions = uni.getStorageSync('walletTransactions') || []
+				transactions.unshift({
+					id: Date.now(),
+					type: 'expense',
+					title: `发布需求：${this.form.title}`,
+					amount: -rewardAmount,
+					time: Date.now()
+				})
+				uni.setStorageSync('walletTransactions', transactions)
 				
 				const newNeed = await this.needStore.addNeed({
 					title: this.form.title.trim(),
@@ -710,21 +709,26 @@ export default {
 
 .content-container {
 	flex: 1;
-	padding-bottom: 60px;
+	padding-bottom: 120rpx;
 }
 
 /* Header */
 .header {
-	padding: 64px 24px 16px;
+	padding: 80rpx 32rpx 8rpx;
 	display: flex;
 	justify-content: space-between;
-	align-items: center;
+	align-items: flex-start;
 	background: #FFFFFF;
 }
 .header-title { font-size: 36rpx; font-weight: 800; color: #1E293B; }
-.header-right { width: 50px; }
+.header-right { width: 100rpx; }
+.header-steps { display: flex; align-items: center; justify-content: center; gap: 24rpx; }
+.hs-dot { width: 40rpx; height: 40rpx; border-radius: 20rpx; background: #F3F4F6; color: #9CA3AF; font-size: 20rpx; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.hs-dot.active { background: #10B981; color: #fff; }
+.hs-line { width: 72rpx; height: 4rpx; background: #F3F4F6; }
+.hs-line.active { background: #10B981; }
 .header-right .test-btn {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #10B981;
 	font-weight: 700;
 }
@@ -733,16 +737,16 @@ export default {
 .steps-bar {
 	display: flex;
 	justify-content: space-between;
-	padding: 20px 40px;
+	padding: 0;
 	position: relative;
-	margin-bottom: 10px;
+	min-height: 60rpx;
 }
 .step-line {
 	position: absolute;
-	top: 36px;
-	left: 60px;
-	right: 60px;
-	height: 2px;
+	top: 18rpx;
+	left: 40rpx;
+	right: 40rpx;
+	height: 4rpx;
 	background: #F3F4F6;
 	z-index: 1;
 }
@@ -754,28 +758,28 @@ export default {
 	position: relative;
 }
 .step-dot {
-	width: 32px;
-	height: 32px;
-	border-radius: 16px;
+	width: 32rpx;
+	height: 32rpx;
+	border-radius: 16rpx;
 	background: #F3F4F6;
 	color: #9CA3AF;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 14px;
+	font-size: 18rpx;
 	font-weight: 700;
-	margin-bottom: 8px;
+	margin-bottom: 4rpx;
 	transition: all 0.3s;
 }
 .step-label {
-	font-size: 11px;
+	font-size: 18rpx;
 	color: #9CA3AF;
 	font-weight: 600;
 }
 .step-item.active .step-dot {
 	background: #10B981;
 	color: #FFFFFF;
-	box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+	box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.2);
 }
 .step-item.active .step-label {
 	color: #10B981;
@@ -783,23 +787,23 @@ export default {
 
 /* Side Hint */
 .side-hint {
-	border-left: 5px solid #10B981;
-	padding-left: 20px;
-	margin: 20px 25px 40px;
+	border-left: 10rpx solid #10B981;
+	padding-left: 40rpx;
+	margin: 40rpx 50rpx 80rpx;
 }
 .hint-label {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #10B981;
 	font-weight: 800;
 	text-transform: uppercase;
-	letter-spacing: 1px;
-	margin-bottom: 5px;
+	letter-spacing: 2rpx;
+	margin-bottom: 10rpx;
 }
 .hint-title {
-	font-size: 26px;
+	font-size: 52rpx;
 	font-weight: 800;
 	color: #1F2937;
-	letter-spacing: -0.5px;
+	letter-spacing: -1rpx;
 }
 
 /* Category Grid */
@@ -844,82 +848,82 @@ export default {
 
 /* Input Section */
 .input-section {
-	padding: 0 25px;
+	padding: 0 50rpx;
 }
 .input-card {
 	background: #F9FAFB;
-	border-radius: 20px;
-	padding: 16px 20px;
-	margin-bottom: 16px;
-	border: 1px solid transparent;
+	border-radius: 40rpx;
+	padding: 32rpx 40rpx;
+	margin-bottom: 32rpx;
+	border: 2rpx solid transparent;
 	transition: all 0.2s;
 }
 .input-card.focused {
 	background: #FFFFFF;
 	border-color: #10B981;
-	box-shadow: 0 10px 25px rgba(16, 185, 129, 0.05);
+	box-shadow: 0 20rpx 50rpx rgba(16, 185, 129, 0.05);
 }
 .card-label {
-	font-size: 11px;
+	font-size: 22rpx;
 	color: #6B7280;
 	font-weight: 700;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 	display: block;
 }
 .card-input {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 600;
 	color: #1F2937;
 	width: 100%;
 }
 .textarea-card {
-	min-height: 120px;
+	min-height: 240rpx;
 }
 .card-textarea {
-	font-size: 16px;
-	font-weight: 500;
+	font-size: 34rpx;
+	font-weight: 600;
 	color: #1F2937;
 	width: 100%;
-	height: 80px;
+	height: 160rpx;
 }
 
 /* Image Uploader */
 .image-uploader {
-	margin-top: 10px;
+	margin-top: 20rpx;
 }
 .upload-placeholder {
-	height: 100px;
-	border: 2px dashed #E5E7EB;
-	border-radius: 20px;
+	height: 200rpx;
+	border: 4rpx dashed #E5E7EB;
+	border-radius: 40rpx;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 8px;
+	gap: 16rpx;
 }
-.camera-icon { font-size: 24px; }
-.upload-text { font-size: 13px; color: #9CA3AF; font-weight: 600; }
+.camera-icon { font-size: 48rpx; }
+.upload-text { font-size: 26rpx; color: #9CA3AF; font-weight: 600; }
 .preview-box {
 	position: relative;
 	width: 100%;
-	height: 150px;
-	border-radius: 20px;
+	height: 300rpx;
+	border-radius: 40rpx;
 	overflow: hidden;
 }
 .preview-img { width: 100%; height: 100%; }
 .delete-img {
 	position: absolute;
-	top: 10px;
-	right: 10px;
-	width: 24px;
-	height: 24px;
+	top: 20rpx;
+	right: 20rpx;
+	width: 48rpx;
+	height: 48rpx;
 	background: rgba(0,0,0,0.5);
 	color: white;
-	border-radius: 12px;
+	border-radius: 24rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	font-size: 16px;
+	font-size: 32rpx;
 }
 
 /* Location & Reward */
@@ -929,25 +933,25 @@ export default {
 	align-items: center;
 }
 .loc-text {
-	font-size: 16px;
+	font-size: 32rpx;
 	font-weight: 600;
 	color: #1F2937;
 }
 .loc-text.placeholder { color: #9CA3AF; font-weight: 500; }
-.map-marker { font-size: 18px; }
+.map-marker { font-size: 36rpx; }
 
 .reward-input-box {
 	display: flex;
 	align-items: center;
 }
 .currency {
-	font-size: 20px;
+	font-size: 40rpx;
 	font-weight: 700;
 	color: #10B981;
-	margin-right: 10px;
+	margin-right: 20rpx;
 }
 .card-input.amount {
-	font-size: 24px;
+	font-size: 48rpx;
 	font-weight: 800;
 	color: #10B981;
 }
@@ -956,18 +960,18 @@ export default {
 .payment-options {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
-	margin-top: 12px;
+	gap: 24rpx;
+	margin-top: 24rpx;
 }
 
 .payment-option {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 16px;
+	padding: 32rpx;
 	background: #F9FAFB;
-	border-radius: 14px;
-	border: 2px solid transparent;
+	border-radius: 28rpx;
+	border: 4rpx solid transparent;
 	transition: all 0.2s;
 }
 
@@ -983,11 +987,11 @@ export default {
 .payment-left {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	gap: 24rpx;
 }
 
 .payment-icon {
-	font-size: 24px;
+	font-size: 48rpx;
 }
 
 .payment-info {
@@ -996,25 +1000,25 @@ export default {
 }
 
 .payment-name {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 600;
 	color: #1F2937;
 }
 
 .payment-balance {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #10B981;
 	font-weight: 700;
 }
 
 .payment-fee {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #9CA3AF;
 }
 
 .payment-check {
-	width: 22px;
-	height: 22px;
+	width: 44rpx;
+	height: 44rpx;
 	border-radius: 50%;
 	background: #E5E7EB;
 	display: flex;
@@ -1028,15 +1032,15 @@ export default {
 
 .check-icon {
 	color: white;
-	font-size: 12px;
+	font-size: 24rpx;
 	font-weight: bold;
 }
 
 .payment-tip {
-	padding: 12px 16px;
-	border-radius: 10px;
-	font-size: 13px;
-	margin-top: 12px;
+	padding: 24rpx 32rpx;
+	border-radius: 20rpx;
+	font-size: 26rpx;
+	margin-top: 24rpx;
 }
 
 .payment-tip.success {
@@ -1052,16 +1056,16 @@ export default {
 /* Order Summary Card */
 .order-summary-card {
 	background: #F9FAFB;
-	border-radius: 20px;
-	padding: 20px;
-	margin-top: 20px;
+	border-radius: 40rpx;
+	padding: 40rpx;
+	margin-top: 40rpx;
 }
 
 .summary-label {
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 	color: #1E293B;
-	margin-bottom: 16px;
+	margin-bottom: 32rpx;
 	display: block;
 }
 
@@ -1069,8 +1073,8 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	padding: 10px 0;
-	border-bottom: 1px solid #F1F5F9;
+	padding: 20rpx 0;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .summary-row:last-child {
@@ -1078,20 +1082,20 @@ export default {
 }
 
 .summary-row.total {
-	margin-top: 10px;
-	padding-top: 16px;
-	border-top: 2px solid #E5E7EB;
+	margin-top: 20rpx;
+	padding-top: 32rpx;
+	border-top: 4rpx solid #E5E7EB;
 	border-bottom: none;
 }
 
 .summary-key {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 	font-weight: 500;
 }
 
 .summary-value {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #1E293B;
 	font-weight: 600;
 	max-width: 60%;
@@ -1099,53 +1103,53 @@ export default {
 }
 
 .summary-value.price {
-	font-size: 20px;
+	font-size: 40rpx;
 	color: #10B981;
 	font-weight: 800;
 }
 
 /* Footer Actions */
 .action-footer {
-	padding: 40px 25px;
+	padding: 80rpx 50rpx;
 	margin-top: auto;
 }
 .next-btn {
-	height: 56px;
+	height: 112rpx;
 	background: #10B981;
 	color: #FFFFFF;
-	border-radius: 28px;
+	border-radius: 56rpx;
 	font-weight: 800;
-	font-size: 17px;
+	font-size: 34rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	border: none;
 	outline: none;
-	box-shadow: 0 10px 25px rgba(16, 185, 129, 0.25);
+	box-shadow: 0 20rpx 50rpx rgba(16, 185, 129, 0.25);
 }
 .next-btn::after {
 	border: none;
 }
 .action-footer.dual {
 	display: flex;
-	gap: 15px;
+	gap: 30rpx;
 	align-items: center;
 }
 .back-link {
 	flex: 1;
-	height: 56px;
+	height: 112rpx;
 	background: #F3F4F6;
 	color: #4B5563;
-	border-radius: 28px;
+	border-radius: 56rpx;
 	font-weight: 700;
-	font-size: 16px;
+	font-size: 32rpx;
 	border: 0;
 	outline: none;
 	box-shadow: none;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	line-height: 56px;
+	line-height: 112rpx;
 }
 .back-link::after {
 	border: 0;
@@ -1159,7 +1163,7 @@ export default {
 	animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes slideUp {
-	from { opacity: 0; transform: translateY(20px); }
+	from { opacity: 0; transform: translateY(40rpx); }
 	to { opacity: 1; transform: translateY(0); }
 }
 
@@ -1168,7 +1172,7 @@ export default {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	padding: 100px 40px;
+	padding: 200rpx 80rpx;
 	text-align: center;
 }
 
@@ -1244,8 +1248,8 @@ export default {
 	left: 44rpx;
 }
 .success-icon {
-	font-size: 80px;
-	margin-bottom: 20px;
+	font-size: 160rpx;
+	margin-bottom: 40rpx;
 }
 .success-title {
 	font-size: 40rpx;

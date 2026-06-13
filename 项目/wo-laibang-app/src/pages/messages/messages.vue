@@ -325,12 +325,12 @@ export default {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	padding: 50px 24px 16px;
+	padding: 40rpx 48rpx 16rpx;
 	background: #FFFFFF;
 }
 
 .back-space {
-	width: 44px;
+	width: 88rpx;
 }
 
 .header-title {
@@ -342,55 +342,55 @@ export default {
 }
 
 .header-right {
-	width: 44px;
+	width: 88rpx;
 }
 
 .content-scroll {
-	height: calc(100vh - 88px);
+	height: calc(100vh - 120rpx);
 }
 
 .empty-state {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	padding: 120px 24px;
+	padding: 80rpx 48rpx;
 }
 
 .empty-illustration {
-	margin-bottom: 24px;
+	margin-bottom: 48rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .empty-icon-wrap {
-	width: 120px;
-	height: 120px;
+	width: 240rpx;
+	height: 240rpx;
 	background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
-	border-radius: 32px;
+	border-radius: 64rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
 
 .empty-icon-emoji {
-	font-size: 48px;
+	font-size: 96rpx;
 }
 
 .empty-title {
-	font-size: 18px;
+	font-size: 36rpx;
 	font-weight: 800;
 	color: #1E293B;
-	margin-bottom: 8px;
+	margin-bottom: 16rpx;
 }
 
 .empty-subtitle {
-	font-size: 14px;
+	font-size: 28rpx;
 	color: #64748B;
 }
 
 .conversation-list {
-	padding: 8px 0;
+	padding: 16rpx 0;
 }
 
 .conv-wrapper {
@@ -403,7 +403,7 @@ export default {
 	right: 0;
 	top: 0;
 	bottom: 0;
-	width: 80px;
+	width: 160rpx;
 	background: #EF4444;
 	display: flex;
 	align-items: center;
@@ -419,22 +419,22 @@ export default {
 
 .delete-action text {
 	color: #FFFFFF;
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 700;
 }
 
 .conv-item {
 	display: flex;
 	align-items: center;
-	padding: 16px 20px;
+	padding: 32rpx 40rpx;
 	background: #FFFFFF;
 	transition: transform 0.3s;
-	gap: 30px;
-	border-bottom: 1px solid #F1F5F9;
+	gap: 60rpx;
+	border-bottom: 2rpx solid #F1F5F9;
 }
 
 .conv-item.open {
-	transform: translateX(-80px);
+	transform: translateX(-160rpx);
 }
 
 .avatar-ring {
@@ -442,17 +442,17 @@ export default {
 }
 
 .avatar {
-	width: 42px;
-	height: 42px;
-	border-radius: 14px;
+	width: 84rpx;
+	height: 84rpx;
+	border-radius: 28rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.1);
 }
 
 .avatar-text {
-	font-size: 17px;
+	font-size: 34rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }
@@ -461,10 +461,10 @@ export default {
 	position: absolute;
 	bottom: 0;
 	right: 0;
-	width: 14px;
-	height: 14px;
+	width: 28rpx;
+	height: 28rpx;
 	background: #10B981;
-	border: 2px solid #FFFFFF;
+	border: 4rpx solid #FFFFFF;
 	border-radius: 50%;
 }
 
@@ -477,20 +477,20 @@ export default {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 6px;
+	margin-bottom: 12rpx;
 }
 
 .conv-name {
-	font-size: 15px;
+	font-size: 30rpx;
 	font-weight: 700;
 	color: #1E293B;
 }
 
 .conv-time {
-	font-size: 12px;
+	font-size: 24rpx;
 	color: #94A3B8;
 	flex-shrink: 0;
-	margin-left: 8px;
+	margin-left: 16rpx;
 }
 
 .conv-footer {
@@ -500,12 +500,12 @@ export default {
 }
 
 .conv-preview {
-	font-size: 13px;
+	font-size: 26rpx;
 	color: #64748B;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-	max-width: 200px;
+	max-width: 400rpx;
 }
 
 .conv-preview.unread {
@@ -514,56 +514,56 @@ export default {
 }
 
 .unread-badge {
-	min-width: 20px;
-	height: 20px;
+	min-width: 40rpx;
+	height: 40rpx;
 	background: #EF4444;
-	border-radius: 10px;
+	border-radius: 20rpx;
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: 0 6px;
+	padding: 0 12rpx;
 	flex-shrink: 0;
-	margin-left: 8px;
+	margin-left: 16rpx;
 }
 
 .badge-text {
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 700;
 	color: #FFFFFF;
 }
 
 .bottom-safe {
-	height: 40px;
+	height: 80rpx;
 }
 
 .debug-btn {
-	margin-top: 30px;
-	padding: 12px 32px;
+	margin-top: 60rpx;
+	padding: 24rpx 64rpx;
 	background: #10B981;
-	border-radius: 100px;
+	border-radius: 200rpx;
 }
 
 .debug-btn-text {
 	color: #FFFFFF;
-	font-size: 14px;
+	font-size: 28rpx;
 	font-weight: 600;
 }
 
 .conv-header-right {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 16rpx;
 }
 
 .view-order-btn {
 	background: linear-gradient(135deg, #10B981, #059669);
-	padding: 4px 10px;
-	border-radius: 12px;
+	padding: 8rpx 20rpx;
+	border-radius: 24rpx;
 }
 
 .view-order-text {
 	color: #FFFFFF;
-	font-size: 11px;
+	font-size: 22rpx;
 	font-weight: 600;
 }
 

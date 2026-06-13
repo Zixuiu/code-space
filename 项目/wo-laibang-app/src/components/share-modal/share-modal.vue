@@ -156,7 +156,7 @@ export default {
 	display: flex;
 	align-items: flex-end;
 	justify-content: center;
-	backdrop-filter: blur(4px);
+	backdrop-filter: blur(8rpx);
 }
 
 .share-sheet {
