@@ -878,12 +878,13 @@ class SelectionOverlay(QWidget):
                     
                     # 应用统一的对话框样式
                     from styles import apply_dialog_style
-                    apply_dialog_style(self, 0.3, 0.2)
+                    apply_dialog_style(self)
+                    self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
                     
                     layout = QVBoxLayout()
                     
-                    label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作:")
-                    layout.addWidget(label)
+                    self.hint_label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作:")
+                    layout.addWidget(self.hint_label)
                     
                     self.line_edit = QLineEdit()
                     self.line_edit.setClearButtonEnabled(True)
@@ -1261,7 +1262,7 @@ class SelectionOverlay(QWidget):
         # 显示截图
         label = QLabel()
         label.setPixmap(pixmap)
-        layout.addWidget(label)
+        layout.addWidget(self.hint_label)
         
         # 按钮
         button_layout = QHBoxLayout()

@@ -1208,7 +1208,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         folder_table.setColumnWidth(0, 110)
         folder_table.setColumnWidth(1, 400)
         folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        folder_table.setColumnWidth(2, 80)
+        folder_table.setColumnWidth(2, 110)
         folder_table.setColumnWidth(3, 55)
         folder_table.setColumnWidth(4, 55)
 
@@ -1300,7 +1300,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 table_widget.setItem(row, 4, delete_item)
             table_widget.setColumnWidth(0, 150)
             table_widget.setColumnWidth(1, 200)
-            table_widget.setColumnWidth(2, 80)
+            table_widget.setColumnWidth(2, 110)
             table_widget.setColumnWidth(3, 70)
             table_widget.setColumnWidth(4, 55)
             table_widget.horizontalHeader().setStretchLastSection(True)
@@ -1802,21 +1802,25 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         def do_delete():
             try:
+                from datetime import datetime as _dt
                 trash_dir = os.path.join(os.path.dirname(folder_path), 'trash')
                 if not os.path.exists(trash_dir):
                     os.makedirs(trash_dir)
                 import shutil
-                shutil.move(folder_path, os.path.join(trash_dir, os.path.basename(folder_path)))
-                # 同时清理该文件夹的快捷键
+                timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
+                trash_folder_name = os.path.basename(folder_path) + timestamp
+                shutil.move(folder_path, os.path.join(trash_dir, trash_folder_name))
+                self.update_trash_index(trash_folder_name, os.path.basename(folder_path), folder_path)
                 normalized_path = os.path.normpath(str(folder_path))
                 keys_to_delete = []
-                for key in self.shortcuts.keys():
+                for key in list(self.shortcuts.keys()):
                     if os.path.normpath(str(key)).lower() == normalized_path.lower():
                         keys_to_delete.append(key)
                 for key in keys_to_delete:
                     del self.shortcuts[key]
                 if keys_to_delete:
                     self.save_shortcut_config()
+                    self.update_shortcuts()
                 self.load_folders_to_table(table_widget)
                 dialog.accept()
             except Exception as e:
@@ -1921,7 +1925,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         elif data[0] == "stop":
                             self.stop_combo_skill(data[1])
             elif column == 5:
-                pass
+                item = combo_table.item(row, column)
+                if item:
+                    skill = item.data(Qt.UserRole)
+                    if skill:
+                        self.set_combo_stop_shortcut(skill, combo_table)
             elif column == 6:
                 # 删除列
                 item = combo_table.item(row, column)
@@ -2249,6 +2257,93 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 combo_manager.save_combo_skills()
                 if hasattr(self, "combo_tab") and hasattr(self.combo_tab, "combo_table"):
                     self.load_combo_skills_to_table(self.combo_tab.combo_table)
+    def set_combo_stop_shortcut(self, skill, combo_table):
+        from PyQt5.QtWidgets import QDialog as _QD
+        skill_name = skill.get('name', '')
+        current_shortcut = skill.get('stop_shortcut', '')
+        dialog = _QD(self)
+        dialog.setWindowTitle("设置停止快捷键")
+        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        dialog.setAttribute(Qt.WA_TranslucentBackground)
+        dialog.setFixedSize(400, 220)
+        dialog.setWindowModality(Qt.WindowModal)
+        _outer = QVBoxLayout(dialog)
+        _outer.setContentsMargins(0, 0, 0, 0)
+        _card = QFrame(dialog)
+        _card.setStyleSheet("QFrame{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #FFFFFF,stop:1 #F0F0F5);border-radius:18px;border:2px solid #8E8E93;}")
+        _cl = QVBoxLayout(_card)
+        _cl.setSpacing(12)
+        _cl.setContentsMargins(20, 16, 20, 16)
+        _outer.addWidget(_card)
+        title_label = QLabel(f"⌨️ 设置「{skill_name}」的停止快捷键")
+        title_label.setStyleSheet(f"font-size:14px;font-weight:bold;color:{MacOSColors.TEXT_PRIMARY};background:transparent;")
+        _cl.addWidget(title_label)
+        instruction_label = QLabel("请按下快捷键组合...")
+        instruction_label.setAlignment(Qt.AlignCenter)
+        instruction_label.setStyleSheet(f"font-size:13px;color:{MacOSColors.TEXT_SECONDARY};background:transparent;")
+        _cl.addWidget(instruction_label)
+        shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
+        shortcut_label.setAlignment(Qt.AlignCenter)
+        shortcut_label.setStyleSheet(f"font-size:18px;font-weight:bold;padding:8px;border:2px solid {MacOSColors.ACCENT};border-radius:8px;background-color:white;min-height:30px;color:{MacOSColors.TEXT_PRIMARY};")
+        _cl.addWidget(shortcut_label)
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
+        clear_btn = QPushButton("清除")
+        clear_btn.setFixedSize(80, 32)
+        clear_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_RED};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#D63031;}}")
+        ok_btn = QPushButton("确定")
+        ok_btn.setFixedSize(80, 32)
+        ok_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.ACCENT};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:{MacOSButton._adjust_color_opacity_static(MacOSColors.ACCENT, 0.85)};}}")
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setFixedSize(80, 32)
+        cancel_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_GRAY};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#6E6E73;}}")
+        btn_layout.addStretch()
+        btn_layout.addWidget(clear_btn)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addStretch()
+        _cl.addLayout(btn_layout)
+        current_keys = []
+        def clear_shortcut():
+            nonlocal current_keys
+            current_keys = []
+            shortcut_label.setText("")
+        def keyPressEvent(event):
+            key = event.key()
+            modifiers = event.modifiers()
+            if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
+                return
+            key_name = {Qt.Key_F1:"F1",Qt.Key_F2:"F2",Qt.Key_F3:"F3",Qt.Key_F4:"F4",Qt.Key_F5:"F5",Qt.Key_F6:"F6",Qt.Key_F7:"F7",Qt.Key_F8:"F8",Qt.Key_F9:"F9",Qt.Key_F10:"F10",Qt.Key_F11:"F11",Qt.Key_F12:"F12",Qt.Key_Escape:"Esc",Qt.Key_Tab:"Tab",Qt.Key_Space:"Space",Qt.Key_Return:"Enter",Qt.Key_Enter:"Enter",Qt.Key_Backspace:"Backspace",Qt.Key_Delete:"Del",Qt.Key_Insert:"Ins",Qt.Key_Home:"Home",Qt.Key_End:"End",Qt.Key_PageUp:"PageUp",Qt.Key_PageDown:"PageDown",Qt.Key_Up:"↑",Qt.Key_Down:"↓",Qt.Key_Left:"←",Qt.Key_Right:"→"}.get(key, QKeySequence(key).toString())
+            if not key_name:
+                return
+            parts = []
+            if modifiers & Qt.ControlModifier:
+                parts.append("Ctrl")
+            if modifiers & Qt.ShiftModifier:
+                parts.append("Shift")
+            if modifiers & Qt.AltModifier:
+                parts.append("Alt")
+            parts.append(key_name)
+            shortcut = "+".join(parts)
+            shortcut_label.setText(shortcut)
+            current_keys.clear()
+            current_keys.append(shortcut)
+        clear_btn.clicked.connect(clear_shortcut)
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+        dialog.keyPressEvent = keyPressEvent
+        result = dialog.exec_()
+        if result == _QD.Accepted:
+            new_shortcut = current_keys[-1] if current_keys else ''
+            from combo_skill_manager import ComboSkillManager
+            combo_manager = ComboSkillManager(self)
+            for i, s in enumerate(combo_manager.combo_skills):
+                if s.get('name') == skill_name:
+                    combo_manager.combo_skills[i]['stop_shortcut'] = new_shortcut
+                    break
+            combo_manager.save_combo_skills()
+            self.load_combo_skills_to_table(combo_table)
+
     def edit_combo_skill_in_tab(self, skill, combo_table):
         """在组合技tab页中编辑组合技"""
         self.open_combo_skill_editor(skill)

@@ -1921,6 +1921,173 @@ class FolderManager(QDialog):
                 return
         
         # 从recording.json加载操作方式
+        self._populate_image_rows(dialog, folder_path, list_layout)
+        scroll_area.setWidget(scroll_root)
+        _cl.addWidget(scroll_area)
+        layout.addWidget(_outer)
+        # 添加底部按钮区域 - macOS风格
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(16, 8, 16, 12)
+        
+        # 继续添加操作按钮
+        add_btn = QPushButton("➕ 继续添加操作")
+        add_btn.setFixedSize(180, 42)
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0A84FF;
+                color: white;
+                border-radius: 21px;
+                font-weight: 600;
+                font-size: 14px;
+                font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
+                text-align: center;
+            }
+            QPushButton:hover {
+                background-color: #006AE0;
+            }
+            QPushButton:pressed {
+                background-color: #004DB3;
+            }
+        """)
+        add_btn.clicked.connect(lambda: self.add_more_operations(dialog, folder_path))
+        button_layout.addWidget(add_btn)
+        
+
+        
+        _cl.addLayout(button_layout)
+        self.parent._view_images_dialog = dialog
+        # 如果parent有folder_manager属性，也设置它
+        if hasattr(self.parent, 'folder_manager') and self.parent.folder_manager:
+            self.parent.folder_manager._view_images_dialog = dialog
+        self.parent._view_images_grid_layout = list_layout
+        
+        # 添加键盘事件处理 - ·键触发继续添加操作
+        def keyPressEvent(event):
+            from PyQt5.QtCore import Qt
+            # 检查是否按下·键（grave键，ASCII 96）
+            if event.key() == Qt.Key_QuoteLeft or event.key() == 96:
+                # print("[查看图片] 检测到·键，触发继续添加操作")  # [日志已禁用]
+                self.add_more_operations(dialog, folder_path)
+            else:
+                # 其他键调用默认处理
+                QDialog.keyPressEvent(dialog, event)
+        
+        dialog.keyPressEvent = keyPressEvent
+        
+        # 对话框关闭时清理资源
+        def on_dialog_finished(result):
+            # 检查是否需要在延迟后移除热键（避免在热键回调中直接移除导致崩溃）
+            need_remove = getattr(self, '_need_remove_grave_hotkey', False)
+            
+            def delayed_cleanup():
+                # 移除查看图片窗口专用的·键热键
+                try:
+                    import keyboard
+                    if hasattr(self, '_view_images_grave_hotkey_id') and self._view_images_grave_hotkey_id:
+                        keyboard.remove_hotkey(self._view_images_grave_hotkey_id)
+                        # print("[查看图片] 移除 grave 键专用热键")  # [日志已禁用]
+                        self._view_images_grave_hotkey_id = None
+                except Exception as e:
+                    # print(f"[查看图片] 移除 grave 键专用热键失败: {e}")  # [日志已禁用]
+                    pass
+                
+                # 重新启用全局·键快捷键
+                self.parent.reenable_grave_hotkey()
+                # print("[查看图片] 重新启用 grave 键全局快捷键")  # [日志已禁用]
+                
+                # 清理存储的路径
+                if hasattr(self, '_current_view_folder_path'):
+                    delattr(self, '_current_view_folder_path')
+                
+                # 清理标记
+                if hasattr(self, '_need_remove_grave_hotkey'):
+                    delattr(self, '_need_remove_grave_hotkey')
+            
+            if need_remove:
+                # 延迟100ms执行清理，避免在热键回调线程中操作
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(100, delayed_cleanup)
+            else:
+                # 直接执行清理
+                delayed_cleanup()
+        
+        dialog.finished.connect(on_dialog_finished)
+        
+        dialog.show()
+
+    def _on_grave_key_in_view_images(self, dialog, folder_path):
+        """处理查看图片窗口中的 grave 键按下事件"""
+        # print("[查看图片] ===== _on_grave_key_in_view_images 被调用 =====")  # [日志已禁用]
+        # print(f"[查看图片] dialog 对象: {dialog}")  # [日志已禁用]
+        # print(f"[查看图片] dialog.isVisible(): {dialog.isVisible() if dialog else 'N/A'}")  # [日志已禁用]
+        # print(f"[查看图片] folder_path: {folder_path}")  # [日志已禁用]
+        
+        # 检查对话框是否仍然打开
+        if dialog and dialog.isVisible():
+            # print("[查看图片] 对话框可见，准备执行继续添加操作")  # [日志已禁用]
+            # 使用信号槽机制确保在主线程中执行
+            self._execute_add_operations_signal.emit(dialog, folder_path)
+        else:
+            # print("[查看图片] 对话框已关闭或无效，忽略此次按键")  # [日志已禁用]
+            pass
+
+    def _on_execute_add_operations(self, dialog, folder_path):
+        """槽函数：在主线程中执行继续添加操作"""
+        # print("[查看图片] _on_execute_add_operations 槽函数被调用")  # [日志已禁用]
+        try:
+            self.add_more_operations(dialog, folder_path)
+            # self.debug_print("[查看图片] add_more_operations 执行完成")  # [日志已禁用]
+        except Exception as e:
+            # self.debug_print(f"[查看图片] add_more_operations 执行失败: {e}")  # [日志已禁用]
+            import traceback
+            traceback.print_exc()
+
+    def _swap_steps(self, idx_a, idx_b, folder_path):
+        try:
+            recording_json_path = os.path.join(folder_path, 'recording.json')
+            recording_data = []
+            if os.path.exists(recording_json_path):
+                recording_data = load_json_data(recording_json_path)
+            if not isinstance(recording_data, list) or len(recording_data) < 2:
+                return
+            recording_data.sort(key=lambda x: x.get('step', 0))
+            step_a = idx_a + 1
+            step_b = idx_b + 1
+            rec_a = next((d for d in recording_data if d.get('step') == step_a), None)
+            rec_b = next((d for d in recording_data if d.get('step') == step_b), None)
+            if rec_a is None or rec_b is None:
+                return
+            img_a = os.path.join(folder_path, f"操作{step_a}.png")
+            img_b = os.path.join(folder_path, f"操作{step_b}.png")
+            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
+            if os.path.exists(img_a) and os.path.exists(img_b):
+                os.rename(img_a, img_a_tmp)
+                os.rename(img_b, img_a)
+                os.rename(img_a_tmp, img_b)
+            elif os.path.exists(img_a) and not os.path.exists(img_b):
+                os.rename(img_a, img_b)
+            elif os.path.exists(img_b) and not os.path.exists(img_a):
+                os.rename(img_b, img_a)
+            rec_a['step'] = step_b
+            rec_b['step'] = step_a
+            if 'image' in rec_a:
+                rec_a['image'] = f"操作{step_b}.png"
+            if 'image' in rec_b:
+                rec_b['image'] = f"操作{step_a}.png"
+            save_json_data(recording_json_path, recording_data)
+            if idx_a < len(self.image_actions) and idx_b < len(self.image_actions):
+                self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
+            self.refresh_view_images(folder_path)
+        except Exception as e:
+            self.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
+
+    def _populate_image_rows(self, dialog, folder_path, list_layout):
+        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+        image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
+        if not image_files:
+            return
+        recording_json_path = os.path.join(folder_path, 'recording.json')
+        has_recording_json = os.path.exists(recording_json_path)
         self.image_actions = []
         if has_recording_json:
             recording_data = load_json_data(recording_json_path)
@@ -2248,7 +2415,7 @@ class FolderManager(QDialog):
                         QComboBox::drop-down {{ width: 0; border: none; }}
                         QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
-                    cb.setEditable(True);cb.lineEdit().setReadOnly(True);cb.lineEdit().setAlignment(Qt.AlignCenter);cb.lineEdit().setStyleSheet("QLineEdit{background:transparent;border:none;padding:0;margin:0;}")
+                    
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
                 else:
                     cb = QComboBox()
@@ -2264,7 +2431,7 @@ class FolderManager(QDialog):
                         QComboBox::drop-down {{ width: 0; border: none; }}
                         QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                     """)
-                    cb.setEditable(True);cb.lineEdit().setReadOnly(True);cb.lineEdit().setAlignment(Qt.AlignCenter);cb.lineEdit().setStyleSheet("QLineEdit{background:transparent;border:none;padding:0;margin:0;}")
+                    
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
             else:
                 cb = QComboBox()
@@ -2280,7 +2447,7 @@ class FolderManager(QDialog):
                     QComboBox::drop-down {{ width: 0; border: none; }}
                     QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
                 """)
-                cb.setEditable(True);cb.lineEdit().setReadOnly(True);cb.lineEdit().setAlignment(Qt.AlignCenter);cb.lineEdit().setStyleSheet("QLineEdit{background:transparent;border:none;padding:0;margin:0;}")
+                
                 _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
 
             # ── ④ 延迟 ⏱0.5s ──
@@ -2327,177 +2494,20 @@ class FolderManager(QDialog):
 
             row_layout.addStretch()
             list_layout.addWidget(row_widget)
-        scroll_area.setWidget(scroll_root)
-        _cl.addWidget(scroll_area)
-        layout.addWidget(_outer)
-        # 添加底部按钮区域 - macOS风格
-        button_layout = QHBoxLayout()
-        button_layout.setContentsMargins(16, 8, 16, 12)
-        
-        # 继续添加操作按钮
-        add_btn = QPushButton("➕ 继续添加操作")
-        add_btn.setFixedSize(180, 42)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border-radius: 21px;
-                font-weight: 600;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #006AE0;
-            }
-            QPushButton:pressed {
-                background-color: #004DB3;
-            }
-        """)
-        add_btn.clicked.connect(lambda: self.add_more_operations(dialog, folder_path))
-        button_layout.addWidget(add_btn)
-        
-
-        
-        _cl.addLayout(button_layout)
-        self.parent._view_images_dialog = dialog
-        # 如果parent有folder_manager属性，也设置它
-        if hasattr(self.parent, 'folder_manager') and self.parent.folder_manager:
-            self.parent.folder_manager._view_images_dialog = dialog
-        self.parent._view_images_grid_layout = list_layout
-        
-        # 添加键盘事件处理 - ·键触发继续添加操作
-        def keyPressEvent(event):
-            from PyQt5.QtCore import Qt
-            # 检查是否按下·键（grave键，ASCII 96）
-            if event.key() == Qt.Key_QuoteLeft or event.key() == 96:
-                # print("[查看图片] 检测到·键，触发继续添加操作")  # [日志已禁用]
-                self.add_more_operations(dialog, folder_path)
-            else:
-                # 其他键调用默认处理
-                QDialog.keyPressEvent(dialog, event)
-        
-        dialog.keyPressEvent = keyPressEvent
-        
-        # 对话框关闭时清理资源
-        def on_dialog_finished(result):
-            # 检查是否需要在延迟后移除热键（避免在热键回调中直接移除导致崩溃）
-            need_remove = getattr(self, '_need_remove_grave_hotkey', False)
-            
-            def delayed_cleanup():
-                # 移除查看图片窗口专用的·键热键
-                try:
-                    import keyboard
-                    if hasattr(self, '_view_images_grave_hotkey_id') and self._view_images_grave_hotkey_id:
-                        keyboard.remove_hotkey(self._view_images_grave_hotkey_id)
-                        # print("[查看图片] 移除 grave 键专用热键")  # [日志已禁用]
-                        self._view_images_grave_hotkey_id = None
-                except Exception as e:
-                    # print(f"[查看图片] 移除 grave 键专用热键失败: {e}")  # [日志已禁用]
-                    pass
-                
-                # 重新启用全局·键快捷键
-                self.parent.reenable_grave_hotkey()
-                # print("[查看图片] 重新启用 grave 键全局快捷键")  # [日志已禁用]
-                
-                # 清理存储的路径
-                if hasattr(self, '_current_view_folder_path'):
-                    delattr(self, '_current_view_folder_path')
-                
-                # 清理标记
-                if hasattr(self, '_need_remove_grave_hotkey'):
-                    delattr(self, '_need_remove_grave_hotkey')
-            
-            if need_remove:
-                # 延迟100ms执行清理，避免在热键回调线程中操作
-                from PyQt5.QtCore import QTimer
-                QTimer.singleShot(100, delayed_cleanup)
-            else:
-                # 直接执行清理
-                delayed_cleanup()
-        
-        dialog.finished.connect(on_dialog_finished)
-        
-        dialog.show()
-
-    def _on_grave_key_in_view_images(self, dialog, folder_path):
-        """处理查看图片窗口中的 grave 键按下事件"""
-        # print("[查看图片] ===== _on_grave_key_in_view_images 被调用 =====")  # [日志已禁用]
-        # print(f"[查看图片] dialog 对象: {dialog}")  # [日志已禁用]
-        # print(f"[查看图片] dialog.isVisible(): {dialog.isVisible() if dialog else 'N/A'}")  # [日志已禁用]
-        # print(f"[查看图片] folder_path: {folder_path}")  # [日志已禁用]
-        
-        # 检查对话框是否仍然打开
-        if dialog and dialog.isVisible():
-            # print("[查看图片] 对话框可见，准备执行继续添加操作")  # [日志已禁用]
-            # 使用信号槽机制确保在主线程中执行
-            self._execute_add_operations_signal.emit(dialog, folder_path)
-        else:
-            # print("[查看图片] 对话框已关闭或无效，忽略此次按键")  # [日志已禁用]
-            pass
-
-    def _on_execute_add_operations(self, dialog, folder_path):
-        """槽函数：在主线程中执行继续添加操作"""
-        # print("[查看图片] _on_execute_add_operations 槽函数被调用")  # [日志已禁用]
-        try:
-            self.add_more_operations(dialog, folder_path)
-            # self.debug_print("[查看图片] add_more_operations 执行完成")  # [日志已禁用]
-        except Exception as e:
-            # self.debug_print(f"[查看图片] add_more_operations 执行失败: {e}")  # [日志已禁用]
-            import traceback
-            traceback.print_exc()
-
-    def _swap_steps(self, idx_a, idx_b, folder_path):
-        try:
-            recording_json_path = os.path.join(folder_path, 'recording.json')
-            recording_data = []
-            if os.path.exists(recording_json_path):
-                recording_data = load_json_data(recording_json_path)
-            if not isinstance(recording_data, list) or len(recording_data) < 2:
-                return
-            recording_data.sort(key=lambda x: x.get('step', 0))
-            step_a = idx_a + 1
-            step_b = idx_b + 1
-            rec_a = next((d for d in recording_data if d.get('step') == step_a), None)
-            rec_b = next((d for d in recording_data if d.get('step') == step_b), None)
-            if rec_a is None or rec_b is None:
-                return
-            img_a = os.path.join(folder_path, f"操作{step_a}.png")
-            img_b = os.path.join(folder_path, f"操作{step_b}.png")
-            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
-            if os.path.exists(img_a) and os.path.exists(img_b):
-                os.rename(img_a, img_a_tmp)
-                os.rename(img_b, img_a)
-                os.rename(img_a_tmp, img_b)
-            elif os.path.exists(img_a) and not os.path.exists(img_b):
-                os.rename(img_a, img_b)
-            elif os.path.exists(img_b) and not os.path.exists(img_a):
-                os.rename(img_b, img_a)
-            rec_a['step'] = step_b
-            rec_b['step'] = step_a
-            if 'image' in rec_a:
-                rec_a['image'] = f"操作{step_b}.png"
-            if 'image' in rec_b:
-                rec_b['image'] = f"操作{step_a}.png"
-            save_json_data(recording_json_path, recording_data)
-            if idx_a < len(self.image_actions) and idx_b < len(self.image_actions):
-                self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
-            self.refresh_view_images(folder_path)
-        except Exception as e:
-            self.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
 
     def refresh_view_images(self, folder_path):
-        """刷新图片查看对话框内容"""
         if not hasattr(self.parent, '_view_images_dialog') or not self.parent._view_images_dialog:
             return
+        if not hasattr(self.parent, '_view_images_grid_layout'):
+            return
         dialog = self.parent._view_images_dialog
-        QApplication.setUpdatesEnabled(False)
-        try:
-            dialog.close()
-            self.view_images(folder_path)
-        finally:
-            QApplication.setUpdatesEnabled(True)
-
+        list_layout = self.parent._view_images_grid_layout
+        while list_layout.count():
+            item = list_layout.takeAt(0)
+            w = item.widget()
+            if w:
+                w.deleteLater()
+        self._populate_image_rows(dialog, folder_path, list_layout)
     def add_more_operations(self, parent_dialog, folder_path):
         """继续添加新的操作到现有文件夹"""
         # print("===== add_more_operations 被调用 =====")  # [日志已禁用]
@@ -5461,16 +5471,17 @@ class AutoRecorderApp(QMainWindow):
             self.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
 
     def refresh_view_images(self, folder_path):
-        """刷新图片查看对话框内容"""
         if hasattr(self, 'folder_manager') and hasattr(self.folder_manager, '_view_images_dialog') and self.folder_manager._view_images_dialog:
             dialog = self.folder_manager._view_images_dialog
-            QApplication.setUpdatesEnabled(False)
-            try:
-                dialog.close()
-                self.folder_manager.view_images(folder_path)
-            finally:
-                QApplication.setUpdatesEnabled(True)
-
+            if not hasattr(self, '_view_images_grid_layout'):
+                return
+            list_layout = self._view_images_grid_layout
+            while list_layout.count():
+                item = list_layout.takeAt(0)
+                w = item.widget()
+                if w:
+                    w.deleteLater()
+            self.folder_manager._populate_image_rows(dialog, folder_path, list_layout)
     def delete_image_from_grid(self, img_path, folder_path):
         """从图片网格中删除指定图片"""
         if not os.path.exists(img_path):
@@ -5635,6 +5646,43 @@ class AutoRecorderApp(QMainWindow):
         
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(300, lambda: self.refresh_view_images(folder_path))
+
+    def show_action_type_menu(self, button):
+        from PyQt5.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "QMenu {"
+            "    background-color: #2C2C2E;"
+            "    border: 1px solid #3A3A3C;"
+            "    border-radius: 8px;"
+            "    padding: 6px;"
+            "}"
+            "QMenu::item {"
+            "    padding: 8px 20px;"
+            "    border-radius: 6px;"
+            "    color: #FFFFFF;"
+            "    font-size: 13px;"
+            "}"
+            "QMenu::item:selected {"
+            "    background-color: #0A84FF;"
+            "    color: white;"
+            "}"
+        )
+        current = button.property('current_action_type') or 'left_click'
+        action_items = [
+            ('左击', 'left_click'),
+            ('右击', 'right_click'),
+            ('双击', 'double_click'),
+            ('中击', 'middle_click'),
+            ('键盘输入', 'keyboard'),
+            ('拖拽', 'drag'),
+        ]
+        for label, action_type in action_items:
+            action = menu.addAction(label)
+            if action_type == current:
+                action.setText('✓ ' + label)
+            action.triggered.connect(lambda checked, at=action_type: self.change_action_type(button, at))
+        menu.exec_(button.mapToGlobal(button.rect().bottomLeft()))
 
     def change_action_type(self, button, new_action_type):
         """更新recording.json文件中的操作类型"""
@@ -8611,13 +8659,25 @@ class AutoRecorderApp(QMainWindow):
         reply = self.show_beautiful_message('question', "确认删除", f"确定要删除流程 '{os.path.basename(folder_path)}'?", buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
         if reply == QMessageBox.Yes:
             try:
-                # 移动到回收站
+                from datetime import datetime as _dt
                 trash_dir = os.path.join(os.path.dirname(folder_path), 'trash')
                 if not os.path.exists(trash_dir):
                     os.makedirs(trash_dir)
                 import shutil
-                shutil.move(folder_path, os.path.join(trash_dir, os.path.basename(folder_path)))
-                # print(f"已删除流程: {folder_path}")  # [日志已禁用]
+                timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
+                trash_folder_name = os.path.basename(folder_path) + timestamp
+                shutil.move(folder_path, os.path.join(trash_dir, trash_folder_name))
+                self.update_trash_index(trash_folder_name, os.path.basename(folder_path), folder_path)
+                normalized_path = os.path.normpath(str(folder_path))
+                keys_to_delete = []
+                for key in list(self.shortcuts.keys()):
+                    if os.path.normpath(str(key)).lower() == normalized_path.lower():
+                        keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    del self.shortcuts[key]
+                if keys_to_delete:
+                    self.save_shortcut_config()
+                    self.update_shortcuts()
                 self.load_folders_to_table(table_widget)
             except Exception as e:
                 self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
@@ -8727,6 +8787,34 @@ class AutoRecorderApp(QMainWindow):
         """)
         content_layout.addWidget(trash_table)
 
+        def _load_trash_data():
+            from utils import get_recordings_path
+            recordings_dir = get_recordings_path()
+            trash_dir = os.path.join(recordings_dir, 'trash')
+            index_file = os.path.join(trash_dir, 'trash_index.json')
+            index_data = []
+            if os.path.exists(index_file):
+                try:
+                    with open(index_file, 'r', encoding='utf-8') as f:
+                        index_data = json.load(f)
+                except:
+                    pass
+            trash_table.setRowCount(len(index_data))
+            for i, item in enumerate(index_data):
+                check_item = QTableWidgetItem("")
+                check_item.setData(Qt.UserRole, item)
+                check_item.setTextAlignment(Qt.AlignCenter)
+                trash_table.setItem(i, 0, check_item)
+                name_item = QTableWidgetItem(item.get('original_name', ''))
+                name_item.setTextAlignment(Qt.AlignCenter)
+                name_item.setData(Qt.UserRole, item)
+                trash_table.setItem(i, 1, name_item)
+                time_item = QTableWidgetItem(item.get('deleted_time', ''))
+                time_item.setTextAlignment(Qt.AlignCenter)
+                trash_table.setItem(i, 2, time_item)
+            count_label.setText(f"{len(index_data)} \u9879")
+        _load_trash_data()
+
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 12, 0, 0)
         btn_row.setSpacing(16)
@@ -8753,6 +8841,115 @@ class AutoRecorderApp(QMainWindow):
 
         cl.addWidget(content)
         dialog.show()
+
+
+    def restore_selected_trash(self, trash_table, count_label):
+        try:
+            rows = set()
+            for item in trash_table.selectedItems():
+                rows.add(item.row())
+            if not rows:
+                self.show_beautiful_message('information', '提示', '请先选择要恢复的流程')
+                return
+            from utils import get_recordings_path
+            recordings_dir = get_recordings_path()
+            trash_dir = os.path.join(recordings_dir, 'trash')
+            import shutil
+            for row in sorted(rows, reverse=True):
+                item_data = trash_table.item(row, 0).data(Qt.UserRole)
+                if not item_data:
+                    continue
+                trash_folder_name = item_data['trash_folder_name']
+                original_path = item_data['original_path']
+                original_name = item_data['original_name']
+                trash_folder_path = os.path.join(trash_dir, trash_folder_name)
+                if not os.path.exists(trash_folder_path):
+                    continue
+                restore_path = original_path
+                if os.path.exists(original_path):
+                    from datetime import datetime as _dt
+                    timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
+                    restore_path = os.path.join(os.path.dirname(original_path), original_name + timestamp)
+                shutil.move(trash_folder_path, restore_path)
+                self.remove_from_trash_index(trash_folder_name)
+            self._reload_trash_table(trash_table, count_label)
+        except Exception as e:
+            self.show_beautiful_message('critical', '错误', f"恢复失败: {e}")
+
+    def delete_selected_trash(self, trash_table, count_label):
+        try:
+            rows = set()
+            for item in trash_table.selectedItems():
+                rows.add(item.row())
+            if not rows:
+                self.show_beautiful_message('information', '提示', '请先选择要永久删除的流程')
+                return
+            reply = self.show_beautiful_message('question', '确认', '确定要永久删除选中的流程吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
+            from utils import get_recordings_path
+            recordings_dir = get_recordings_path()
+            trash_dir = os.path.join(recordings_dir, 'trash')
+            import shutil
+            for row in sorted(rows, reverse=True):
+                item_data = trash_table.item(row, 0).data(Qt.UserRole)
+                if not item_data:
+                    continue
+                trash_folder_name = item_data['trash_folder_name']
+                trash_folder_path = os.path.join(trash_dir, trash_folder_name)
+                if os.path.exists(trash_folder_path):
+                    shutil.rmtree(trash_folder_path)
+                self.remove_from_trash_index(trash_folder_name)
+            self._reload_trash_table(trash_table, count_label)
+        except Exception as e:
+            self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
+
+    def clear_trash_dialog(self, trash_table, count_label):
+        try:
+            reply = self.show_beautiful_message('question', '确认', '确定要清空回收站吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
+            if reply != QMessageBox.Yes:
+                return
+            from utils import get_recordings_path
+            recordings_dir = get_recordings_path()
+            trash_dir = os.path.join(recordings_dir, 'trash')
+            import shutil
+            if os.path.exists(trash_dir):
+                for item in os.listdir(trash_dir):
+                    item_path = os.path.join(trash_dir, item)
+                    if os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                    else:
+                        os.remove(item_path)
+            self._reload_trash_table(trash_table, count_label)
+        except Exception as e:
+            self.show_beautiful_message('critical', '错误', f"清空失败: {e}")
+
+    def _reload_trash_table(self, trash_table, count_label):
+        from utils import get_recordings_path
+        recordings_dir = get_recordings_path()
+        trash_dir = os.path.join(recordings_dir, 'trash')
+        index_file = os.path.join(trash_dir, 'trash_index.json')
+        index_data = []
+        if os.path.exists(index_file):
+            try:
+                with open(index_file, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+            except:
+                pass
+        trash_table.setRowCount(len(index_data))
+        for i, item in enumerate(index_data):
+            check_item = QTableWidgetItem("")
+            check_item.setData(Qt.UserRole, item)
+            check_item.setTextAlignment(Qt.AlignCenter)
+            trash_table.setItem(i, 0, check_item)
+            name_item = QTableWidgetItem(item.get('original_name', ''))
+            name_item.setTextAlignment(Qt.AlignCenter)
+            name_item.setData(Qt.UserRole, item)
+            trash_table.setItem(i, 1, name_item)
+            time_item = QTableWidgetItem(item.get('deleted_time', ''))
+            time_item.setTextAlignment(Qt.AlignCenter)
+            trash_table.setItem(i, 2, time_item)
+        count_label.setText(f"{len(index_data)} \u9879")
 
     def refresh_floating_window_list(self):
         """刷新悬浮窗口的流程列表"""
