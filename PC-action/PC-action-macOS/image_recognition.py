@@ -74,14 +74,14 @@ def _interruptible_sleep(duration, stop_check=None):
     Returns: True=被中断(停止), False=正常等待完成
     """
     if duration <= 0:
-        return _replay_stop_flag or (stop_check and stop_check())
+        return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
     start = time.time()
     poll_interval = 0.02  # 20ms轮询一次停止信号
     while time.time() - start < duration:
-        if _replay_stop_flag or (stop_check and stop_check()):
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return True
         time.sleep(poll_interval)
-    return _replay_stop_flag or (stop_check and stop_check())
+    return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
 def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False):
     """
@@ -96,11 +96,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         stop_check: 可选的停止检查函数，返回True时停止执行（用于多组合技并行时各runner独立停止）
     
     Returns:
-        tuple: (成功执行的操作数, 总操作数)
+        tuple: (成功执行的操作数, 总操作数, 图片匹配失败次数)
     """
     global _replay_stop_flag
     
     success_count = 0
+    image_match_fail_count = 0  # 追踪图片匹配失败次数
     recording_data = sorted(recording_data, key=lambda op: op.get('step', 0))
     total_operations = len(recording_data)
     
@@ -330,10 +331,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 else:
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
-                print(f"[耗时-回放] 步骤{step} 图片匹配: {_match_t1-_match_t0:.3f}s 结果={'命中' if location else '失败'} 图片={image_name}")
 
                 if not location:
                     debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}）")
+                    image_match_fail_count += 1  # 记录图片匹配失败次数
                     continue
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
@@ -371,18 +372,16 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             _step_elapsed = time.time() - _step_start
             if _step_elapsed > 0.3:
-                print(f"[耗时-回放] ⚠️ 步骤{step} 耗时较长: {_step_elapsed:.3f}s type={action_type}")
-                
+                pass
         except Exception as e:
             import traceback
             traceback.print_exc()
             continue
     
     _replay_elapsed = time.time() - _replay_start
-    print(f"[耗时-回放] replay_coordinate_operations 总耗时: {_replay_elapsed:.3f}s 成功={success_count}/{total_operations}")
     if not skip_cache_clear:
         clear_image_cache()
-    return success_count, total_operations
+    return success_count, total_operations, image_match_fail_count
 
 
 def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None):
@@ -511,7 +510,7 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         arr = get_cached_image(image_path)
         if arr is None:
             return None
-        if _replay_stop_flag or (stop_check and stop_check()):
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return None
         screenshot = _mss_grab_array()
         if screenshot is None:
@@ -535,7 +534,7 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         arr = get_cached_image(image_path)
         if arr is None:
             return None
-        if _replay_stop_flag or (stop_check and stop_check()):
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return None
         screenshot = _mss_grab_array()
         if screenshot is None:
@@ -554,7 +553,7 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         pass
     return None
 
-def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None):
+def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None, strict=False):
     """
     在屏幕上查找指定图像，支持超时等待，支持可中断停止
     
@@ -581,15 +580,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     _func_start = time.time()
     start_time = time.time()
     
-    _t_cache0 = time.time()
     image_array = get_cached_image(image_path)
-    _t_cache1 = time.time()
     if image_array is None:
         debug_print(f"[匹配诊断] ⚠️ get_cached_image 返回 None: {image_path}")
-        print(f"[耗时-匹配] get_cached_image 返回None: {_t_cache1-_t_cache0:.3f}s path={os.path.basename(image_path)}")
         return None
     debug_print(f"[匹配诊断] 图片加载成功 {image_array.shape} | 阈值 {confidence:.2f} | 超时 {timeout:.2f}s")
-    print(f"[耗时-匹配] get_cached_image: {_t_cache1-_t_cache0:.3f}s shape={image_array.shape} path={os.path.basename(image_path)}")
 
     # 必须先获取截图，后面诊断信息要用到 first_screenshot
     first_screenshot = _get_shared_screenshot()
@@ -615,20 +610,15 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         if result is None:
             result = cv2.matchTemplate(screenshot, image_array, cv2.TM_CCOEFF_NORMED)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-        _tm1 = time.time()
         scale_best_scores[1.0] = (max_val, max_loc)
         if iteration == 1 or iteration % 20 == 0:
             debug_print(f"[回放匹配] 迭代{iteration}: 最高置信度={max_val:.3f} (阈值={confidence:.2f}) 位置={max_loc}")
-            print(f"[耗时-匹配] _try_match 迭代{iteration}: matchTemplate={_tm1-_tm0:.4f}s score={max_val:.3f}")
         if max_val >= confidence:
             h, w = image_array.shape[:2]
             return (max_loc[0], max_loc[1], w, h)
         if not skip_multi_scale and (iteration % multi_scale_interval == 0):
             _ms0 = time.time()
             loc, all_scores = fast_multi_scale_match(screenshot, image_array, confidence, consider_color, image_path, return_scores=True)
-            _ms1 = time.time()
-            print(f"[耗时-匹配] fast_multi_scale_match 迭代{iteration}: {_ms1-_ms0:.4f}s found={loc is not None}")
-            # 记录每个尺度的最佳分数
             for sc, (mv, ml) in all_scores.items():
                 if sc not in scale_best_scores or scale_best_scores[sc][0] < mv:
                     scale_best_scores[sc] = (mv, ml)
@@ -638,10 +628,9 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
     if first_screenshot is not None:
         try:
-            if _replay_stop_flag or (stop_check and stop_check()):
+            if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
                 return None
             _first0 = time.time()
-
             if roi_hint is not None:
                 try:
                     rx, ry = int(roi_hint[0]), int(roi_hint[1])
@@ -658,13 +647,12 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         if result is None:
                             result = cv2.matchTemplate(roi, image_array, cv2.TM_CCOEFF_NORMED)
                         _, roi_max_val, _, roi_max_loc = cv2.minMaxLoc(result)
-                        print(f"[耗时-匹配] ROI快速匹配: {time.time()-_first0:.4f}s score={roi_max_val:.3f}")
                         if roi_max_val >= confidence:
                             h, w = image_array.shape[:2]
-                            print(f"[耗时-匹配] ROI快速命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                             return (roi_max_loc[0] + x1, roi_max_loc[1] + y1, w, h)
                         debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 回退粗匹配")
                 except Exception as _roi_e:
+                    pass
                     debug_print(f"[匹配诊断] ROI提取失败: {_roi_e}, 回退粗匹配")
 
             _coarse_scale = 0.5
@@ -678,8 +666,6 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                     if _small_screen.shape[0] >= _small_h and _small_screen.shape[1] >= _small_w:
                         _cr = cv2.matchTemplate(_small_screen, _small_template, cv2.TM_CCOEFF_NORMED)
                         _, _cv, _, _cl = cv2.minMaxLoc(_cr)
-                        _cs1 = time.time()
-                        print(f"[耗时-匹配] 粗匹配(50%): {_cs1-_cs0:.4f}s score={_cv:.3f} pos={_cl}")
                         if _cv >= _coarse_thresh:
                             _fx = int(_cl[0] / _coarse_scale) - 100
                             _fy = int(_cl[1] / _coarse_scale) - 100
@@ -693,11 +679,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                             if _roi_full.shape[0] >= template_h and _roi_full.shape[1] >= template_w:
                                 _rr = cv2.matchTemplate(_roi_full, image_array, cv2.TM_CCOEFF_NORMED)
                                 _, _rv, _, _rl = cv2.minMaxLoc(_rr)
-                                _cs2 = time.time()
-                                print(f"[耗时-匹配] 精匹配(ROI): {_cs2-_cs1:.4f}s score={_rv:.3f}")
                                 if _rv >= confidence:
                                     h, w = image_array.shape[:2]
-                                    print(f"[耗时-匹配] 粗+精命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                                     return (_rl[0] + _fx, _rl[1] + _fy, w, h)
                                 debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 回退全屏")
                             else:
@@ -709,15 +692,12 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
             result = _try_match(first_screenshot, skip_multi_scale=True)
             if result is not None:
-                print(f"[耗时-匹配] 首次截图快速匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                 return result
             if not ((stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)):
-                if timeout > 0.1:  # 超时>0.1s才做多尺度匹配
+                if timeout > 0.1:
                     result = _try_match(first_screenshot, skip_multi_scale=False)
                 if result is not None:
-                    print(f"[耗时-匹配] 首次截图多尺度匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                     return result
-            print(f"[耗时-匹配] 首次截图全部未命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
         except Exception as e:
             debug_print(f"[匹配诊断] ❗ 首次 _try_match 抛异常: {type(e).__name__}: {e}")
     else:
@@ -729,7 +709,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     _exception_count = 0         # 统计 try_match 异常的次数
     _loop_iter = 0
     while time.time() - start_time < timeout:
-        if _replay_stop_flag or (stop_check and stop_check()):
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             debug_print(f"[匹配诊断] ⏹ 循环中检测到停止信号,提前退出(timeout 还剩 {max(0, timeout - (time.time() - start_time)):.2f}s)")
             return None
         _loop_iter += 1
@@ -742,8 +722,6 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
             result = _try_match(screenshot_bgr, skip_multi_scale=False)
             if result is not None:
-                _func_elapsed = time.time() - _func_start
-                print(f"[耗时-匹配] 循环匹配命中: 迭代{_loop_iter} 总耗时{_func_elapsed:.3f}s path={os.path.basename(image_path)}")
                 return result
         except Exception as e:
             _exception_count += 1
@@ -752,7 +730,6 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
 
     _func_elapsed = time.time() - _func_start
-    print(f"[耗时-匹配] 匹配超时失败: 迭代{_loop_iter} 总耗时{_func_elapsed:.3f}s timeout={timeout}s path={os.path.basename(image_path)}")
 
     # ========== 匹配失败的诊断信息 ==========
     # 关键:即使 scale_best_scores 为空,也要告诉用户为什么(截图全 None? 全部异常?)
@@ -779,8 +756,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[匹配失败诊断] ⚠️ 最高分仅 {best_score:.3f} < 0.3, 模板可能在屏幕上根本不存在,或完全不同")
         elif best_score < confidence:
             debug_print(f"[匹配失败诊断] ⚠️ 最高分 {best_score:.3f} < 阈值 {confidence:.2f}, 可能是 DPI 缩放/主题切换/部分遮挡")
-        # 即使低于阈值,只要 >= 0.35 就返回最佳位置(外观变了但位置还在)
-        if 0.75 <= best_score < confidence:
+        # 即使低于阈值,只要 >= 0.50 就返回最佳位置(外观变了但位置还在)
+        if not strict and 0.50 <= best_score < confidence:
             debug_print(f"[匹配诊断] 🤏 低于阈值但位置可信,接受最佳匹配 score={best_score:.3f} @ {best_loc}")
             h, w = image_array.shape[:2]
             return (best_loc[0], best_loc[1], w, h)

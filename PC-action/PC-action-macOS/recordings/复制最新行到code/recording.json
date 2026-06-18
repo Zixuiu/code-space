@@ -12,6 +12,26 @@
   {
     "step": 2,
     "image": "操作2.png",
+    "x": 1226,
+    "y": 684,
+    "width": 25,
+    "height": 31,
+    "action_type": "left_click",
+    "delay": 0
+  },
+  {
+    "step": 4,
+    "image": "操作4.png",
+    "x": 969,
+    "y": 610,
+    "width": 39,
+    "height": 38,
+    "action_type": "left_click",
+    "delay": 0
+  },
+  {
+    "step": 3,
+    "image": "操作3.png",
     "x": 595,
     "y": 763,
     "width": 27,
@@ -20,28 +40,18 @@
     "delay": 0
   },
   {
-    "step": 3,
-    "image": "操作3.png",
-    "x": 796,
-    "y": 608,
-    "width": 125,
-    "height": 47,
-    "action_type": "left_click",
-    "delay": 0
-  },
-  {
-    "step": 4,
+    "step": 5,
     "action_type": "keyboard",
     "key": "ctrl+v",
     "delay": 0
   },
   {
-    "step": 5,
-    "image": "操作5.png",
+    "step": 6,
+    "image": "操作6.png",
     "x": 1226,
-    "y": 684,
-    "width": 25,
-    "height": 31,
+    "y": 680,
+    "width": 43,
+    "height": 34,
     "action_type": "left_click",
     "delay": 0
   }

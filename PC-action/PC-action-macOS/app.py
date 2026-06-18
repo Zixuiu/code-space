@@ -1404,7 +1404,6 @@ class FolderManager(QDialog):
         super().__init__(parent)
         self.parent = parent
         self.setWindowTitle("管理录制操作")
-        print(">>> FolderManager INIT FIRED! <<<")
         
         # 连接信号到槽函数
         self._execute_add_operations_signal.connect(self._on_execute_add_operations)
@@ -6713,7 +6712,7 @@ class AutoRecorderApp(QMainWindow):
                     replay_interval=self.replay_interval
                 )
             else:
-                success_count, total_count = replay_coordinate_operations(
+                replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
                     replay_interval=self.replay_interval,
@@ -6721,6 +6720,10 @@ class AutoRecorderApp(QMainWindow):
                     region_center=None,
                     match_timeout=self.replay_timeout
                 )
+                if len(replay_result) == 3:
+                    success_count, total_count, _ = replay_result
+                else:
+                    success_count, total_count = replay_result
             
             _pg.moveTo(_saved_x, _saved_y, duration=0.15)
 
@@ -6958,7 +6961,6 @@ class AutoRecorderApp(QMainWindow):
         from PyQt5.QtCore import QTimer
         import traceback
 
-        print(f"[TOGGLE] toggle_replay_playback called, is_replaying={getattr(self, 'is_replaying', False)}")  # [调试用]
 
         def do_toggle():
             try:
@@ -9262,8 +9264,30 @@ class ComboSkillRunner:
                                 self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image ⚠️ 未设置条件图片，条件视为不满足")
                             condition_met = False
                         else:
-                            wait_timeout = flow.get("wait_timeout", 30)
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=float(wait_timeout), consider_color=False, stop_check=lambda: not self.running)
+                            # 安全获取 wait_timeout，确保是有效的正数
+                            raw_timeout = flow.get("wait_timeout", 30)
+                            try:
+                                wait_timeout = float(raw_timeout)
+                                if wait_timeout <= 0:
+                                    wait_timeout = 30.0
+                            except (TypeError, ValueError):
+                                wait_timeout = 30.0
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 开始等待，timeout={wait_timeout}s")
+                            _pre = find_image_with_timeout(condition_image, confidence=0.8, timeout=1.0, consider_color=False, stop_check=lambda: not self.running, strict=True)
+                            if _pre is not None:
+                                _dt = min(10.0, wait_timeout * 0.3)
+                                if self._on_log:
+                                    self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 图片已存在,等待消失(超时{_dt:.1f}s)")
+                                _t0 = _time.time()
+                                while self.running and _time.time() - _t0 < _dt:
+                                    if find_image_with_timeout(condition_image, confidence=0.8, timeout=0.3, consider_color=False, stop_check=lambda: not self.running, strict=True) is None:
+                                        if self._on_log:
+                                            self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 图片已消失({_time.time()-_t0:.1f}s)")
+                                        break
+                                    _time.sleep(0.1)
+                                wait_timeout = max(1.0, wait_timeout - (_time.time() - _t0))
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=wait_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             if self._on_log:
@@ -9320,10 +9344,14 @@ class ComboSkillRunner:
                         _exec_start = _time.time()
                         if self._on_log:
                             self._on_log(f"Flow {flow_index+1}: 开始执行动作 '{target_action}'")
-                        _action_ok = self._execute_action(target_action)
+                        _action_result = self._execute_action(target_action)
+                        if isinstance(_action_result, tuple):
+                            _action_ok, _img_fail_count = _action_result
+                        else:
+                            _action_ok, _img_fail_count = _action_result, 0
                         _exec_elapsed = _time.time() - _exec_start
                         if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} 执行动作 '{target_action}': {_exec_elapsed:.3f}s 结果={'成功' if _action_ok else '失败'}")
+                            self._on_log(f"[耗时] Flow{flow_index+1} 执行动作 '{target_action}': {_exec_elapsed:.3f}s 结果={'成功' if _action_ok else '失败'} 图片匹配失败={_img_fail_count}")
                         if not _action_ok:
                             self._consecutive_failures += 1
                             if self._consecutive_failures >= 3:
@@ -9332,6 +9360,11 @@ class ComboSkillRunner:
                                 break
                         else:
                             self._consecutive_failures = 0
+                        # 录制回放中图片匹配失败 → 停止组合技（与条件类型无关）
+                        if _img_fail_count > 0:
+                            if self._on_log:
+                                self._on_log(f"Flow {flow_index+1}: 录制回放中图片匹配失败 {_img_fail_count} 次，停止组合技")
+                            break
 
                     _flow_elapsed = _time.time() - _flow_start
                     if self._on_log:
@@ -9369,7 +9402,7 @@ class ComboSkillRunner:
     def _execute_action(self, action):
         import time as _time
         if not action or action == "end":
-            return True
+            return True, 0
         try:
             _ea_start = _time.time()
             from utils import get_recordings_path, load_json_data
@@ -9378,7 +9411,7 @@ class ComboSkillRunner:
             if not os.path.exists(json_path):
                 if self._on_log:
                     self._on_log(f"[耗时] 找不到录制文件: {json_path} ({_time.time()-_ea_start:.3f}s)")
-                return False
+                return False, 0
 
             _t_load0 = _time.time()
             recording_data = load_json_data(json_path)
@@ -9388,7 +9421,7 @@ class ComboSkillRunner:
             if not recording_data:
                 if self._on_log:
                     self._on_log(f"录制数据为空: {action}")
-                return False
+                return False, 0
 
             has_images = any(op.get("image", "") for op in recording_data)
             if self._on_log:
@@ -9398,40 +9431,48 @@ class ComboSkillRunner:
 
             if has_images:
                 _t_replay0 = _time.time()
-                ok, total = replay_coordinate_operations(
+                replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=0.01, consider_color=False,
                     match_timeout=0.5,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )
+                # 兼容新旧返回值
+                if len(replay_result) == 3:
+                    ok, total, img_fail_count = replay_result
+                else:
+                    ok, total = replay_result
+                    img_fail_count = 0
                 _t_replay1 = _time.time()
                 if self._on_log:
-                    self._on_log(f"[耗时] replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+                    self._on_log(f"[耗时] replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total} 图片匹配失败={img_fail_count}")
             else:
                 _t_replay0 = _time.time()
                 ok, total = replay_coordinates_only(
                     recording_data, replay_interval=0.2,
                     stop_check=lambda: not self.running
                 )
+                img_fail_count = 0
                 _t_replay1 = _time.time()
                 if self._on_log:
                     self._on_log(f"[耗时] replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
 
+            # 如果全部步骤都失败，返回 False
             if ok == 0 and total > 0:
                 if self._on_log:
                     self._on_log(f"执行失败: {action} 全部 {total} 个步骤均未成功")
-                return False
+                return False, img_fail_count
 
             if self._on_log:
                 self._on_log(f"[耗时] 执行动作 '{action}' 总耗时: {_time.time()-_ea_start:.3f}s")
-            return True
+            return True, img_fail_count
         except Exception as e:
             import traceback
             traceback.print_exc()
             if self._on_log:
-                self._on_log(f"执行动作失败: {e}")
-            return False
+                self._on_log(f"[耗时] 执行动作失败: {e}")
+            return False, 0
 
     def _wait_interruptible(self, seconds):
         import time
