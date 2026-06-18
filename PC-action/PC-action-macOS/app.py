@@ -1859,7 +1859,7 @@ class FolderManager(QDialog):
         def _closeD(ev):
             if ev.button()==Qt.LeftButton: dialog.close()
         _red_dot = QFrame()
-        _red_dot.setFixedSize(12, 12)
+        _red_dot.setFixedSize(16, 16)
         _red_dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
@@ -2711,7 +2711,7 @@ class FolderManager(QDialog):
             _dh.setContentsMargins(0, 0, 0, 0)
             _dh.addStretch()
             _dot = QFrame()
-            _dot.setFixedSize(12, 12)
+            _dot.setFixedSize(16, 16)
             _dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
             _dot.setCursor(Qt.PointingHandCursor)
             def _closeD(ev):
@@ -4093,8 +4093,8 @@ class FolderManager(QDialog):
         def _closeD(ev):
             if ev.button() == Qt.LeftButton: dialog.close()
         _red_dot = QFrame()
-        _red_dot.setFixedSize(14, 14)
-        _red_dot.setStyleSheet("background:#FF5F57; border-radius:7px; border:none;")
+        _red_dot.setFixedSize(16, 16)
+        _red_dot.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _hdr_lo.addWidget(_red_dot)
@@ -5980,8 +5980,8 @@ class AutoRecorderApp(QMainWindow):
         def _closeD(ev):
             if ev.button() == Qt.LeftButton: self.log_window.close()
         _red_dot = QFrame()
-        _red_dot.setFixedSize(14, 14)
-        _red_dot.setStyleSheet("background:#FF5F57; border-radius:7px; border:none;")
+        _red_dot.setFixedSize(16, 16)
+        _red_dot.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _hdr_lo.addWidget(_red_dot)
@@ -6141,8 +6141,8 @@ class AutoRecorderApp(QMainWindow):
         _dots_l.setContentsMargins(0,0,0,0)
         _dots_l.setSpacing(6)
         _d_close = _QF2()
-        _d_close.setFixedSize(14, 14)
-        _d_close.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}")
+        _d_close.setFixedSize(16, 16)
+        _d_close.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:8px;}QFrame:hover{background-color:#FF3B30;}")
         _d_close.setCursor(Qt.PointingHandCursor)
         def _dclose_ev(ev):
             if ev.button()==Qt.LeftButton: self.close_replay_indicator()
@@ -8747,8 +8747,8 @@ class AutoRecorderApp(QMainWindow):
         _hdr_lo.addWidget(count_label)
         _hdr_lo.addSpacing(12)
         dot_close = QFrame()
-        dot_close.setFixedSize(14, 14)
-        dot_close.setStyleSheet('QFrame{background-color:#FF5F57;border:none;border-radius:7px;}QFrame:hover{background-color:#FF3B30;}')
+        dot_close.setFixedSize(16, 16)
+        dot_close.setStyleSheet('QFrame{background-color:#FF5F57;border:none;border-radius:8px;}QFrame:hover{background-color:#FF3B30;}')
         dot_close.setCursor(Qt.PointingHandCursor)
         def _dot_close_click(ev):
             if ev.button() == Qt.LeftButton: dialog.close()
@@ -9234,25 +9234,40 @@ class ComboSkillRunner:
                     condition_image = flow.get("condition_image", "")
                     _cond_start = _time.time()
 
-                    if condition == "image_found" and condition_image:
-                        loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
-                        condition_met = loc is not None
-                        _cond_elapsed = _time.time() - _cond_start
-                        if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} image_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
-                    elif condition == "image_not_found" and condition_image:
-                        loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
-                        condition_met = loc is None
-                        _cond_elapsed = _time.time() - _cond_start
-                        if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} image_not_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
-                    elif condition == "wait_for_image" and condition_image:
-                        wait_timeout = flow.get("wait_timeout", 30)
-                        loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=float(wait_timeout), consider_color=False, stop_check=lambda: not self.running)
-                        condition_met = loc is not None
-                        _cond_elapsed = _time.time() - _cond_start
-                        if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    if condition == "image_found":
+                        if not condition_image:
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} image_found ⚠️ 未设置条件图片，条件视为不满足")
+                            condition_met = False
+                        else:
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
+                            condition_met = loc is not None
+                            _cond_elapsed = _time.time() - _cond_start
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} image_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    elif condition == "image_not_found":
+                        if not condition_image:
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} image_not_found ⚠️ 未设置条件图片，条件视为不满足")
+                            condition_met = False
+                        else:
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
+                            condition_met = loc is None
+                            _cond_elapsed = _time.time() - _cond_start
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} image_not_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                    elif condition == "wait_for_image":
+                        if not condition_image:
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image ⚠️ 未设置条件图片，条件视为不满足")
+                            condition_met = False
+                        else:
+                            wait_timeout = flow.get("wait_timeout", 30)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=float(wait_timeout), consider_color=False, stop_check=lambda: not self.running)
+                            condition_met = loc is not None
+                            _cond_elapsed = _time.time() - _cond_start
+                            if self._on_log:
+                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
                     elif condition == "always":
                         if self._on_log:
                             self._on_log(f"[耗时] Flow{flow_index+1} always 条件: 跳过判断")
@@ -9386,7 +9401,7 @@ class ComboSkillRunner:
                 ok, total = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=0.01, consider_color=False,
-                    match_timeout=0.01,
+                    match_timeout=0.5,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )

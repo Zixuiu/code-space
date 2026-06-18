@@ -85,8 +85,8 @@ class ComboSkillEditDialog(QDialog):
         _dot_lo.setContentsMargins(0, 0, 0, 0)
         _dot_lo.addStretch()
         _close = QFrame()
-        _close.setFixedSize(12, 12)
-        _close.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
+        _close.setFixedSize(16, 16)
+        _close.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
         _close.setCursor(Qt.PointingHandCursor)
         def _close_click(ev):
             if ev.button() == Qt.LeftButton:
@@ -778,6 +778,10 @@ class ComboSkillEditDialog(QDialog):
         condition = condition_map.get(condition_idx, "always")
         self.flows[index]['condition'] = condition
 
+        # 切换到需要图片的条件时，如果还没有wait_timeout则设置默认值
+        if condition == "wait_for_image" and 'wait_timeout' not in self.flows[index]:
+            self.flows[index]['wait_timeout'] = 30
+
         for widget_data in self.flow_widgets:
             if widget_data.get('flow_index') == index and not widget_data.get('is_else_branch'):
                 need_image = condition != "always"
@@ -785,6 +789,9 @@ class ComboSkillEditDialog(QDialog):
                 widget_data['img_btn'].setVisible(need_image)
                 is_wait_for_image = (condition == "wait_for_image")
                 widget_data['wait_time_spin'].setVisible(is_wait_for_image)
+                # wait_time_spin 同步当前值
+                if is_wait_for_image and 'wait_time_spin' in widget_data:
+                    widget_data['wait_time_spin'].setValue(self.flows[index].get('wait_timeout', 30))
                 if 'else_btn' in widget_data:
                     widget_data['else_btn'].setVisible(need_image)
                 break
@@ -855,6 +862,9 @@ class ComboSkillEditDialog(QDialog):
         condition = condition_map.get(condition_idx, "always")
         if self.flows[index].get('else_branch'):
             self.flows[index]['else_branch']['condition'] = condition
+            # 切换到wait_for_image时设置默认timeout
+            if condition == "wait_for_image" and 'wait_timeout' not in self.flows[index]['else_branch']:
+                self.flows[index]['else_branch']['wait_timeout'] = 30
             for widget_data in self.flow_widgets:
                 if widget_data.get('flow_index') == index and widget_data.get('is_else_branch'):
                     need_image = condition != "always"
@@ -862,6 +872,9 @@ class ComboSkillEditDialog(QDialog):
                     widget_data['img_btn'].setVisible(need_image)
                     is_wait_for_image = (condition == "wait_for_image")
                     widget_data['wait_time_spin'].setVisible(is_wait_for_image)
+                    # wait_time_spin 同步当前值
+                    if is_wait_for_image and 'wait_time_spin' in widget_data:
+                        widget_data['wait_time_spin'].setValue(self.flows[index]['else_branch'].get('wait_timeout', 30))
                     break
 
     def on_wait_time_changed(self, index, value, is_else=False):
@@ -1125,7 +1138,15 @@ class ComboSkillEditDialog(QDialog):
         if len(self.flows) <= 1:
             StyledMessageDialog(self, title="提示", text="至少保留一个流程", msg_type="information", buttons="ok").exec_()
             return
-        self.flows.pop()
+        current_item = self.tree_widget.currentItem()
+        if current_item is None:
+            StyledMessageDialog(self, title="提示", text="请先选择要删除的流程", msg_type="warning", buttons="ok").exec_()
+            return
+        flow_index = self.get_flow_index_from_item(current_item)
+        if flow_index is None:
+            StyledMessageDialog(self, title="提示", text="请选择主流程进行删除（不能删除Else分支）", msg_type="warning", buttons="ok").exec_()
+            return
+        del self.flows[flow_index]
         self.build_flow_tree()
 
     def move_flow_up(self):

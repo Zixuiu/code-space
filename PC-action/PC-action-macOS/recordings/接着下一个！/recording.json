@@ -1,0 +1,18 @@
+[
+  {
+    "step": 1,
+    "image": "操作1.png",
+    "x": 349,
+    "y": 767,
+    "width": 35,
+    "height": 33,
+    "action_type": "left_click",
+    "delay": 0
+  },
+  {
+    "step": 2,
+    "action_type": "keyboard",
+    "key": "down",
+    "delay": 0
+  }
+]

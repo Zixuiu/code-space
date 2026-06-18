@@ -1833,6 +1833,35 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         dialog.exec_()
 
+    def update_trash_index(self, trash_folder_name, original_name, original_path):
+        """更新回收站索引文件"""
+        from utils import get_recordings_path
+        recordings_dir = get_recordings_path()
+        trash_dir = os.path.join(recordings_dir, 'trash')
+        index_file = os.path.join(trash_dir, 'trash_index.json')
+
+        index_data = []
+        if os.path.exists(index_file):
+            try:
+                with open(index_file, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+            except Exception:
+                pass
+
+        from datetime import datetime
+        index_data.append({
+            'trash_folder_name': trash_folder_name,
+            'original_name': original_name,
+            'original_path': original_path,
+            'deleted_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+        try:
+            with open(index_file, 'w', encoding='utf-8') as f:
+                json.dump(index_data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
     def create_combo_tab(self):
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")

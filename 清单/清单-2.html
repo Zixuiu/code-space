@@ -660,6 +660,7 @@ body {
   border-top: 1px solid #e2e8f0;
   background: #f8fafc;
 }
+
 </style>
 </head>
 <body>
@@ -1102,6 +1103,10 @@ function addCell() {
 function copyText(i) {
   const currentPage = getCurrentPageData();
   let t = currentPage.cellsData[i] || '';
+  const pageName = currentPage.name || '';
+  if (pageName) {
+    t = '[' + pageName + '] ' + t;
+  }
   if (currentPage.cellImages[i]) t = '🖼️ ' + t;
   navigator.clipboard.writeText(t).then(() => show('已复制文字'));
 }
@@ -1345,7 +1350,7 @@ function exportData() {
 
   currentPage.cellsData.forEach((cell, i) => {
     if (cell && cell.trim()) {
-      text += `${i + 1}. ${cell.trim()}\n`;
+      text += `[${i + 1}] ${cell.trim()}\n`;
     }
   });
 

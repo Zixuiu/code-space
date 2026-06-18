@@ -116,7 +116,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     _replay_start = time.time()
     for i, operation in enumerate(recording_data):
         _step_start = time.time()
-        if _replay_stop_flag or (stop_check and stop_check()):
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             break
         try:
             # 获取操作信息
@@ -365,7 +365,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 pyautogui.mouseDown(); pyautogui.mouseUp()
             
             success_count += 1
-            
+
+            # wait for UI rendering
+            time.sleep(0.25)
+
             _step_elapsed = time.time() - _step_start
             if _step_elapsed > 0.3:
                 print(f"[耗时-回放] ⚠️ 步骤{step} 耗时较长: {_step_elapsed:.3f}s type={action_type}")
@@ -420,8 +423,8 @@ def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None
         return 0, 0
     
     for i, operation in enumerate(recording_data):
-        # 检查是否收到停止信号（全局标志 + 各runner独立检查）
-        if _replay_stop_flag or (stop_check and stop_check()):
+        # 检查是否收到停止信号（有stop_check时只用自己的，不影响其他组合技）
+        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             break
         try:
             # 获取操作信息
@@ -708,7 +711,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             if result is not None:
                 print(f"[耗时-匹配] 首次截图快速匹配命中: {time.time()-_first0:.4f}s path={os.path.basename(image_path)}")
                 return result
-            if not (_replay_stop_flag or (stop_check and stop_check())):
+            if not ((stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)):
                 if timeout > 0.1:  # 超时>0.1s才做多尺度匹配
                     result = _try_match(first_screenshot, skip_multi_scale=False)
                 if result is not None:
