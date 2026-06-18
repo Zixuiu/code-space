@@ -770,6 +770,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
             self.showMinimized()
 
+            # 每次运行组合技前清空日志，重新录制
+            self.clear_log()
+
             from image_recognition import clear_image_cache
             clear_image_cache()
 
@@ -875,6 +878,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
             runner._on_finished = lambda success, msg, sid=skill_id: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
             runner._on_step = lambda step_info, sid=skill_id: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
+            runner._on_log = lambda msg: self.append_log(f" ║  {msg}")
 
             _t = _threading.Thread(target=runner.run, daemon=True)
             runner._exec_thread = _t
@@ -1196,7 +1200,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             border_color="rgba(255, 255, 255, 0.5)",
             hover_color="rgba(0, 122, 255, 0.06)",
             selected_color="rgba(0, 122, 255, 0.12)",
-            alternate_color="rgba(255, 255, 255, 0.4)",
+            alternate_color="#F0F0F0",
             border_radius=20,
             header_font_size=12,
             cell_font_size=13,

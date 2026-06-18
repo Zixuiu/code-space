@@ -799,7 +799,7 @@ def get_table_style(screen_width=None, screen_height=None):
             selection-background-color: #E8F0FE;
             font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
             font-size: 13px;
-            alternate-background-color: #FAFAFC;
+            alternate-background-color: #F5F5F5;
         }}
         QHeaderView::section {{
             background: {THEME_CARD};
@@ -1146,5 +1146,3 @@ def get_color_dialog_style(screen_width=None, screen_height=None):
             background-color: #007AFFBB;
         }}
     """
-
-

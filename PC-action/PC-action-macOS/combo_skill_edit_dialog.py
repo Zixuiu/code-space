@@ -13,10 +13,10 @@ from PyQt5.QtWidgets import (QFrame,
     QFileDialog, QMessageBox, QApplication
 )
 T = {
-    'primary': '#000000', 'primary_hover': '#333333',
+    'primary': '#007AFF', 'primary_hover': '#0051D5',
     'bg_main': '#FFFFFF', 'bg_card': '#FAFAFA', 'bg_input': '#FFFFFF',
     'text_primary': '#000000', 'text_secondary': '#888888',
-    'border': '#E0E0E0', 'success': '#000000', 'danger': '#000000',
+    'border': '#E0E0E0', 'success': '#34C759', 'danger': '#FF3B30',
     'accent': '#00000010', 'header_bg': '#FAFAFA', 'tree_alt': '#F0F0F0',
 }
 IS_DARK = False
@@ -121,7 +121,7 @@ class ComboSkillEditDialog(QDialog):
         note_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: #8E8E93;
+                color: #1C1C1E;
                 border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
@@ -131,11 +131,11 @@ class ComboSkillEditDialog(QDialog):
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: #F0F0F2;
-                color: #6E6E73;
+                background-color: #E5E5EA;
+                color: #000000;
             }}
             QPushButton:pressed {{
-                background-color: #E8E8ED;
+                background-color: #D1D1D6;
                 padding-top: 2px;
             }}
         """)
@@ -258,7 +258,7 @@ class ComboSkillEditDialog(QDialog):
         up_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: #8E8E93;
+                color: #1C1C1E;
                 border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
@@ -268,11 +268,11 @@ class ComboSkillEditDialog(QDialog):
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: #F0F0F2;
-                color: #6E6E73;
+                background-color: #E5E5EA;
+                color: #000000;
             }}
             QPushButton:pressed {{
-                background-color: #E8E8ED;
+                background-color: #D1D1D6;
                 padding-top: 2px;
             }}
         """)
@@ -283,7 +283,7 @@ class ComboSkillEditDialog(QDialog):
         down_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: #8E8E93;
+                color: #1C1C1E;
                 border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
@@ -293,11 +293,11 @@ class ComboSkillEditDialog(QDialog):
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: #F0F0F2;
-                color: #6E6E73;
+                background-color: #E5E5EA;
+                color: #000000;
             }}
             QPushButton:pressed {{
-                background-color: #E8E8ED;
+                background-color: #D1D1D6;
                 padding-top: 2px;
             }}
         """)
@@ -362,7 +362,7 @@ class ComboSkillEditDialog(QDialog):
         cancel_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                color: #8E8E93;
+                color: #1C1C1E;
                 border: none;
                 border-radius: {8}px;
                 font-size: {13}px;
@@ -372,11 +372,11 @@ class ComboSkillEditDialog(QDialog):
                 min-height: 36px;
             }}
             QPushButton:hover {{
-                background-color: #F0F0F2;
-                color: #6E6E73;
+                background-color: #E5E5EA;
+                color: #000000;
             }}
             QPushButton:pressed {{
-                background-color: #E8E8ED;
+                background-color: #D1D1D6;
                 padding-top: 2px;
             }}
         """)
@@ -836,25 +836,31 @@ class ComboSkillEditDialog(QDialog):
     def swap_flows(self, from_index, to_index):
         if from_index == to_index:
             return
-        old_from, old_to = from_index, to_index
-        new_from, new_to = to_index, from_index
+        # 记录交换前的流程对象引用，用于跟踪跳转目标
+        flows_before = list(self.flows)
+        # 建立旧位置->新位置的映射
+        pos_map = {from_index: to_index, to_index: from_index}
+        for i in range(len(self.flows)):
+            if i not in pos_map:
+                pos_map[i] = i
+        # 交换流程
         self.flows[from_index], self.flows[to_index] = self.flows[to_index], self.flows[from_index]
-        for i, flow in enumerate(self.flows):
-            action = flow.get('action', '')
-            if action.startswith('跳转_'):
-                target = int(action.split('_')[1])
-                if target == old_from:
-                    flow['action'] = f'跳转_{new_from}'
-                elif target == old_to:
-                    flow['action'] = f'跳转_{new_to}'
+        # 重新映射所有跳转目标：跳转目标跟着流程对象走
+        def remap_action(action):
+            if not isinstance(action, str) or not action.startswith('跳转_'):
+                return action
+            try:
+                old_target = int(action.split('_')[1])
+            except (IndexError, ValueError):
+                return action
+            # 找到 old_target 位置上的流程对象，现在在新位置 pos_map[old_target]
+            new_target = pos_map.get(old_target, old_target)
+            return f'跳转_{new_target}'
+        for flow in self.flows:
+            flow['action'] = remap_action(flow.get('action', ''))
             else_branch = flow.get('else_branch') or {}
-            else_action = else_branch.get('action', '')
-            if else_action.startswith('跳转_'):
-                target = int(else_action.split('_')[1])
-                if target == old_from:
-                    else_branch['action'] = f'跳转_{new_from}'
-                elif target == old_to:
-                    else_branch['action'] = f'跳转_{new_to}'
+            if else_branch:
+                else_branch['action'] = remap_action(else_branch.get('action', ''))
         self.build_flow_tree()
 
     def on_else_condition_changed(self, index, condition_idx):
@@ -1157,6 +1163,7 @@ class ComboSkillEditDialog(QDialog):
         if row <= 0 or row >= len(self.flows):
             return
         self.swap_flows(row - 1, row)
+        # 选中用户刚上移的那个流程（它现在在 row-1 位置）
         self.tree_widget.setCurrentIndex(self.tree_widget.model().index(row - 1, 0))
 
     def move_flow_down(self):
@@ -1167,6 +1174,7 @@ class ComboSkillEditDialog(QDialog):
         if row < 0 or row >= len(self.flows) - 1:
             return
         self.swap_flows(row, row + 1)
+        # 选中用户刚下移的那个流程（它现在在 row+1 位置）
         self.tree_widget.setCurrentIndex(self.tree_widget.model().index(row + 1, 0))
 
     def refresh_flow_widgets(self):

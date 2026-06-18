@@ -43,7 +43,7 @@ class StyledMessageDialog(QDialog):
         
         bar = QLabel()
         bar.setFixedWidth(8)
-        bar.setStyleSheet("background:#E94560;border-radius:12px 0 0 12px;")
+        bar.setStyleSheet("background:#8E8E93;border-radius:12px 0 0 12px;")
         row.addWidget(bar)
         
         content = QWidget()
@@ -80,7 +80,7 @@ class StyledMessageDialog(QDialog):
             b.setFixedHeight(38)
             b.setMinimumWidth(88)
             if primary:
-                b.setStyleSheet("QPushButton{background:#E94560;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:14px;font-weight:600;}QPushButton:hover{background:#C23152;}")
+                b.setStyleSheet("QPushButton{background:#8E8E93;color:#fff;border:none;border-radius:8px;padding:8px 20px;font-size:14px;font-weight:600;}QPushButton:hover{background:#6E6E73;}")
             else:
                 b.setStyleSheet("QPushButton{background:#F5F5F7;color:#4A4A6A;border:1px solid #E0E0E5;border-radius:8px;padding:8px 20px;font-size:14px;font-weight:500;}QPushButton:hover{background:#E8E8ED;}")
             b.clicked.connect(lambda: self._done(val))
@@ -111,7 +111,7 @@ class StyledMessageDialog(QDialog):
         if c:
             s = QGraphicsDropShadowEffect()
             s.setBlurRadius(40)
-            s.setColor(QColor(233,69,96,30))
+            s.setColor(QColor(142,142,147,30))
             s.setOffset(0,8)
             c.setGraphicsEffect(s)
     

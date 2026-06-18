@@ -5884,7 +5884,11 @@ class AutoRecorderApp(QMainWindow):
     def _append_log_impl(self, message):
         """实际的日志追加实现（始终在主线程中执行）"""
         timestamp = datetime.now().strftime('%H:%M:%S')
-        log_line = f"[{timestamp}] {message}"
+        # 盒式日志（以 ╔═/ ║/╚═ 开头）不加时间戳，保持排版整洁
+        if message.startswith('╔═') or message.startswith(' ║') or message.startswith('╚═'):
+            log_line = message
+        else:
+            log_line = f"[{timestamp}] {message}"
         
         # 确保日志窗口已创建（但不一定显示）
         if not hasattr(self, 'log_window') or self.log_window is None:
@@ -9231,6 +9235,17 @@ class ComboSkillRunner:
                     condition = flow.get("condition", "always")
                     else_branch = flow.get("else_branch") or {}
 
+                    # ====== 0. 流程进度日志 ======
+                    _total_flows = len(flows)
+                    _cond_label = {"always": "总是执行", "image_found": "找到图片", "image_not_found": "找不到图片", "wait_for_image": "等待图片"}.get(condition, condition)
+                    try:
+                        if self._main_app is not None:
+                            _cond_emoji = {"always": "▶", "image_found": "🔍", "image_not_found": "👻", "wait_for_image": "⏳"}.get(condition, "▶")
+                            self._main_app.append_log(f"╔═ {_cond_emoji} 流程{flow_index+1}/{_total_flows} [第{loop}轮] ═══")
+                            self._main_app.append_log(f" ║  {_cond_emoji} {_cond_label} → {action if action else '(无)'}")
+                    except Exception:
+                        pass
+
                     # ====== 1. 判断条件 ======
                     condition_met = True
                     condition_image = flow.get("condition_image", "")
@@ -9259,12 +9274,16 @@ class ComboSkillRunner:
                             if self._on_log:
                                 self._on_log(f"[耗时] Flow{flow_index+1} image_not_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
                     elif condition == "wait_for_image":
+                        def _wf_log(msg):
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  {msg}")
+                            except Exception:
+                                pass
                         if not condition_image:
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image ⚠️ 未设置条件图片，条件视为不满足")
+                            _wf_log(f"⚠ 未设置条件图片，条件不满足")
                             condition_met = False
                         else:
-                            # 安全获取 wait_timeout，确保是有效的正数
                             raw_timeout = flow.get("wait_timeout", 30)
                             try:
                                 wait_timeout = float(raw_timeout)
@@ -9272,26 +9291,48 @@ class ComboSkillRunner:
                                     wait_timeout = 30.0
                             except (TypeError, ValueError):
                                 wait_timeout = 30.0
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 开始等待，timeout={wait_timeout}s")
-                            _pre = find_image_with_timeout(condition_image, confidence=0.8, timeout=1.0, consider_color=False, stop_check=lambda: not self.running, strict=True)
-                            if _pre is not None:
-                                _dt = min(10.0, wait_timeout * 0.3)
-                                if self._on_log:
-                                    self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 图片已存在,等待消失(超时{_dt:.1f}s)")
-                                _t0 = _time.time()
-                                while self.running and _time.time() - _t0 < _dt:
-                                    if find_image_with_timeout(condition_image, confidence=0.8, timeout=0.3, consider_color=False, stop_check=lambda: not self.running, strict=True) is None:
-                                        if self._on_log:
-                                            self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 图片已消失({_time.time()-_t0:.1f}s)")
+                            _wf_log(f"⏳ 开始等待出现，timeout={wait_timeout}s")
+                            condition_met = False
+                            _wait_deadline = _time.time() + wait_timeout
+                            _poll_cnt = 0
+                            _disappeared = False
+                            # wait_for_image 使用更高置信度(0.9)和短超时(0.3s)以减少CPU占用和误报
+                            _wf_confidence = 0.9
+                            _wf_timeout = 0.3
+                            while self.running and _time.time() < _wait_deadline:
+                                _poll_cnt += 1
+                                loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
+                                if not _disappeared:
+                                    if loc is None:
+                                        _disappeared = True
+                                        _wf_log(f"👁 图片已消失，开始等待出现")
+                                    else:
+                                        if _poll_cnt % 5 == 0:
+                                            _wf_log(f"⏳ 等待图片消失中(已轮询{_poll_cnt}次)")
+                                    _time.sleep(0.3)
+                                    continue
+                                if loc is not None:
+                                    # 连续确认：再检测2次，全部命中才算真正出现（避免单帧闪烁误报）
+                                    _confirm = 1
+                                    for _ci in range(2):
+                                        _time.sleep(0.2)
+                                        _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
+                                        if _cloc is not None:
+                                            _confirm += 1
+                                    if _confirm >= 3:
+                                        condition_met = True
+                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测(3中{_confirm})")
                                         break
-                                    _time.sleep(0.1)
-                                wait_timeout = max(1.0, wait_timeout - (_time.time() - _t0))
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=wait_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
-                            condition_met = loc is not None
+                                    else:
+                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/3确认失败)，继续等待")
+                                if _poll_cnt % 5 == 0:
+                                    _wf_log(f"⏳ 等待图片出现中(已轮询{_poll_cnt}次，剩余{max(0,_wait_deadline-_time.time()):.1f}s)")
+                                _time.sleep(0.3)
                             _cond_elapsed = _time.time() - _cond_start
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} wait_for_image 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                            if not _disappeared:
+                                _wf_log(f"⚠ 图片始终存在(未消失)，超时{_cond_elapsed:.1f}s 结果=不满足")
+                            else:
+                                _wf_log(f"📊 结束: {_cond_elapsed:.1f}s 轮询{_poll_cnt}次 结果={'满足' if condition_met else '不满足(超时)'}")
                     elif condition == "always":
                         if self._on_log:
                             self._on_log(f"[耗时] Flow{flow_index+1} always 条件: 跳过判断")
@@ -9327,6 +9368,11 @@ class ComboSkillRunner:
                             if total_jumps > max_jumps:
                                 if self._on_log:
                                     self._on_log(f"跳转次数超过上限({max_jumps})，停止")
+                                try:
+                                    if self._main_app is not None:
+                                        self._main_app.append_log(f"╚═{'═'*40}")
+                                except Exception:
+                                    pass
                                 break
                             flow_index = target
                             if self._on_log:
@@ -9357,18 +9403,37 @@ class ComboSkillRunner:
                             if self._consecutive_failures >= 3:
                                 if self._on_log:
                                     self._on_log(f"连续 {self._consecutive_failures} 次执行失败，停止组合技")
+                                try:
+                                    if self._main_app is not None:
+                                        self._main_app.append_log(f"╚═{'═'*40}")
+                                except Exception:
+                                    pass
                                 break
                         else:
                             self._consecutive_failures = 0
-                        # 录制回放中图片匹配失败 → 停止组合技（与条件类型无关）
-                        if _img_fail_count > 0:
+                        # 录制回放中图片匹配失败 → 停止组合技
+                        # 例外：wait_for_image 和 image_not_found 条件的流程，图片没识别到是正常的，不停止
+                        if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
                             if self._on_log:
                                 self._on_log(f"Flow {flow_index+1}: 录制回放中图片匹配失败 {_img_fail_count} 次，停止组合技")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f"╚═{'═'*40}")
+                            except Exception:
+                                pass
                             break
+                        elif _img_fail_count > 0:
+                            if self._on_log:
+                                self._on_log(f"Flow {flow_index+1}: 录制回放中图片匹配失败 {_img_fail_count} 次，但条件为{condition}，继续执行")
 
                     _flow_elapsed = _time.time() - _flow_start
                     if self._on_log:
                         self._on_log(f"[耗时] Flow{flow_index+1} 总耗时: {_flow_elapsed:.3f}s")
+                    try:
+                        if self._main_app is not None:
+                            self._main_app.append_log(f"╚═{'═'*40}")
+                    except Exception:
+                        pass
 
                     if self.running:
                         self._wait_interruptible(0.01)
@@ -9433,7 +9498,7 @@ class ComboSkillRunner:
                 _t_replay0 = _time.time()
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
-                    replay_interval=0.01, consider_color=False,
+                    replay_interval=0.1, consider_color=False,
                     match_timeout=0.5,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
@@ -9476,7 +9541,7 @@ class ComboSkillRunner:
 
     def _wait_interruptible(self, seconds):
         import time
-        interval = 0.1
+        interval = 0.2
         elapsed = 0
         while self.running and elapsed < seconds:
             time.sleep(interval)

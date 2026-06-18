@@ -703,8 +703,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     else:
         debug_print(f"[匹配诊断] ⚠️ 首次 _get_shared_screenshot() 返回 None(截图服务未就绪?)")
 
-    # 优化:轮询间隔从 15ms 降到 5ms,反应速度提升 3 倍
-    _POLL_INTERVAL = 0.02
+    # 优化:轮询间隔设为 150ms，平衡 CPU 占用和响应速度（~6次/秒，CPU 降低 7x）
+    _POLL_INTERVAL = 0.15
     _screenshot_none_count = 0   # 统计 _get_shared_screenshot 返回 None 的次数
     _exception_count = 0         # 统计 try_match 异常的次数
     _loop_iter = 0
@@ -756,11 +756,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[匹配失败诊断] ⚠️ 最高分仅 {best_score:.3f} < 0.3, 模板可能在屏幕上根本不存在,或完全不同")
         elif best_score < confidence:
             debug_print(f"[匹配失败诊断] ⚠️ 最高分 {best_score:.3f} < 阈值 {confidence:.2f}, 可能是 DPI 缩放/主题切换/部分遮挡")
-        # 即使低于阈值,只要 >= 0.50 就返回最佳位置(外观变了但位置还在)
-        if not strict and 0.50 <= best_score < confidence:
-            debug_print(f"[匹配诊断] 🤏 低于阈值但位置可信,接受最佳匹配 score={best_score:.3f} @ {best_loc}")
-            h, w = image_array.shape[:2]
-            return (best_loc[0], best_loc[1], w, h)
+        # 已移除低于阈值的兜底返回（会导致 wait_for_image 误判图片已出现）
 
         # 保存失败时的截图到 debug 目录,方便对比
         try:

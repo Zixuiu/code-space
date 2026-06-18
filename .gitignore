@@ -19,3 +19,19 @@ debug.log
 *.bak2
 *.old
 nul
+
+__pycache__/
+*.pyc
+*.pyo
+*.bak
+*.bak2
+*.old
+_fix_*.py
+_apply_*.py
+_patch_*.py
+_tmp*
+debug.log
+import os.txt
+工具/
+清单/
+项目/

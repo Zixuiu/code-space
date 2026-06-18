@@ -49,7 +49,7 @@ MACOS_FONT_STACK=TypographySystem.FONT_FAMILY
 TYPOGRAPHY=TypographySystem();SPACING=SpacingSystem();BORDER_RADIUS=BorderRadiusSystem()
 COLORS=ColorPalette()
 
-def get_table_stylesheet(bg_color=ColorPalette.BG_CARD,header_bg=ColorPalette.BG_CARD,header_color=ColorPalette.TEXT_SECONDARY,text_color=ColorPalette.TEXT_PRIMARY,border_color=ColorPalette.SEPARATOR,hover_color=ColorPalette.BG_HOVER,selected_color="#E8F0FE",alternate_color="#FAFAFC",border_radius=12,header_font_size=12,cell_font_size=14,cell_padding_v=12,cell_padding_h=16,row_height=48):
+def get_table_stylesheet(bg_color=ColorPalette.BG_CARD,header_bg=ColorPalette.BG_CARD,header_color=ColorPalette.TEXT_SECONDARY,text_color=ColorPalette.TEXT_PRIMARY,border_color=ColorPalette.SEPARATOR,hover_color=ColorPalette.BG_HOVER,selected_color="#E8F0FE",alternate_color="#F5F5F5",border_radius=12,header_font_size=12,cell_font_size=14,cell_padding_v=12,cell_padding_h=16,row_height=48):
     return f"""
         QTableWidget {{
             border: 1px solid {border_color};
@@ -106,5 +106,3 @@ def configure_table(table,style=None):
 
 SHADOWS=ShadowSystem()
 ANIMATIONS=AnimationTokens()
-
-
