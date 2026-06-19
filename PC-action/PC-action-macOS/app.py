@@ -174,6 +174,23 @@ class DraggableImageWidget(QWidget):
         self.dragging = False
         self.drag_start_position = None
 
+    def eventFilter(self, obj, event):
+        if obj is not self:
+            if event.type() == event.MouseButtonPress and event.button() == Qt.LeftButton:
+                self.drag_start_position = self.mapFromGlobal(obj.mapToGlobal(event.pos()))
+                return False
+            elif event.type() == event.MouseMove:
+                if event.buttons() & Qt.LeftButton and not self.dragging and self.drag_start_position is not None:
+                    mapped = self.mapFromGlobal(obj.mapToGlobal(event.pos()))
+                    if (mapped - self.drag_start_position).manhattanLength() >= QApplication.startDragDistance():
+                        self.dragging = True
+                        self.startDrag(event)
+                        return True
+                return False
+            elif event.type() == event.MouseButtonRelease:
+                self.dragging = False; self.drag_start_position = None; return False
+        return super().eventFilter(obj, event)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.drag_start_position = event.pos()
@@ -1639,11 +1656,23 @@ class FolderManager(QDialog):
             # print(f"读取录制目录时出错: {e}")  # [日志已禁用]
             return
             
-        folders.sort(key=lambda x: x[1], reverse=True)
+        # 加载调用次数
+        usage_counts = {}
+        if hasattr(self, 'parent') and self.parent:
+            usage_counts = self.parent._get_usage_counts()
+        for fi in range(len(folders)):
+            fi_name = folders[fi][0]
+            fi_count = usage_counts.get(fi_name, 0)
+            folders[fi] = folders[fi] + (fi_count,)
+        folders.sort(key=lambda x: (-x[3], x[1]), reverse=False)
+        # 恢复到原始格式
+        folders = [(f[0], f[1], f[2]) for f in folders]
         self.table.setRowCount(len(folders))
         for i, (name, ctime, path) in enumerate(folders):
             # 创建创建时间项
-            ctime_item = QTableWidgetItem(ctime)
+            count_val = usage_counts.get(name, 0)
+            display_time = f"{ctime}  ({count_val}次)" if count_val > 0 else ctime
+            ctime_item = QTableWidgetItem(display_time)
             ctime_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(i, 0, ctime_item)
             
@@ -1863,6 +1892,14 @@ class FolderManager(QDialog):
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _dot_lo.addWidget(_red_dot)
+        # 交通灯条也支持拖动窗口
+        def _dot_start_drag(ev):
+            if ev.button()==Qt.LeftButton: dialog._drag_pos=ev.globalPos()-dialog.pos()
+        def _dot_do_drag(ev):
+            if getattr(dialog,'_drag_pos',None) is not None and ev.buttons()&Qt.LeftButton:
+                dialog.move(ev.globalPos()-dialog._drag_pos)
+        _dot_bar.mousePressEvent=_dot_start_drag
+        _dot_bar.mouseMoveEvent=_dot_do_drag
         _cl.addWidget(_dot_bar)
         # ── 标题栏 ──
         title_bar = QWidget()
@@ -1873,6 +1910,7 @@ class FolderManager(QDialog):
         title_label = QLabel(f"📁 {os.path.basename(str(folder_path))}")
         title_label.setAlignment(Qt.AlignCenter)
         title_label.setStyleSheet("font-size:14px; font-weight:600; color:#1D1D1F; background:transparent; border:none;")
+        title_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         title_layout.addStretch()
         title_layout.addWidget(title_label)
         title_layout.addStretch()
@@ -2401,50 +2439,51 @@ class FolderManager(QDialog):
                 elif at in ["左击", "右击", "双击", "中击"]:
                     ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
                     cc = {"左击": "#8E8E93", "右击": "#8E8E93", "双击": "#8E8E93", "中击": "#8E8E93"}
-                    cb = QComboBox()
-                    cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
-                    cb.setCurrentText(f"{ci.get(at, '👆')} {at}")
-                    _cb_ref = cb
-                    cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path, _r=_cb_ref: self.update_action(ii, _r.currentText().split(' ', 1)[1] if ' ' in _r.currentText() else _r.currentText(), fp))
+                    cb = QPushButton(f"{ci.get(at, '👆')} {at}")
                     cb.setFixedSize(ACT_W, control_height)
+                    cb.setCursor(Qt.PointingHandCursor)
+                    _menu = QMenu()
+                    for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                        _a = _menu.addAction(_t)
+                        _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
+                    cb.setMenu(_menu)
                     c = cc.get(at, "#8E8E93")
                     cb.setStyleSheet(f"""
-                        QComboBox {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                        QComboBox:hover {{ background: rgba(200,200,210,0.4); }}
-                        QComboBox::drop-down {{ width: 0; border: none; }}
-                        QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                        QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
+                        QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
+                        QPushButton::menu-indicator {{ width: 0; }}
                     """)
                     
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
                 else:
-                    cb = QComboBox()
-                    ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                    cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
-                    cb.setCurrentText(f"{ci.get(at, '👆')} {at}")
-                    _cb_ref = cb
-                    cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path, _r=_cb_ref: self.update_action(ii, _r.currentText().split(' ', 1)[1] if ' ' in _r.currentText() else _r.currentText(), fp))
+                    cb = QPushButton(f"{ci.get(at, '👆')} {at}")
                     cb.setFixedSize(ACT_W, control_height)
+                    cb.setCursor(Qt.PointingHandCursor)
+                    _menu = QMenu()
+                    for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                        _a = _menu.addAction(_t)
+                        _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
+                    cb.setMenu(_menu)
                     cb.setStyleSheet(f"""
-                        QComboBox {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                        QComboBox:hover {{ background: rgba(200,200,210,0.4); }}
-                        QComboBox::drop-down {{ width: 0; border: none; }}
-                        QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                        QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
+                        QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
+                        QPushButton::menu-indicator {{ width: 0; }}
                     """)
                     
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
             else:
-                cb = QComboBox()
-                ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                cb.addItems([f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"])
-                cb.setCurrentText(f"{ci['左击']} 左击")
-                _cb_ref = cb
-                cb.currentIndexChanged.connect(lambda idx, ii=i, fp=folder_path, _r=_cb_ref: self.update_action(ii, _r.currentText().split(' ', 1)[1] if ' ' in _r.currentText() else _r.currentText(), fp))
+                cb = QPushButton(f"{ci['左击']} 左击")
                 cb.setFixedSize(ACT_W, control_height)
+                cb.setCursor(Qt.PointingHandCursor)
+                _menu = QMenu()
+                for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                    _a = _menu.addAction(_t)
+                    _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
+                cb.setMenu(_menu)
                 cb.setStyleSheet(f"""
-                    QComboBox {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                    QComboBox:hover {{ background: rgba(200,200,210,0.4); }}
-                    QComboBox::drop-down {{ width: 0; border: none; }}
-                    QComboBox QAbstractItemView {{ background: white; color: black; selection-background: transparent; selection-color: #0A84FF; border: none; border-radius: 8px; padding: 4px; font-size: 12px; outline: none; }}
+                    QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
+                    QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
+                    QPushButton::menu-indicator {{ width: 0; }}
                 """)
                 
                 _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
@@ -2491,8 +2530,51 @@ class FolderManager(QDialog):
             btn_up.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx - 1, fp))
             btn_down.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx + 1, fp))
 
+            # ── ⑥ 拖拽排序（按住卡片拖动，放置由父容器统一处理） ──
+            row_widget._idx = i
+            row_widget._fp = folder_path
+            row_widget._drag_start_pos = None
+            def _bd(w):
+                def _mpe(s,e):
+                    if e.button()==1: s._drag_start_pos=e.pos()
+                    QWidget.mousePressEvent(s,e)
+                w.mousePressEvent=_mpe.__get__(w,QWidget)
+                def _mme(s,e):
+                    if not(e.buttons()&1): return
+                    if s._drag_start_pos is None: return
+                    if (e.pos()-s._drag_start_pos).manhattanLength()<QApplication.startDragDistance(): return
+                    d=QDrag(s); m=QMimeData(); m.setText(f"{s._idx},{s._fp}"); d.setMimeData(m)
+                    d.setPixmap(s.grab().scaled(300,72,Qt.KeepAspectRatio,Qt.SmoothTransformation))
+                    d.setHotSpot(QPoint(30,36)); d.exec_(2)
+                w.mouseMoveEvent=_mme.__get__(w,QWidget)
+            _bd(row_widget)
+
             row_layout.addStretch()
             list_layout.addWidget(row_widget)
+
+        # ── 列表级放置处理（拖到任意子控件上也生效） ──
+        _lw = list_layout.parentWidget()
+        _lw.setAcceptDrops(True)
+        _swap_fn = self._swap_steps
+        def _l_dee(s,e):
+            if e.mimeData().hasText(): e.acceptProposedAction()
+        _lw.dragEnterEvent=_l_dee.__get__(_lw,QWidget)
+        def _l_dme(s,e):
+            if e.mimeData().hasText(): e.acceptProposedAction()
+        _lw.dragMoveEvent=_l_dme.__get__(_lw,QWidget)
+        def _l_de(s,e):
+            if e.mimeData().hasText():
+                try:
+                    a,b=e.mimeData().text().split(","); a=int(a)
+                    dy=e.pos().y()
+                    for ri in range(list_layout.count()):
+                        rw=list_layout.itemAt(ri).widget()
+                        if rw and rw.y()<=dy<=rw.y()+rw.height() and ri!=a:
+                            _swap_fn(a,ri,b)
+                            break
+                    e.acceptProposedAction()
+                except: pass
+        _lw.dropEvent=_l_de.__get__(_lw,QWidget)
 
     def refresh_view_images(self, folder_path):
         if not hasattr(self.parent, '_view_images_dialog') or not self.parent._view_images_dialog:
@@ -4068,7 +4150,7 @@ class FolderManager(QDialog):
         container.setStyleSheet("""
             QWidget#trashContainer {
                 background: #F5F5F7;
-                border: 3px solid #1C1C1E;
+                border: 1px solid #1C1C1E;
                 border-radius: 16px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 color: black;
@@ -5345,9 +5427,11 @@ class AutoRecorderApp(QMainWindow):
                 pixmap = QPixmap.fromImage(scaled_img)
                 lbl.setPixmap(pixmap)
                 lbl.setAlignment(Qt.AlignCenter)
+                lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
                 lbl.move(10, 10)
                 lbl.lower()
                 vbox.addWidget(img_container, alignment=Qt.AlignCenter)
+                img_container.installEventFilter(container)
                 # 清理临时图片对象
                 scaled_img = None
                 img = None
@@ -5374,7 +5458,8 @@ class AutoRecorderApp(QMainWindow):
                     border-radius: 12px;
                     font-weight: 600;
                     font-size: 11px;
-                    padding: 0px;
+                    padding: 0 12px;
+                    text-align: center;
                 }}
                 QPushButton:hover {{
                     background-color: #0A84FF;
@@ -5718,7 +5803,8 @@ class AutoRecorderApp(QMainWindow):
                     border-radius: 12px;
                     font-weight: 600;
                     font-size: 11px;
-                    padding: 0px;
+                    padding: 0 12px;
+                    text-align: center;
                 }}
                 QPushButton:hover {{
                     background-color: #0A84FF;
@@ -5963,11 +6049,11 @@ class AutoRecorderApp(QMainWindow):
             QFrame#logOuter {
                 background-color: #1C1C1E;
                 border-radius: 14px;
-                border: 3px solid #1C1C1E;
+                border: 1px solid #1C1C1E;
             }
         """)
         _cl = QVBoxLayout(_outer)
-        _cl.setContentsMargins(3, 3, 3, 3)
+        _cl.setContentsMargins(1, 1, 1, 1)
         _cl.setSpacing(0)
 
         _header = QWidget()
@@ -6070,7 +6156,7 @@ class AutoRecorderApp(QMainWindow):
         from image_recognition import set_debug_mode, set_log_callback
         set_debug_mode(self.debug_mode)
         # 设置日志回调，将 image_recognition 的日志发送到日志窗口
-        set_log_callback(lambda msg: self.append_log(f"[回放] {msg}"))
+        set_log_callback(lambda msg: self.append_log(f" ║  {msg}"))
 
     def toggle_debug_mode(self):
         """切换调试模式开关"""
@@ -6080,7 +6166,7 @@ class AutoRecorderApp(QMainWindow):
         from image_recognition import set_debug_mode, set_log_callback
         set_debug_mode(self.debug_mode)
         # 设置日志回调
-        set_log_callback(lambda msg: self.append_log(f"[回放] {msg}"))
+        set_log_callback(lambda msg: self.append_log(f" ║  {msg}"))
         return self.debug_mode
 
     def create_replay_status_indicator(self):
@@ -6615,12 +6701,41 @@ class AutoRecorderApp(QMainWindow):
         self.replay_status_widget.move(default_x, default_y)
         # print(f"[调试] 悬浮窗口默认位置: ({default_x}, {default_y}), 屏幕大小: {screen.width()}x{screen.height()}")  # [日志已禁用]
     
+    def _usage_counts_path(self):
+        return os.path.join(self.user_data_dir, 'usage_counts.json')
+
+    def _increment_usage_count(self, folder_name):
+        path = self._usage_counts_path()
+        counts = {}
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    counts = json.load(f)
+            except: pass
+        counts[folder_name] = counts.get(folder_name, 0) + 1
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(counts, f, ensure_ascii=False, indent=2)
+        except: pass
+        return counts[folder_name]
+
+    def _get_usage_counts(self):
+        path = self._usage_counts_path()
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except: pass
+        return {}
+
     def play_recording(self, recording_name):
         """播放指定录制流程 - 总是从头开始执行"""
         # print(f"[DEBUG] play_recording called: {recording_name}")  # [日志已禁用]
         try:
             # 设置当前流程
             self.current_recording = recording_name
+            # 递增调用次数
+            self._increment_usage_count(recording_name)
             
             # 如果已有回放正在运行，先完全停止
             if getattr(self, 'is_replaying', False):
@@ -8339,8 +8454,16 @@ class AutoRecorderApp(QMainWindow):
                     ctime = datetime.fromtimestamp(os.path.getctime(item_path)).strftime('%m-%d %H:%M')
                     folders.append((ctime, item, item_path))
             
-            # 按时间排序
-            folders.sort(key=lambda x: x[0], reverse=True)
+            # 加载调用次数
+            counts = self._get_usage_counts()
+            for fi in range(len(folders)):
+                fi_name = folders[fi][1]
+                fi_count = counts.get(fi_name, 0)
+                folders[fi] = folders[fi] + (fi_count,)
+            # 按调用次数排序（多者在前），次数相同的按时间排序
+            folders.sort(key=lambda x: (-x[3], x[0]), reverse=False)
+            # 恢复原始格式
+            folders = [(f[0], f[1], f[2]) for f in folders]
             
             table_widget.setRowCount(len(folders))
             for row, (ctime, name, path) in enumerate(folders):
@@ -8723,7 +8846,7 @@ class AutoRecorderApp(QMainWindow):
         container.setStyleSheet("""
             QWidget#tdContainer {
                 background: #F5F5F7;
-                border: 3px solid #1C1C1E;
+                border: 1px solid #1C1C1E;
                 border-radius: 16px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 color: black;
@@ -9202,19 +9325,26 @@ class ComboSkillRunner:
         self.running = True
         self._consecutive_failures = 0
         _run_start = _time.time()
-        if self._on_log:
-            self._on_log(f"组合技开始执行: {self.skill_data.get('name', '')}")
-            self._on_log(f"流程数: {len(self.skill_data.get('flows', []))}, 循环次数: {self._loop_count}")
+        try:
+            if self._main_app is not None:
+                self._main_app.append_log(f"╔═ {'='*45}")
+                self._main_app.append_log(f" ║  🚀 组合技开始: {self.skill_data.get('name', '')}")
+                self._main_app.append_log(f" ║  📊 流程数: {len(self.skill_data.get('flows', []))}, 循环次数: {self._loop_count}")
+        except Exception:
+            pass
         try:
             flows = self.skill_data.get("flows", [])
             total_loops = max(1, self._loop_count)
             _t0 = _time.time()
             from image_recognition import find_image_with_timeout
             _t1 = _time.time()
-            if self._on_log:
-                self._on_log(f"[耗时] find_image_with_timeout 导入: {_t1-_t0:.3f}s")
-                if flows:
-                    self._on_log(f"流程0数据: {str(flows[0])[:200]}")
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(f" ║  ⏳ find_image_with_timeout 导入: {_t1-_t0:.3f}s")
+                    if flows:
+                        self._main_app.append_log(f" ║  📋 流程0数据: {str(flows[0])[:200]}")
+            except Exception:
+                pass
 
             for loop in range(1, total_loops + 1):
                 if not self.running:
@@ -9253,26 +9383,38 @@ class ComboSkillRunner:
 
                     if condition == "image_found":
                         if not condition_image:
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} image_found ⚠️ 未设置条件图片，条件视为不满足")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_found 未设置条件图片，条件视为不满足")
+                            except Exception:
+                                pass
                             condition_met = False
                         else:
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} image_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  🔍 流程{flow_index+1} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
+                            except Exception:
+                                pass
                     elif condition == "image_not_found":
                         if not condition_image:
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} image_not_found ⚠️ 未设置条件图片，条件视为不满足")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_not_found 未设置条件图片，条件视为不满足")
+                            except Exception:
+                                pass
                             condition_met = False
                         else:
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
                             condition_met = loc is None
                             _cond_elapsed = _time.time() - _cond_start
-                            if self._on_log:
-                                self._on_log(f"[耗时] Flow{flow_index+1} image_not_found 条件判断: {_cond_elapsed:.3f}s 结果={'满足' if condition_met else '不满足'}")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  👻 流程{flow_index+1} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
+                            except Exception:
+                                pass
                     elif condition == "wait_for_image":
                         def _wf_log(msg):
                             try:
@@ -9334,8 +9476,11 @@ class ComboSkillRunner:
                             else:
                                 _wf_log(f"📊 结束: {_cond_elapsed:.1f}s 轮询{_poll_cnt}次 结果={'满足' if condition_met else '不满足(超时)'}")
                     elif condition == "always":
-                        if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} always 条件: 跳过判断")
+                        try:
+                            if self._main_app is not None:
+                                self._main_app.append_log(f" ║  ▶ 流程{flow_index+1} always 条件: 跳过判断")
+                        except Exception:
+                            pass
 
                     # ====== 2. 决定执行哪个分支的动作 ======
                     use_branch = "main" if condition_met else "else"
@@ -9357,8 +9502,11 @@ class ComboSkillRunner:
 
                     # ====== 3. 处理跳转/结束 ======
                     if target_action and target_action.startswith("跳转_"):
-                        if self._on_log:
-                            self._on_log(f"Flow {flow_index+1}: 条件满足 → 跳转 {target_action} (总跳转: {total_jumps+1})")
+                        try:
+                            if self._main_app is not None:
+                                self._main_app.append_log(f" ║  🔀 流程{flow_index+1}: → 跳转 {target_action} (总跳转: {total_jumps+1})")
+                        except Exception:
+                            pass
                         try:
                             target = int(target_action.split("_")[1])
                         except (IndexError, ValueError):
@@ -9366,17 +9514,19 @@ class ComboSkillRunner:
                         if 0 <= target < len(flows):
                             total_jumps += 1
                             if total_jumps > max_jumps:
-                                if self._on_log:
-                                    self._on_log(f"跳转次数超过上限({max_jumps})，停止")
                                 try:
                                     if self._main_app is not None:
+                                        self._main_app.append_log(f" ║  ⛔ 跳转次数超过上限({max_jumps})，停止")
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
                                     pass
                                 break
                             flow_index = target
-                            if self._on_log:
-                                self._on_log(f"→ 跳转到流程 {target+1}")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ➡️ 跳转到流程 {target+1}")
+                            except Exception:
+                                pass
                             self._wait_interruptible(0.01)
                             continue
                         else:
@@ -9388,23 +9538,29 @@ class ComboSkillRunner:
                     # ====== 4. 执行动作 ======
                     if target_action:
                         _exec_start = _time.time()
-                        if self._on_log:
-                            self._on_log(f"Flow {flow_index+1}: 开始执行动作 '{target_action}'")
+                        try:
+                            if self._main_app is not None:
+                                self._main_app.append_log(f" ║  ▶ 执行动作 '{target_action}'")
+                        except Exception:
+                            pass
                         _action_result = self._execute_action(target_action)
                         if isinstance(_action_result, tuple):
                             _action_ok, _img_fail_count = _action_result
                         else:
                             _action_ok, _img_fail_count = _action_result, 0
                         _exec_elapsed = _time.time() - _exec_start
-                        if self._on_log:
-                            self._on_log(f"[耗时] Flow{flow_index+1} 执行动作 '{target_action}': {_exec_elapsed:.3f}s 结果={'成功' if _action_ok else '失败'} 图片匹配失败={_img_fail_count}")
+                        try:
+                            if self._main_app is not None:
+                                _emoji = "✅" if _action_ok else "❌"
+                                self._main_app.append_log(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
+                        except Exception:
+                            pass
                         if not _action_ok:
                             self._consecutive_failures += 1
                             if self._consecutive_failures >= 3:
-                                if self._on_log:
-                                    self._on_log(f"连续 {self._consecutive_failures} 次执行失败，停止组合技")
                                 try:
                                     if self._main_app is not None:
+                                        self._main_app.append_log(f" ║  ⛔ 连续 {self._consecutive_failures} 次执行失败，停止组合技")
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
                                     pass
@@ -9414,21 +9570,20 @@ class ComboSkillRunner:
                         # 录制回放中图片匹配失败 → 停止组合技
                         # 例外：wait_for_image 和 image_not_found 条件的流程，图片没识别到是正常的，不停止
                         if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
-                            if self._on_log:
-                                self._on_log(f"Flow {flow_index+1}: 录制回放中图片匹配失败 {_img_fail_count} 次，停止组合技")
                             try:
                                 if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⛔ 录制回放中图片匹配失败 {_img_fail_count} 次，停止组合技")
                                     self._main_app.append_log(f"╚═{'═'*40}")
                             except Exception:
                                 pass
                             break
                         elif _img_fail_count > 0:
-                            if self._on_log:
-                                self._on_log(f"Flow {flow_index+1}: 录制回放中图片匹配失败 {_img_fail_count} 次，但条件为{condition}，继续执行")
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，但条件为{condition}，继续执行")
+                            except Exception:
+                                pass
 
-                    _flow_elapsed = _time.time() - _flow_start
-                    if self._on_log:
-                        self._on_log(f"[耗时] Flow{flow_index+1} 总耗时: {_flow_elapsed:.3f}s")
                     try:
                         if self._main_app is not None:
                             self._main_app.append_log(f"╚═{'═'*40}")
@@ -9440,19 +9595,30 @@ class ComboSkillRunner:
                     flow_index += 1
 
                 _loop_elapsed = _time.time() - _loop_start
-                if self._on_log:
-                    self._on_log(f"[耗时] 第{loop}轮循环总耗时: {_loop_elapsed:.3f}s")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ⏱️ 第{loop}轮循环完成")
+                except Exception:
+                    pass
                 self.reset()
 
             _run_elapsed = _time.time() - _run_start
             if self.running:
-                if self._on_log:
-                    self._on_log(f"[耗时] 组合技总执行时间: {_run_elapsed:.3f}s")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ✅ 组合技完毕: {_run_elapsed:.3f}s")
+                        self._main_app.append_log(f"╚═{'═'*45}")
+                except Exception:
+                    pass
                 if self._on_finished:
                     self._on_finished(True, f"组合技 '{self.skill_data.get('name', '')}' 执行完成")
             else:
-                if self._on_log:
-                    self._on_log(f"[耗时] 组合技被停止，已执行: {_run_elapsed:.3f}s")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ⏹️ 组合技被停止，已执行: {_run_elapsed:.3f}s")
+                        self._main_app.append_log(f"╚═{'═'*45}")
+                except Exception:
+                    pass
                 if self._on_finished:
                     self._on_finished(False, "已停止")
 
@@ -9474,23 +9640,35 @@ class ComboSkillRunner:
             folder_path = os.path.join(get_recordings_path(), action)
             json_path = os.path.join(folder_path, "recording.json")
             if not os.path.exists(json_path):
-                if self._on_log:
-                    self._on_log(f"[耗时] 找不到录制文件: {json_path} ({_time.time()-_ea_start:.3f}s)")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ❌ 找不到录制文件: {action} ({_time.time()-_ea_start:.3f}s)")
+                except Exception:
+                    pass
                 return False, 0
 
             _t_load0 = _time.time()
             recording_data = load_json_data(json_path)
             _t_load1 = _time.time()
-            if self._on_log:
-                self._on_log(f"[耗时] load_json_data: {_t_load1-_t_load0:.3f}s 步骤数={len(recording_data) if recording_data else 0}")
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(f" ║  📂 load_json_data: {_t_load1-_t_load0:.3f}s 共{len(recording_data) if recording_data else 0}步")
+            except Exception:
+                pass
             if not recording_data:
-                if self._on_log:
-                    self._on_log(f"录制数据为空: {action}")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ⚠️ 录制数据为空: {action}")
+                except Exception:
+                    pass
                 return False, 0
 
             has_images = any(op.get("image", "") for op in recording_data)
-            if self._on_log:
-                self._on_log(f"[耗时] 动作 '{action}' 含图片={has_images}, 步骤数={len(recording_data)}")
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(f" ║  🖼️ 动作 '{action}' 含图片={has_images}, 步骤数={len(recording_data)}")
+            except Exception:
+                pass
 
             from image_recognition import replay_coordinate_operations, replay_coordinates_only
 
@@ -9510,8 +9688,11 @@ class ComboSkillRunner:
                     ok, total = replay_result
                     img_fail_count = 0
                 _t_replay1 = _time.time()
-                if self._on_log:
-                    self._on_log(f"[耗时] replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total} 图片匹配失败={img_fail_count}")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ▶ replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total} 图片匹配失败={img_fail_count}")
+                except Exception:
+                    pass
             else:
                 _t_replay0 = _time.time()
                 ok, total = replay_coordinates_only(
@@ -9520,23 +9701,35 @@ class ComboSkillRunner:
                 )
                 img_fail_count = 0
                 _t_replay1 = _time.time()
-                if self._on_log:
-                    self._on_log(f"[耗时] replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ▶ replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+                except Exception:
+                    pass
 
             # 如果全部步骤都失败，返回 False
             if ok == 0 and total > 0:
-                if self._on_log:
-                    self._on_log(f"执行失败: {action} 全部 {total} 个步骤均未成功")
+                try:
+                    if self._main_app is not None:
+                        self._main_app.append_log(f" ║  ❌ 执行失败: {action} 全部 {total} 个步骤均未成功")
+                except Exception:
+                    pass
                 return False, img_fail_count
 
-            if self._on_log:
-                self._on_log(f"[耗时] 执行动作 '{action}' 总耗时: {_time.time()-_ea_start:.3f}s")
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(f" ║  ✅ 动作 '{action}' 完成: {_time.time()-_ea_start:.3f}s")
+            except Exception:
+                pass
             return True, img_fail_count
         except Exception as e:
             import traceback
             traceback.print_exc()
-            if self._on_log:
-                self._on_log(f"[耗时] 执行动作失败: {e}")
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(f" ║  ❌ 执行动作失败: {str(e)}")
+            except Exception:
+                pass
             return False, 0
 
     def _wait_interruptible(self, seconds):

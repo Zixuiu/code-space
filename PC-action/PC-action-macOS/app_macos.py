@@ -803,6 +803,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 _sid = skill_id
                 runner._on_finished = lambda success, msg, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
                 runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
+                runner._on_log = lambda msg, sid=_sid: QTimer.singleShot(0, lambda: self.append_log(f" ║  [{sid}] {msg}"))
 
                 _t = _threading.Thread(target=runner.run, daemon=True)
                 runner._exec_thread = _t
@@ -827,6 +828,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     _sid = skill_id
                     runner._on_finished = lambda success, msg, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_skill_finished(success, msg, sid))
                     runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
+                    runner._on_log = lambda msg, sid=_sid: QTimer.singleShot(0, lambda: self.append_log(f" ║  [{sid}] {msg}"))
 
                     _t = _threading.Thread(target=runner.run, daemon=True)
                     runner._exec_thread = _t
