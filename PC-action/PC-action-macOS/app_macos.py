@@ -2054,12 +2054,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(24, 0, 24, 24)
+        layout.setContentsMargins(24, 0, 24, 16)
         layout.setSpacing(0)
-
-        title = QLabel("")
-        title.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 12px 0 8px 0; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
-        layout.addWidget(title)
 
         steps = []
         self._build_tutorial_steps(steps)
@@ -2068,18 +2064,19 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         # 顶部标签导航
         tab_bar = QWidget()
-        tab_bar.setFixedHeight(50)
-        tab_bar.setStyleSheet("background: white; border-radius: 10px;")
+        tab_bar.setFixedHeight(36)
+        tab_bar.setStyleSheet("background: white; border-radius: 12px;")
         tl = QHBoxLayout(tab_bar)
-        tl.setContentsMargins(4, 4, 4, 4)
+        tl.setContentsMargins(6, 0, 6, 0)
         tl.setSpacing(0)
+        tl.setAlignment(Qt.AlignVCenter)
         tab_btns = []
         for i in range(total_steps):
             btn = QPushButton(f"0{i+1}")
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(
-                "QPushButton { font-size: 14px; font-weight: %s; color: %s; "
-                "background: %s; border: none; border-radius: 8px; padding: 0; }"
+                "QPushButton { font-size: 13px; font-weight: %s; color: %s; "
+                "background: %s; border: none; border-radius: 6px; padding: 0px; margin: 0px; }"
                 "QPushButton:hover { color: #007AFF; }"
                 % ('700' if i==0 else '400',
                    '#007AFF' if i==0 else '#8E8E93',
@@ -2090,19 +2087,27 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.addWidget(tab_bar)
         layout.addSpacing(10)
 
+        # 分割线
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: %s; margin: 0 4px;" % MacOSColors.SEPARATOR)
+        sep.setFixedHeight(1)
+        layout.addWidget(sep)
+        layout.addSpacing(10)
+
         # 内容卡片
         card = MacOSCard()
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(20, 10, 20, 10)
-        cl.setSpacing(8)
+        cl.setContentsMargins(20, 4, 20, 10)
+        cl.setSpacing(4)
 
         sh = QHBoxLayout()
         icon_lbl = QLabel(steps[0]["icon"])
-        icon_lbl.setStyleSheet("font-size: 28px; background-color: transparent;")
+        icon_lbl.setStyleSheet("font-size: 24px; background-color: transparent;")
         sh.addWidget(icon_lbl)
         title_lbl = QLabel(steps[0]["title"])
         title_lbl.setTextFormat(Qt.RichText)
-        title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: bold; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+        title_lbl.setStyleSheet("color: %s; font-size: 17px; font-weight: bold; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
         sh.addWidget(title_lbl)
         sh.addStretch()
         cl.addLayout(sh)
@@ -2145,7 +2150,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             % MacOSColors.ACCENT
         )
         nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(20); nav.addWidget(next_btn); nav.addStretch()
-        layout.addLayout(nav)
+        cl.addLayout(nav)
 
         # 辅助函数
         def go_to_step(idx):
