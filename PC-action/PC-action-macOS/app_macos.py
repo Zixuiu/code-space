@@ -1,4 +1,86 @@
 ﻿import os
+
+filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_macos.py")
+with open(filepath, "r", encoding="utf-8") as f:
+    content = f.read()
+
+# 1. Add get_user_data_path to import
+content = content.replace(
+    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path",
+    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path"
+)
+
+# 2. Add helper functions before class MacOSSidebarItem
+helper_code = '''
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+'''
+content = content.replace(
+    "class MacOSSidebarItem(QFrame):\n    clicked = pyqtSignal()",
+    helper_code + "class MacOSSidebarItem(QFrame):\n    clicked = pyqtSignal()"
+)
+
+# 3. Replace folder_table initial column widths in create_manager_tab
+old1 = "        folder_table.horizontalHeader().setStretchLastSection(False)\n        folder_table.setColumnWidth(0, 110)\n        folder_table.setColumnWidth(1, 400)\n        folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)\n        folder_table.setColumnWidth(2, 110)\n        folder_table.setColumnWidth(3, 55)\n        folder_table.setColumnWidth(4, 55)"
+new1 = "        folder_table.horizontalHeader().setStretchLastSection(False)\n        _folder_default_widths = [110, 400, 110, 55, 55]\n        _apply_saved_column_widths(folder_table, \"manager_table\", _folder_default_widths)\n        folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)"
+content = content.replace(old1, new1)
+
+# 4. Add column width saver connection after folder_table.cellClicked
+old2 = "        folder_table.cellClicked.connect(on_folder_table_click)\n        layout.addWidget(folder_table)"
+new2 = "        folder_table.cellClicked.connect(on_folder_table_click)\n        _connect_column_width_saver(folder_table, \"manager_table\")\n        layout.addWidget(folder_table)"
+content = content.replace(old2, new2)
+
+# 5. Replace hardcoded widths in load_folders_to_table
+old3 = "            table_widget.setColumnWidth(0, 150)\n            table_widget.setColumnWidth(1, 200)\n            table_widget.setColumnWidth(2, 110)\n            table_widget.setColumnWidth(3, 70)\n            table_widget.setColumnWidth(4, 55)\n            table_widget.horizontalHeader().setStretchLastSection(True)\n            table_widget.setColumnWidth(1, 200)"
+new3 = "            _folder_reload_widths = [150, 200, 110, 70, 55]\n            _apply_saved_column_widths(table_widget, \"manager_table\", _folder_reload_widths)\n            table_widget.horizontalHeader().setStretchLastSection(True)"
+content = content.replace(old3, new3)
+
+# 6. Replace combo_table initial column widths
+old4 = "        combo_table.setColumnWidth(0, 50)\n        combo_table.setColumnWidth(1, 120)\n        combo_table.setColumnWidth(2, 60)\n        combo_table.setColumnWidth(3, 80)\n        combo_table.setColumnWidth(4, 100)\n        combo_table.setColumnWidth(5, 100)\n        combo_table.setColumnWidth(6, 60)\n        combo_table.horizontalHeader().setStretchLastSection(True)"
+new4 = "        _combo_default_widths = [50, 120, 60, 80, 100, 100, 60]\n        _apply_saved_column_widths(combo_table, \"combo_table\", _combo_default_widths)\n        combo_table.horizontalHeader().setStretchLastSection(True)"
+content = content.replace(old4, new4)
+
+# 7. Add column width saver connection after combo_table.cellClicked
+old5 = "        combo_table.cellClicked.connect(on_combo_table_click)\n        layout.addWidget(combo_table)"
+new5 = "        combo_table.cellClicked.connect(on_combo_table_click)\n        _connect_column_width_saver(combo_table, \"combo_table\")\n        layout.addWidget(combo_table)"
+content = content.replace(old5, new5)
+
+with open(filepath, "w", encoding="utf-8") as f:
+    f.write(content)
+
+print("Done! Column width auto-save has been added.")
+import os
 if os.name == "nt":
     os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
@@ -28,7 +110,7 @@ from PyQt5.QtGui import (
 )
 
 from app import AutoRecorderApp
-from utils import get_screen_size, load_json_data, save_json_data
+from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
     ColorPalette, ShadowSystem, ButtonSize
@@ -72,6 +154,108 @@ class MacOSColors:
     SEPARATOR = ColorPalette.SEPARATOR
     ACCENT_BG = ColorPalette.PRIMARY_BG
 
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
 
 class MacOSSidebarItem(QFrame):
     clicked = pyqtSignal()
@@ -1260,12 +1444,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             row_height=50
         ))
         folder_table.horizontalHeader().setStretchLastSection(False)
-        folder_table.setColumnWidth(0, 110)
-        folder_table.setColumnWidth(1, 400)
+        _folder_default_widths = [110, 400, 110, 55, 55]
+        _apply_saved_column_widths(folder_table, "manager_table", _folder_default_widths)
         folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        folder_table.setColumnWidth(2, 110)
-        folder_table.setColumnWidth(3, 55)
-        folder_table.setColumnWidth(4, 55)
 
         def on_folder_table_click(row, column):
             if column == 1:
@@ -1294,6 +1475,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         self.delete_folder_in_tab(data[1], folder_table)
 
         folder_table.cellClicked.connect(on_folder_table_click)
+        _connect_column_width_saver(folder_table, "manager_table")
         layout.addWidget(folder_table)
 
         refresh_btn.clicked.connect(lambda: self.load_folders_to_table(folder_table))
@@ -1360,13 +1542,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 delete_item.setData(Qt.UserRole, ("delete", path))
                 delete_item.setForeground(QColor(MacOSColors.SYSTEM_RED))
                 table_widget.setItem(row, 4, delete_item)
-            table_widget.setColumnWidth(0, 150)
-            table_widget.setColumnWidth(1, 200)
-            table_widget.setColumnWidth(2, 110)
-            table_widget.setColumnWidth(3, 70)
-            table_widget.setColumnWidth(4, 55)
+            _folder_reload_widths = [150, 200, 110, 70, 55]
+            _apply_saved_column_widths(table_widget, "manager_table", _folder_reload_widths)
             table_widget.horizontalHeader().setStretchLastSection(True)
-            table_widget.setColumnWidth(1, 200)
         except Exception as e:
             pass
 
@@ -1985,13 +2163,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             cell_padding_v=6, cell_padding_h=12, row_height=44
         ))
         combo_table.verticalHeader().setDefaultSectionSize(44)
-        combo_table.setColumnWidth(0, 50)
-        combo_table.setColumnWidth(1, 120)
-        combo_table.setColumnWidth(2, 60)
-        combo_table.setColumnWidth(3, 80)
-        combo_table.setColumnWidth(4, 100)
-        combo_table.setColumnWidth(5, 100)
-        combo_table.setColumnWidth(6, 60)
+        _combo_default_widths = [50, 120, 60, 80, 100, 100, 60]
+        _apply_saved_column_widths(combo_table, "combo_table", _combo_default_widths)
         combo_table.horizontalHeader().setStretchLastSection(True)
 
         def on_combo_table_click(row, column):
@@ -2030,6 +2203,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         self.delete_combo_skill_in_tab(skill, combo_table)
 
         combo_table.cellClicked.connect(on_combo_table_click)
+        _connect_column_width_saver(combo_table, "combo_table")
         layout.addWidget(combo_table)
 
         new_btn.clicked.connect(self.open_combo_skill_editor)
