@@ -9390,7 +9390,7 @@ class ComboSkillRunner:
                                 pass
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=1.0, consider_color=False, stop_check=lambda: not self.running)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             try:
@@ -9588,7 +9588,7 @@ class ComboSkillRunner:
                         pass
 
                     if self.running:
-                        self._wait_interruptible(0.01)
+                        self._wait_interruptible(0.3)
                     flow_index += 1
 
                 _loop_elapsed = _time.time() - _loop_start
