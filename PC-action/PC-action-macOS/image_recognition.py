@@ -334,9 +334,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _match_t1 = time.time()
 
                 if not location:
-                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，跳过（图片: {image_name}）")
-                    image_match_fail_count += 1  # 记录图片匹配失败次数
-                    continue
+                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，立即停止回放（图片: {image_name}）")
+                    image_match_fail_count += 1
+                    break
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
                     x, y, width, height = location
@@ -448,7 +448,7 @@ def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None
                 actual_x, actual_y = pyautogui.position()
                 
                 # 根据操作类型执行相应操作
-                if action_type == 'left_click':
+                if action_type in ('left_click', 'click'):
                     pyautogui.click()
                 elif action_type == 'right_click':
                     pyautogui.rightClick()

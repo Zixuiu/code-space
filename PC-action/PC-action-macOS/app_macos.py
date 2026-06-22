@@ -892,6 +892,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
             self.showMinimized()
 
+            self.clear_log()
+
             running_count = len([r for r in self.runners.values() if r.isRunning()])
             if running_count == 0:
                 clear_image_cache()
@@ -3038,7 +3040,7 @@ class CoordinateRecorder(QWidget):
             global_logical = self.mapToGlobal(event.pos())
             px = int(global_logical.x() * dpr)
             py = int(global_logical.y() * dpr)
-            rec = {"step": self.step_counter, "action_type": "click", "x": px, "y": py, "delay": 0.3}
+            rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.3}
             self.records.append(rec)
             if self.parent and hasattr(self.parent, 'coordinate_records'):
                 self.parent.coordinate_records = self.records

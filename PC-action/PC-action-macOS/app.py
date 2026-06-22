@@ -2129,7 +2129,7 @@ class FolderManager(QDialog):
         if has_recording_json:
             recording_data = load_json_data(recording_json_path)
             if isinstance(recording_data, list):
-                action_type_map = {'left_click':'左击', 'right_click':'右击', 'double_click':'双击', 'middle_click':'中键点击'}
+                action_type_map = {'left_click':'Click', 'right_click':'右击', 'double_click':'双击', 'middle_click':'中键点击'}
                 # 构建步骤号→操作文本的映射，避免因键盘操作无图片导致的错位
                 step_action_map = {}
                 for step in recording_data:
@@ -2149,18 +2149,18 @@ class FolderManager(QDialog):
                     elif action_type == 'condition':
                         step_action_map[step_num] = "条件分支"
                     else:
-                        step_action_map[step_num] = action_type_map.get(action_type, '左击')
+                        step_action_map[step_num] = action_type_map.get(action_type, 'Click')
                 # 根据image_files的顺序构建image_actions，确保两者完全对齐
                 for img_file in image_files:
                     match = re.search(r'操作(\d+)', img_file)
                     if match:
                         step_num = int(match.group(1))
-                        self.image_actions.append(step_action_map.get(step_num, '左击'))
+                        self.image_actions.append(step_action_map.get(step_num, 'Click'))
                     else:
-                        self.image_actions.append('左击')
+                        self.image_actions.append('Click')
         # 如果没有JSON数据，使用默认值
         if not self.image_actions:
-            self.image_actions = ["左击"] * len(image_files)
+            self.image_actions = ["Click"] * len(image_files)
         
 
 
@@ -2436,14 +2436,14 @@ class FolderManager(QDialog):
                     cw.setStyleSheet(f"QLabel {{ background: rgba(175,82,222,0.15); color: #AF52DE; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
                     cw.setAlignment(Qt.AlignCenter)
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cw);row_layout.addWidget(_aw)
-                elif at in ["左击", "右击", "双击", "中击"]:
-                    ci = {"左击": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                    cc = {"左击": "#8E8E93", "右击": "#8E8E93", "双击": "#8E8E93", "中击": "#8E8E93"}
+                elif at in ["Click", "右击", "双击", "中击"]:
+                    ci = {"Click": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
+                    cc = {"Click": "#8E8E93", "右击": "#8E8E93", "双击": "#8E8E93", "中击": "#8E8E93"}
                     cb = QPushButton(f"{ci.get(at, '👆')} {at}")
                     cb.setFixedSize(ACT_W, control_height)
                     cb.setCursor(Qt.PointingHandCursor)
                     _menu = QMenu()
-                    for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                    for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
                         _a = _menu.addAction(_t)
                         _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
                     cb.setMenu(_menu)
@@ -2460,7 +2460,7 @@ class FolderManager(QDialog):
                     cb.setFixedSize(ACT_W, control_height)
                     cb.setCursor(Qt.PointingHandCursor)
                     _menu = QMenu()
-                    for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                    for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
                         _a = _menu.addAction(_t)
                         _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
                     cb.setMenu(_menu)
@@ -2472,11 +2472,11 @@ class FolderManager(QDialog):
                     
                     _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
             else:
-                cb = QPushButton(f"{ci['左击']} 左击")
+                cb = QPushButton(f"{ci['Click']} Click")
                 cb.setFixedSize(ACT_W, control_height)
                 cb.setCursor(Qt.PointingHandCursor)
                 _menu = QMenu()
-                for _t in [f"{ci['左击']} 左击", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
+                for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
                     _a = _menu.addAction(_t)
                     _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
                 cb.setMenu(_menu)
@@ -2722,7 +2722,7 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
-                    action_type_map = {'左击':'left_click', '右击':'right_click', '双击':'double_click', '中键点击':'middle_click', '中击':'middle_click'}
+                    action_type_map = {'Click':'left_click', '右击':'right_click', '双击':'double_click', '中键点击':'middle_click', '中击':'middle_click'}
                     step = index + 1
                     for d in recording_data:
                         if d.get('step') == step:
@@ -2855,10 +2855,10 @@ class FolderManager(QDialog):
                 
                 # 操作类型
                 action_map = {
-                    'left_click': '左键点击',
-                    'right_click': '右键点击',
-                    'double_click': '双击',
-                    'middle_click': '中键点击'
+                    'left_click': 'click',
+                    'right_click': 'right click',
+                    'double_click': 'double click',
+                    'middle_click': 'middle click'
                 }
                 action_text = action_map.get(action_type, action_type)
                 action_item = QTableWidgetItem(action_text)
@@ -2896,7 +2896,7 @@ class FolderManager(QDialog):
             def _refresh_table():
                 table.setRowCount(len(recording_data))
                 for _i,_o in enumerate(recording_data):
-                    _tm = {"left_click":"左键点击","right_click":"右键点击","double_click":"双击","middle_click":"中键点击"}
+                    _tm = {"left_click":"click","right_click":"right click","double_click":"double click","middle_click":"middle click"}
                     table.setItem(_i,0,QTableWidgetItem(str(_o.get("step",_i+1)))); table.item(_i,0).setTextAlignment(Qt.AlignCenter)
                     table.setItem(_i,1,QTableWidgetItem(_tm.get(_o.get("action_type"),_o.get("action_type")))); table.item(_i,1).setTextAlignment(Qt.AlignCenter)
                     table.setItem(_i,2,QTableWidgetItem("("+str(_o.get("x",0))+", "+str(_o.get("y",0))+")")); table.item(_i,2).setTextAlignment(Qt.AlignCenter)
@@ -5435,9 +5435,9 @@ class AutoRecorderApp(QMainWindow):
                 # 清理临时图片对象
                 scaled_img = None
                 img = None
-            op_type = {'left_click': '左击', 'right_click': '右击',
+            op_type = {'left_click': 'Click', 'right_click': '右击',
                        'keyboard': '键盘输入', 'double_click': '双击', 'drag': '拖拽'}.get(
-                step_action_map.get(step_num, 'left_click'), '左击')
+                step_action_map.get(step_num, 'left_click'), 'Click')
             btn = QPushButton(f"{op_type} {step_num}")
             btn.setFixedHeight(24)
             btn.setCursor(Qt.PointingHandCursor)
@@ -5754,7 +5754,7 @@ class AutoRecorderApp(QMainWindow):
         )
         current = button.property('current_action_type') or 'left_click'
         action_items = [
-            ('左击', 'left_click'),
+            ('Click', 'left_click'),
             ('右击', 'right_click'),
             ('双击', 'double_click'),
             ('中击', 'middle_click'),
@@ -5772,7 +5772,7 @@ class AutoRecorderApp(QMainWindow):
         """更新recording.json文件中的操作类型"""
         if new_action_type == 'right_click':
             reply = self.show_beautiful_message('question', '⚠️ 右击风险提示', '右击会弹出系统菜单，可能导致程序暂时无响应！\n'
-                '建议：\n1. 优先左击\n2. 若必须右击，确保目标在前台\n'
+                '建议：\n1. 优先Click\n2. 若必须右击，确保目标在前台\n'
                 '3. 卡死可按ESC恢复', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
             if reply != QMessageBox.Yes:
                 return
@@ -5788,7 +5788,7 @@ class AutoRecorderApp(QMainWindow):
                 break
         if updated:
             save_json_data(json_path, data)
-            op = {'left_click': '左击', 'right_click': '右击', 'keyboard': '键盘输入',
+            op = {'left_click': 'Click', 'right_click': '右击', 'keyboard': '键盘输入',
                   'double_click': '双击', 'drag': '拖拽'}.get(new_action_type, new_action_type)
             button.setText(f"{op} {button.property('step_num')}")
             button.setProperty("current_action_type", new_action_type)
@@ -8105,7 +8105,7 @@ class AutoRecorderApp(QMainWindow):
                     <p>&nbsp;&nbsp;1️⃣ 在流程管理中，点击流程名称</p>
                     <p>&nbsp;&nbsp;2️⃣ 每张图片下方都有操作标签</p>
                     <p>&nbsp;&nbsp;3️⃣ 点击这些标签可以修改操作：</p>
-                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• <span style="color: #FF9500;">👆 左击/右击</span>：切换点击类型</p>
+                    <p>&nbsp;&nbsp;&nbsp;&nbsp;• <span style="color: #FF9500;">👆 Click/右击</span>：切换点击类型</p>
                     <p>&nbsp;&nbsp;&nbsp;&nbsp;• <span style="color: #0A84FF;">⌨️ 按键</span>：修改按键</p>
                     <p>&nbsp;&nbsp;&nbsp;&nbsp;• <span style="color: #A6E3A1;">📝 文本</span>：修改文本内容</p>
                     </div>
