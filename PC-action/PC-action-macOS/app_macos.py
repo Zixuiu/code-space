@@ -752,6 +752,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.current_user = username
         self._initializing = False
         self.is_recording = False
+        self._combo_stop_shortcuts = {}
+        self._combo_stop_key_state = {}
+        self._combo_stop_check_timer = QTimer(self)
+        self._combo_stop_check_timer.timeout.connect(self._check_combo_stop_shortcuts)
 
     def run_selected_combo_skills(self, table_widget):
         """macOS版本：批量运行选中的组合技"""
@@ -808,6 +812,27 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 _t = _threading.Thread(target=runner.run, daemon=True)
                 runner._exec_thread = _t
                 _t.start()
+
+                stop_shortcut = skill.get('stop_shortcut', '')
+                if stop_shortcut:
+                    kb_shortcut = self._convert_shortcut_for_keyboard(stop_shortcut)
+                    self._combo_stop_shortcuts[skill_id] = kb_shortcut
+                    self._combo_stop_key_state[skill_id] = False
+                    if not self._combo_stop_check_timer.isActive():
+                        self._combo_stop_check_timer.start(100)
+                    try:
+                        import keyboard as _kb
+                        def _mk_hk2(sid):
+                            def _hk():
+                                print(f'[STOP_SHORTCUT] add_hotkey triggered for {sid}')
+                                QTimer.singleShot(0, lambda: self._do_stop_combo_skill(sid))
+                            return _hk
+                        hid = _kb.add_hotkey(kb_shortcut, _mk_hk2(skill_id), suppress=False)
+                        self._combo_stop_hotkey_ids[skill_id] = hid
+                        print(f'[STOP_SHORTCUT] Registered add_hotkey: {kb_shortcut} -> {skill_id} (id={hid})')
+                    except Exception as _e:
+                        print(f'[STOP_SHORTCUT] add_hotkey failed: {_e}')
+                        self._combo_stop_hotkey_ids = getattr(self, '_combo_stop_hotkey_ids', {})
 
             # 监控组合技
             if normal_runners:
@@ -885,6 +910,28 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             _t = _threading.Thread(target=runner.run, daemon=True)
             runner._exec_thread = _t
             _t.start()
+
+            stop_shortcut = skill.get('stop_shortcut', '')
+            if stop_shortcut:
+                kb_shortcut = self._convert_shortcut_for_keyboard(stop_shortcut)
+                self._combo_stop_shortcuts[skill_id] = kb_shortcut
+                self._combo_stop_key_state[skill_id] = False
+                if not self._combo_stop_check_timer.isActive():
+                    self._combo_stop_check_timer.start(100)
+                try:
+                    import keyboard as _kb
+                    _sid = skill_id
+                    def _mk_hk(sid):
+                        def _hk():
+                            print(f'[STOP_SHORTCUT] add_hotkey triggered for {sid}')
+                            QTimer.singleShot(0, lambda: self._do_stop_combo_skill(sid))
+                        return _hk
+                    hid = _kb.add_hotkey(kb_shortcut, _mk_hk(skill_id), suppress=False)
+                    self._combo_stop_hotkey_ids[skill_id] = hid
+                    print(f'[STOP_SHORTCUT] Registered add_hotkey: {kb_shortcut} -> {skill_id} (id={hid})')
+                except Exception as _e:
+                    print(f'[STOP_SHORTCUT] add_hotkey failed: {_e}')
+                    self._combo_stop_hotkey_ids = getattr(self, '_combo_stop_hotkey_ids', {})
 
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
@@ -2536,49 +2583,139 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         from app import ComboSkillManager
         return ComboSkillManager(self)
 
-    def stop_combo_skill(self, skill=None):
-        STOP_JOIN_TIMEOUT = 3.0
-        def _wait_runner_finish(runner, timeout):
+    def _convert_shortcut_for_keyboard(self, shortcut):
+        key_map = {
+            '\u2191': 'up', '\u2193': 'down', '\u2190': 'left', '\u2192': 'right',
+            'Space': 'space', 'Enter': 'enter', 'Esc': 'esc',
+            'Tab': 'tab', 'Backspace': 'backspace', 'Del': 'delete',
+            'Ins': 'insert', 'Home': 'home', 'End': 'end',
+            'PageUp': 'page up', 'PageDown': 'page down',
+        }
+        parts = shortcut.split('+')
+        converted = []
+        for p in parts:
+            p_stripped = p.strip()
+            if p_stripped in key_map:
+                converted.append(key_map[p_stripped])
+            else:
+                converted.append(p_stripped.lower())
+        return '+'.join(converted)
+
+    def _check_combo_stop_shortcuts(self):
+        try:
+            import keyboard as _kb
+            to_remove = []
+            for skill_id, shortcut in list(self._combo_stop_shortcuts.items()):
+                if skill_id not in self.runners or not self.runners[skill_id].isRunning():
+                    to_remove.append(skill_id)
+                    continue
+                try:
+                    pressed = _kb.is_pressed(shortcut)
+                except Exception as _e:
+                    print(f'[STOP_SHORTCUT] is_pressed({shortcut!r}) error: {_e}')
+                    pressed = False
+                was_pressed = self._combo_stop_key_state.get(skill_id, False)
+                if pressed and not was_pressed:
+                    print(f'[STOP_SHORTCUT] Detected stop shortcut: {shortcut} for {skill_id}')
+                    QTimer.singleShot(0, lambda sid=skill_id: self._do_stop_combo_skill(sid))
+                self._combo_stop_key_state[skill_id] = pressed
+            for sid in to_remove:
+                self._combo_stop_shortcuts.pop(sid, None)
+                self._combo_stop_key_state.pop(sid, None)
+            if not self._combo_stop_shortcuts:
+                self._combo_stop_check_timer.stop()
+        except Exception as _e:
+            print(f'[STOP_SHORTCUT] _check_combo_stop_shortcuts error: {_e}')
+
+    def _remove_combo_stop_hotkey(self, skill_id):
+        _combo_stop_hotkey_ids = getattr(self, '_combo_stop_hotkey_ids', {})
+        if skill_id in _combo_stop_hotkey_ids:
             try:
-                if hasattr(runner, '_exec_thread') and runner._exec_thread is not None:
-                    runner._exec_thread.join(timeout=timeout)
+                import keyboard as _kb
+                _kb.remove_hotkey(_combo_stop_hotkey_ids[skill_id])
+                print(f'[STOP_SHORTCUT] Removed add_hotkey for {skill_id}')
             except Exception:
                 pass
-            return True
+            del _combo_stop_hotkey_ids[skill_id]
+
+    def _do_stop_combo_skill(self, skill_id):
+        try:
+            if skill_id in self.runners and self.runners[skill_id].isRunning():
+                runner = self.runners[skill_id]
+                runner.running = False
+                if hasattr(runner, 'interrupt_event'):
+                    runner.interrupt_event.set()
+                from image_recognition import set_replay_stop_flag
+                set_replay_stop_flag(True)
+                self.append_log(f'[{skill_id}] 快捷键停止')
+            self._remove_combo_stop_hotkey(skill_id)
+            self._combo_stop_shortcuts.pop(skill_id, None)
+            self._combo_stop_key_state.pop(skill_id, None)
+            if not self._combo_stop_shortcuts:
+                self._combo_stop_check_timer.stop()
+            if skill_id in self.runners:
+                del self.runners[skill_id]
+            if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
+                self.load_combo_skills_to_table(self.combo_tab.combo_table)
+        except Exception as _e:
+            print(f'[STOP_SHORTCUT] _do_stop_combo_skill error: {_e}')
+
+    def _on_combo_skill_finished(self, success, msg, skill_id):
+        try:
+            self._combo_stop_shortcuts.pop(skill_id, None)
+            self._combo_stop_key_state.pop(skill_id, None)
+            if not self._combo_stop_shortcuts:
+                self._combo_stop_check_timer.stop()
+            if skill_id in self.runners:
+                del self.runners[skill_id]
+            if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
+                self.load_combo_skills_to_table(self.combo_tab.combo_table)
+            self.append_log(f'[组合技] {skill_id}: {msg}')
+        except Exception:
+            pass
+
+    def stop_combo_skill(self, skill=None):
         try:
             if skill is not None:
                 skill_id = skill.get('name', '')
                 if skill_id in self.runners and self.runners[skill_id].isRunning():
-                    skill_name = skill.get('name', '未命名')
                     runner = self.runners[skill_id]
-                    from image_recognition import set_replay_stop_flag
-                    set_replay_stop_flag(True)
                     runner.running = False
+                    if hasattr(runner, 'interrupt_event'):
+                        runner.interrupt_event.set()
                     if hasattr(runner, 'reset'):
                         try:
                             runner.reset()
                         except Exception:
                             pass
-                    _wait_runner_finish(runner, STOP_JOIN_TIMEOUT)
+                    from image_recognition import set_replay_stop_flag
+                    set_replay_stop_flag(True)
+                    self._remove_combo_stop_hotkey(skill_id)
+                    self._combo_stop_shortcuts.pop(skill_id, None)
+                    self._combo_stop_key_state.pop(skill_id, None)
+                    if not self._combo_stop_shortcuts:
+                        self._combo_stop_check_timer.stop()
                     if skill_id in self.runners:
                         del self.runners[skill_id]
-                    self.append_log(f'[{skill_name}] 已停止')
+                    self.append_log(f'[{skill_id}] 已停止')
             else:
                 from image_recognition import set_replay_stop_flag
                 set_replay_stop_flag(True)
-                runners_to_reset = []
                 for skill_id, runner in list(self.runners.items()):
                     if runner.isRunning():
                         runner.running = False
-                        runners_to_reset.append((skill_id, runner))
-                for skill_id, runner in runners_to_reset:
-                    if hasattr(runner, 'reset'):
-                        try:
-                            runner.reset()
-                        except Exception:
-                            pass
-                for skill_id, runner in runners_to_reset:
-                    _wait_runner_finish(runner, STOP_JOIN_TIMEOUT)
+                        if hasattr(runner, 'interrupt_event'):
+                            runner.interrupt_event.set()
+                        if hasattr(runner, 'reset'):
+                            try:
+                                runner.reset()
+                            except Exception:
+                                pass
+                for sid in list(getattr(self, '_combo_stop_hotkey_ids', {}).keys()):
+                    self._remove_combo_stop_hotkey(sid)
+                self._combo_stop_shortcuts.clear()
+                self._combo_stop_key_state.clear()
+                self._combo_stop_check_timer.stop()
                 self.runners.clear()
                 self.append_log('[组合技] 所有运行中的组合技已停止')
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
@@ -2615,6 +2752,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         except Exception:
                             pass
                     stop_count += 1
+                    self._combo_stop_shortcuts.pop(skill_id, None)
+                    self._combo_stop_key_state.pop(skill_id, None)
                     if skill_id in self.runners:
                         del self.runners[skill_id]
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
@@ -2624,6 +2763,23 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
+
+    def register_stop_replay_hotkey(self):
+        try:
+            import keyboard as _kb
+            def stop_handler():
+                stopped = False
+                if getattr(self, 'is_replaying', False):
+                    QTimer.singleShot(0, self.stop_replay)
+                    stopped = True
+                if hasattr(self, 'runners') and self.runners:
+                    any_running = any(r.isRunning() for r in self.runners.values())
+                    if any_running:
+                        QTimer.singleShot(0, lambda: self.stop_combo_skill())
+                        stopped = True
+            self.stop_replay_hotkey_id = _kb.add_hotkey('f12', stop_handler)
+        except Exception:
+            self.stop_replay_hotkey_id = None
 
     def _set_recording_state(self, state: bool):
         """统一设置录制状态并同步到 record_btn"""

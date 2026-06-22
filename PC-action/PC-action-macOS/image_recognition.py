@@ -138,7 +138,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         # 使用剪贴板方式支持中文输入
                         import pyperclip
                         pyperclip.copy(text)
-                        time.sleep(0.15)
+                        if _interruptible_sleep(0.15, stop_check=stop_check):
+                            break
                         pyautogui.hotkey('ctrl', 'v')
                         success_count += 1
                         debug_print(f"[回放] 步骤 {step}: 文本输入完成")
@@ -367,8 +368,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             success_count += 1
 
-            # wait for UI rendering
-            time.sleep(0.25)
+            # wait for UI rendering (interruptible)
+            if _interruptible_sleep(0.25, stop_check=stop_check):
+                break
 
             _step_elapsed = time.time() - _step_start
             if _step_elapsed > 0.3:

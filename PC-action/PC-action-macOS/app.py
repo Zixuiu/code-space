@@ -9567,16 +9567,13 @@ class ComboSkillRunner:
                                 break
                         else:
                             self._consecutive_failures = 0
-                        # 录制回放中图片匹配失败 → 停止组合技
-                        # 例外：wait_for_image 和 image_not_found 条件的流程，图片没识别到是正常的，不停止
+                        # 录制回放中图片匹配失败 → 跳过该流程，继续执行下一个
                         if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
                             try:
                                 if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⛔ 录制回放中图片匹配失败 {_img_fail_count} 次，停止组合技")
-                                    self._main_app.append_log(f"╚═{'═'*40}")
+                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过该流程继续执行")
                             except Exception:
                                 pass
-                            break
                         elif _img_fail_count > 0:
                             try:
                                 if self._main_app is not None:
@@ -9734,11 +9731,15 @@ class ComboSkillRunner:
 
     def _wait_interruptible(self, seconds):
         import time
-        interval = 0.2
-        elapsed = 0
-        while self.running and elapsed < seconds:
-            time.sleep(interval)
-            elapsed += interval
+        if not self.running:
+            return
+        self.interrupt_event.clear()
+        self.interrupt_event.wait(timeout=seconds)
+        if self.interrupt_event.is_set():
+            self.running = False
+            return
+        if not self.running:
+            return
 
 
 

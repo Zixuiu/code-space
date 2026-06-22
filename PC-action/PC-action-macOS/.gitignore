@@ -1,0 +1,63 @@
+﻿__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.log
+*.db
+.DS_Store
+Thumbs.db
+.trae/
+.vscode/
+_fix_*.py
+_apply_*.py
+_patch_*.py
+_tmp*
+debug.log
+*.bak
+*.bak2
+*.old
+nul
+
+__pycache__/
+*.pyc
+*.pyo
+*.bak
+*.bak2
+*.old
+_fix_*.py
+_apply_*.py
+_patch_*.py
+_tmp*
+debug.log
+import os.txt
+工具/
+清单/
+项目/
+
+# 凭据文件
+login_credentials.json
+saved_login.json
+users.json
+checklists.json
+
+# 临时文件
+Untitled-*
+import *.txt
+fix.*
+replace.*
+style_preview.*
+nul
+
+# 备份
+*.bak
+*.bak2
+*.old
+
+# 日志
+*.log
+log_examples/
+
+# 录制回收站
+recordings/trash/

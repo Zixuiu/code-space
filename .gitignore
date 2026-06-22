@@ -2,8 +2,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.egg-info/
-dist/
-build/
+/dist/
+/build/
 *.log
 *.db
 .DS_Store
@@ -19,4 +19,5 @@ debug.log
 *.bak2
 *.old
 nul
-recordings/trash/
+recordings/
+trash/
