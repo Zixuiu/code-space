@@ -108,6 +108,34 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
+
+    # 缓存Win32 API函数引用（极速点击，比pyautogui快5-10倍）
+    import ctypes
+    _user32 = ctypes.windll.user32
+    _MOUSEEVENTF_LEFTDOWN = 0x0002
+    _MOUSEEVENTF_LEFTUP = 0x0004
+    _MOUSEEVENTF_RIGHTDOWN = 0x0008
+    _MOUSEEVENTF_RIGHTUP = 0x0010
+    _MOUSEEVENTF_MIDDLEDOWN = 0x0020
+    _MOUSEEVENTF_MIDDLEUP = 0x0040
+    _MOUSEEVENTF_WHEEL = 0x0800
+
+    def _fc(btn):
+        if btn == 'left':
+            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        elif btn == 'right':
+            _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+        elif btn == 'middle':
+            _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
+        else:
+            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+    def _fast_move(x, y):
+        _user32.SetCursorPos(x, y)
     
     # 仅非组合技调用（无stop_check）时清除停止标志
     # 组合技调用时不清除，避免一个runner重置了全局标志导致其他runner无法被正确停止
@@ -368,16 +396,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             success_count += 1
 
-            # wait for UI rendering (interruptible)
-            if _interruptible_sleep(0.25, stop_check=stop_check):
+            # 极小延迟（1ms+stop_check），几乎不等待
+            if _interruptible_sleep(0.001, stop_check=stop_check):
                 break
-
-            _step_elapsed = time.time() - _step_start
-            if _step_elapsed > 0.3:
-                pass
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            import traceback; traceback.print_exc()
             continue
     
     _replay_elapsed = time.time() - _replay_start
@@ -386,7 +409,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     return success_count, total_operations, image_match_fail_count
 
 
-def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None):
+def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
     """
     根据坐标数据回放操作（仅坐标，无需图像）
     
@@ -407,21 +430,34 @@ def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
-    
-    # 仅非组合技调用（无stop_check）时清除停止标志
+
+    # 缓存Win32 API函数引用（极速点击，比pyautogui快5-10倍）
+    import ctypes
+    _user32 = ctypes.windll.user32
+    _MOUSEEVENTF_LEFTDOWN = 0x0002
+    _MOUSEEVENTF_LEFTUP = 0x0004
+    _MOUSEEVENTF_RIGHTDOWN = 0x0008
+    _MOUSEEVENTF_RIGHTUP = 0x0010
+    _MOUSEEVENTF_MIDDLEDOWN = 0x0020
+    _MOUSEEVENTF_MIDDLEUP = 0x0040
+    _MOUSEEVENTF_WHEEL = 0x0800
+
+    def _fc(btn):
+        if btn == 'left':
+            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        elif btn == 'right':
+            _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+        elif btn == 'middle':
+            _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
+        else:
+            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
     if stop_check is None:
         _replay_stop_flag = False
-    
-    # 获取屏幕信息
-    try:
-        import ctypes
-        user32 = ctypes.windll.user32
-        screen_width = user32.GetSystemMetrics(0)
-        screen_height = user32.GetSystemMetrics(1)
-    except Exception as e:
-        # 打印获取屏幕信息失败的错误信息
-        debug_print(f"获取屏幕信息失败: {e}")
-        return 0, 0
     
     for i, operation in enumerate(recording_data):
         # 检查是否收到停止信号（有stop_check时只用自己的，不影响其他组合技）
@@ -429,48 +465,39 @@ def replay_coordinates_only(recording_data, replay_interval=0.5, stop_check=None
             break
         try:
             # 获取操作信息
-            step = operation.get('step', i + 1)
             action_type = operation.get('action_type', 'left_click')
             x = operation.get('x', 0)
             y = operation.get('y', 0)
-            delay = operation.get('delay', 0)
-            
-            # 如果是滚动操作，无需移动鼠标，直接执行滚动
+
             if action_type == 'scroll':
-                scroll_amount = operation.get('scroll_amount', 3)
-                pyautogui.scroll(scroll_amount)
+                _user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, operation.get('scroll_amount', 3), 0)
                 success_count += 1
+                continue
+
+            # 极速移动+点击
+            _user32.SetCursorPos(x, y)
+            if action_type in ('left_click', 'click'):
+                _fc('l')
+            elif action_type == 'right_click':
+                _fc('r')
+            elif action_type == 'double_click':
+                _fc('l'); _fc('l')
+            elif action_type == 'middle_click':
+                _fc('m')
             else:
-                # 移动鼠标到指定坐标
-                pyautogui.moveTo(x, y, duration=0.01)
-                
-                # 获取移动后的实际位置
-                actual_x, actual_y = pyautogui.position()
-                
-                # 根据操作类型执行相应操作
-                if action_type in ('left_click', 'click'):
-                    pyautogui.click()
-                elif action_type == 'right_click':
-                    pyautogui.rightClick()
-                elif action_type == 'double_click':
-                    pyautogui.doubleClick()
-                elif action_type == 'middle_click':
-                    pyautogui.middleClick()
-                else:
-                    pyautogui.click()
-                
-                success_count += 1
-            
-            # 操作间隔
+                _fc('l')
+            success_count += 1
+
+            # 只有明确指定 delay>0 才等，否则不等
             if i < total_operations - 1:
+                delay = operation.get('delay', 0)
                 if delay > 0:
                     time.sleep(delay)
-                else:
+                elif replay_interval > 0:
                     time.sleep(replay_interval)
                     
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        except Exception:
+            import traceback; traceback.print_exc()
             continue
     
     return success_count, total_operations
@@ -689,17 +716,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                 debug_print(f"[匹配诊断] 精匹配ROI太小, 回退全屏")
                         else:
                             debug_print(f"[匹配诊断] 粗匹配未命中(score={_cv:.3f}<{_coarse_thresh:.2f}), 回退全屏")
+                            # ⚡ 粗匹配分数远低于阈值时直接返回，跳过后续全屏匹配（节省~150ms）
+                            if _cv < 0.6:
+                                debug_print(f"[匹配诊断] ⏭ 粗匹配仅 {_cv:.3f} < 0.6，图片不存在，跳过全屏")
+                                return None
                 except Exception as _ce:
                     debug_print(f"[匹配诊断] 粗匹配异常: {_ce}, 回退全屏")
 
-            result = _try_match(first_screenshot, skip_multi_scale=True)
+            result = _try_match(first_screenshot, skip_multi_scale=False)
             if result is not None:
                 return result
-            if not ((stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)):
-                if timeout > 0.1:
-                    result = _try_match(first_screenshot, skip_multi_scale=False)
-                if result is not None:
-                    return result
         except Exception as e:
             debug_print(f"[匹配诊断] ❗ 首次 _try_match 抛异常: {type(e).__name__}: {e}")
     else:
@@ -708,17 +734,17 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     # ⏭ 智能提前退出：首次截图已跑完所有匹配仍失败，最佳分数远低于阈值则跳过轮询
     if scale_best_scores and timeout > 0.15:
         _best_score = max(v[0] for v in scale_best_scores.values())
-        _early_threshold = max(confidence * 0.55, 0.30)
+        _early_threshold = max(confidence * 0.45, 0.20)
         if _best_score < _early_threshold:
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
             return None
 
     # 优化:轮询间隔设为 80ms，更快响应
-    _POLL_INTERVAL = 0.08
+    _POLL_INTERVAL = 0.05
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = 2  # ⚡ 最多轮询2次
+    _max_poll_iters = 1  # ⚡ 最多轮询1次
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             debug_print(f"[匹配诊断] ⏹ 循环中检测到停止信号,提前退出(timeout 还剩 {max(0, timeout - (time.time() - start_time)):.2f}s)")
