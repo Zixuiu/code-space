@@ -1330,11 +1330,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     ctime = datetime.fromtimestamp(os.path.getctime(item_path)).strftime('%m-%d %H:%M')
                     folders.append((ctime, item, item_path))
 
-            folders.sort(key=lambda x: x[0], reverse=True)
+            usage_counts = self._get_usage_counts()
+            folders_with_count = []
+            for fi in folders:
+                fi_name = fi[1]
+                fi_count = usage_counts.get(fi_name, 0)
+                folders_with_count.append((fi[0], fi[1], fi[2], fi_count))
+            folders_with_count.sort(key=lambda x: (-x[3], x[0]), reverse=False)
 
-            table_widget.setRowCount(len(folders))
-            for row, (ctime, name, path) in enumerate(folders):
-                table_widget.setItem(row, 0, QTableWidgetItem(ctime))
+            table_widget.setRowCount(len(folders_with_count))
+            for row, (ctime, name, path, count) in enumerate(folders_with_count):
+                display_time = f"{ctime}  ({count}次)" if count > 0 else ctime
+                table_widget.setItem(row, 0, QTableWidgetItem(display_time))
                 name_item = QTableWidgetItem(name)
                 name_item.setData(Qt.UserRole, path)
                 table_widget.setItem(row, 1, name_item)

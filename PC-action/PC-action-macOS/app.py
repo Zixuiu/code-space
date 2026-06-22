@@ -9571,9 +9571,12 @@ class ComboSkillRunner:
                         if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
                             try:
                                 if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过该流程继续执行")
+                                    self._main_app.append_log(f" ║  ⛔ 录制回放中图片匹配失败 {_img_fail_count} 次，立即停止组合技")
+                                    self._main_app.append_log(f"╚═{'═'*40}")
                             except Exception:
                                 pass
+                            self.running = False
+                            break
                         elif _img_fail_count > 0:
                             try:
                                 if self._main_app is not None:
