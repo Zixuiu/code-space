@@ -9354,7 +9354,7 @@ class ComboSkillRunner:
 
                 flow_index = 0
                 total_jumps = 0
-                max_jumps = max(200, len(flows) * 20)
+                max_jumps = 999999999
                 while flow_index < len(flows):
                     if not self.running:
                         break
@@ -9390,7 +9390,7 @@ class ComboSkillRunner:
                                 pass
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=1.0, consider_color=False, stop_check=lambda: not self.running)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.4, consider_color=False, stop_check=lambda: not self.running)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             try:

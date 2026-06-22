@@ -6,8 +6,8 @@ with open(filepath, "r", encoding="utf-8") as f:
 
 # 1. Add get_user_data_path to import
 content = content.replace(
-    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path",
-    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path"
+    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path",
+    "from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path"
 )
 
 # 2. Add helper functions before class MacOSSidebarItem
@@ -110,7 +110,7 @@ from PyQt5.QtGui import (
 )
 
 from app import AutoRecorderApp
-from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path
+from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
     ColorPalette, ShadowSystem, ButtonSize
@@ -154,6 +154,142 @@ class MacOSColors:
     SEPARATOR = ColorPalette.SEPARATOR
     ACCENT_BG = ColorPalette.PRIMARY_BG
 
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
+
+
+_COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
+
+def _apply_saved_column_widths(table, table_id, default_widths):
+    saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+    widths = saved.get(table_id, None)
+    if widths and len(widths) == len(default_widths):
+        for col, w in enumerate(widths):
+            if isinstance(w, (int, float)) and w > 0:
+                table.setColumnWidth(col, int(w))
+    else:
+        for col, w in enumerate(default_widths):
+            table.setColumnWidth(col, w)
+
+def _connect_column_width_saver(table, table_id):
+    _save_timer = QTimer()
+    _save_timer.setSingleShot(True)
+    _save_timer.setInterval(500)
+
+    def _do_save():
+        saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
+        widths = []
+        for col in range(table.columnCount()):
+            widths.append(table.columnWidth(col))
+        saved[table_id] = widths
+        save_json_data(_COLUMN_WIDTHS_FILE, saved)
+
+    _save_timer.timeout.connect(_do_save)
+
+    def _on_section_resized(logical_index, old_size, new_size):
+        _save_timer.start()
+
+    table.horizontalHeader().sectionResized.connect(_on_section_resized)
 
 
 _COLUMN_WIDTHS_FILE = os.path.join(get_user_data_path(), "table_column_widths.json")
