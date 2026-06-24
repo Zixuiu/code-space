@@ -396,6 +396,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             success_count += 1
 
+            # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
+            if delay > 0:
+                if _interruptible_sleep(delay, stop_check=stop_check):
+                    break
+
             # 极小延迟（1ms+stop_check），几乎不等待
             if _interruptible_sleep(0.001, stop_check=stop_check):
                 break

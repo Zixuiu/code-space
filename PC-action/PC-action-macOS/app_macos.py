@@ -1,4 +1,4 @@
-import os
+﻿import os
 if os.name == "nt":
     os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
@@ -3182,6 +3182,117 @@ def start_macos_app():
             background: {MacOSColors.SYSTEM_GRAY2}50;
         }}
     """)
+
+    # ================================================================
+    #  商业化：EULA + 激活/试用检查
+    # ================================================================
+    from hardware_binder import HardwareBinder, TrialManager, EULAManager, EULA_TEXT
+
+    # ── 1. EULA 许可协议 ─────────────────────────────────
+    if not EULAManager.is_accepted():
+        eula_msg = QMessageBox()
+        eula_msg.setWindowTitle("最终用户许可协议")
+        eula_msg.setText(EULA_TEXT)
+        eula_msg.setInformativeText("您必须同意上述条款才能使用本软件。")
+        eula_msg.setIcon(QMessageBox.Information)
+        agree_btn = eula_msg.addButton("同意", QMessageBox.YesRole)
+        reject_btn = eula_msg.addButton("拒绝", QMessageBox.NoRole)
+        eula_msg.setDefaultButton(agree_btn)
+        eula_msg.exec_()
+
+        if eula_msg.clickedButton() == reject_btn:
+            EULAManager.reject()
+            sys.exit(0)
+        else:
+            EULAManager.accept()
+
+    # ── 2. 激活 / 试用检查 ──────────────────────────────
+    # 每次启动先刷新试用期
+    TrialManager.start_trial()
+
+    if not HardwareBinder.is_activated():
+        trial_info = TrialManager.get_trial_info()
+
+        if trial_info["expired"]:
+            # 试用已过期，必须激活
+            QMessageBox.warning(None, "试用已过期",
+                f"您的 {trial_info['days_used']} 天试用已结束，\n"
+                f"请购买激活码激活软件。\n\n"
+                f"试用天数: {trial_info['days_used']} 天")
+        else:
+            # 还在试用期，提示剩余天数（不强弹，让用户自己点"关于"看）
+            pass
+
+        # ── 弹出激活对话框（如果未激活） ────────────────
+        if not HardwareBinder.is_activated():
+            while True:
+                act_dialog = QDialog()
+                act_dialog.setWindowTitle("激活软件")
+                act_dialog.setFixedSize(420, 240)
+                act_dialog.setModal(True)
+
+                lay = QVBoxLayout(act_dialog)
+                lay.setSpacing(12)
+
+                trial_info = TrialManager.get_trial_info()
+                if trial_info["in_trial"]:
+                    tip = QLabel(f"🎯 试用期剩余 {trial_info['days_remaining']} 天\n输入激活码解锁全部功能：")
+                else:
+                    tip = QLabel(f"⏰ 试用已结束\n请购买激活码激活软件：")
+                tip.setWordWrap(True)
+                lay.addWidget(tip)
+
+                code_input = QLineEdit()
+                code_input.setPlaceholderText("请输入激活码 (格式: YYYYMMDD-XXXX-XXXXXXXX)")
+                lay.addWidget(code_input)
+
+                btn_lay = QHBoxLayout()
+                activate_btn = QPushButton("激活")
+                skip_btn = QPushButton("跳过")
+
+                if trial_info["in_trial"]:
+                    skip_btn.setText("继续试用")
+                else:
+                    skip_btn.setText("退出软件")
+                    skip_btn.setStyleSheet("color: red;")
+
+                btn_lay.addWidget(activate_btn)
+                btn_lay.addWidget(skip_btn)
+                lay.addLayout(btn_lay)
+
+                result = {"code": None}
+
+                def on_activate():
+                    key = code_input.text().strip()
+                    if not key:
+                        QMessageBox.warning(act_dialog, "提示", "请输入激活码")
+                        return
+                    ok, msg = HardwareBinder.verify_key(key)
+                    if ok:
+                        HardwareBinder.save_activation(key)
+                        QMessageBox.information(act_dialog, "激活成功", msg)
+                        result["code"] = key
+                        act_dialog.accept()
+                    else:
+                        QMessageBox.critical(act_dialog, "激活失败", msg)
+
+                def on_skip():
+                    if trial_info["in_trial"]:
+                        act_dialog.reject()
+                    else:
+                        sys.exit(0)
+
+                activate_btn.clicked.connect(on_activate)
+                skip_btn.clicked.connect(on_skip)
+
+                act_dialog.exec_()
+
+                if result["code"] is not None:
+                    break  # 激活成功
+                if trial_info["in_trial"]:
+                    break  # 用户选择继续试用
+                # 试用过期且未激活 -> 循环继续弹
+    # ================================================================
 
     from login_manager import LoginManager
 

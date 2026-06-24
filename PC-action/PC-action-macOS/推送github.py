@@ -68,5 +68,3 @@ if result.returncode != 0:
     print("💡 已设置 credential.helper=store，请重新运行脚本")
 else:
     print("✅ 全部关键文件已推送完成！")
-
-input("按 Enter 退出...")

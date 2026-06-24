@@ -5224,6 +5224,42 @@ class AutoRecorderApp(QMainWindow):
         if hasattr(self, 'status_label') and self.current_user:
             self.status_label.setText(f"当前用户: {self.current_user}")
         self.update_status_display()
+
+        # ── 商业化：授权状态定时刷新 + 试用到期提醒 ────────────
+        from hardware_binder import check_authorization, TrialManager
+
+        # 确保试用已启动
+        TrialManager.start_trial()
+
+        # 每分钟刷新一次状态显示
+        self._auth_timer = QTimer(self)
+        self._auth_timer.timeout.connect(self.update_status_display)
+        self._auth_timer.start(60_000)
+
+        # 5 秒后检查一次试用期，如果即将到期则提醒
+        QTimer.singleShot(5000, self._check_trial_warning)
+
+    def _check_trial_warning(self):
+        """检查试用期状态并提醒用户"""
+        from hardware_binder import check_authorization
+        auth = check_authorization()
+        if auth["activated"]:
+            return  # 已激活，无需提醒
+        if auth["in_trial"]:
+            d = auth["trial_info"]["days_remaining"]
+            if d <= 3 and d > 0:
+                self.show_beautiful_message(
+                    'information', "试用即将到期",
+                    f"您的 {d} 天试用期还剩 **{d} 天**，\n"
+                    f"到期后将无法使用回放功能，\n"
+                    f"请及时购买激活码！"
+                )
+            elif d == 0:
+                self.show_beautiful_message(
+                    'warning', "试用已到期",
+                    "您的试用期已结束，\n"
+                    "请购买激活码以继续使用全部功能。"
+                )
     
     
     def show_beautiful_message(self, msg_type, title, text, buttons=None, default_button=None, parent=None):
@@ -7250,16 +7286,24 @@ class AutoRecorderApp(QMainWindow):
         dialog.exec_()
     
     def update_status_display(self):
-        """更新状态显示"""
+        """更新状态显示（显示激活/试用状态）"""
         if not hasattr(self, 'status_label'):
             return
             
         if not self.current_user:
             self.status_label.setText("未登录")
             return
-        
-        # 移除许可证验证，直接显示已激活状态
-        self.status_label.setText(f"当前用户: {self.current_user} - 已激活VIP")
+
+        from hardware_binder import check_authorization
+        auth = check_authorization()
+
+        if auth["activated"]:
+            self.status_label.setText(f"✓ 已激活 | 用户: {self.current_user}")
+        elif auth["in_trial"]:
+            d = auth["trial_info"]["days_remaining"]
+            self.status_label.setText(f"🕐 试用剩余 {d} 天 | 用户: {self.current_user}")
+        else:
+            self.status_label.setText(f"✗ 未激活 | 用户: {self.current_user}")
     
     def add_recharge_record(self, amount, payment_method, service_period=None):
         """添加充值记录"""
@@ -7304,19 +7348,23 @@ class AutoRecorderApp(QMainWindow):
         }
 
     def check_replay_permission(self):
-        """检查回放权限"""
+        """检查回放权限（硬件激活 + 试用期 + 数据库权限）"""
         try:
-            # 检查当前用户
+            # ── 1. 硬件激活/试用检查 ────────────────────────
+            from hardware_binder import check_authorization
+            auth = check_authorization()
+            if not auth["ok"]:
+                self.debug_print(f"授权检查未通过: {auth['message']}")
+                return False
+
+            # ── 2. 数据库权限检查 ────────────────────────────
             if not hasattr(self, 'current_user') or not self.current_user:
                 return True
-            
-            # 尝试从混合数据库获取用户权限
+
             from hybrid_db import hybrid_db_manager
             user = hybrid_db_manager.get_user(self.current_user)
             if user:
-                # 检查can_replay字段，默认允许
                 can_replay = user.get('can_replay', True)
-                # 处理不同类型的返回值
                 if isinstance(can_replay, bool):
                     return can_replay
                 return can_replay == 1
@@ -9793,6 +9841,30 @@ def start_app():
     screen_width, screen_height = get_screen_size()
     app.setStyleSheet(generate_dynamic_styles(screen_width, screen_height))
 
+    # ── 商业化：EULA 许可协议 ────────────────────────────────
+    from hardware_binder import EULAManager, EULA_TEXT
+    if not EULAManager.is_accepted():
+        from PyQt5.QtWidgets import QMessageBox
+        eula_msg = QMessageBox()
+        eula_msg.setWindowTitle("最终用户许可协议")
+        eula_msg.setText(EULA_TEXT)
+        eula_msg.setInformativeText("您必须同意上述条款才能使用本软件。")
+        eula_msg.setIcon(QMessageBox.Information)
+        agree_btn = eula_msg.addButton("同意", QMessageBox.YesRole)
+        reject_btn = eula_msg.addButton("拒绝", QMessageBox.NoRole)
+        eula_msg.setDefaultButton(agree_btn)
+        eula_msg.exec_()
+        if eula_msg.clickedButton() == reject_btn:
+            EULAManager.reject()
+            sys.exit(0)
+        else:
+            EULAManager.accept()
+
+    # ── 商业化：启动试用 ─────────────────────────────────────
+    from hardware_binder import TrialManager, HardwareBinder
+    TrialManager.start_trial()
+    # ───────────────────────────────────────────────────────────
+
     from login_manager import LoginManager
     login_manager = LoginManager()
     from login_ui import LoginDialog
@@ -9805,6 +9877,76 @@ def start_app():
     
     def handle_login_result(result, dialog, manager, app):
         if result == dialog.Accepted:
+            # ── 商业化：登录后检查激活状态 ────────────────────────
+            from hardware_binder import check_authorization, HardwareBinder
+            from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout, QMessageBox
+
+            auth = check_authorization()
+            if not auth["ok"]:
+                # 试用过期 + 未激活，弹出激活对话框
+                while True:
+                    act = QDialog()
+                    act.setWindowTitle("激活软件")
+                    act.setFixedSize(420, 240)
+                    act.setModal(True)
+                    lay = QVBoxLayout(act)
+                    lay.setSpacing(12)
+
+                    auth = check_authorization()
+                    tip = QLabel(
+                        f"⏰ 试用已结束\n请购买激活码激活软件："
+                        if auth["trial_info"]["expired"]
+                        else f"🎯 试用剩余 {auth['trial_info']['days_remaining']} 天\n输入激活码解锁全部功能："
+                    )
+                    tip.setWordWrap(True)
+                    lay.addWidget(tip)
+
+                    inp = QLineEdit()
+                    inp.setPlaceholderText("请输入激活码")
+                    lay.addWidget(inp)
+
+                    bl = QHBoxLayout()
+                    act_btn = QPushButton("激活")
+                    skip_btn = QPushButton("继续试用" if auth["in_trial"] else "退出软件")
+                    if not auth["in_trial"]:
+                        skip_btn.setStyleSheet("color: red;")
+                    bl.addWidget(act_btn)
+                    bl.addWidget(skip_btn)
+                    lay.addLayout(bl)
+
+                    result_code = {"key": None}
+
+                    def _on_activate():
+                        k = inp.text().strip()
+                        if not k:
+                            QMessageBox.warning(act, "提示", "请输入激活码")
+                            return
+                        ok, msg = HardwareBinder.verify_key(k)
+                        if ok:
+                            HardwareBinder.save_activation(k)
+                            QMessageBox.information(act, "激活成功", msg)
+                            result_code["key"] = k
+                            act.accept()
+                        else:
+                            QMessageBox.critical(act, "激活失败", msg)
+
+                    def _on_skip():
+                        if auth["in_trial"]:
+                            act.reject()
+                        else:
+                            app.quit()
+
+                    act_btn.clicked.connect(_on_activate)
+                    skip_btn.clicked.connect(_on_skip)
+                    act.exec_()
+
+                    if result_code["key"] is not None:
+                        break
+                    if auth["in_trial"]:
+                        break
+                    # 过期且未激活 -> 继续弹
+            # ─────────────────────────────────────────────────────
+
             if not hasattr(handle_login_result, 'main_window_created'):
                 main_window = AutoRecorderApp(username=dialog.current_user, login_manager=manager)
                 handle_login_result.main_window = main_window
