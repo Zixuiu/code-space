@@ -1,5 +1,6 @@
 export const StorageKeys = {
   TOKEN: 'token',
+  REFRESH_TOKEN: 'refreshToken',
   IS_LOGGED_IN: 'isLoggedIn',
   CURRENT_USER: 'currentUser',
   USER_INFO: 'userInfo',

@@ -9,8 +9,8 @@ export const userApi = {
     return post('/api/user/register', userInfo)
   },
 
-  getUserInfo() {
-    return get('/api/user/info')
+  getUserInfo(options = {}) {
+    return get('/api/user/info', null, options)
   },
 
   updateUserInfo(userInfo) {

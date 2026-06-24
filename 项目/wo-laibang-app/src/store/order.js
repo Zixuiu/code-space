@@ -2,17 +2,9 @@ import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import { useNeedStore } from './need'
 import { storage, StorageKeys } from '@/utils/storage'
+import { OrderStatus, PLATFORM_COMMISSION_RATE, SHARE_COMMISSION_RATE, STATUS_TEXT } from '@/utils/constants'
 
-const COMMISSION_RATE = 0.1
-const SHARE_COMMISSION_RATE = 0.02
-
-const ORDER_STATUS = {
-  PENDING: 'pending',
-  ACCEPTED: 'accepted',
-  PENDING_CONFIRM: 'pending_confirm',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
-}
+const ORDER_STATUS = OrderStatus
 
 const INITIAL_ORDERS = [
   {
@@ -194,7 +186,7 @@ export const useOrderStore = defineStore('order', {
         order.status = ORDER_STATUS.COMPLETED
         order.completedAt = Date.now()
 
-        const platformCommission = order.reward * COMMISSION_RATE
+        const platformCommission = order.reward * PLATFORM_COMMISSION_RATE
         let shareCommission = 0
 
         if (order.shareUserId) {
@@ -307,7 +299,7 @@ export const useOrderStore = defineStore('order', {
       order.status = ORDER_STATUS.COMPLETED
       order.completedAt = Date.now()
 
-      const platformCommission = order.reward * COMMISSION_RATE
+      const platformCommission = order.reward * PLATFORM_COMMISSION_RATE
       let shareCommission = 0
       if (order.shareUserId) {
         shareCommission = order.reward * SHARE_COMMISSION_RATE
@@ -366,14 +358,7 @@ export const useOrderStore = defineStore('order', {
     },
 
     getStatusText(status) {
-      const statusMap = {
-        'pending': '待接单',
-        'accepted': '进行中',
-        'pending_confirm': '待确认',
-        'completed': '已完成',
-        'cancelled': '已取消'
-      }
-      return statusMap[status] || status
+      return STATUS_TEXT[status] || status
     },
   },
 })

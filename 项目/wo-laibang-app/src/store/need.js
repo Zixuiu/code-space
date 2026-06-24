@@ -3,17 +3,12 @@ import { useUserStore } from './user'
 import { useOrderStore } from './order'
 import { getChatKey } from '@/utils/chat'
 import { storage, StorageKeys } from '@/utils/storage'
+import { NeedStatus, PLATFORM_COMMISSION_RATE, SHARE_COMMISSION_RATE } from '@/utils/constants'
+import { calculateDistance } from '@/utils/distance'
 
-const COMMISSION_RATE = 0.1
-const SHARE_COMMISSION_RATE = 0.02
+const NEED_STATUS = NeedStatus
 
-export const NEED_STATUS = {
-  OPEN: 'open',
-  ACCEPTED: 'accepted',
-  PENDING_CONFIRM: 'pending_confirm',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
-}
+const COMMISSION_RATE = PLATFORM_COMMISSION_RATE
 
 const INITIAL_NEEDS = [
   {
@@ -118,17 +113,11 @@ export const useNeedStore = defineStore('need', {
         case 'distance':
           const userLat = state.userLatitude
           const userLng = state.userLongitude
-          const calcDist = (lat, lng) => {
-            if (!lat || !lng) return Infinity
-            const R = 6371
-            const dLat = (lat - userLat) * Math.PI / 180
-            const dLng = (lng - userLng) * Math.PI / 180
-            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                      Math.cos(userLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-                      Math.sin(dLng/2) * Math.sin(dLng/2)
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-          }
-          result = [...result].sort((a, b) => calcDist(a.latitude, a.longitude) - calcDist(b.latitude, b.longitude))
+          result = [...result].sort((a, b) => {
+            const distA = calculateDistance(userLat, userLng, a.latitude, a.longitude)
+            const distB = calculateDistance(userLat, userLng, b.latitude, b.longitude)
+            return distA - distB
+          })
           break
       }
 

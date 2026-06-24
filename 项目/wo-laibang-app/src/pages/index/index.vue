@@ -161,7 +161,7 @@
 								<IconFont name="location" :size="24" class="icon" />
 								<text class="loc-text">{{ need.location }}</text>
 							</view>
-							<text class="dist-tag" v-if="calculateDistance(need)">{{ calculateDistance(need) }}</text>
+							<text class="dist-tag" v-if="calculateNeedDistance(need)">{{ calculateNeedDistance(need) }}</text>
 							<text class="dist-tag unknown" v-else>距离未知</text>
 						</view>
 						<view class="action-group">
@@ -298,6 +298,11 @@ import { useUserStore } from '@/store/user'
 import { useNeedStore } from '@/store/need'
 import BottomNav from '@/components/bottom-nav/bottom-nav.vue'
 import IconFont from '@/components/icon-font/icon-font.vue'
+import { debounce, formatTime } from '@/utils/format'
+import { calculateDistance, formatDistance } from '@/utils/distance'
+import { getAvatarBg } from '@/utils/common'
+import { storage, StorageKeys } from '@/utils/storage'
+import { CATEGORIES } from '@/utils/constants'
 
 export default {
 	components: {
@@ -313,7 +318,6 @@ export default {
 		return {
 			refreshing: false,
 			searchQuery: '',
-			searchDebounceTimer: null,
 			shareModalVisible: false,
 			currentShareNeed: null,
 			locationName: '阳光花园',
@@ -333,13 +337,11 @@ export default {
 				{ label: '3km 内', value: 3 },
 				{ label: '5km 内', value: 5 }
 			],
-			categories: [
-				{ name: '跑腿', icon: 'run', bgColor: '#F0FDF4' },
-				{ name: '家务', icon: 'housework', bgColor: '#FEF9E7' },
-				{ name: '专业', icon: 'professional', bgColor: '#F0F4FF' },
-				{ name: '其他', icon: 'others', bgColor: '#FDF2F8' }
-			]
+			categories: CATEGORIES
 		}
+	},
+	created() {
+		this.debouncedSearch = debounce(this.handleSearch, 300)
 	},
 	onShow() {
 		uni.hideTabBar()
@@ -359,63 +361,33 @@ export default {
 	},
 	methods: {
 		checkGpsAndShowModal() {
-			// 如果用户已经选择过位置或关闭过GPS提示，就不再显示
-			const hasDismissedGps = uni.getStorageSync('hasDismissedGps')
+			const hasDismissedGps = storage.getBoolean(StorageKeys.HAS_DISMISSED_GPS)
 			if (hasDismissedGps) {
 				return
 			}
 			
-			// 检查是否已经有保存的位置信息（包括从存储加载的）
 			if (this.locationName && this.locationName !== '阳光花园') {
 				return
 			}
 			
-			// 如果GPS已经开启，就不再提示，直接标记为已处理
-			const gpsEnabled = uni.getStorageSync('gpsEnabled')
+			const gpsEnabled = storage.getBoolean(StorageKeys.GPS_ENABLED)
 			if (gpsEnabled) {
-				uni.setStorageSync('hasDismissedGps', true)
+				storage.set(StorageKeys.HAS_DISMISSED_GPS, true)
 				return
 			}
 			
-			// 只在第一次打开时显示一次GPS提示
-			// 这样避免了GPS检测不准确导致的反复弹窗
 			this.gpsModalVisible = true
-			// 记录已经显示过提示，防止反复弹出
-			uni.setStorageSync('hasDismissedGps', true)
+			storage.set(StorageKeys.HAS_DISMISSED_GPS, true)
 		},
-		getAvatarBg(name) {
-			const colors = ['#10B981', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6']
-			if (!name || name.length === 0) return colors[0]
-			let hash = 0
-			for (let i = 0; i < name.length; i++) {
-				hash = name.charCodeAt(i) + ((hash << 5) - hash)
-			}
-			return colors[Math.abs(hash) % colors.length]
-		},
-		formatTime(timestamp) {
-			const diff = Date.now() - timestamp
-			if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`
-			if (diff < 86400000) return `${Math.floor(diff/3600000)}小时前`
-			return `${Math.floor(diff/86400000)}天前`
-		},
-		calculateDistance(need) {
+		getAvatarBg,
+		formatTime,
+		calculateNeedDistance(need) {
 			if (!need.latitude || !need.longitude) return ''
-			const R = 6371
-			const dLat = this.deg2rad(need.latitude - this.userLatitude)
-			const dLon = this.deg2rad(need.longitude - this.userLongitude)
-			const a = 
-				Math.sin(dLat/2) * Math.sin(dLat/2) +
-				Math.cos(this.deg2rad(this.userLatitude)) * Math.cos(this.deg2rad(need.latitude)) *
-				Math.sin(dLon/2) * Math.sin(dLon/2)
-			const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-			const d = R * c
-			if (d < 1) {
-				return `${Math.round(d * 1000)}m`
-			}
-			return `${d.toFixed(1)}km`
-		},
-		deg2rad(deg) {
-			return deg * (Math.PI / 180)
+			const meters = calculateDistance(
+				this.userLatitude, this.userLongitude,
+				need.latitude, need.longitude
+			)
+			return meters >= 0 ? formatDistance(meters) : ''
 		},
 		getGreeting() {
 			const hour = new Date().getHours()
@@ -426,13 +398,11 @@ export default {
 			return '夜深了'
 		},
 		onSearch() {
-			if (this.searchDebounceTimer) {
-				clearTimeout(this.searchDebounceTimer)
-			}
-			this.searchDebounceTimer = setTimeout(() => {
-				this.needStore.setSearchQuery(this.searchQuery)
-				this.applyFilters()
-			}, 300)
+			this.debouncedSearch()
+		},
+		handleSearch() {
+			this.needStore.setSearchQuery(this.searchQuery)
+			this.applyFilters()
 		},
 		clearSearch() {
 			this.searchQuery = ''
@@ -502,12 +472,14 @@ export default {
 				needs = needs.filter(n => n.category === this.activeCategory)
 			}
 
-			// 距离筛选
 			if (this.selectedDistance > 0) {
 				needs = needs.filter(n => {
 					if (!n.latitude || !n.longitude) return false
-					const dist = this.getDistance(n.latitude, n.longitude)
-					return dist <= this.selectedDistance
+					const distKm = calculateDistance(
+						this.userLatitude, this.userLongitude,
+						n.latitude, n.longitude
+					) / 1000
+					return distKm <= this.selectedDistance
 				})
 			}
 
@@ -537,8 +509,14 @@ export default {
 			switch(this.sortBy) {
 				case 'distance':
 					sorted.sort((a, b) => {
-						const distA = this.getDistance(a.latitude, a.longitude)
-						const distB = this.getDistance(b.latitude, b.longitude)
+						const distA = calculateDistance(
+							this.userLatitude, this.userLongitude,
+							a.latitude, a.longitude
+						)
+						const distB = calculateDistance(
+							this.userLatitude, this.userLongitude,
+							b.latitude, b.longitude
+						)
 						return distA - distB
 					})
 					break
@@ -553,21 +531,7 @@ export default {
 			
 			return sorted
 		},
-		getDistance(lat, lng) {
-			if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-				return Number.MAX_VALUE
-			}
-			const R = 6371
-			const dLat = (lat - this.userLatitude) * Math.PI / 180
-			const dLng = (lng - this.userLongitude) * Math.PI / 180
-			const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-					  Math.cos(this.userLatitude * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-					  Math.sin(dLng/2) * Math.sin(dLng/2)
-			const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
-			return R * c
-		},
 		scrollToNeeds() {
-			// 简单的滚动提示
 			uni.showToast({ title: '为您匹配最佳任务', icon: 'none' })
 		},
 		async acceptNeed(need) {
@@ -665,7 +629,6 @@ export default {
 			this.selectedDistance = value
 			this.showDistanceFilter = false
 			
-			// 应用距离筛选
 			this.applyFilters()
 			
 			if (value === 0) {
@@ -682,13 +645,11 @@ export default {
 		},
 		closeGpsModal() {
 			this.gpsModalVisible = false
-			// 记录用户已经关闭过GPS提示，以后不再显示
-			uni.setStorageSync('hasDismissedGps', true)
+			storage.set(StorageKeys.HAS_DISMISSED_GPS, true)
 		},
 		openLocationSettings() {
 			this.gpsModalVisible = false
-			// 记录用户已经处理过GPS提示，以后不再显示
-			uni.setStorageSync('hasDismissedGps', true)
+			storage.set(StorageKeys.HAS_DISMISSED_GPS, true)
 			// #ifdef APP-PLUS
 			if (plus.os.name === 'Android') {
 				const main = plus.android.runtimeMainActivity()
@@ -705,12 +666,10 @@ export default {
 			// #endif
 		},
 		getLocation() {
-			// 设置超时，如果检测超过0.1秒就直接弹窗提示
 			const timeout = setTimeout(() => {
 				this.gpsModalVisible = true
 			}, 100)
 			
-			// 检测GPS状态
 			let isGpsEnabled = false
 			// #ifdef APP-PLUS
 			try {
@@ -732,11 +691,9 @@ export default {
 			}
 			// #endif
 			
-			// 清除超时定时器
 			clearTimeout(timeout)
 			
 			if (isGpsEnabled) {
-				// GPS已开启，直接进入地图选点
 				uni.chooseLocation({
 					success: (res) => {
 						if (res.name) {
@@ -747,7 +704,7 @@ export default {
 							this.userLatitude = res.latitude
 							this.userLongitude = res.longitude
 							this.locationName = res.name || '当前位置'
-							uni.setStorageSync('userLocation', {
+							storage.set(StorageKeys.USER_LOCATION, {
 								name: this.locationName,
 								latitude: res.latitude,
 								longitude: res.longitude
@@ -766,14 +723,7 @@ export default {
 					}
 				})
 			} else {
-				// GPS未开启，弹出提示窗口
 				this.gpsModalVisible = true
-			}
-		},
-		beforeDestroy() {
-			if (this.searchDebounceTimer) {
-				clearTimeout(this.searchDebounceTimer)
-				this.searchDebounceTimer = null
 			}
 		}
 	}

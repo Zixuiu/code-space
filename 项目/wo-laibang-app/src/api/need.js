@@ -1,16 +1,21 @@
 import { post, get, put, del } from '@/utils/request'
 
+const DEFAULT_CACHE_TTL = 60 * 1000
+
 export const needApi = {
   publishNeed(needInfo) {
     return post('/api/need/publish', needInfo)
   },
 
-  getNeedList(params) {
-    return get('/api/need/list', params)
+  getNeedList(params, options = {}) {
+    return get('/api/need/list', params, options)
   },
 
-  getNeedDetail(needId) {
-    return get(`/api/need/detail/${needId}`)
+  getNeedDetail(needId, options = {}) {
+    return get(`/api/need/detail/${needId}`, null, {
+      cache: DEFAULT_CACHE_TTL,
+      ...options
+    })
   },
 
   updateNeed(needId, needInfo) {
@@ -29,12 +34,12 @@ export const needApi = {
     return post(`/api/need/accept/${needId}`)
   },
 
-  getMyNeeds() {
-    return get('/api/need/my')
+  getMyNeeds(options = {}) {
+    return get('/api/need/my', null, options)
   },
 
-  getAcceptedNeeds() {
-    return get('/api/need/accepted')
+  getAcceptedNeeds(options = {}) {
+    return get('/api/need/accepted', null, options)
   },
 
   completeNeed(needId) {

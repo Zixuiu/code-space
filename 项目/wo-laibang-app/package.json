@@ -15,7 +15,11 @@
     "build": "vite build",
     "dev:h5": "vite --mode h5",
     "build:h5": "vite build --mode h5",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{js,vue}\" --fix",
+    "lint:check": "eslint \"src/**/*.{js,vue}\"",
+    "format": "prettier --write \"src/**/*.{js,vue,json,css,scss,md}\"",
+    "format:check": "prettier --check \"src/**/*.{js,vue,json,css,scss,md}\""
   },
   "dependencies": {
     "@dcloudio/uni-app": "^3.0.0-5000720260410001",
@@ -27,6 +31,11 @@
   },
   "devDependencies": {
     "@dcloudio/vite-plugin-uni": "^3.0.0-5000720260410001",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "eslint-plugin-vue": "^10.9.2",
+    "prettier": "^3.8.4",
     "vite": "^5.4.0"
   }
 }

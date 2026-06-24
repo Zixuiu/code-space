@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { userApi } from '@/api/user'
 import { walletApi } from '@/api/wallet'
+import { storage, StorageKeys } from '@/utils/storage'
 
 const DEFAULT_USER = {
   id: '',
@@ -19,10 +20,10 @@ const DEFAULT_USER = {
 }
 
 function getStoredUser() {
-  const isLoggedIn = uni.getStorageSync('isLoggedIn')
+  const isLoggedIn = storage.getBoolean(StorageKeys.IS_LOGGED_IN)
   if (isLoggedIn) {
-    const userInfo = uni.getStorageSync('userInfo')
-    if (userInfo) return userInfo
+    const userInfo = storage.getObject(StorageKeys.USER_INFO, null)
+    if (userInfo && userInfo.id) return userInfo
   }
   return { ...DEFAULT_USER }
 }
@@ -33,11 +34,11 @@ function getWalletKey(userId) {
 
 export const useUserStore = defineStore('user', {
   state: () => ({
-    isLoggedIn: uni.getStorageSync('isLoggedIn') || false,
+    isLoggedIn: storage.getBoolean(StorageKeys.IS_LOGGED_IN, false),
     currentUser: getStoredUser(),
     walletInfo: null,
-    token: uni.getStorageSync('token') || '',
-    refreshToken: uni.getStorageSync('refreshToken') || ''
+    token: storage.get(StorageKeys.TOKEN, ''),
+    refreshToken: storage.get(StorageKeys.REFRESH_TOKEN, '')
   }),
 
   getters: {
@@ -45,7 +46,7 @@ export const useUserStore = defineStore('user', {
 
     walletBalance: (state) => {
       const walletKey = getWalletKey(state.currentUser?.id || '')
-      const wallet = uni.getStorageSync(walletKey) || {}
+      const wallet = storage.getObject(walletKey, {})
       const localStorageBalance = parseFloat(wallet.balance)
       if (!isNaN(localStorageBalance)) {
         return localStorageBalance
@@ -61,7 +62,7 @@ export const useUserStore = defineStore('user', {
     },
 
     hasPayPassword: () => {
-      return !!uni.getStorageSync('payPasswordSet')
+      return !!storage.get('payPasswordSet')
     },
 
     userId: (state) => state.currentUser?.id || ''
@@ -91,25 +92,25 @@ export const useUserStore = defineStore('user', {
     setAuthData(data) {
       if (data.token) {
         this.token = data.token
-        uni.setStorageSync('token', data.token)
+        storage.set(StorageKeys.TOKEN, data.token)
       }
       if (data.refreshToken) {
         this.refreshToken = data.refreshToken
-        uni.setStorageSync('refreshToken', data.refreshToken)
+        storage.set(StorageKeys.REFRESH_TOKEN, data.refreshToken)
       }
       if (data.user) {
         this.currentUser = data.user
-        uni.setStorageSync('userInfo', data.user)
+        storage.set(StorageKeys.USER_INFO, data.user)
       }
       this.isLoggedIn = true
-      uni.setStorageSync('isLoggedIn', true)
+      storage.set(StorageKeys.IS_LOGGED_IN, true)
     },
 
     async fetchUserInfo() {
       try {
         const userInfo = await userApi.getUserInfo()
         this.currentUser = userInfo
-        uni.setStorageSync('userInfo', userInfo)
+        storage.set(StorageKeys.USER_INFO, userInfo)
         return userInfo
       } catch (e) {
         console.error('fetchUserInfo failed', e)
@@ -121,7 +122,7 @@ export const useUserStore = defineStore('user', {
       try {
         const updated = await userApi.updateUserInfo(userInfo)
         this.currentUser = { ...this.currentUser, ...updated }
-        uni.setStorageSync('userInfo', this.currentUser)
+        storage.set(StorageKeys.USER_INFO, this.currentUser)
         return updated
       } catch (e) {
         throw e
@@ -133,13 +134,13 @@ export const useUserStore = defineStore('user', {
         const wallet = await walletApi.getWalletInfo()
         this.walletInfo = wallet
         const walletKey = getWalletKey(this.currentUser.id)
-        uni.setStorageSync(walletKey, wallet)
+        storage.set(walletKey, wallet)
         this.currentUser.walletBalance = parseFloat(wallet.balance) || 0
         return wallet
       } catch (e) {
         console.error('fetchWalletInfo failed', e)
         const walletKey = getWalletKey(this.currentUser.id)
-        const wallet = uni.getStorageSync(walletKey) || { balance: 0 }
+        const wallet = storage.getObject(walletKey, { balance: 0 })
         this.walletInfo = wallet
         return wallet
       }
@@ -151,9 +152,9 @@ export const useUserStore = defineStore('user', {
       }
       this.currentUser.walletBalance = balance
       const walletKey = getWalletKey(this.currentUser.id)
-      const wallet = uni.getStorageSync(walletKey) || {}
+      const wallet = storage.getObject(walletKey, {})
       wallet.balance = balance
-      uni.setStorageSync(walletKey, wallet)
+      storage.set(walletKey, wallet)
     },
 
     syncWalletBalance() {
@@ -170,24 +171,24 @@ export const useUserStore = defineStore('user', {
       this.token = ''
       this.refreshToken = ''
 
-      uni.removeStorageSync('token')
-      uni.removeStorageSync('refreshToken')
-      uni.removeStorageSync('isLoggedIn')
-      uni.removeStorageSync('userInfo')
+      storage.remove(StorageKeys.TOKEN)
+      storage.remove(StorageKeys.REFRESH_TOKEN)
+      storage.remove(StorageKeys.IS_LOGGED_IN)
+      storage.remove(StorageKeys.USER_INFO)
     },
 
     setLoggedIn(status) {
       this.isLoggedIn = status
-      uni.setStorageSync('isLoggedIn', status)
+      storage.set(StorageKeys.IS_LOGGED_IN, status)
     },
 
     setUserInfo(userInfo) {
       this.currentUser = userInfo
-      uni.setStorageSync('userInfo', userInfo)
+      storage.set(StorageKeys.USER_INFO, userInfo)
     },
 
     setPayPasswordSet() {
-      uni.setStorageSync('payPasswordSet', true)
+      storage.set('payPasswordSet', true)
     },
 
     addSharedNeed(needId, needTitle, reward) {
@@ -201,15 +202,15 @@ export const useUserStore = defineStore('user', {
         sharedAt: Date.now(),
         earned: 0
       })
-      uni.setStorageSync('userInfo', this.currentUser)
+      storage.set(StorageKeys.USER_INFO, this.currentUser)
     },
 
     addCommission(amount, shareUserId, orderTitle, reward) {
       if (shareUserId) {
         const shareWalletKey = getWalletKey(shareUserId)
-        const shareWallet = uni.getStorageSync(shareWalletKey) || { balance: 0 }
+        const shareWallet = storage.getObject(shareWalletKey, { balance: 0 })
         shareWallet.balance = parseFloat(shareWallet.balance || 0) + amount
-        uni.setStorageSync(shareWalletKey, shareWallet)
+        storage.set(shareWalletKey, shareWallet)
       }
       if (shareUserId === this.currentUser.id) {
         if (!this.currentUser.commissionEarned) {
@@ -218,7 +219,7 @@ export const useUserStore = defineStore('user', {
         this.currentUser.commissionEarned += amount
         if (this.walletInfo) {
           const myWalletKey = getWalletKey(this.currentUser.id)
-          const myWallet = uni.getStorageSync(myWalletKey) || { balance: 0 }
+          const myWallet = storage.getObject(myWalletKey, { balance: 0 })
           this.walletInfo.balance = parseFloat(myWallet.balance) || 0
         }
         if (this.currentUser.sharedNeeds && this.currentUser.sharedNeeds.length > 0) {
@@ -227,34 +228,34 @@ export const useUserStore = defineStore('user', {
             sharedNeed.earned = (sharedNeed.earned || 0) + amount
           }
         }
-        uni.setStorageSync('userInfo', this.currentUser)
+        storage.set(StorageKeys.USER_INFO, this.currentUser)
       }
     },
 
     deductBalance(amount) {
       const walletKey = getWalletKey(this.currentUser.id)
-      const wallet = uni.getStorageSync(walletKey) || { balance: 0 }
+      const wallet = storage.getObject(walletKey, { balance: 0 })
       const currentBalance = parseFloat(wallet.balance || 0) || this.currentUser.walletBalance || 0
       const newBalance = Math.max(0, currentBalance - amount)
       wallet.balance = newBalance
-      uni.setStorageSync(walletKey, wallet)
+      storage.set(walletKey, wallet)
 
       if (this.walletInfo) {
         this.walletInfo.balance = newBalance
       }
       this.currentUser.walletBalance = newBalance
-      uni.setStorageSync('userInfo', this.currentUser)
+      storage.set(StorageKeys.USER_INFO, this.currentUser)
     },
 
     addBalanceToUser(userId, amount) {
       const walletKey = getWalletKey(userId)
-      const wallet = uni.getStorageSync(walletKey) || { balance: 0 }
+      const wallet = storage.getObject(walletKey, { balance: 0 })
       const currentBalance = parseFloat(wallet.balance || 0)
       const newBalance = currentBalance + amount
       wallet.balance = newBalance
-      uni.setStorageSync(walletKey, wallet)
+      storage.set(walletKey, wallet)
 
-      const userTransactions = uni.getStorageSync('userTransactions') || {}
+      const userTransactions = storage.getObject('userTransactions', {})
       if (!userTransactions[userId]) {
         userTransactions[userId] = {
           balance: 0,
@@ -269,23 +270,23 @@ export const useUserStore = defineStore('user', {
         time: Date.now(),
         status: 'completed'
       })
-      uni.setStorageSync('userTransactions', userTransactions)
+      storage.set('userTransactions', userTransactions)
 
       if (userId === this.currentUser.id) {
         this.currentUser.walletBalance = newBalance
-        uni.setStorageSync('userInfo', this.currentUser)
+        storage.set(StorageKeys.USER_INFO, this.currentUser)
       }
 
       if (this.walletInfo) {
         const myWalletKey = getWalletKey(this.currentUser.id)
-        const myWallet = uni.getStorageSync(myWalletKey) || {}
+        const myWallet = storage.getObject(myWalletKey, {})
         this.walletInfo.balance = parseFloat(myWallet.balance) || 0
       }
     },
 
     updateBalanceFromWallet() {
       const walletKey = getWalletKey(this.currentUser.id)
-      const wallet = uni.getStorageSync(walletKey) || { balance: 0 }
+      const wallet = storage.getObject(walletKey, { balance: 0 })
       this.balance = parseFloat(wallet.balance) || 0
     }
   }

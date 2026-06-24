@@ -1,0 +1,9 @@
+node_modules
+dist
+unpackage
+.hbuilderx
+.trae
+.env
+.env.*
+*.log
+*.bak
