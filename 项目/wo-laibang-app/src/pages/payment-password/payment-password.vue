@@ -47,7 +47,7 @@
 
 				<view class="tips-section">
 					<view class="tips-header">
-						<text class="tips-icon"><IconFont name="sparkles" :size="32" /></text>
+						<view class="tips-icon"><IconFont name="sparkles" :size="32" /></view>
 						<text class="tips-title">密码要求</text>
 					</view>
 					<text class="tips-text">• 必须为6位数字</text>
@@ -70,14 +70,14 @@
 
 				<view class="action-list">
 					<view class="action-item" @click="changePassword">
-						<text class="action-icon"><IconFont name="tool" :size="32" /></text>
+						<view class="action-icon"><IconFont name="tool" :size="32" /></view>
 						<text class="action-name">修改支付密码</text>
-						<text class="action-arrow"><IconFont name="chevron-right" :size="24" /></text>
+						<view class="action-arrow"><IconFont name="chevron-right" :size="24" /></view>
 					</view>
 					<view class="action-item" @click="resetPassword">
-						<text class="action-icon"><IconFont name="refresh" :size="32" /></text>
+						<view class="action-icon"><IconFont name="refresh" :size="32" /></view>
 						<text class="action-name">重置支付密码</text>
-						<text class="action-arrow"><IconFont name="chevron-right" :size="24" /></text>
+						<view class="action-arrow"><IconFont name="chevron-right" :size="24" /></view>
 					</view>
 				</view>
 			</view>

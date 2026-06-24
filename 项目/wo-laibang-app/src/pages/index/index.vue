@@ -10,7 +10,7 @@
 				<view class="location-picker" @click="getLocation">
 					<IconFont name="location" :size="28" />
 					<text class="loc-name">{{ locationName }}</text>
-					<text class="loc-arrow"><IconFont name="chevron-right" :size="24" /></text>
+					<view class="loc-arrow"><IconFont name="chevron-right" :size="24" /></view>
 				</view>
 			</view>
 
@@ -313,6 +313,7 @@ export default {
 		return {
 			refreshing: false,
 			searchQuery: '',
+			searchDebounceTimer: null,
 			shareModalVisible: false,
 			currentShareNeed: null,
 			locationName: '阳光花园',
@@ -425,8 +426,13 @@ export default {
 			return '夜深了'
 		},
 		onSearch() {
-			this.needStore.setSearchQuery(this.searchQuery)
-			this.applyFilters()
+			if (this.searchDebounceTimer) {
+				clearTimeout(this.searchDebounceTimer)
+			}
+			this.searchDebounceTimer = setTimeout(() => {
+				this.needStore.setSearchQuery(this.searchQuery)
+				this.applyFilters()
+			}, 300)
 		},
 		clearSearch() {
 			this.searchQuery = ''
@@ -762,6 +768,12 @@ export default {
 			} else {
 				// GPS未开启，弹出提示窗口
 				this.gpsModalVisible = true
+			}
+		},
+		beforeDestroy() {
+			if (this.searchDebounceTimer) {
+				clearTimeout(this.searchDebounceTimer)
+				this.searchDebounceTimer = null
 			}
 		}
 	}

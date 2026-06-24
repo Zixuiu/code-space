@@ -50,6 +50,7 @@
 									class="chat-image"
 									:src="msg.imageUrl"
 									mode="widthFix"
+									lazy-load="true"
 									@click="previewImage(msg.imageUrl)"
 								></image>
 							</view>
@@ -67,6 +68,7 @@
 									class="chat-image"
 									:src="msg.imageUrl"
 									mode="widthFix"
+									lazy-load="true"
 									@click="previewImage(msg.imageUrl)"
 								></image>
 							</view>

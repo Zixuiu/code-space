@@ -39,7 +39,7 @@
 			<view class="contact-section">
 				<text class="section-title">联系方式（选填）</text>
 				<view class="input-card">
-					<text class="input-icon"><IconFont name="mail" :size="32" /></text>
+					<view class="input-icon"><IconFont name="mail" :size="32" /></view>
 					<input
 						class="input-field"
 						v-model="contact"
@@ -57,7 +57,7 @@
 
 			<view class="tips-section">
 				<view class="tips-header">
-					<text class="tips-icon"><IconFont name="bell" :size="32" /></text>
+					<view class="tips-icon"><IconFont name="bell" :size="32" /></view>
 					<text class="tips-title">温馨提示</text>
 				</view>
 				<text class="tips-text">• 我们重视每一位用户的反馈</text>

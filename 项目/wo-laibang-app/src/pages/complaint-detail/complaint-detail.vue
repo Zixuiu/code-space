@@ -73,6 +73,7 @@
 						:src="img"
 						mode="aspectFill"
 						class="evidence-image"
+						lazy-load="true"
 						@click="previewImage(img)"
 					/>
 				</view>

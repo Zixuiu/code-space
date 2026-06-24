@@ -9,12 +9,12 @@
       <view class="order-card">
         <text class="order-title">{{ order.title }}</text>
         <view class="order-meta">
-          <text class="meta-item">
+          <view class="meta-item">
             <IconFont name="coin" :size="12" style="margin-right: 8rpx;" />¥{{ order.reward }}
-          </text>
-          <text class="meta-item">
+          </view>
+          <view class="meta-item">
             <IconFont name="map-pin" :size="12" style="margin-right: 8rpx;" />{{ order.location }}
-          </text>
+          </view>
         </view>
       </view>
 

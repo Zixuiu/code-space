@@ -24,7 +24,7 @@
 				<view class="input-group">
 					<label class="input-label">手机号码</label>
 					<view class="input-wrapper">
-						<text class="input-icon"><IconFont name="phone" :size="32" /></text>
+						<view class="input-icon"><IconFont name="phone" :size="32" /></view>
 						<input
 							class="input-field"
 							placeholder="请输入手机号"
@@ -76,7 +76,7 @@
 				<view class="input-group">
 					<label class="input-label">确认密码</label>
 					<view class="input-wrapper">
-						<text class="input-icon"><IconFont name="lock" :size="72" /></text>
+						<view class="input-icon"><IconFont name="lock" :size="72" /></view>
 						<input
 							class="input-field"
 							type="password"

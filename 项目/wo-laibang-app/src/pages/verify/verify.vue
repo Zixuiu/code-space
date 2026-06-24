@@ -31,7 +31,7 @@
 					<view class="input-group">
 						<label class="input-label">身份证号</label>
 						<view class="input-wrapper">
-							<text class="input-icon"><IconFont name="lock" :size="32" /></text>
+							<view class="input-icon"><IconFont name="lock" :size="32" /></view>
 							<input
 								class="input-field"
 								v-model="form.idCard"
@@ -59,7 +59,7 @@
 					<view class="input-group">
 						<label class="input-label">验证码</label>
 						<view class="input-wrapper code-wrapper">
-							<text class="input-icon"><IconFont name="mail" :size="32" /></text>
+							<view class="input-icon"><IconFont name="mail" :size="32" /></view>
 							<input
 								class="input-field"
 								v-model="form.code"
@@ -82,7 +82,7 @@
 						<view class="id-card-upload">
 							<view class="id-card-item" @click="chooseIdCardFront">
 								<view v-if="form.idCardFront" class="id-card-preview">
-									<image :src="form.idCardFront" mode="aspectFill" class="preview-image"></image>
+									<image :src="form.idCardFront" mode="aspectFill" class="preview-image" lazy-load="true"></image>
 								</view>
 								<view v-else class="id-card-placeholder">
 									<text class="placeholder-icon">🪪</text>
@@ -92,7 +92,7 @@
 							</view>
 							<view class="id-card-item" @click="chooseIdCardBack">
 								<view v-if="form.idCardBack" class="id-card-preview">
-									<image :src="form.idCardBack" mode="aspectFill" class="preview-image"></image>
+									<image :src="form.idCardBack" mode="aspectFill" class="preview-image" lazy-load="true"></image>
 								</view>
 								<view v-else class="id-card-placeholder">
 									<text class="placeholder-icon">🪪</text>

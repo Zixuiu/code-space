@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import { useOrderStore } from './order'
 import { getChatKey } from '@/utils/chat'
+import { storage, StorageKeys } from '@/utils/storage'
 
 const COMMISSION_RATE = 0.1
 const SHARE_COMMISSION_RATE = 0.02
@@ -178,7 +179,7 @@ export const useNeedStore = defineStore('need', {
         return { success: false, message: '您已接过此单' }
       }
 
-      const shareSource = uni.getStorageSync('currentShareSource') || null
+      const shareSource = storage.get(StorageKeys.CURRENT_SHARE_SOURCE)
       const sharedFromThisNeed = shareSource && shareSource.needId === needId
       const shareUserId = shareSource ? shareSource.fromUserId : null
 
@@ -210,9 +211,9 @@ export const useNeedStore = defineStore('need', {
       const orderStore = useOrderStore()
       orderStore.addOrder(newOrder)
 
-      uni.setStorageSync('currentShareSource', null)
+      storage.set(StorageKeys.CURRENT_SHARE_SOURCE, null)
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       const existingIndex = allConvs.findIndex(c => c.userId === need.publisher.id)
       const conv = {
         id: `conv_${need.publisher.id}`,
@@ -238,9 +239,9 @@ export const useNeedStore = defineStore('need', {
       } else {
         allConvs.unshift(conv)
       }
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
 
-      const allMessages = uni.getStorageSync('chatMessages') || {}
+      const allMessages = storage.getObject(StorageKeys.CHAT_MESSAGES)
       const chatKey = getChatKey(userStore.currentUser.id, need.publisher.id)
       const systemMsg = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -253,7 +254,7 @@ export const useNeedStore = defineStore('need', {
         allMessages[chatKey] = []
       }
       allMessages[chatKey].push(systemMsg)
-      uni.setStorageSync('chatMessages', allMessages)
+      storage.set(StorageKeys.CHAT_MESSAGES, allMessages)
 
       let commissionInfo = ''
       if (shareUserId) {
@@ -282,7 +283,7 @@ export const useNeedStore = defineStore('need', {
       const order = orderStore.orders.find(o => o.needId === needId)
       if (reward > 0 && !(order && order.settled)) {
         userStore.addBalanceToUser(need.publisher.id, reward)
-        const transactions = uni.getStorageSync('walletTransactions') || []
+        const transactions = storage.getArray(StorageKeys.WALLET_TRANSACTIONS)
         transactions.unshift({
           id: Date.now(),
           type: 'refund',
@@ -290,7 +291,7 @@ export const useNeedStore = defineStore('need', {
           amount: reward,
           time: Date.now()
         })
-        uni.setStorageSync('walletTransactions', transactions)
+        storage.set(StorageKeys.WALLET_TRANSACTIONS, transactions)
       }
       if (order) {
         order.status = NEED_STATUS.CANCELLED
@@ -321,11 +322,11 @@ export const useNeedStore = defineStore('need', {
         order.helperConfirmed = true
       }
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       const convIndex = allConvs.findIndex(c => c.userId === need.publisher.id)
       if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
         allConvs[convIndex].relatedOrder.status = NEED_STATUS.PENDING_CONFIRM
-        uni.setStorageSync('conversations', allConvs)
+        storage.set(StorageKeys.CONVERSATIONS, allConvs)
       }
 
       this.sendCompleteNotification(need, 'helper')
@@ -391,13 +392,13 @@ export const useNeedStore = defineStore('need', {
         order.settled = true
       }
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       allConvs.forEach((conv, index) => {
         if (conv.relatedOrder && conv.relatedOrder.needId === needId) {
           conv.relatedOrder.status = NEED_STATUS.COMPLETED
         }
       })
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
 
       this.sendCompleteNotification(need, 'publisher')
       
@@ -409,7 +410,7 @@ export const useNeedStore = defineStore('need', {
       const targetUser = isPublisher ? need.helper : need.publisher
 
       if (targetUser && targetUser.id) {
-        const notifications = uni.getStorageSync('notifications') || []
+        const notifications = storage.getArray(StorageKeys.NOTIFICATIONS)
         const message = isPublisher ? '发布者已确认完成' : '帮手已标记完成，等待您确认'
         notifications.unshift({
           id: Date.now(),
@@ -422,7 +423,7 @@ export const useNeedStore = defineStore('need', {
           read: false,
           createdAt: Date.now()
         })
-        uni.setStorageSync('notifications', notifications)
+        storage.set(StorageKeys.NOTIFICATIONS, notifications)
 
         const unreadCount = notifications.filter(n => !n.read).length
         if (unreadCount > 0) {

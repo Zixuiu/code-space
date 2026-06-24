@@ -76,7 +76,7 @@
 						:key="index"
 						class="upload-item"
 					>
-						<image :src="img" mode="aspectFill" class="upload-image" />
+						<image :src="img" mode="aspectFill" class="upload-image" lazy-load="true" />
 						<view class="upload-remove" @click="removeImage(index)">
 							<IconFont name="x" :size="14" />
 						</view>

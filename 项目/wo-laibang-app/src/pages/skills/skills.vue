@@ -27,7 +27,7 @@
 				<text class="section-title">我的技能列表</text>
 
 				<view v-if="skills.length === 0" class="empty-state">
-					<text class="empty-icon"><IconFont name="tool" :size="56" /></text>
+					<view class="empty-icon"><IconFont name="tool" :size="56" /></view>
 					<text class="empty-title">暂无技能</text>
 					<text class="empty-text">点击右上角"添加"来发布你的技能</text>
 				</view>
@@ -59,7 +59,7 @@
 							</view>
 							<view class="skill-stats">
 								<text class="stat">接单 {{ skill.orders }}</text>
-								<text class="stat"><IconFont name="star" :size="24" /> {{ skill.rating }}</text>
+								<view class="stat"><IconFont name="star" :size="24" /> {{ skill.rating }}</view>
 							</view>
 						</view>
 
@@ -71,7 +71,7 @@
 								<text>{{ skill.status === 'active' ? '⏸️ 暂停' : '▶️ 开启' }}</text>
 							</view>
 							<view class="action-btn delete" @click="deleteSkill(skill)">
-								<text><IconFont name="trash" :size="28" /> 删除</text>
+								<view><IconFont name="trash" :size="28" /> 删除</view>
 							</view>
 						</view>
 					</view>

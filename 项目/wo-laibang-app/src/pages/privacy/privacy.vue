@@ -12,7 +12,7 @@
 					<view class="setting-item" @click="goChangePassword">
 						<IconFont name="key" :size="40" class="setting-icon" />
 						<text class="setting-name">修改登录密码</text>
-						<text class="setting-arrow"><IconFont name="chevron-right" :size="24" /></text>
+						<view class="setting-arrow"><IconFont name="chevron-right" :size="24" /></view>
 					</view>
 					<view class="setting-item" @click="goSetPayPassword">
 						<IconFont name="lock" :size="40" class="setting-icon" />

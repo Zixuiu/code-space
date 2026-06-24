@@ -58,7 +58,7 @@ export default {
 		this.updateBadges()
 		this.badgeTimer = setInterval(() => {
 			this.updateBadges()
-		}, 3000)
+		}, 30000)
 	},
 	beforeDestroy() {
 		uni.$off('clearMessageBadge')
@@ -98,9 +98,16 @@ export default {
 			uni.setStorageSync('totalUnreadCount', totalUnread)
 
 			if (totalUnread > 0) {
-				uni.setTabBarBadge({ index: 3, text: totalUnread > 99 ? '99+' : String(totalUnread) })
+				uni.setTabBarBadge({
+					index: 3,
+					text: totalUnread > 99 ? '99+' : String(totalUnread),
+					fail: () => {}
+				})
 			} else {
-				uni.removeTabBarBadge({ index: 3 })
+				uni.removeTabBarBadge({
+					index: 3,
+					fail: () => {}
+				})
 			}
 		},
 		clearMessageBadge() {

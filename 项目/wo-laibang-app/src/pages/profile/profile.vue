@@ -73,7 +73,7 @@
 				<view class="bento-item settings-card" @click="goSettings">
 					<view class="settings-content">
 						<view class="left">
-							<text class="icon"><IconFont name="settings" :size="32" /></text>
+							<view class="icon"><IconFont name="settings" :size="32" /></view>
 							<text class="label">通用设置</text>
 						</view>
 						<text class="arrow">›</text>
@@ -84,7 +84,7 @@
 				<view class="bento-item skills-card" @click="goSkills">
 					<view class="skills-content">
 						<view class="left">
-							<text class="icon"><IconFont name="tag" :size="32" /></text>
+							<view class="icon"><IconFont name="tag" :size="32" /></view>
 							<text class="label">我的技能</text>
 						</view>
 						<view class="tags">

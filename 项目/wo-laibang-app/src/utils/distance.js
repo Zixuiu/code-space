@@ -4,7 +4,7 @@ function toRad(deg) {
 	return deg * (Math.PI / 180)
 }
 
-function formatDistance(meters) {
+export function formatDistance(meters) {
 	if (meters < 0) return '距离未知'
 	if (meters < 1000) {
 		return `${Math.round(meters)}m`
@@ -14,7 +14,7 @@ function formatDistance(meters) {
 	}
 }
 
-function calculateDistance(lat1, lng1, lat2, lng2) {
+export function calculateDistance(lat1, lng1, lat2, lng2) {
 	if (!lat1 || !lng1 || !lat2 || !lng2) {
 		return -1
 	}
@@ -35,7 +35,7 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 	return Math.round(distance)
 }
 
-function getDistanceText(lat1, lng1, lat2, lng2) {
+export function getDistanceText(lat1, lng1, lat2, lng2) {
 	const meters = calculateDistance(lat1, lng1, lat2, lng2)
 	if (meters < 0) {
 		return '距离未知'
@@ -43,7 +43,9 @@ function getDistanceText(lat1, lng1, lat2, lng2) {
 	return formatDistance(meters)
 }
 
-module.exports = {
+export { EARTH_RADIUS }
+
+export default {
 	calculateDistance,
 	formatDistance,
 	getDistanceText,

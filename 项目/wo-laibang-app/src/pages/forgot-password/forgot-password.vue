@@ -11,7 +11,7 @@
 					<view class="step-item" :class="{ active: step >= 1, completed: step > 1 }">
 						<view class="step-circle">
 							<text v-if="step <= 1">1</text>
-							<text v-else><IconFont name="check" :size="20" /></text>
+							<view v-else><IconFont name="check" :size="20" /></view>
 						</view>
 						<text class="step-label">验证身份</text>
 					</view>
@@ -34,7 +34,7 @@
 					<view class="input-group">
 						<label class="input-label">手机号码</label>
 						<view class="input-wrapper">
-							<text class="input-icon"><IconFont name="phone" :size="32" /></text>
+							<view class="input-icon"><IconFont name="phone" :size="32" /></view>
 							<input
 								class="input-field"
 								placeholder="请输入注册的手机号"
@@ -48,7 +48,7 @@
 					<view class="input-group">
 						<label class="input-label">验证码</label>
 						<view class="input-wrapper code-wrapper">
-							<text class="input-icon"><IconFont name="mail" :size="32" /></text>
+							<view class="input-icon"><IconFont name="mail" :size="32" /></view>
 							<input
 								class="input-field"
 								placeholder="请输入验证码"
@@ -75,7 +75,7 @@
 					<view class="input-group">
 						<label class="input-label">新密码</label>
 						<view class="input-wrapper">
-							<text class="input-icon"><IconFont name="lock" :size="32" /></text>
+							<view class="input-icon"><IconFont name="lock" :size="32" /></view>
 							<input
 								class="input-field"
 								placeholder="请设置新密码（8-20位）"
@@ -90,7 +90,7 @@
 					<view class="input-group">
 						<label class="input-label">确认密码</label>
 						<view class="input-wrapper">
-							<text class="input-icon"><IconFont name="lock" :size="32" /></text>
+							<view class="input-icon"><IconFont name="lock" :size="32" /></view>
 							<input
 								class="input-field"
 								placeholder="请再次输入新密码"

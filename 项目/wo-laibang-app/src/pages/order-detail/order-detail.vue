@@ -36,7 +36,7 @@
 			<view class="detail-item">
 				<view class="label">现场图片</view>
 				<view v-if="order.image" class="image-wrapper">
-					<image :src="order.image" mode="aspectFill" class="order-image" @click="previewImage(order.image)" />
+					<image :src="order.image" mode="aspectFill" class="order-image" lazy-load="true" @click="previewImage(order.image)" />
 				</view>
 				<view v-else class="no-image">暂无图片展示</view>
 			</view>

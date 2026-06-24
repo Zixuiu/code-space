@@ -70,7 +70,7 @@
 							<text class="upload-text">添加现场照片 (可选)</text>
 						</view>
 						<view v-else class="preview-box">
-							<image :src="form.image" mode="aspectFill" class="preview-img" />
+							<image :src="form.image" mode="aspectFill" class="preview-img" lazy-load="true" />
 							<view class="delete-img" @click.stop="deleteImage">×</view>
 						</view>
 					</view>
@@ -200,7 +200,7 @@
 									</view>
 								</view>
 								<view class="payment-check">
-									<text v-if="paymentMethod === 'wechat'" class="check-icon"><IconFont name="check" :size="24" /></text>
+									<view v-if="paymentMethod === 'wechat'" class="check-icon"><IconFont name="check" :size="24" /></view>
 								</view>
 							</view>
 

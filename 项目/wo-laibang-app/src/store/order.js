@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
 import { useNeedStore } from './need'
+import { storage, StorageKeys } from '@/utils/storage'
 
 const COMMISSION_RATE = 0.1
 const SHARE_COMMISSION_RATE = 0.02
@@ -155,13 +156,13 @@ export const useOrderStore = defineStore('order', {
       order.status = ORDER_STATUS.PENDING_CONFIRM
       order.pendingConfirmAt = Date.now()
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       allConvs.forEach((conv) => {
         if (conv.relatedOrder && conv.relatedOrder.needId === order.needId) {
           conv.relatedOrder.status = ORDER_STATUS.PENDING_CONFIRM
         }
       })
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
 
       return { success: true }
     },
@@ -207,13 +208,13 @@ export const useOrderStore = defineStore('order', {
         }
         order.settled = true
 
-        const allConvs = uni.getStorageSync('conversations') || []
+        const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
         allConvs.forEach((conv) => {
           if (conv.relatedOrder && (conv.relatedOrder.needId === order.needId || conv.relatedOrder.orderId === order.id)) {
             conv.relatedOrder.status = ORDER_STATUS.COMPLETED
           }
         })
-        uni.setStorageSync('conversations', allConvs)
+        storage.set(StorageKeys.CONVERSATIONS, allConvs)
       }
 
       return { success: true }
@@ -243,7 +244,7 @@ export const useOrderStore = defineStore('order', {
       const reward = order.reward || 0
       if (reward > 0 && !order.settled && order.publisher && order.publisher.id) {
         userStore.addBalanceToUser(order.publisher.id, reward)
-        const transactions = uni.getStorageSync('walletTransactions') || []
+        const transactions = storage.getArray(StorageKeys.WALLET_TRANSACTIONS)
         transactions.unshift({
           id: Date.now(),
           type: 'refund',
@@ -251,7 +252,7 @@ export const useOrderStore = defineStore('order', {
           amount: reward,
           time: Date.now()
         })
-        uni.setStorageSync('walletTransactions', transactions)
+        storage.set(StorageKeys.WALLET_TRANSACTIONS, transactions)
       }
 
       const needStore = useNeedStore()
@@ -267,7 +268,7 @@ export const useOrderStore = defineStore('order', {
         }
       }
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       if (isPublisher && order.publisher?.id) {
         const convIndex = allConvs.findIndex(c => c.userId === order.publisher.id)
         if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
@@ -280,7 +281,7 @@ export const useOrderStore = defineStore('order', {
           allConvs[convIndex].relatedOrder.status = ORDER_STATUS.CANCELLED
         }
       }
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
 
       return { success: true }
     },
@@ -318,7 +319,7 @@ export const useOrderStore = defineStore('order', {
       }
       order.settled = true
 
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       if (order.publisher?.id) {
         const convIndex = allConvs.findIndex(c => c.userId === order.publisher.id)
         if (convIndex >= 0 && allConvs[convIndex].relatedOrder) {
@@ -331,7 +332,7 @@ export const useOrderStore = defineStore('order', {
           allConvs[convIndex].relatedOrder.status = ORDER_STATUS.COMPLETED
         }
       }
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
       return order
     },
 

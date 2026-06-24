@@ -3,6 +3,7 @@ import { useNeedStore } from './need'
 import { useOrderStore } from './order'
 import { useUserStore } from './user'
 import { getChatKey } from '@/utils/chat'
+import { storage, StorageKeys } from '@/utils/storage'
 
 const SIMULATION_USERS = [
   { id: 'sim1', nickname: '热心张叔', reputation: 88, completedOrders: 15, avatar: '', skills: ['跑腿', '家政'], active: true },
@@ -160,7 +161,7 @@ export const useSimulationStore = defineStore('simulation', {
         if (isCurrentUserPublisher) {
           const chatKey = getChatKey(need.publisher.id, user.id)
           
-          const allMessages = uni.getStorageSync('chatMessages') || {}
+          const allMessages = storage.getObject(StorageKeys.CHAT_MESSAGES)
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
           }
@@ -183,9 +184,9 @@ export const useSimulationStore = defineStore('simulation', {
           
           allMessages[chatKey].push(systemMsg)
           allMessages[chatKey].push(welcomeMsg)
-          uni.setStorageSync('chatMessages', allMessages)
+          storage.set(StorageKeys.CHAT_MESSAGES, allMessages)
           
-          const allConvs = uni.getStorageSync('conversations') || []
+          const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
           
           const convUserId = originalUserId === need.publisher.id ? user.id : need.publisher.id
           const convNickname = originalUserId === need.publisher.id ? user.nickname : need.publisher.nickname
@@ -227,7 +228,7 @@ export const useSimulationStore = defineStore('simulation', {
               }
             })
           }
-          uni.setStorageSync('conversations', allConvs)
+          storage.set(StorageKeys.CONVERSATIONS, allConvs)
         }
         
         this.logActivity('accept', `${user.nickname} 接了 ${need.publisher.nickname} 的「${need.title}」`, user)
@@ -296,7 +297,7 @@ export const useSimulationStore = defineStore('simulation', {
         
         if (isCurrentUserPublisher) {
           const chatKey = getChatKey(need.publisher.id, user.id)
-          const allMessages = uni.getStorageSync('chatMessages') || {}
+          const allMessages = storage.getObject(StorageKeys.CHAT_MESSAGES)
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
           }
@@ -310,9 +311,9 @@ export const useSimulationStore = defineStore('simulation', {
           }
           
           allMessages[chatKey].push(completeMsg)
-          uni.setStorageSync('chatMessages', allMessages)
+          storage.set(StorageKeys.CHAT_MESSAGES, allMessages)
           
-          const allConvs = uni.getStorageSync('conversations') || []
+          const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
           const existingIndex = allConvs.findIndex(c => c.userId === user.id)
           
           if (existingIndex >= 0) {
@@ -323,7 +324,7 @@ export const useSimulationStore = defineStore('simulation', {
               allConvs[existingIndex].relatedOrder.status = 'pending_confirm'
             }
           }
-          uni.setStorageSync('conversations', allConvs)
+          storage.set(StorageKeys.CONVERSATIONS, allConvs)
         }
         
         this.logActivity('complete', `${user.nickname} 完成了 ${need.publisher.nickname} 的「${need.title}」`, user)
@@ -382,7 +383,7 @@ export const useSimulationStore = defineStore('simulation', {
 
         if (isCurrentUserHelper && need.helper) {
           const chatKey = getChatKey(need.helper.id, need.publisher.id)
-          const allMessages = uni.getStorageSync('chatMessages') || {}
+          const allMessages = storage.getObject(StorageKeys.CHAT_MESSAGES)
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
           }
@@ -396,9 +397,9 @@ export const useSimulationStore = defineStore('simulation', {
           }
 
           allMessages[chatKey].push(confirmMsg)
-          uni.setStorageSync('chatMessages', allMessages)
+          storage.set(StorageKeys.CHAT_MESSAGES, allMessages)
 
-          const allConvs = uni.getStorageSync('conversations') || []
+          const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
           const existingIndex = allConvs.findIndex(c => c.userId === need.helper.id)
 
           if (existingIndex >= 0) {
@@ -409,7 +410,7 @@ export const useSimulationStore = defineStore('simulation', {
               allConvs[existingIndex].relatedOrder.status = 'completed'
             }
           }
-          uni.setStorageSync('conversations', allConvs)
+          storage.set(StorageKeys.CONVERSATIONS, allConvs)
         }
 
         this.logActivity('confirm', `${user.nickname} 确认了 ${need.helper.nickname} 的「${need.title}」完成`, user)
@@ -614,7 +615,7 @@ export const useSimulationStore = defineStore('simulation', {
       const messageText = messages[Math.floor(Math.random() * messages.length)]
 
       const chatKey = getChatKey(fromUser.id, toUser.id)
-      const allMessages = uni.getStorageSync('chatMessages') || {}
+      const allMessages = storage.getObject(StorageKeys.CHAT_MESSAGES)
       if (!allMessages[chatKey]) {
         allMessages[chatKey] = []
       }
@@ -628,7 +629,7 @@ export const useSimulationStore = defineStore('simulation', {
       }
 
       allMessages[chatKey].push(msg)
-      uni.setStorageSync('chatMessages', allMessages)
+      storage.set(StorageKeys.CHAT_MESSAGES, allMessages)
 
       this.updateConversation(fromUser, toUser, messageText, order, originalUserId)
 
@@ -638,7 +639,7 @@ export const useSimulationStore = defineStore('simulation', {
     },
 
     updateConversation(fromUser, toUser, messageText, order, originalUserId) {
-      const allConvs = uni.getStorageSync('conversations') || []
+      const allConvs = storage.getArray(StorageKeys.CONVERSATIONS)
       
       const convUserId = originalUserId === fromUser.id ? toUser.id : fromUser.id
       const convNickname = originalUserId === fromUser.id ? toUser.nickname : fromUser.nickname
@@ -688,7 +689,7 @@ export const useSimulationStore = defineStore('simulation', {
           } : null
         })
       }
-      uni.setStorageSync('conversations', allConvs)
+      storage.set(StorageKeys.CONVERSATIONS, allConvs)
       
       uni.$emit('updateMessageBadge')
     }
