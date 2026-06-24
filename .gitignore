@@ -18,6 +18,5 @@ debug.log
 *.bak
 *.bak2
 *.old
-nul
 recordings/
 trash/
