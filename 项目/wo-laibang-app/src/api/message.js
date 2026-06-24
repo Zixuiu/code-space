@@ -1,4 +1,4 @@
-import { post, get, put } from '@/utils/request'
+import { post, get, put, del } from '@/utils/request'
 
 export const messageApi = {
   sendMessage(toUserId, content, type = 'text') {

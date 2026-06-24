@@ -87,8 +87,6 @@ export const useNeedStore = defineStore('need', {
   }),
 
   getters: {
-    allNeeds: (state) => state.needs.filter(n => n.status === NEED_STATUS.OPEN),
-    
     openNeeds: (state) => state.needs.filter(n => n.status === NEED_STATUS.OPEN),
     
     filteredNeedsGetter: (state) => {
@@ -137,11 +135,6 @@ export const useNeedStore = defineStore('need', {
     },
     
     publishedNeeds: (state) => {
-      const userStore = useUserStore()
-      return state.needs.filter(n => n.publisher.id === userStore.currentUser.id)
-    },
-    
-    allPublishedNeeds: (state) => {
       const userStore = useUserStore()
       return state.needs.filter(n => n.publisher.id === userStore.currentUser.id)
     },

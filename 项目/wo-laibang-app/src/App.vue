@@ -41,7 +41,6 @@ export default {
 		console.log('App Launch')
 		uni.hideTabBar()
 		this.checkShareSource()
-		this.initNavigateMethods()
 		this.checkPrivacyAgreement()
 		this.checkGuidePage()
 		this.setupRouterGuard()
@@ -115,11 +114,12 @@ export default {
 			const originalReLaunch = uni.reLaunch
 
 			uni.navigateTo = (options) => {
+				options.animationType = 'none'
 				if (this.shouldCheckLogin(options.url)) {
 					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
 					uni.showToast({ title: '请先登录', icon: 'none' })
 					setTimeout(() => {
-						originalNavigateTo.call(uni, { url: '/pages/login/login' })
+						originalNavigateTo.call(uni, { url: '/pages/login/login', animationType: 'none' })
 					}, 500)
 					return
 				}
@@ -127,11 +127,12 @@ export default {
 			}
 
 			uni.switchTab = (options) => {
+				options.animationType = 'none'
 				if (this.shouldCheckLogin(options.url)) {
 					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
 					uni.showToast({ title: '请先登录', icon: 'none' })
 					setTimeout(() => {
-						uni.reLaunch({ url: '/pages/login/login' })
+						uni.reLaunch({ url: '/pages/login/login', animationType: 'none' })
 					}, 500)
 					return
 				}
@@ -139,11 +140,12 @@ export default {
 			}
 
 			uni.redirectTo = (options) => {
+				options.animationType = 'none'
 				if (this.shouldCheckLogin(options.url)) {
 					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
 					uni.showToast({ title: '请先登录', icon: 'none' })
 					setTimeout(() => {
-						originalRedirectTo.call(uni, { url: '/pages/login/login' })
+						originalRedirectTo.call(uni, { url: '/pages/login/login', animationType: 'none' })
 					}, 500)
 					return
 				}
@@ -151,11 +153,12 @@ export default {
 			}
 
 			uni.reLaunch = (options) => {
+				options.animationType = 'none'
 				if (this.shouldCheckLogin(options.url)) {
 					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
 					uni.showToast({ title: '请先登录', icon: 'none' })
 					setTimeout(() => {
-						originalReLaunch.call(uni, { url: '/pages/login/login' })
+						originalReLaunch.call(uni, { url: '/pages/login/login', animationType: 'none' })
 					}, 500)
 					return
 				}
@@ -209,28 +212,6 @@ export default {
 
 			uni.setStorageSync('totalUnreadCount', totalUnread)
 			uni.$emit('updateBadge')
-		},
-		initNavigateMethods() {
-			uni.oldNavigateTo = uni.navigateTo
-			uni.navigateTo = (options) => {
-				options.animationType = 'none'
-				return uni.oldNavigateTo(options)
-			}
-			uni.oldRedirectTo = uni.redirectTo
-			uni.redirectTo = (options) => {
-				options.animationType = 'none'
-				return uni.oldRedirectTo(options)
-			}
-			uni.oldreLaunch = uni.reLaunch
-			uni.reLaunch = (options) => {
-				options.animationType = 'none'
-				return uni.oldreLaunch(options)
-			}
-			uni.oldswitchTab = uni.switchTab
-			uni.switchTab = (options) => {
-				options.animationType = 'none'
-				return uni.oldswitchTab(options)
-			}
 		},
 		checkShareSource() {
 			// #ifdef APP-PLUS
@@ -432,10 +413,6 @@ export default {
 		align-items: center;
 		justify-content: center;
 		box-shadow: 0 8rpx 20rpx rgba(16, 185, 129, 0.25);
-	}
-
-	.privacy-btn::after {
-		border: none;
 	}
 
 	.privacy-btn::after {

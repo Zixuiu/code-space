@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { useNeedStore } from './need'
 import { useOrderStore } from './order'
 import { useUserStore } from './user'
+import { getChatKey } from '@/utils/chat'
 
 const SIMULATION_USERS = [
   { id: 'sim1', nickname: '热心张叔', reputation: 88, completedOrders: 15, avatar: '', skills: ['跑腿', '家政'], active: true },
@@ -156,18 +157,10 @@ export const useSimulationStore = defineStore('simulation', {
       if (result.success) {
         const isCurrentUserPublisher = need.publisher.id === originalUserId
         
-        console.log('=== DEBUG - acceptRandomNeed ===')
-        console.log('originalUserId:', originalUserId)
-        console.log('need.publisher.id:', need.publisher.id)
-        console.log('isCurrentUserPublisher:', isCurrentUserPublisher)
-        
         if (isCurrentUserPublisher) {
-          const chatKey = this.getChatKey(need.publisher.id, user.id)
-          console.log('chatKey:', chatKey)
+          const chatKey = getChatKey(need.publisher.id, user.id)
           
           const allMessages = uni.getStorageSync('chatMessages') || {}
-          console.log('allMessages before:', allMessages)
-          
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
           }
@@ -191,8 +184,6 @@ export const useSimulationStore = defineStore('simulation', {
           allMessages[chatKey].push(systemMsg)
           allMessages[chatKey].push(welcomeMsg)
           uni.setStorageSync('chatMessages', allMessages)
-          
-          console.log('allMessages after:', allMessages)
           
           const allConvs = uni.getStorageSync('conversations') || []
           
@@ -304,7 +295,7 @@ export const useSimulationStore = defineStore('simulation', {
         const isCurrentUserPublisher = need.publisher.id === originalUserId
         
         if (isCurrentUserPublisher) {
-          const chatKey = this.getChatKey(need.publisher.id, user.id)
+          const chatKey = getChatKey(need.publisher.id, user.id)
           const allMessages = uni.getStorageSync('chatMessages') || {}
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
@@ -390,7 +381,7 @@ export const useSimulationStore = defineStore('simulation', {
         const isCurrentUserHelper = need.helper?.id === originalUserId
 
         if (isCurrentUserHelper && need.helper) {
-          const chatKey = this.getChatKey(need.helper.id, need.publisher.id)
+          const chatKey = getChatKey(need.helper.id, need.publisher.id)
           const allMessages = uni.getStorageSync('chatMessages') || {}
           if (!allMessages[chatKey]) {
             allMessages[chatKey] = []
@@ -622,7 +613,7 @@ export const useSimulationStore = defineStore('simulation', {
       const messages = MESSAGE_TEMPLATES[messageType]
       const messageText = messages[Math.floor(Math.random() * messages.length)]
 
-      const chatKey = this.getChatKey(fromUser.id, toUser.id)
+      const chatKey = getChatKey(fromUser.id, toUser.id)
       const allMessages = uni.getStorageSync('chatMessages') || {}
       if (!allMessages[chatKey]) {
         allMessages[chatKey] = []
@@ -644,11 +635,6 @@ export const useSimulationStore = defineStore('simulation', {
       this.logActivity('message', `${fromUser.nickname} 给 ${toUser.nickname} 发了消息`, fromUser)
 
       return { success: true, from: fromUser, to: toUser, message: messageText, order }
-    },
-
-    getChatKey(id1, id2) {
-      const ids = [id1, id2].sort()
-      return `chat_${ids[0]}_${ids[1]}`
     },
 
     updateConversation(fromUser, toUser, messageText, order, originalUserId) {

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useUserStore } from './user'
+import { useNeedStore } from './need'
 
 const COMMISSION_RATE = 0.1
 const SHARE_COMMISSION_RATE = 0.02
@@ -253,21 +254,18 @@ export const useOrderStore = defineStore('order', {
         uni.setStorageSync('walletTransactions', transactions)
       }
 
-      try {
-        const { useNeedStore } = require('./need')
-        const needStore = useNeedStore()
-        const need = needStore.needs.find(n => n.id === order.needId)
-        if (need) {
-          if (isHelper) {
-            need.status = 'open'
-            need.helper = null
-            need.acceptedAt = null
-          } else {
-            need.status = 'cancelled'
-            need.cancelledAt = Date.now()
-          }
+      const needStore = useNeedStore()
+      const need = needStore.needs.find(n => n.id === order.needId)
+      if (need) {
+        if (isHelper) {
+          need.status = 'open'
+          need.helper = null
+          need.acceptedAt = null
+        } else {
+          need.status = ORDER_STATUS.CANCELLED
+          need.cancelledAt = Date.now()
         }
-      } catch(e) {}
+      }
 
       const allConvs = uni.getStorageSync('conversations') || []
       if (isPublisher && order.publisher?.id) {
