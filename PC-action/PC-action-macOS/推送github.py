@@ -33,6 +33,10 @@ with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
     f.write(safe_gitignore)
 print("✅ .gitignore 已精简，不再排除关键目录")
 
+# 设置远程仓库地址为 GitHub
+subprocess.run("git remote set-url origin https://github.com/Zixuiu/code-space.git", shell=True)
+print("✅ 远程仓库已切换到 GitHub: https://github.com/Zixuiu/code-space.git")
+
 subprocess.run("git add -A", shell=True)
 subprocess.run('git commit -m "auto_update: add all key files"', shell=True)
 subprocess.run("git push -u origin main --force", shell=True)
