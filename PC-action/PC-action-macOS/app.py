@@ -99,12 +99,6 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, QEvent, QObject, QSize, QPropertyAnimation, QRect, QAbstractAnimation, QThread, QEasingCurve, QMimeData, pyqtSignal
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QStyle
-from selection_overlay import SelectionOverlay
-from login_manager import LoginManager
-from combo_skill_edit_dialog import ComboSkillEditDialog
-from login_ui import LoginDialog
-from admin_manager import AdminManager
-from image_recognition import replay_coordinate_operations, replay_coordinates_only, set_replay_stop_flag, clear_image_cache, is_replay_stopped
 
 # image_recognition模块已导入
 
@@ -2663,6 +2657,7 @@ class FolderManager(QDialog):
             
             # 创建选择覆盖层，传入现有文件夹路径和初始操作计数
             # print("创建SelectionOverlay窗口...")  # [日志已禁用]
+            from selection_overlay import SelectionOverlay
             self.parent.selection_overlay = SelectionOverlay(self.parent, screen_pixmap=screen_pixmap, recording_dir=folder_path, initial_operation_count=max_step)
             # print(f"SelectionOverlay窗口创建成功，窗口对象: {self.parent.selection_overlay}")  # [日志已禁用]
             # print(f"SelectionOverlay窗口标志: {self.parent.selection_overlay.windowFlags()}")  # [日志已禁用]
@@ -5190,6 +5185,7 @@ class AutoRecorderApp(QMainWindow):
         super().__init__()
         
         self.recording_dir = None
+        from login_manager import LoginManager
         self.login_manager = login_manager if login_manager else LoginManager()
         self.current_user = username
         self.current_recording_dir = None
@@ -5209,29 +5205,25 @@ class AutoRecorderApp(QMainWindow):
         self.user_data_dir = get_user_data_path()
         os.makedirs(self.user_data_dir, exist_ok=True)
         
-        self.load_shortcut_config()
-        # 加载调试模式设置
-        self.load_debug_mode_setting()
-        # 添加标志变量，跟踪管理录制操作界面是否打开
-        self.is_folder_manager_open = False
-        
-        # 程序启动时就注册快捷键，这样无论文件夹管理器是否打开都可以使用快捷键
-        self.update_shortcuts()
-        # 注册·键作为开始录制的快捷键
-        self.register_record_hotkey()
-        # 注册F12键作为停止回放的快捷键
-        self.register_stop_replay_hotkey()
         self.initUI()
         self.log_signal.connect(self._append_log_impl)
-        # 加载字体大小设置
+        
+        # 窗口先显示，非关键初始化延后执行
+        QTimer.singleShot(0, self._lazy_init)
+    
+    
+    def _lazy_init(self):
+        """延后初始化：窗口显示后再加载配置和注册热键"""
+        self.load_shortcut_config()
+        self.load_debug_mode_setting()
+        self.is_folder_manager_open = False
+        self.update_shortcuts()
+        self.register_record_hotkey()
+        self.register_stop_replay_hotkey()
         self.load_font_size_setting()
         if hasattr(self, 'status_label') and self.current_user:
             self.status_label.setText(f"当前用户: {self.current_user}")
-        
-        # 更新状态显示
         self.update_status_display()
-    
-    
     
     
     def show_beautiful_message(self, msg_type, title, text, buttons=None, default_button=None, parent=None):
@@ -6811,6 +6803,7 @@ class AutoRecorderApp(QMainWindow):
                 return
             
             # 清除图像缓存，确保使用最新的图像
+            from image_recognition import clear_image_cache
             clear_image_cache()
 
             # ★ 保存回放前的鼠标位置，结束后恢复 ★
@@ -6826,11 +6819,13 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print(f"[回放] 开始执行回放: {folder_path}")
             if is_coord_only:
                 self.debug_print(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
+                from image_recognition import replay_coordinates_only
                 success_count, total_count = replay_coordinates_only(
                     recording_data=recording_data,
                     replay_interval=self.replay_interval
                 )
             else:
+                from image_recognition import replay_coordinate_operations
                 replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
@@ -6860,6 +6855,7 @@ class AutoRecorderApp(QMainWindow):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
         try:
             # 设置停止标志，让回放函数自行停止
+            from image_recognition import set_replay_stop_flag
             set_replay_stop_flag(True)
             
             # 立即重置回放状态
@@ -7336,6 +7332,7 @@ class AutoRecorderApp(QMainWindow):
     def open_admin_console(self):
         """打开管理员控制台"""
         try:
+            from admin_manager import AdminManager
             self.admin_window = AdminManager(self.login_manager)
             self.admin_window.show()
         except ImportError:
@@ -9173,6 +9170,7 @@ class AutoRecorderApp(QMainWindow):
         self.hide()
         if hasattr(self, 'replay_status_widget'):
             self.replay_status_widget.hide()
+        from login_ui import LoginDialog
         login_dialog = LoginDialog(self.login_manager)
         if login_dialog.exec_() == login_dialog.Accepted:
             self.username = login_dialog.current_user
@@ -9795,7 +9793,9 @@ def start_app():
     screen_width, screen_height = get_screen_size()
     app.setStyleSheet(generate_dynamic_styles(screen_width, screen_height))
 
+    from login_manager import LoginManager
     login_manager = LoginManager()
+    from login_ui import LoginDialog
     login_dialog = LoginDialog(login_manager)
     login_dialog.show()
     login_dialog.raise_()
