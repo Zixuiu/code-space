@@ -1,4 +1,5 @@
 import CONFIG from './config'
+import { storage, StorageKeys } from './storage'
 
 class WebSocketService {
   constructor() {
@@ -23,7 +24,7 @@ class WebSocketService {
       return
     }
 
-    const token = uni.getStorageSync('token')
+    const token = storage.get(StorageKeys.TOKEN)
     if (!token) {
       console.warn('WebSocket: No token available')
       return

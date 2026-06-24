@@ -2,34 +2,10 @@
 import { useUserStore } from '@/store/user'
 import apiService from '@/utils/api'
 import websocketService from '@/utils/websocket'
-
-const NEED_LOGIN_PAGES = [
-  '/pages/orders/orders',
-  '/pages/wallet/wallet',
-  '/pages/messages/messages',
-  '/pages/recharge/recharge',
-  '/pages/withdraw/withdraw',
-  '/pages/transfer/transfer',
-  '/pages/profile/profile',
-  '/pages/edit-profile/edit-profile',
-  '/pages/settings/settings',
-  '/pages/verify/verify',
-  '/pages/order-detail/order-detail',
-  '/pages/accept-order/accept-order',
-  '/pages/rate/rate',
-  '/pages/skills/skills',
-  '/pages/blacklist/blacklist',
-  '/pages/received-help/received-help',
-  '/pages/rating-history/rating-history',
-  '/pages/notification-settings/notification-settings',
-  '/pages/feedback/feedback',
-  '/pages/transaction/transaction',
-  '/pages/bind-alipay/bind-alipay',
-  '/pages/bind-bank/bind-bank',
-  '/pages/complaint/complaint',
-  '/pages/complaint-list/complaint-list',
-  '/pages/complaint-detail/complaint-detail'
-]
+import { setupRouterGuard } from '@/utils/router-guard'
+import { storage, StorageKeys } from '@/utils/storage'
+import badgeService from '@/utils/badge-service'
+import messageService from '@/utils/message-service'
 
 export default {
 	data() {
@@ -43,14 +19,14 @@ export default {
 		this.checkShareSource()
 		this.checkPrivacyAgreement()
 		this.checkGuidePage()
-		this.setupRouterGuard()
+		setupRouterGuard()
 		this.initServices()
-		this.setupMessageBadgeListener()
+		this.setupBadgeListener()
 	},
 	onShow: function() {
 		console.log('App Show')
 		this.checkShareSource()
-		this.updateTabBarBadge()
+		badgeService.updateTabBarBadge()
 		this.resumeServices()
 	},
 	onHide: function() {
@@ -62,156 +38,20 @@ export default {
 			apiService.init()
 		},
 		resumeServices() {
-			const isLoggedIn = uni.getStorageSync('isLoggedIn')
+			const isLoggedIn = storage.getBoolean(StorageKeys.IS_LOGGED_IN)
 			if (isLoggedIn) {
 				apiService.initWebSocket()
-				this.initWebSocketListeners()
+				messageService.bindWebSocketListeners()
 			}
-		},
-		initWebSocketListeners() {
-			websocketService.on('chat_message', (payload) => {
-				this.incrementUnreadForIncomingMessage(payload)
-				this.updateTabBarBadge()
-			})
-			websocketService.on('notification', () => {
-				this.updateTabBarBadge()
-			})
-		},
-		incrementUnreadForIncomingMessage(payload) {
-			if (!payload || !payload.fromUserId) return
-			const conversations = uni.getStorageSync('conversations') || []
-			const convIndex = conversations.findIndex(c => c.userId == payload.fromUserId)
-			if (convIndex >= 0) {
-				conversations[convIndex].unread = (conversations[convIndex].unread || 0) + 1
-				conversations[convIndex].lastMessage = payload.content
-				conversations[convIndex].lastTime = payload.timestamp || Date.now()
-			} else {
-				conversations.unshift({
-					id: `conv_${payload.fromUserId}`,
-					userId: payload.fromUserId,
-					nickname: payload.fromNickname || '未知用户',
-					lastMessage: payload.content,
-					lastTime: payload.timestamp || Date.now(),
-					unread: 1,
-					online: true
-				})
-			}
-			uni.setStorageSync('conversations', conversations)
 		},
 		pauseServices() {
 			apiService.disconnect()
 		},
 		checkGuidePage() {
-			const hasSeenGuide = uni.getStorageSync('hasSeenGuide')
+			const hasSeenGuide = storage.getBoolean(StorageKeys.HAS_SEEN_GUIDE)
 			if (!hasSeenGuide) {
 				uni.reLaunch({ url: '/pages/guide/guide' })
 			}
-		},
-		setupRouterGuard() {
-			const originalNavigateTo = uni.navigateTo
-			const originalSwitchTab = uni.switchTab
-			const originalRedirectTo = uni.redirectTo
-			const originalReLaunch = uni.reLaunch
-
-			uni.navigateTo = (options) => {
-				options.animationType = 'none'
-				if (this.shouldCheckLogin(options.url)) {
-					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
-					uni.showToast({ title: '请先登录', icon: 'none' })
-					setTimeout(() => {
-						originalNavigateTo.call(uni, { url: '/pages/login/login', animationType: 'none' })
-					}, 500)
-					return
-				}
-				return originalNavigateTo.call(uni, options)
-			}
-
-			uni.switchTab = (options) => {
-				options.animationType = 'none'
-				if (this.shouldCheckLogin(options.url)) {
-					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
-					uni.showToast({ title: '请先登录', icon: 'none' })
-					setTimeout(() => {
-						uni.reLaunch({ url: '/pages/login/login', animationType: 'none' })
-					}, 500)
-					return
-				}
-				return originalSwitchTab.call(uni, options)
-			}
-
-			uni.redirectTo = (options) => {
-				options.animationType = 'none'
-				if (this.shouldCheckLogin(options.url)) {
-					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
-					uni.showToast({ title: '请先登录', icon: 'none' })
-					setTimeout(() => {
-						originalRedirectTo.call(uni, { url: '/pages/login/login', animationType: 'none' })
-					}, 500)
-					return
-				}
-				return originalRedirectTo.call(uni, options)
-			}
-
-			uni.reLaunch = (options) => {
-				options.animationType = 'none'
-				if (this.shouldCheckLogin(options.url)) {
-					uni.setStorageSync('redirectAfterLogin', this.extractPath(options.url))
-					uni.showToast({ title: '请先登录', icon: 'none' })
-					setTimeout(() => {
-						originalReLaunch.call(uni, { url: '/pages/login/login', animationType: 'none' })
-					}, 500)
-					return
-				}
-				return originalReLaunch.call(uni, options)
-			}
-		},
-
-		setupMessageBadgeListener() {
-			uni.$on('updateMessageBadge', () => {
-				this.updateTabBarBadge()
-			})
-			uni.$on('clearMessageBadge', () => {
-				this.updateTabBarBadge()
-			})
-		},
-
-		shouldCheckLogin(url) {
-			const path = this.extractPath(url)
-			const isNeedLogin = NEED_LOGIN_PAGES.some(page => path.startsWith(page))
-			if (!isNeedLogin) return false
-
-			const isLoggedIn = uni.getStorageSync('isLoggedIn') || false
-			const token = uni.getStorageSync('token')
-			return !isLoggedIn || !token
-		},
-
-		extractPath(url) {
-			if (url.startsWith('/')) {
-				return url.split('?')[0]
-			}
-			return '/' + url.split('?')[0]
-		},
-
-		updateTabBarBadge() {
-			const notifications = uni.getStorageSync('notifications') || []
-			const unreadNotifications = notifications.filter(n => !n.read).length
-
-			const conversations = uni.getStorageSync('conversations') || []
-			const unreadMessages = conversations.reduce((sum, c) => sum + (c.unread || 0), 0)
-
-			const totalUnread = unreadNotifications + unreadMessages
-
-			if (totalUnread > 0) {
-				uni.setTabBarBadge({
-					index: 3,
-					text: totalUnread > 99 ? '99+' : String(totalUnread)
-				})
-			} else {
-				uni.removeTabBarBadge({ index: 3 })
-			}
-
-			uni.setStorageSync('totalUnreadCount', totalUnread)
-			uni.$emit('updateBadge')
 		},
 		checkShareSource() {
 			// #ifdef APP-PLUS
@@ -235,30 +75,33 @@ export default {
 					needId: needId || null,
 					timestamp: Date.now()
 				}
-				uni.setStorageSync('currentShareSource', shareInfo)
+				storage.set(StorageKeys.CURRENT_SHARE_SOURCE, shareInfo)
 				console.log('记录分享来源:', shareInfo)
 			}
 		},
 		getShareSource() {
-			return uni.getStorageSync('currentShareSource') || null
+			return storage.getObject(StorageKeys.CURRENT_SHARE_SOURCE, null)
 		},
 		clearShareSource() {
-			uni.removeStorageSync('currentShareSource')
+			storage.remove(StorageKeys.CURRENT_SHARE_SOURCE)
 		},
 		checkPrivacyAgreement() {
-			const hasAgreed = uni.getStorageSync('hasAgreedPrivacyPolicy')
+			const hasAgreed = storage.getBoolean(StorageKeys.HAS_AGREED_PRIVACY)
 			if (!hasAgreed) {
 				this.privacyModalVisible = true
 			}
 		},
 		confirmPrivacy() {
-			uni.setStorageSync('hasAgreedPrivacyPolicy', true)
+			storage.set(StorageKeys.HAS_AGREED_PRIVACY, true)
 			this.privacyModalVisible = false
 		},
 		viewPrivacyPolicy() {
 			uni.navigateTo({
 				url: '/pages/privacy-policy/privacy-policy'
 			})
+		},
+		setupBadgeListener() {
+			badgeService.setupListeners()
 		},
 		preventClose() {
 		}

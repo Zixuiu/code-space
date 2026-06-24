@@ -1,5 +1,6 @@
 import websocketService from './websocket'
 import pushService from './push'
+import { storage, StorageKeys } from './storage'
 
 class ApiService {
   constructor() {
@@ -8,12 +9,12 @@ class ApiService {
   }
 
   async init() {
-    const isLoggedIn = uni.getStorageSync('isLoggedIn')
+    const isLoggedIn = storage.getBoolean(StorageKeys.IS_LOGGED_IN)
     if (isLoggedIn) {
       await this.initPush()
       this.initWebSocket()
     }
-  }
+  },
 
   async initPush() {
     try {

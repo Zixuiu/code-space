@@ -22,9 +22,14 @@ export const StorageKeys = {
   LAST_PUBLISHED_NEED_ID: 'lastPublishedNeedId',
   PAY_PASSWORD: 'payPassword',
   PAY_PASSWORD_SET_TIME: 'payPasswordSetTime',
+  PAY_PASSWORD_SET: 'payPasswordSet',
   HAS_DISMISSED_GPS: 'hasDismissedGps',
   GPS_ENABLED: 'gpsEnabled',
-  USER_LOCATION: 'userLocation'
+  USER_LOCATION: 'userLocation',
+  HAS_AGREED_PRIVACY: 'hasAgreedPrivacyPolicy',
+  USER_TRANSACTIONS: 'userTransactions',
+  SKILLS: 'skills',
+  BLACKLIST: 'blacklist'
 }
 
 function safeGet(key, defaultValue = null) {
