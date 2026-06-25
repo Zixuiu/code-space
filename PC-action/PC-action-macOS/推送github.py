@@ -1,10 +1,10 @@
-﻿import subprocess, os, sys, socket
+﻿import subprocess, os
 from datetime import datetime
 
 root = r"D:\code空间"
 os.chdir(root)
 
-GITHUB_URL = "https://github.com/Zixuiu/code-space.git"
+GITHUB_URL = "git@github.com:Zixuiu/code-space.git"
 GITCODE_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 
 safe_gitignore = """__pycache__/
@@ -31,18 +31,7 @@ recordings/
 trash/
 """
 
-def detect_proxy():
-    common_ports = [7890, 7891, 7897, 10808, 10809, 1080, 1081, 8080, 8118, 2080, 33210]
-    for port in common_ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.3)
-        if s.connect_ex(("127.0.0.1", port)) == 0:
-            s.close()
-            return port
-        s.close()
-    return None
-
-def git_push(remote="origin", branch="main", retries=2):
+def git_push(remote="origin", branch="main", retries=3):
     for attempt in range(1, retries + 1):
         result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
         if result.returncode == 0:
@@ -50,29 +39,19 @@ def git_push(remote="origin", branch="main", retries=2):
             return True
         print(f"❌ 推送到 {remote} 失败(第{attempt}次): {result.stderr.strip()}")
         if attempt < retries:
-            print(f"⏳ {2}s 后重试...")
+            wait = attempt * 2
+            print(f"⏳ {wait}s 后重试...")
             import time
-            time.sleep(2)
+            time.sleep(wait)
     return False
 
-# 1. 代理检测（GitHub 走 HTTPS 需要代理）
-proxy_port = detect_proxy()
-if proxy_port:
-    proxy_url = f"http://127.0.0.1:{proxy_port}"
-    subprocess.run(["git", "config", "--global", "http.proxy", proxy_url])
-    subprocess.run(["git", "config", "--global", "https.proxy", proxy_url])
-    print(f"✅ 检测到代理端口: {proxy_port}，已设置 git 代理")
-else:
-    subprocess.run(["git", "config", "--global", "--unset", "http.proxy"], capture_output=True)
-    subprocess.run(["git", "config", "--global", "--unset", "https.proxy"], capture_output=True)
-    print("⚠️ 未检测到代理，将尝试直连")
-
-# 1b. GitCode SSH 主机密钥检测
+# 1. 自动添加 known_hosts
 known_hosts = os.path.expanduser("~/.ssh/known_hosts")
-result = subprocess.run(["ssh-keygen", "-F", "gitcode.com"], capture_output=True, text=True)
-if result.returncode != 0:
-    print("🔑 正在添加 gitcode.com 到 known_hosts...")
-    subprocess.run(f'ssh-keyscan gitcode.com >> "{known_hosts}"', shell=True)
+for host in ["github.com", "gitcode.com"]:
+    r = subprocess.run(["ssh-keygen", "-F", host], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"🔑 正在添加 {host} 到 known_hosts...")
+        subprocess.run(f'ssh-keyscan {host} >> "{known_hosts}"', shell=True)
 
 # 2. 写 .gitignore
 with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
@@ -83,11 +62,10 @@ print("✅ .gitignore 已精简")
 subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
 subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
 subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
-print(f"✅ 远程仓库(GitHub - HTTPS): {GITHUB_URL}")
-print(f"✅ 远程仓库(GitCode - SSH): {GITCODE_URL}")
+print(f"✅ 远程仓库(GitHub): {GITHUB_URL}")
+print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
 
 # 4. 检查是否有变更
-subprocess.run(["git", "config", "--global", "credential.helper", "store"])
 status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
 
 if not status.stdout.strip():
@@ -101,15 +79,15 @@ else:
     else:
         print("✅ 提交成功")
 
-# 6. 推送（自动重试到两个远程仓库）
+# 5. 推送（自动重试到两个远程仓库）
 all_ok = True
 for rmt, lbl in [("origin", "GitHub"), ("gitcode", "GitCode")]:
     print(f"⏳ 正在推送到 {lbl}...")
-    if not git_push(remote=rmt, retries=2):
+    if not git_push(remote=rmt, retries=3):
         all_ok = False
 if all_ok:
     print("✅ 全部推送完成！")
 else:
-    print("💡 部分推送失败，请检查网络或代理设置后重试")
+    print("💡 部分推送失败，请检查网络后重试")
 
 input("按 Enter 退出...")
