@@ -9400,7 +9400,7 @@ class ComboSkillRunner:
 
                 flow_index = 0
                 total_jumps = 0
-                max_jumps = 50
+                max_jumps = 999999999
                 while flow_index < len(flows):
                     if not self.running:
                         break
