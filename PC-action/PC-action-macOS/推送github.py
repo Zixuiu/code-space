@@ -1,4 +1,4 @@
-﻿import subprocess, os
+import subprocess, os
 from datetime import datetime
 
 root = r"D:\code空间"
@@ -89,5 +89,3 @@ if all_ok:
     print("✅ 全部推送完成！")
 else:
     print("💡 部分推送失败，请检查网络后重试")
-
-input("按 Enter 退出...")
