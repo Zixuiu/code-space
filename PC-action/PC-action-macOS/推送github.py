@@ -4,7 +4,7 @@ from datetime import datetime
 root = r"D:\code空间"
 os.chdir(root)
 
-GITHUB_URL = "git@github.com:Zixuiu/code-space.git"
+GITHUB_URL = "https://github.com/Zixuiu/code-space.git"
 GITCODE_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 
 safe_gitignore = """__pycache__/
@@ -31,6 +31,17 @@ recordings/
 trash/
 """
 
+def detect_proxy():
+    common_ports = [7890, 7891, 7897, 10808, 10809, 1080, 1081, 8080, 8118, 2080, 33210]
+    for port in common_ports:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.3)
+        if s.connect_ex(("127.0.0.1", port)) == 0:
+            s.close()
+            return port
+        s.close()
+    return None
+
 def git_push(remote="origin", branch="main", retries=2):
     for attempt in range(1, retries + 1):
         result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
@@ -44,18 +55,35 @@ def git_push(remote="origin", branch="main", retries=2):
             time.sleep(2)
     return False
 
-# 1. SSH 方式不需要代理检测，已跳过
+# 1. 代理检测（GitHub 走 HTTPS 需要代理）
+proxy_port = detect_proxy()
+if proxy_port:
+    proxy_url = f"http://127.0.0.1:{proxy_port}"
+    subprocess.run(["git", "config", "--global", "http.proxy", proxy_url])
+    subprocess.run(["git", "config", "--global", "https.proxy", proxy_url])
+    print(f"✅ 检测到代理端口: {proxy_port}，已设置 git 代理")
+else:
+    subprocess.run(["git", "config", "--global", "--unset", "http.proxy"], capture_output=True)
+    subprocess.run(["git", "config", "--global", "--unset", "https.proxy"], capture_output=True)
+    print("⚠️ 未检测到代理，将尝试直连")
+
+# 1b. GitCode SSH 主机密钥检测
+known_hosts = os.path.expanduser("~/.ssh/known_hosts")
+result = subprocess.run(["ssh-keygen", "-F", "gitcode.com"], capture_output=True, text=True)
+if result.returncode != 0:
+    print("🔑 正在添加 gitcode.com 到 known_hosts...")
+    subprocess.run(f'ssh-keyscan gitcode.com >> "{known_hosts}"', shell=True)
 
 # 2. 写 .gitignore
 with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
     f.write(safe_gitignore)
 print("✅ .gitignore 已精简")
 
-# 3. 设置远程仓库（SSH）
+# 3. 设置远程仓库
 subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
 subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
 subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
-print(f"✅ 远程仓库(GitHub - SSH): {GITHUB_URL}")
+print(f"✅ 远程仓库(GitHub - HTTPS): {GITHUB_URL}")
 print(f"✅ 远程仓库(GitCode - SSH): {GITCODE_URL}")
 
 # 4. 检查是否有变更
@@ -65,7 +93,6 @@ status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, t
 if not status.stdout.strip():
     print("📝 没有新文件变更，直接推送...")
 else:
-    # 5. 有变更，提交（commit 信息带时间）
     subprocess.run(["git", "add", "-A"])
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     commit = subprocess.run(["git", "commit", "-m", f"auto_update {now}"], capture_output=True, text=True)
