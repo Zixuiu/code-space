@@ -1,13 +1,11 @@
-import subprocess
-import os
-import sys
-import socket
+﻿import subprocess, os, sys, socket
 from datetime import datetime
 
 root = r"D:\code空间"
 os.chdir(root)
 
 GITHUB_URL = "https://github.com/Zixuiu/code-space.git"
+GITCODE_URL = "https://gitcode.com/weixin_58844486/codespace.git"
 
 safe_gitignore = """__pycache__/
 *.pyc
@@ -44,13 +42,13 @@ def detect_proxy():
         s.close()
     return None
 
-def git_push(retries=2):
+def git_push(remote="origin", branch="main", retries=2):
     for attempt in range(1, retries + 1):
-        result = subprocess.run(["git", "push", "origin", "main"], capture_output=True, text=True, timeout=60)
+        result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
         if result.returncode == 0:
             print(result.stdout)
             return True
-        print(f"❌ 推送失败(第{attempt}次): {result.stderr.strip()}")
+        print(f"❌ 推送到 {remote} 失败(第{attempt}次): {result.stderr.strip()}")
         if attempt < retries:
             print(f"⏳ {2}s 后重试...")
             import time
@@ -76,7 +74,10 @@ print("✅ .gitignore 已精简")
 
 # 3. 设置远程仓库
 subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
-print(f"✅ 远程仓库: {GITHUB_URL}")
+subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
+subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
+print(f"✅ 远程仓库(GitHub): {GITHUB_URL}")
+print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
 
 # 4. 检查是否有变更
 subprocess.run(["git", "config", "--global", "credential.helper", "store"])
@@ -94,11 +95,15 @@ else:
     else:
         print("✅ 提交成功")
 
-# 6. 推送（自动重试）
-print("⏳ 正在推送到 GitHub...")
-if git_push(retries=2):
-    print("✅ 推送完成！")
+# 6. 推送（自动重试到两个远程仓库）
+all_ok = True
+for rmt, lbl in [("origin", "GitHub"), ("gitcode", "GitCode")]:
+    print(f"⏳ 正在推送到 {lbl}...")
+    if not git_push(remote=rmt, retries=2):
+        all_ok = False
+if all_ok:
+    print("✅ 全部推送完成！")
 else:
-    print("💡 推送失败，请检查网络或代理设置后重试")
+    print("💡 部分推送失败，请检查网络或代理设置后重试")
 
 input("按 Enter 退出...")
