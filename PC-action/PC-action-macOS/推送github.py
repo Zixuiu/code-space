@@ -4,8 +4,8 @@ from datetime import datetime
 root = r"D:\code空间"
 os.chdir(root)
 
-GITHUB_URL = "https://github.com/Zixuiu/code-space.git"
-GITCODE_URL = "https://gitcode.com/weixin_58844486/codespace.git"
+GITHUB_URL = "git@github.com:Zixuiu/code-space.git"
+GITCODE_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 
 safe_gitignore = """__pycache__/
 *.pyc
@@ -31,17 +31,6 @@ recordings/
 trash/
 """
 
-def detect_proxy():
-    common_ports = [7890, 7891, 7897, 10808, 10809, 1080, 1081, 8080, 8118, 2080, 33210]
-    for port in common_ports:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.3)
-        if s.connect_ex(("127.0.0.1", port)) == 0:
-            s.close()
-            return port
-        s.close()
-    return None
-
 def git_push(remote="origin", branch="main", retries=2):
     for attempt in range(1, retries + 1):
         result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
@@ -55,29 +44,19 @@ def git_push(remote="origin", branch="main", retries=2):
             time.sleep(2)
     return False
 
-# 1. 代理检测
-proxy_port = detect_proxy()
-if proxy_port:
-    proxy_url = f"http://127.0.0.1:{proxy_port}"
-    subprocess.run(["git", "config", "--global", "http.proxy", proxy_url])
-    subprocess.run(["git", "config", "--global", "https.proxy", proxy_url])
-    print(f"✅ 检测到代理端口: {proxy_port}，已设置 git 代理")
-else:
-    subprocess.run(["git", "config", "--global", "--unset", "http.proxy"], capture_output=True)
-    subprocess.run(["git", "config", "--global", "--unset", "https.proxy"], capture_output=True)
-    print("⚠️ 未检测到代理，将尝试直连")
+# 1. SSH 方式不需要代理检测，已跳过
 
 # 2. 写 .gitignore
 with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
     f.write(safe_gitignore)
 print("✅ .gitignore 已精简")
 
-# 3. 设置远程仓库
+# 3. 设置远程仓库（SSH）
 subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
 subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
 subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
-print(f"✅ 远程仓库(GitHub): {GITHUB_URL}")
-print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
+print(f"✅ 远程仓库(GitHub - SSH): {GITHUB_URL}")
+print(f"✅ 远程仓库(GitCode - SSH): {GITCODE_URL}")
 
 # 4. 检查是否有变更
 subprocess.run(["git", "config", "--global", "credential.helper", "store"])
