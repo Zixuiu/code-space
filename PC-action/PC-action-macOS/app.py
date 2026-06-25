@@ -6913,7 +6913,7 @@ class AutoRecorderApp(QMainWindow):
                         try:
                             runner.reset()
                         except Exception:
-                            pass
+                            break
                 # 注：移除主线程join等待，避免卡死UI，子线程会检测running标志自行退出
                 # for skill_id, runner in runners_to_reset:
                 #     try:
@@ -9400,7 +9400,7 @@ class ComboSkillRunner:
 
                 flow_index = 0
                 total_jumps = 0
-                max_jumps = 999999999
+                max_jumps = 50
                 while flow_index < len(flows):
                     if not self.running:
                         break
@@ -9433,7 +9433,7 @@ class ComboSkillRunner:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_found 未设置条件图片，条件视为不满足")
                             except Exception:
-                                pass
+                                break
                             condition_met = False
                         else:
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.4, consider_color=False, stop_check=lambda: not self.running)
@@ -9443,14 +9443,14 @@ class ComboSkillRunner:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  🔍 流程{flow_index+1} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
                             except Exception:
-                                pass
+                                break
                     elif condition == "image_not_found":
                         if not condition_image:
                             try:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_not_found 未设置条件图片，条件视为不满足")
                             except Exception:
-                                pass
+                                break
                             condition_met = False
                         else:
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
@@ -9460,7 +9460,7 @@ class ComboSkillRunner:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  👻 流程{flow_index+1} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
                             except Exception:
-                                pass
+                                break
                     elif condition == "wait_for_image":
                         def _wf_log(msg):
                             try:
@@ -9526,7 +9526,7 @@ class ComboSkillRunner:
                             if self._main_app is not None:
                                 self._main_app.append_log(f" ║  ▶ 流程{flow_index+1} always 条件: 跳过判断")
                         except Exception:
-                            pass
+                            break
 
                     # ====== 2. 决定执行哪个分支的动作 ======
                     use_branch = "main" if condition_met else "else"
@@ -9552,7 +9552,7 @@ class ComboSkillRunner:
                             if self._main_app is not None:
                                 self._main_app.append_log(f" ║  🔀 流程{flow_index+1}: → 跳转 {target_action} (总跳转: {total_jumps+1})")
                         except Exception:
-                            pass
+                            break
                         try:
                             target = int(target_action.split("_")[1])
                         except (IndexError, ValueError):
@@ -9565,14 +9565,14 @@ class ComboSkillRunner:
                                         self._main_app.append_log(f" ║  ⛔ 跳转次数超过上限({max_jumps})，停止")
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
-                                    pass
+                                    break
                                 break
                             flow_index = target
                             try:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  ➡️ 跳转到流程 {target+1}")
                             except Exception:
-                                pass
+                                break
                             self._wait_interruptible(0.01)
                             continue
                         else:
@@ -9588,7 +9588,7 @@ class ComboSkillRunner:
                             if self._main_app is not None:
                                 self._main_app.append_log(f" ║  ▶ 执行动作 '{target_action}'")
                         except Exception:
-                            pass
+                            break
                         _action_result = self._execute_action(target_action)
                         if isinstance(_action_result, tuple):
                             _action_ok, _img_fail_count = _action_result
@@ -9600,7 +9600,7 @@ class ComboSkillRunner:
                                 _emoji = "✅" if _action_ok else "❌"
                                 self._main_app.append_log(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
                         except Exception:
-                            pass
+                            break
                         if not _action_ok:
                             self._consecutive_failures += 1
                             if self._consecutive_failures >= 3:
@@ -9609,7 +9609,7 @@ class ComboSkillRunner:
                                         self._main_app.append_log(f" ║  ⛔ 连续 {self._consecutive_failures} 次执行失败，停止组合技")
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
-                                    pass
+                                    break
                                 break
                         else:
                             self._consecutive_failures = 0
@@ -9620,15 +9620,15 @@ class ComboSkillRunner:
                                     self._main_app.append_log(f" ║  ⛔ 录制回放中图片匹配失败 {_img_fail_count} 次，立即停止组合技")
                                     self._main_app.append_log(f"╚═{'═'*40}")
                             except Exception:
-                                pass
-                            # self.running = False  # 不停止，继续执行下一流程
-                            pass
+                                break
+                            self.running = False
+                            break
                         elif _img_fail_count > 0:
                             try:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，但条件为{condition}，继续执行")
                             except Exception:
-                                pass
+                                break
 
                     try:
                         if self._main_app is not None:
@@ -9723,7 +9723,7 @@ class ComboSkillRunner:
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=0.1, consider_color=False,
-                    match_timeout=0.5,
+                    match_timeout=3.0,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )
