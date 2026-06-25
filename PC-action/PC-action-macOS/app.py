@@ -9722,8 +9722,8 @@ class ComboSkillRunner:
                 _t_replay0 = _time.time()
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
-                    replay_interval=0.3, consider_color=False,
-                    match_timeout=1.0,
+                    replay_interval=0.1, consider_color=False,
+                    match_timeout=0.5,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )
