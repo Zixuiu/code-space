@@ -35,9 +35,11 @@ def git_push(remote="origin", branch="main", retries=3):
     for attempt in range(1, retries + 1):
         result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
         if result.returncode == 0:
-            print(result.stdout)
             return True
-        print(f"❌ 推送到 {remote} 失败(第{attempt}次): {result.stderr.strip()}")
+        err = result.stderr.strip()
+        if "LF will be replaced" in err or "CRLF" in err:
+            continue
+        print(f"❌ 推送到 {remote} 失败(第{attempt}次): {err}")
         if attempt < retries:
             wait = attempt * 2
             print(f"⏳ {wait}s 后重试...")
@@ -75,7 +77,11 @@ else:
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
     commit = subprocess.run(["git", "commit", "-m", f"auto_update {now}"], capture_output=True, text=True)
     if commit.returncode != 0:
-        print(f"⚠️ 提交跳过: {commit.stderr.strip()}")
+        err = commit.stderr.strip()
+        if "nothing to commit" in err:
+            print("📝 没有新变更，跳过提交")
+        elif "LF will be replaced" not in err and "CRLF" not in err:
+            print(f"⚠️ 提交跳过: {err}")
     else:
         print("✅ 提交成功")
 
