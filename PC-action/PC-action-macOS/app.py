@@ -6862,7 +6862,7 @@ class AutoRecorderApp(QMainWindow):
                 )
             else:
                 from image_recognition import replay_coordinate_operations
-                replay_result = replay_coordinate_operations(\n                    confidence=0.65,
+                replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
                     replay_interval=self.replay_interval,
@@ -9720,7 +9720,7 @@ class ComboSkillRunner:
 
             if has_images:
                 _t_replay0 = _time.time()
-                replay_result = replay_coordinate_operations(\n                    confidence=0.65,
+                replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=0.1, consider_color=False,
                     match_timeout=3.0,
