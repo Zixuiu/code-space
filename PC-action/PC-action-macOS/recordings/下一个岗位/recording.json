@@ -2,11 +2,11 @@
   {
     "step": 1,
     "image": "操作1.png",
-    "x": 415,
-    "y": 554,
-    "width": 20,
-    "height": 81,
+    "x": 413,
+    "y": 584,
+    "width": 27,
+    "height": 111,
     "action_type": "left_click",
-    "delay": 0.2
+    "delay": 0
   }
 ]

@@ -9621,8 +9621,8 @@ class ComboSkillRunner:
                                     self._main_app.append_log(f"╚═{'═'*40}")
                             except Exception:
                                 pass
-                            self.running = False
-                            break
+                            # self.running = False  # 不停止，继续执行下一流程
+                            pass
                         elif _img_fail_count > 0:
                             try:
                                 if self._main_app is not None:
@@ -9722,8 +9722,8 @@ class ComboSkillRunner:
                 _t_replay0 = _time.time()
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
-                    replay_interval=0.1, consider_color=False,
-                    match_timeout=0.5,
+                    replay_interval=0.3, consider_color=False,
+                    match_timeout=1.0,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )

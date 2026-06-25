@@ -1,12 +1,12 @@
 ﻿import os
-if os.name == "nt":
-    os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
-
-import os
 import json
 import math
 import sys
+import threading
 from datetime import datetime
+
+if os.name == "nt":
+    os.environ["QT_ENABLE_DIRECTWRITE"] = "1"
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -27,8 +27,10 @@ from PyQt5.QtGui import (
     QKeySequence, QLinearGradient, QRadialGradient, QRegion, QPainterPath
 )
 
-from app import AutoRecorderApp
-from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path, get_user_data_path
+from app import AutoRecorderApp, ComboSkillRunner
+from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_recordings_path
+from combo_skill_manager import ComboSkillManager
+from image_recognition import clear_image_cache, clear_replay_stop_flag, set_replay_stop_flag
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
     ColorPalette, ShadowSystem, ButtonSize
@@ -87,9 +89,10 @@ def _apply_saved_column_widths(table, table_id, default_widths):
             table.setColumnWidth(col, w)
 
 def _connect_column_width_saver(table, table_id):
-    _save_timer = QTimer()
+    _save_timer = QTimer(table)
     _save_timer.setSingleShot(True)
     _save_timer.setInterval(500)
+    table._column_width_save_timer = _save_timer
 
     def _do_save():
         saved = load_json_data(_COLUMN_WIDTHS_FILE, {})
@@ -243,7 +246,7 @@ class MacOSSidebar(QWidget):
         self.tab_changed.emit(index)
 
     def set_username(self, username):
-        pass
+        pass  # reserved for future use
 
 
 class MacOSCard(QFrame):
@@ -602,6 +605,7 @@ class RoundedRecordButton(QPushButton):
         glow_a = int(15 + 15 * (0.5 + 0.5 * math.sin(self._t * math.pi * 2)))
         painter.setPen(QPen(QColor(dot_color.red(), dot_color.green(), dot_color.blue(), glow_a), 1))
         painter.setBrush(Qt.NoBrush)
+        painter.end()
 
 
 class RoundedPillButton(QPushButton):
@@ -788,6 +792,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.is_recording = False
         self._combo_stop_shortcuts = {}
         self._combo_stop_key_state = {}
+        self._combo_stop_hotkey_ids = {}
         self._combo_stop_check_timer = QTimer(self)
         self._combo_stop_check_timer.timeout.connect(self._check_combo_stop_shortcuts)
 
@@ -811,14 +816,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             # 每次运行组合技前清空日志，重新录制
             self.clear_log()
 
-            from image_recognition import clear_image_cache
             clear_image_cache()
 
             normal_skills = [s for s in selected_skills if not s.get('monitor_mode', False)]
             monitor_skills = [s for s in selected_skills if s.get('monitor_mode', False)]
 
-            from app import ComboSkillRunner
-            import threading as _threading
 
             normal_runners = []
             for skill in normal_skills:
@@ -843,7 +845,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
                 runner._on_log = lambda msg, sid=_sid: QTimer.singleShot(0, lambda: self.append_log(f" ║  [{sid}] {msg}"))
 
-                _t = _threading.Thread(target=runner.run, daemon=True)
+                _t = threading.Thread(target=runner.run, daemon=True)
                 runner._exec_thread = _t
                 _t.start()
 
@@ -889,7 +891,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     runner._on_step = lambda step_info, sid=_sid: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
                     runner._on_log = lambda msg, sid=_sid: QTimer.singleShot(0, lambda: self.append_log(f" ║  [{sid}] {msg}"))
 
-                    _t = _threading.Thread(target=runner.run, daemon=True)
+                    _t = threading.Thread(target=runner.run, daemon=True)
                     runner._exec_thread = _t
                     _t.start()
 
@@ -921,7 +923,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 if not old_runner.isRunning():
                     del self.runners[skill_id]
 
-            from image_recognition import clear_replay_stop_flag, clear_image_cache
             clear_replay_stop_flag()
 
             self.showMinimized()
@@ -932,8 +933,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if running_count == 0:
                 clear_image_cache()
 
-            from app import ComboSkillRunner
-            import threading as _threading
 
             runner = ComboSkillRunner(skill, self)
             runner.skill_id = skill_id
@@ -943,7 +942,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             runner._on_step = lambda step_info, sid=skill_id: QTimer.singleShot(0, lambda: self._on_combo_step_changed(step_info, sid))
             runner._on_log = lambda msg: self.append_log(f" ║  {msg}")
 
-            _t = _threading.Thread(target=runner.run, daemon=True)
+            _t = threading.Thread(target=runner.run, daemon=True)
             runner._exec_thread = _t
             _t.start()
 
@@ -1035,7 +1034,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             traceback.print_exc()
             print(f"\n\n\U0001f525 create_help_tab \u62a5\u9519: {e}\n\n")
             # \u521b\u5efa\u4e00\u4e2a\u7b80\u5355\u7684\u5e2e\u52a9\u9875\u907f\u514d\u5d29\u6e83
-            from PyQt5.QtWidgets import QLabel
             self.help_tab = QLabel(f"\u52a0\u8f7d\u5931\u8d25: {e}")
 
         self.macos_stack.addWidget(self.record_tab)
@@ -1272,7 +1270,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.addStretch()
         layout.addLayout(header)
 
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
         from design_system import configure_table, get_table_stylesheet
 
         folder_table = QTableWidget()
@@ -1349,7 +1346,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def load_folders_to_table(self, table_widget):
         table_widget.setRowCount(0)
-        from utils import get_recordings_path
         recordings_dir = get_recordings_path()
 
         if not os.path.exists(recordings_dir):
@@ -1397,10 +1393,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             _apply_saved_column_widths(table_widget, "manager_table", _folder_reload_widths)
             table_widget.horizontalHeader().setStretchLastSection(True)
         except Exception as e:
-            pass
+            import traceback
+            traceback.print_exc()
 
     def set_folder_shortcut_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtWidgets import QDialog
         from PyQt5.QtCore import Qt, QTimer
 
         folder_name = os.path.basename(folder_path)
@@ -1660,7 +1656,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.reenable_grave_hotkey()
 
     def rename_folder_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QLineEdit
         from PyQt5.QtCore import Qt
 
         old_name = os.path.basename(folder_path)
@@ -1799,7 +1794,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         dialog.exec_()
 
     def delete_folder_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
         from PyQt5.QtCore import Qt
 
         folder_name = os.path.basename(folder_path)
@@ -1926,7 +1920,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def update_trash_index(self, trash_folder_name, original_name, original_path):
         """更新回收站索引文件"""
-        from utils import get_recordings_path
         recordings_dir = get_recordings_path()
         trash_dir = os.path.join(recordings_dir, 'trash')
         index_file = os.path.join(trash_dir, 'trash_index.json')
@@ -2004,7 +1997,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         top_layout.addStretch()
         layout.addLayout(top_layout)
 
-        from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
         from design_system import configure_table, get_table_stylesheet
 
         combo_table = QTableWidget()
@@ -2329,7 +2321,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         """创建系统托盘图标"""
         if hasattr(self, "tray_icon") and self.tray_icon:
             return
-        from PyQt5.QtWidgets import QSystemTrayIcon
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         self.tray_icon = QSystemTrayIcon(self)
@@ -2345,7 +2336,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.tray_icon.show()
 
     def on_tray_activated(self, reason):
-        from PyQt5.QtWidgets import QSystemTrayIcon
         if reason == QSystemTrayIcon.DoubleClick:
             self.show_and_raise()
 
@@ -2361,10 +2351,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def open_combo_skill_editor(self, skill=None):
         """打开组合技编辑器"""
         from combo_skill_edit_dialog import ComboSkillEditDialog
-        from PyQt5.QtWidgets import QDialog as _QD
-        from combo_skill_manager import ComboSkillManager
         dialog = ComboSkillEditDialog(self, skill)
-        if dialog.exec_() == _QD.Accepted:
+        if dialog.exec_() == QDialog.Accepted:
             skill_data = dialog.get_skill_data()
             if skill_data:
                 combo_manager = ComboSkillManager(self)
@@ -2379,10 +2367,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 if hasattr(self, "combo_tab") and hasattr(self.combo_tab, "combo_table"):
                     self.load_combo_skills_to_table(self.combo_tab.combo_table)
     def set_combo_stop_shortcut(self, skill, combo_table):
-        from PyQt5.QtWidgets import QDialog as _QD
         skill_name = skill.get('name', '')
         current_shortcut = skill.get('stop_shortcut', '')
-        dialog = _QD(self)
+        dialog = QDialog(self)
         dialog.setWindowTitle("设置停止快捷键")
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dialog.setAttribute(Qt.WA_TranslucentBackground)
@@ -2454,9 +2441,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         cancel_btn.clicked.connect(dialog.reject)
         dialog.keyPressEvent = keyPressEvent
         result = dialog.exec_()
-        if result == _QD.Accepted:
+        if result == QDialog.Accepted:
             new_shortcut = current_keys[-1] if current_keys else ''
-            from combo_skill_manager import ComboSkillManager
             combo_manager = ComboSkillManager(self)
             for i, s in enumerate(combo_manager.combo_skills):
                 if s.get('name') == skill_name:
@@ -2472,8 +2458,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def delete_combo_skill_in_tab(self, skill, combo_table):
         """在组合技tab页中删除组合技"""
-        from combo_skill_manager import ComboSkillManager
-        from PyQt5.QtWidgets import QMessageBox
         skill_name = skill.get('name', '')
         reply = QMessageBox.question(None, '确认删除', f'确定要删除组合技 \"{skill_name}\" 吗？', QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.Yes:
@@ -2679,7 +2663,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 runner.running = False
                 if hasattr(runner, 'interrupt_event'):
                     runner.interrupt_event.set()
-                from image_recognition import set_replay_stop_flag
                 set_replay_stop_flag(True)
                 self.append_log(f'[{skill_id}] 快捷键停止')
             self._remove_combo_stop_hotkey(skill_id)
@@ -2722,8 +2705,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                             runner.reset()
                         except Exception:
                             pass
-                    from image_recognition import set_replay_stop_flag
-                    set_replay_stop_flag(True)
+                        set_replay_stop_flag(True)
                     self._remove_combo_stop_hotkey(skill_id)
                     self._combo_stop_shortcuts.pop(skill_id, None)
                     self._combo_stop_key_state.pop(skill_id, None)
@@ -2733,7 +2715,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         del self.runners[skill_id]
                     self.append_log(f'[{skill_id}] 已停止')
             else:
-                from image_recognition import set_replay_stop_flag
                 set_replay_stop_flag(True)
                 for skill_id, runner in list(self.runners.items()):
                     if runner.isRunning():
@@ -2755,8 +2736,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
+                QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
 
     def stop_selected_combo_skills(self, table_widget):
         STOP_JOIN_TIMEOUT = 3.0
@@ -2769,10 +2749,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     if skill:
                         selected_skills.append(skill)
             if not selected_skills:
-                from PyQt5.QtWidgets import QMessageBox
                 QMessageBox.information(self, '提示', '请先勾选要停止的组合技（勾选第一列的复选框）')
                 return
-            from image_recognition import set_replay_stop_flag
             set_replay_stop_flag(True)
             stop_count = 0
             for skill in selected_skills:
@@ -2795,8 +2773,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if stop_count > 0:
                 self.append_log(f'已停止 {stop_count} 个组合技')
         except Exception as e:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
+                QMessageBox.critical(self, '错误', f'停止组合技失败: {e}')
 
     def register_stop_replay_hotkey(self):
         try:
@@ -2961,7 +2938,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def start_coordinate_recording(self):
         """启动坐标录制模式（macOS版本）"""
         try:
-            from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.current_recording_dir = os.path.join(recordings_dir, f"坐标录制_{timestamp}")
@@ -3105,7 +3081,6 @@ def start_macos_app():
     import os
     import ctypes
 
-    from PyQt5.QtWidgets import QApplication
     from PyQt5.QtGui import QFont
 
     try:

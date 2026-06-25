@@ -626,7 +626,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     screenshot_w = first_screenshot.shape[1] if first_screenshot is not None else 0
 
     # 多尺度间隔从 2 改成 3,减少多尺度运行频率（每次多尺度太耗时），首次截图也会跑多尺度
-    multi_scale_interval = 5
+    multi_scale_interval = 2
     iteration = 0
 
     # 截图和模板尺寸（用于诊断 "明明有图却匹配不到" 问题）
@@ -690,7 +690,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                     debug_print(f"[匹配诊断] ROI提取失败: {_roi_e}, 回退粗匹配")
 
             _coarse_scale = 0.5
-            _coarse_thresh = confidence * 0.85
+            _coarse_thresh = confidence * 0.80
             if screenshot_w > 1200 and screenshot_h > 800:
                 try:
                     _cs0 = time.time()
@@ -716,15 +716,61 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                 if _rv >= confidence:
                                     h, w = image_array.shape[:2]
                                     return (_rl[0] + _fx, _rl[1] + _fy, w, h)
-                                debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 回退全屏")
+                                debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 尝试区域多尺度")
+                                try:
+                                    for _ms_scale in _SCALES:
+                                        if _ms_scale == 1.0:
+                                            continue
+                                        _new_w = int(template_w * _ms_scale)
+                                        _new_h = int(template_h * _ms_scale)
+                                        if _new_w < 10 or _new_h < 10:
+                                            continue
+                                        _resized = cv2.resize(image_array, (_new_w, _new_h), interpolation=cv2.INTER_LINEAR)
+                                        if _roi_full.shape[0] >= _new_h and _roi_full.shape[1] >= _new_w:
+                                            _msr = cv2.matchTemplate(_roi_full, _resized, cv2.TM_CCOEFF_NORMED)
+                                            _, _msv, _, _msl = cv2.minMaxLoc(_msr)
+                                            if _msv >= confidence:
+                                                h, w = _resized.shape[:2]
+                                                debug_print(f"[匹配诊断] ⚡ 精匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
+                                                return (_msl[0] + _fx, _msl[1] + _fy, w, h)
+                                    debug_print(f"[匹配诊断] 精匹配区域多尺度未命中, 回退全屏")
+                                except Exception as _cme2:
+                                    debug_print(f"[匹配诊断] 精匹配区域多尺度异常: {_cme2}, 回退全屏")
                             else:
                                 debug_print(f"[匹配诊断] 精匹配ROI太小, 回退全屏")
                         else:
                             debug_print(f"[匹配诊断] 粗匹配未命中(score={_cv:.3f}<{_coarse_thresh:.2f}), 回退全屏")
-                            # ⚡ 粗匹配分数远低于阈值时直接返回，跳过后续全屏匹配（节省~150ms）
-                            if _cv < 0.6:
-                                debug_print(f"[匹配诊断] ⏭ 粗匹配仅 {_cv:.3f} < 0.6，图片不存在，跳过全屏")
-                                return None
+                            if _cv >= 0.6:
+                                try:
+                                    _fx = int(_cl[0] / _coarse_scale) - 150
+                                    _fy = int(_cl[1] / _coarse_scale) - 150
+                                    _fw = int(_small_w / _coarse_scale) + 300
+                                    _fh = int(_small_h / _coarse_scale) + 300
+                                    _fx = max(0, _fx)
+                                    _fy = max(0, _fy)
+                                    _fx2 = min(screenshot_w, _fx + _fw)
+                                    _fy2 = min(screenshot_h, _fy + _fh)
+                                    _roi_coarse = first_screenshot[_fy:_fy2, _fx:_fx2]
+                                    for _ms_scale in _SCALES:
+                                        if _ms_scale == 1.0:
+                                            continue
+                                        _new_w = int(template_w * _ms_scale)
+                                        _new_h = int(template_h * _ms_scale)
+                                        if _new_w < 10 or _new_h < 10:
+                                            continue
+                                        _resized = cv2.resize(image_array, (_new_w, _new_h), interpolation=cv2.INTER_LINEAR)
+                                        if _roi_coarse.shape[0] >= _new_h and _roi_coarse.shape[1] >= _new_w:
+                                            _msr = cv2.matchTemplate(_roi_coarse, _resized, cv2.TM_CCOEFF_NORMED)
+                                            _, _msv, _, _msl = cv2.minMaxLoc(_msr)
+                                            if _msv >= confidence:
+                                                h, w = _resized.shape[:2]
+                                                debug_print(f"[匹配诊断] ⚡ 粗匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
+                                                return (_msl[0] + _fx, _msl[1] + _fy, w, h)
+                                    debug_print(f"[匹配诊断] 粗匹配区域多尺度未命中, 回退全屏")
+                                except Exception as _cme:
+                                    debug_print(f"[匹配诊断] 粗匹配区域多尺度异常: {_cme}, 回退全屏")
+                            else:
+                                debug_print(f"[匹配诊断] 粗匹配仅 {_cv:.3f} < 0.6，跳过区域多尺度，走全屏匹配")
                 except Exception as _ce:
                     debug_print(f"[匹配诊断] 粗匹配异常: {_ce}, 回退全屏")
 
