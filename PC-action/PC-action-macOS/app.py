@@ -1795,7 +1795,7 @@ class FolderManager(QDialog):
     def view_images(self, folder_path):
         folder_path = str(folder_path)
         if not os.path.isdir(folder_path):
-            self.show_beautiful_message('critical', "错误", f"无效的目录路径: {folder_path}", parent=self)
+            self.parent.show_beautiful_message('critical', "错误", f"无效的目录路径: {folder_path}", parent=self)
             return
         
         # 临时禁用·键的全局快捷键，避免在查看图片窗口中触发录制新流程
@@ -1948,7 +1948,7 @@ class FolderManager(QDialog):
                 self.show_coordinate_data(dialog, folder_path, recording_json_path)
                 return
             else:
-                self.show_beautiful_message('information', "提示", "该文件夹中没有图片文件！", parent=dialog)
+                self.parent.show_beautiful_message('information', "提示", "该文件夹中没有图片文件！", parent=dialog)
                 return
         
         # 从recording.json加载操作方式
@@ -2109,7 +2109,7 @@ class FolderManager(QDialog):
                 self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
             self.refresh_view_images(folder_path)
         except Exception as e:
-            self.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
+            self.parent.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
 
     def _populate_image_rows(self, dialog, folder_path, list_layout):
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
@@ -2280,7 +2280,7 @@ class FolderManager(QDialog):
                 self.refresh_view_images(folder_path)
                 
             except Exception as e:
-                self.show_beautiful_message('critical', "错误", f"删除失败: {str(e)}", parent=dialog)
+                self.parent.show_beautiful_message('critical', "错误", f"删除失败: {str(e)}", parent=dialog)
 
         def _show_large_preview(img_path):
             """弹出大图预览窗口"""
@@ -2369,7 +2369,7 @@ class FolderManager(QDialog):
             del_btn.move(26, 0)
             pixmap = load_qpixmap(img_path)
             if pixmap is None:
-                self.show_beautiful_message('warning', "警告", f"无法加载图片: {img_file}", parent=dialog)
+                self.parent.show_beautiful_message('warning', "警告", f"无法加载图片: {img_file}", parent=dialog)
                 continue
             tl = QLabel(thumb_w)
             tp = pixmap.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -2704,7 +2704,7 @@ class FolderManager(QDialog):
             
             # 显示错误信息
             from PyQt5.QtWidgets import QMessageBox
-            self.show_beautiful_message('critical', "错误", f"继续添加操作失败: {str(e)}", parent=parent_dialog)
+            self.parent.show_beautiful_message('critical', "错误", f"继续添加操作失败: {str(e)}", parent=parent_dialog)
             parent_dialog.close()
 
     def update_action(self, index, action, folder_path=None):
@@ -2752,7 +2752,7 @@ class FolderManager(QDialog):
             # 加载坐标数据
             recording_data = load_json_data(recording_json_path)
             if not isinstance(recording_data, list) or not recording_data:
-                self.show_beautiful_message('information', "提示", "该文件夹中没有坐标数据！", parent=parent_dialog)
+                self.parent.show_beautiful_message('information', "提示", "该文件夹中没有坐标数据！", parent=parent_dialog)
                 return
             
             # 创建坐标数据显示窗口
@@ -2944,6 +2944,11 @@ class FolderManager(QDialog):
             def _add_op():
                 from PyQt5.QtGui import QPainter as _QP, QFont as _QFt, QColor as _QC
                 from PyQt5.QtCore import QTimer as _QT
+                # 最小化主窗口
+                if self.parent and self.parent.isVisible():
+                    self.parent.showMinimized()
+                # 最小化坐标对话框
+                coord_dialog.showMinimized()
                 _ov = QDialog(coord_dialog)
                 _ov.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
                 _ov.setAttribute(Qt.WA_TranslucentBackground)
@@ -3201,7 +3206,7 @@ class FolderManager(QDialog):
         except Exception as e:
             # print(f"修改按键失败: {e}")  # [日志已禁用]
             from PyQt5.QtWidgets import QMessageBox
-            self.show_beautiful_message('critical', "错误", f"修改按键失败: {str(e, parent=self.parent)}")
+            self.parent.show_beautiful_message('critical', "错误", f"修改按键失败: {e}", parent=self.parent)
 
     def show_scroll_input_dialog(self, index, folder_path):
         """显示滚动设置对话框，用于修改滚动参数"""
@@ -3442,7 +3447,7 @@ class FolderManager(QDialog):
                 self.refresh_view_images(folder_path)
         except Exception as e:
             from PyQt5.QtWidgets import QMessageBox
-            self.show_beautiful_message('critical', "错误", f"修改文本失败: {str(e, parent=self.parent)}")
+            self.parent.show_beautiful_message('critical', "错误", f"修改文本失败: {e}", parent=self.parent)
 
     def get_delay_for_step(self, folder_path, step_index):
         """获取指定步骤的延迟时间（秒）"""
@@ -5083,8 +5088,17 @@ class FolderManager(QDialog):
                     continue
                 normalized_path = os.path.normpath(path)
                 if existing_shortcut == shortcut and normalized_path != normalized_folder_path:
-                    self.show_beautiful_message('warning', "警告", f"快捷键 '{shortcut}' 已被其他流程使用", parent=self)
+                    self.parent.show_beautiful_message('warning', "警告", f"快捷键 '{shortcut}' 已被其他流程使用", parent=self)
                     return
+
+            # 检查是否与组合技停止快捷键冲突
+            if shortcut:
+                from combo_skill_manager import ComboSkillManager
+                combo_manager = ComboSkillManager(self.parent)
+                for skill in combo_manager.combo_skills:
+                    if skill.get('stop_shortcut') == shortcut:
+                        self.parent.show_beautiful_message('warning', "警告", f"快捷键 '{shortcut}' 已被组合技「{skill.get('name')}」的停止快捷键使用", parent=self)
+                        return
 
             # 清理无效路径
             for invalid_path in invalid_paths:

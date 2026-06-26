@@ -1560,6 +1560,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被其他流程使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
+                # 检查是否与组合技停止快捷键冲突
+                from combo_skill_manager import ComboSkillManager
+                _combo_mgr = ComboSkillManager(self)
+                for _s in _combo_mgr.combo_skills:
+                    if _s.get('stop_shortcut') == shortcut_str:
+                        from beautiful_dialog import StyledMessageDialog
+                        _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
+                        _d.exec_()
+                        return
                 self.shortcuts[normalized_path] = shortcut_str
                 self.save_shortcut_config()
                 self.update_shortcuts()
@@ -2443,7 +2452,22 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         result = dialog.exec_()
         if result == QDialog.Accepted:
             new_shortcut = current_keys[-1] if current_keys else ''
+            # 检查是否与流程运行快捷键冲突
+            if new_shortcut:
+                for _path, _existing in getattr(self, 'shortcuts', {}).items():
+                    if _existing == new_shortcut:
+                        from beautiful_dialog import StyledMessageDialog
+                        _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被其他流程的运行快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
+                        _d.exec_()
+                        return
+            # 检查是否与其他组合技的停止快捷键冲突
             combo_manager = ComboSkillManager(self)
+            for _s in combo_manager.combo_skills:
+                if _s.get('name') != skill_name and _s.get('stop_shortcut') == new_shortcut:
+                    from beautiful_dialog import StyledMessageDialog
+                    _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
+                    _d.exec_()
+                    return
             for i, s in enumerate(combo_manager.combo_skills):
                 if s.get('name') == skill_name:
                     combo_manager.combo_skills[i]['stop_shortcut'] = new_shortcut
