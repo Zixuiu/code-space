@@ -262,12 +262,8 @@ class SelectionOverlay(QWidget):
                         self.selection_end = None
                         self.update()
             else:
-                # 如果是右键单击，显示上下文菜单
-                self.show_context_menu(event.pos())
-                self.selecting = False
-                self.selection_start = None
-                self.selection_end = None
-                self.update()
+                # 右键单击直接退出
+                self.close()
     
     def show_context_menu(self, position):
         """显示右键上下文菜单"""

@@ -795,7 +795,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = 1  # ⚡ 最多轮询1次
+    _max_poll_iters = 20  # 可轮询最多20次（约1s）
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             debug_print(f"[匹配诊断] ⏹ 循环中检测到停止信号,提前退出(timeout 还剩 {max(0, timeout - (time.time() - start_time)):.2f}s)")

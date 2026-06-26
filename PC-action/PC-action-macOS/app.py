@@ -2084,13 +2084,19 @@ class FolderManager(QDialog):
             recording_data.sort(key=lambda x: x.get('step', 0))
             step_a = idx_a + 1
             step_b = idx_b + 1
-            rec_a = next((d for d in recording_data if d.get('step') == step_a), None)
-            rec_b = next((d for d in recording_data if d.get('step') == step_b), None)
-            if rec_a is None or rec_b is None:
+            if idx_a >= len(recording_data) or idx_b >= len(recording_data):
                 return
-            img_a = os.path.join(folder_path, f"操作{step_a}.png")
-            img_b = os.path.join(folder_path, f"操作{step_b}.png")
-            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
+            recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+            for i, rec in enumerate(recording_data):
+                rec['step'] = i + 1
+                if 'image' in rec:
+                    rec['image'] = f"操作{i + 1}.png"
+            save_json_data(recording_json_path, recording_data)
+            step_a_old = idx_a + 1
+            step_b_old = idx_b + 1
+            img_a = os.path.join(folder_path, f"操作{step_a_old}.png")
+            img_b = os.path.join(folder_path, f"操作{step_b_old}.png")
+            img_a_tmp = os.path.join(folder_path, f"操作{step_a_old}_tmp.png")
             if os.path.exists(img_a) and os.path.exists(img_b):
                 os.rename(img_a, img_a_tmp)
                 os.rename(img_b, img_a)
@@ -2099,13 +2105,6 @@ class FolderManager(QDialog):
                 os.rename(img_a, img_b)
             elif os.path.exists(img_b) and not os.path.exists(img_a):
                 os.rename(img_b, img_a)
-            rec_a['step'] = step_b
-            rec_b['step'] = step_a
-            if 'image' in rec_a:
-                rec_a['image'] = f"操作{step_b}.png"
-            if 'image' in rec_b:
-                rec_b['image'] = f"操作{step_a}.png"
-            save_json_data(recording_json_path, recording_data)
             if idx_a < len(self.image_actions) and idx_b < len(self.image_actions):
                 self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
             self.refresh_view_images(folder_path)
@@ -4163,6 +4162,7 @@ class FolderManager(QDialog):
         _hdr_lo.setContentsMargins(16, 0, 16, 0)
         _hdr_lo.setSpacing(8)
         _hdr_title = QLabel("回收站")
+        _hdr_title.setAttribute(Qt.WA_TransparentForMouseEvents)
         _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
@@ -5215,6 +5215,9 @@ class AutoRecorderApp(QMainWindow):
     def _lazy_init(self):
         """延后初始化：窗口显示后再加载配置和注册热键"""
         self.load_shortcut_config()
+        # 修复：加载快捷键后立即刷新流程表格
+        if hasattr(self, "manager_tab") and hasattr(self.manager_tab, "folder_table"):
+            self.load_folders_to_table(self.manager_tab.folder_table)
         self.load_debug_mode_setting()
         self.is_folder_manager_open = False
         self.update_shortcuts()
@@ -5554,13 +5557,19 @@ class AutoRecorderApp(QMainWindow):
             recording_data.sort(key=lambda x: x.get('step', 0))
             step_a = idx_a + 1
             step_b = idx_b + 1
-            rec_a = next((d for d in recording_data if d.get('step') == step_a), None)
-            rec_b = next((d for d in recording_data if d.get('step') == step_b), None)
-            if rec_a is None or rec_b is None:
+            if idx_a >= len(recording_data) or idx_b >= len(recording_data):
                 return
-            img_a = os.path.join(folder_path, f"操作{step_a}.png")
-            img_b = os.path.join(folder_path, f"操作{step_b}.png")
-            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
+            recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+            for i, rec in enumerate(recording_data):
+                rec['step'] = i + 1
+                if 'image' in rec:
+                    rec['image'] = f"操作{i + 1}.png"
+            save_json_data(recording_json_path, recording_data)
+            step_a_old = idx_a + 1
+            step_b_old = idx_b + 1
+            img_a = os.path.join(folder_path, f"操作{step_a_old}.png")
+            img_b = os.path.join(folder_path, f"操作{step_b_old}.png")
+            img_a_tmp = os.path.join(folder_path, f"操作{step_a_old}_tmp.png")
             if os.path.exists(img_a) and os.path.exists(img_b):
                 os.rename(img_a, img_a_tmp)
                 os.rename(img_b, img_a)
@@ -5569,13 +5578,6 @@ class AutoRecorderApp(QMainWindow):
                 os.rename(img_a, img_b)
             elif os.path.exists(img_b) and not os.path.exists(img_a):
                 os.rename(img_b, img_a)
-            rec_a['step'] = step_b
-            rec_b['step'] = step_a
-            if 'image' in rec_a:
-                rec_a['image'] = f"操作{step_b}.png"
-            if 'image' in rec_b:
-                rec_b['image'] = f"操作{step_a}.png"
-            save_json_data(recording_json_path, recording_data)
             if idx_a < len(self.image_actions) and idx_b < len(self.image_actions):
                 self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
             self.refresh_view_images(folder_path)
@@ -5689,7 +5691,7 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(self, 'table') and self.table.currentRow() >= 0:
                 self.view_folder_images(self.table.currentRow(), folder_path)
         except Exception as e:
-            self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
+            self.show_beautiful_message('critical', '错误', f"删除失败: {e}", parent=trash_table.window())
 
     def reorder_images(self, folder_path, old_step, new_step, dialog=None):
         """拖拽重排图片顺序"""
@@ -8917,6 +8919,7 @@ class AutoRecorderApp(QMainWindow):
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
         count_label = QLabel("")
+        count_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         count_label.setStyleSheet("font-size: 12px; color: #86868B; background: transparent; border: none;")
         _hdr_lo.addWidget(count_label)
         _hdr_lo.addSpacing(12)
@@ -8945,18 +8948,24 @@ class AutoRecorderApp(QMainWindow):
         content_layout.setSpacing(10)
 
         trash_table = QTableWidget()
-        trash_table.setColumnCount(3)
-        trash_table.setHorizontalHeaderLabels(["", "流程名称", "删除时间"])
+        trash_table.setColumnCount(5)
+        trash_table.setHorizontalHeaderLabels(["", "流程名称", "删除时间", "恢复", "删除"])
         trash_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        trash_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        trash_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        trash_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
         trash_table.setColumnWidth(0, 80)
-        trash_table.setColumnWidth(2, 130)
+        trash_table.setColumnWidth(3, 80)
+        trash_table.setColumnWidth(4, 80)
         trash_table.verticalHeader().setVisible(False)
         trash_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        trash_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         trash_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         trash_table.setAlternatingRowColors(False)
         trash_table.setStyleSheet("""
             QTableWidget { border: none; border-radius: 8px; gridline-color: #E8E8ED; background-color: #FFFFFF; }
-            QTableWidget::item { padding: 8px 12px; }
+            QTableWidget::item { padding: 6px 10px; }
+            QTableWidget::item:selected { background-color: #0A84FF; color: white; }
             QHeaderView::section { background: #F5F5F7; color: black; font-weight: 600; padding: 8px 12px; border: none; border-bottom: 1px solid #E8E8ED; font-size: 12px; }
         """)
         content_layout.addWidget(trash_table)
@@ -8986,6 +8995,16 @@ class AutoRecorderApp(QMainWindow):
                 time_item = QTableWidgetItem(item.get('deleted_time', ''))
                 time_item.setTextAlignment(Qt.AlignCenter)
                 trash_table.setItem(i, 2, time_item)
+
+                btn_r = QPushButton("恢复")
+                btn_r.setStyleSheet("QPushButton{background:#0A84FF;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#006AE0;} QPushButton:pressed{background:#004DB3;}")
+                btn_r.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.restore_selected_trash(trash_table, count_label)))
+                trash_table.setCellWidget(i, 3, btn_r)
+
+                btn_d = QPushButton("删除")
+                btn_d.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#D62820;} QPushButton:pressed{background:#B01A10;}")
+                btn_d.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.delete_selected_trash(trash_table, count_label)))
+                trash_table.setCellWidget(i, 4, btn_d)
             count_label.setText(f"{len(index_data)} \u9879")
         _load_trash_data()
 
@@ -9023,12 +9042,13 @@ class AutoRecorderApp(QMainWindow):
             for item in trash_table.selectedItems():
                 rows.add(item.row())
             if not rows:
-                self.show_beautiful_message('information', '提示', '请先选择要恢复的流程')
+                self.show_beautiful_message('information', '提示', '请先选择要恢复的流程', parent=trash_table.window())
                 return
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil
+            import shutil, threading
+            items = []
             for row in sorted(rows, reverse=True):
                 item_data = trash_table.item(row, 0).data(Qt.UserRole)
                 if not item_data:
@@ -9044,60 +9064,91 @@ class AutoRecorderApp(QMainWindow):
                     from datetime import datetime as _dt
                     timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
                     restore_path = os.path.join(os.path.dirname(original_path), original_name + timestamp)
-                shutil.move(trash_folder_path, restore_path)
-                self.remove_from_trash_index(trash_folder_name)
-            self._reload_trash_table(trash_table, count_label)
+                items.append((trash_folder_path, restore_path, trash_folder_name))
+            if not items:
+                return
+            def _bg():
+                for path, restore_path, name in items:
+                    try:
+                        shutil.move(path, restore_path)
+                        self.remove_from_trash_index(name)
+                    except Exception:
+                        pass
+                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
+                QTimer.singleShot(0, lambda: self.show_beautiful_message('information', '恢复成功', f'成功恢复 {len(items)} 个流程', parent=trash_table.window()))
+            threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
-            self.show_beautiful_message('critical', '错误', f"恢复失败: {e}")
-
+            self.show_beautiful_message('critical', '错误', f"恢复失败: {e}", parent=trash_table.window())
     def delete_selected_trash(self, trash_table, count_label):
         try:
             rows = set()
             for item in trash_table.selectedItems():
                 rows.add(item.row())
             if not rows:
-                self.show_beautiful_message('information', '提示', '请先选择要永久删除的流程')
+                self.show_beautiful_message('information', '提示', '请先选择要永久删除的流程', parent=trash_table.window())
                 return
-            reply = self.show_beautiful_message('question', '确认', '确定要永久删除选中的流程吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
+            reply = self.show_beautiful_message('question', '确认', '确定要永久删除选中的流程吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No, parent=trash_table.window())
             if reply != QMessageBox.Yes:
                 return
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil
+            import shutil, threading
+            items = []
             for row in sorted(rows, reverse=True):
                 item_data = trash_table.item(row, 0).data(Qt.UserRole)
                 if not item_data:
                     continue
-                trash_folder_name = item_data['trash_folder_name']
-                trash_folder_path = os.path.join(trash_dir, trash_folder_name)
-                if os.path.exists(trash_folder_path):
-                    shutil.rmtree(trash_folder_path)
-                self.remove_from_trash_index(trash_folder_name)
-            self._reload_trash_table(trash_table, count_label)
+                items.append((item_data['trash_folder_name'], os.path.join(trash_dir, item_data['trash_folder_name'])))
+            if not items:
+                return
+            def _bg():
+                for name, path in items:
+                    try:
+                        if os.path.exists(path):
+                            shutil.rmtree(path)
+                        self.remove_from_trash_index(name)
+                    except Exception:
+                        pass
+                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
+                QTimer.singleShot(0, lambda: self.show_beautiful_message('information', '删除成功', f'成功删除 {len(items)} 个流程', parent=trash_table.window()))
+            threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
-
     def clear_trash_dialog(self, trash_table, count_label):
         try:
-            reply = self.show_beautiful_message('question', '确认', '确定要清空回收站吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No)
+            reply = self.show_beautiful_message('question', '确认', '确定要清空回收站吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No, parent=trash_table.window())
             if reply != QMessageBox.Yes:
                 return
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil
+            import shutil, threading
+            all_items = []
             if os.path.exists(trash_dir):
-                for item in os.listdir(trash_dir):
-                    item_path = os.path.join(trash_dir, item)
-                    if os.path.isdir(item_path):
-                        shutil.rmtree(item_path)
-                    else:
-                        os.remove(item_path)
-            self._reload_trash_table(trash_table, count_label)
+                all_items = [(n, os.path.join(trash_dir, n)) for n in os.listdir(trash_dir)]
+            if not all_items:
+                return
+            def _bg():
+                for name, p in all_items:
+                    try:
+                        if os.path.isdir(p):
+                            shutil.rmtree(p)
+                        else:
+                            os.remove(p)
+                    except Exception:
+                        pass
+                import json
+                idx_f = os.path.join(trash_dir, 'trash_index.json')
+                try:
+                    if os.path.exists(idx_f):
+                        os.remove(idx_f)
+                except:
+                    pass
+                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
+            threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
-            self.show_beautiful_message('critical', '错误', f"清空失败: {e}")
-
+            self.show_beautiful_message('critical', '错误', f"清空失败: {e}", parent=trash_table.window())
     def _reload_trash_table(self, trash_table, count_label):
         from utils import get_recordings_path
         recordings_dir = get_recordings_path()

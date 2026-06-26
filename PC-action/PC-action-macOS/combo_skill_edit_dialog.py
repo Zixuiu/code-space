@@ -1156,26 +1156,26 @@ class ComboSkillEditDialog(QDialog):
         self.build_flow_tree()
 
     def move_flow_up(self):
-        current_index = self.tree_widget.currentIndex()
-        if not current_index.isValid():
+        current_item = self.tree_widget.currentItem()
+        if current_item is None:
             return
-        row = current_index.row()
-        if row <= 0 or row >= len(self.flows):
+        flow_index = self.get_flow_index_from_item(current_item)
+        if flow_index is None or flow_index <= 0:
             return
-        self.swap_flows(row - 1, row)
-        # 选中用户刚上移的那个流程（它现在在 row-1 位置）
-        self.tree_widget.setCurrentIndex(self.tree_widget.model().index(row - 1, 0))
+        self.swap_flows(flow_index - 1, flow_index)
+        # 选中用户刚上移的那个流程（它现在在 flow_index-1 位置）
+        self.tree_widget.setCurrentIndex(self.tree_widget.model().index(flow_index - 1, 0))
 
     def move_flow_down(self):
-        current_index = self.tree_widget.currentIndex()
-        if not current_index.isValid():
+        current_item = self.tree_widget.currentItem()
+        if current_item is None:
             return
-        row = current_index.row()
-        if row < 0 or row >= len(self.flows) - 1:
+        flow_index = self.get_flow_index_from_item(current_item)
+        if flow_index is None or flow_index >= len(self.flows) - 1:
             return
-        self.swap_flows(row, row + 1)
-        # 选中用户刚下移的那个流程（它现在在 row+1 位置）
-        self.tree_widget.setCurrentIndex(self.tree_widget.model().index(row + 1, 0))
+        self.swap_flows(flow_index, flow_index + 1)
+        # 选中用户刚下移的那个流程（它现在在 flow_index+1 位置）
+        self.tree_widget.setCurrentIndex(self.tree_widget.model().index(flow_index + 1, 0))
 
     def refresh_flow_widgets(self):
         self.build_flow_tree()
