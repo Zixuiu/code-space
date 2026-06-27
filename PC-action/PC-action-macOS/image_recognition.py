@@ -330,27 +330,22 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 
                 # 使用图像匹配查找位置
                 debug_print(f"[回放] 步骤 {step}: 开始匹配图片 {image_name}")
-                # 根据图片大小动态调整置信度：一律使用 0.8
+                # 直接使用缓存的图像数组获取尺寸，避免重复打开文件
+                dynamic_confidence = 0.8
+                use_color = consider_color
                 try:
-                    from PIL import Image
-                    with Image.open(image_path) as img:
-                        img_width, img_height = img.size
-                        # 统一使用 0.8，不分大小
-                        dynamic_confidence = 0.8
+                    from image_recognition import get_cached_image
+                    cached_img = get_cached_image(image_path)
+                    if cached_img is not None:
+                        img_height, img_width = cached_img.shape[:2]
                         if img_width < 50 or img_height < 50:
-                            # 小图标同样启用颜色匹配——颜色提供了更多判别特征
-                            # 禁用颜色匹配会使 44x22 这样的小模板在灰度下误匹配到相似区域
                             use_color = consider_color
                             debug_print(f"[回放] 步骤 {step}: 小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
-                        else:
-                            use_color = consider_color
                 except Exception:
-                    dynamic_confidence = 0.8
-                    use_color = consider_color
+                    pass
                 # 根据 match_timeout 自适应分配匹配时间
-                # 一次性给充足超时,避免分两次匹配增加延迟
-                # 快的 UI 0.01s 就返回,慢的 UI 给够时间渲染
-                single_attempt_timeout = match_timeout * 0.8
+                # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
+                single_attempt_timeout = match_timeout * 0.5
                 _match_t0 = time.time()
                 _roi_hint = None
                 if 'x' in operation and 'y' in operation:
@@ -375,24 +370,22 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 # 如果没有图像文件，跳过此步骤（不再使用坐标作为备用方案）
                 continue
             
-            # 极速模式：直接移动并点击，不添加任何延迟
-            # 使用 PyDirectInput 风格的低级 mouseDown/Up,比 click() 快 3-5 倍
-            pyautogui.moveTo(center_x, center_y, duration=0)
+            # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
+            _fast_move(center_x, center_y)
 
             # 根据操作类型执行相应操作
             if action_type == 'left_click':
-                pyautogui.mouseDown(); pyautogui.mouseUp()
+                _fc('left')
             elif action_type == 'right_click':
-                pyautogui.mouseDown(button='right'); pyautogui.mouseUp(button='right')
+                _fc('right')
             elif action_type == 'double_click':
-                pyautogui.mouseDown(); pyautogui.mouseUp()
-                pyautogui.mouseDown(); pyautogui.mouseUp()
+                _fc('left'); _fc('left')
             elif action_type == 'drag':
-                pyautogui.mouseDown()
-                pyautogui.moveRel(50, 0, duration=0)
-                pyautogui.mouseUp()
+                _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                _user32.mouse_event(0x0001, 50, 0, 0, 0)  # MOUSEEVENTF_MOVE
+                _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
             else:
-                pyautogui.mouseDown(); pyautogui.mouseUp()
+                _fc('left')
             
             success_count += 1
 
@@ -625,8 +618,10 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     screenshot_h = first_screenshot.shape[0] if first_screenshot is not None else 0
     screenshot_w = first_screenshot.shape[1] if first_screenshot is not None else 0
 
-    # 多尺度间隔从 2 改成 3,减少多尺度运行频率（每次多尺度太耗时），首次截图也会跑多尺度
-    multi_scale_interval = 2
+    # 多尺度间隔：减少多尺度运行频率（每次多尺度太耗时）
+    # 策略：只有 1:1 分数接近阈值时才跑多尺度，且间隔为 3 次
+    multi_scale_interval = 3
+    multi_scale_threshold_ratio = 0.75  # 1:1 分数达到阈值的 75% 以上才跑多尺度
     iteration = 0
 
     # 截图和模板尺寸（用于诊断 "明明有图却匹配不到" 问题）
@@ -636,13 +631,24 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     # 记录所有尺度的最佳分数（用于失败时诊断）
     scale_best_scores = {}  # {scale: (max_val, max_loc)}
 
+    # ⚡ 预计算灰度模板（consider_color=False 时用灰度匹配，快3倍）
+    _gray_template = None
+    if not consider_color:
+        _gray_template = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+
+    def _fast_match(screen_bgr, template_bgr):
+        """快速匹配：灰度比BGR快3倍"""
+        if _gray_template is not None:
+            gray_s = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
+            return cv2.matchTemplate(gray_s, _gray_template, cv2.TM_CCOEFF_NORMED)
+        else:
+            return cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
+
     def _try_match(screenshot, skip_multi_scale=False):
         nonlocal iteration
         iteration += 1
         _tm0 = time.time()
-        result = _match_template_cuda(screenshot, image_array)
-        if result is None:
-            result = cv2.matchTemplate(screenshot, image_array, cv2.TM_CCOEFF_NORMED)
+        result = _fast_match(screenshot, image_array)
         min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
         scale_best_scores[1.0] = (max_val, max_loc)
         if iteration == 1 or iteration % 20 == 0:
@@ -650,7 +656,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         if max_val >= confidence:
             h, w = image_array.shape[:2]
             return (max_loc[0], max_loc[1], w, h)
-        if not skip_multi_scale and (iteration % multi_scale_interval == 0):
+        # 智能多尺度：只有 1:1 分数接近阈值时才跑多尺度，节省时间
+        if not skip_multi_scale and (iteration % multi_scale_interval == 0) and (max_val >= confidence * multi_scale_threshold_ratio):
             _ms0 = time.time()
             loc, all_scores = fast_multi_scale_match(screenshot, image_array, confidence, consider_color, image_path, return_scores=True)
             for sc, (mv, ml) in all_scores.items():
@@ -665,30 +672,45 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
                 return None
             _first0 = time.time()
+
+            # ⚡ 最快路径：如果有 roi_hint，从全屏截图切片 ROI + 灰度匹配（快3倍）
             if roi_hint is not None:
                 try:
                     rx, ry = int(roi_hint[0]), int(roi_hint[1])
                     img_h, img_w = image_array.shape[:2]
-                    pad = 200
+                    pad = 300
                     x1 = max(0, rx - pad)
                     y1 = max(0, ry - pad)
                     x2 = min(first_screenshot.shape[1], rx + img_w + pad)
                     y2 = min(first_screenshot.shape[0], ry + img_h + pad)
-                    roi = first_screenshot[y1:y2, x1:x2]
+                    roi = first_screenshot[y1:y2, x1:x2].copy()
                     if roi.shape[0] >= img_h and roi.shape[1] >= img_w:
-                        debug_print(f"[匹配诊断] ROI快速尝试: 区域({x1},{y1},{x2},{y2})={roi.shape}")
-                        result = _match_template_cuda(roi, image_array)
-                        if result is None:
-                            result = cv2.matchTemplate(roi, image_array, cv2.TM_CCOEFF_NORMED)
+                        result = _fast_match(roi, image_array)
                         _, roi_max_val, _, roi_max_loc = cv2.minMaxLoc(result)
+                        scale_best_scores[1.0] = (roi_max_val, roi_max_loc)
+                        iteration = 1
                         if roi_max_val >= confidence:
                             h, w = image_array.shape[:2]
+                            debug_print(f"[匹配诊断] ⚡ ROI灰度命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2})")
                             return (roi_max_loc[0] + x1, roi_max_loc[1] + y1, w, h)
-                        debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 回退粗匹配")
+                        debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 尝试全屏灰度1:1")
                 except Exception as _roi_e:
-                    pass
-                    debug_print(f"[匹配诊断] ROI提取失败: {_roi_e}, 回退粗匹配")
+                    debug_print(f"[匹配诊断] ROI切片异常: {_roi_e}, 尝试全屏1:1")
 
+            # ⚡ 次快路径：全屏灰度 1:1 匹配（灰度比BGR快3倍）
+            _fast_result = _fast_match(first_screenshot, image_array)
+            _, _fast_max_val, _, _fast_max_loc = cv2.minMaxLoc(_fast_result)
+            if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _fast_max_val:
+                scale_best_scores[1.0] = (_fast_max_val, _fast_max_loc)
+            if iteration == 0:
+                iteration = 1
+            if _fast_max_val >= confidence:
+                h, w = image_array.shape[:2]
+                debug_print(f"[匹配诊断] ⚡ 全屏1:1快速命中(score={_fast_max_val:.3f}) 位置={_fast_max_loc}")
+                return (_fast_max_loc[0], _fast_max_loc[1], w, h)
+            debug_print(f"[匹配诊断] 全屏1:1未命中(score={_fast_max_val:.3f}<{confidence:.2f}), 进入复杂匹配")
+
+            # 1:1 没命中，才走粗匹配、多尺度等复杂逻辑
             _coarse_scale = 0.5
             _coarse_thresh = confidence * 0.80
             if screenshot_w > 1200 and screenshot_h > 800:
@@ -774,13 +796,31 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 except Exception as _ce:
                     debug_print(f"[匹配诊断] 粗匹配异常: {_ce}, 回退全屏")
 
-            result = _try_match(first_screenshot, skip_multi_scale=False)
-            if result is not None:
-                return result
+            # 1:1 已经在上面做过了，这里跳过多尺度直接进入轮询
+            debug_print(f"[匹配诊断] 首次全屏1:1+复杂匹配均未命中, 进入轮询")
         except Exception as e:
             debug_print(f"[匹配诊断] ❗ 首次 _try_match 抛异常: {type(e).__name__}: {e}")
     else:
         debug_print(f"[匹配诊断] ⚠️ 首次 _get_shared_screenshot() 返回 None(截图服务未就绪?)")
+
+    # 预计算 ROI 坐标（轮询时复用）
+    _roi_x1 = _roi_y1 = _roi_w = _roi_h = 0
+    _has_roi = False
+    if roi_hint is not None:
+        try:
+            _rx, _ry = int(roi_hint[0]), int(roi_hint[1])
+            _ih, _iw = image_array.shape[:2]
+            _pad = 300
+            _roi_x1 = max(0, _rx - _pad)
+            _roi_y1 = max(0, _ry - _pad)
+            _roi_x2 = min(2560, _rx + _iw + _pad)
+            _roi_y2 = min(1600, _ry + _ih + _pad)
+            _roi_w = _roi_x2 - _roi_x1
+            _roi_h = _roi_y2 - _roi_y1
+            if _roi_w >= _iw and _roi_h >= _ih:
+                _has_roi = True
+        except:
+            pass
 
     # ⏭ 智能提前退出：首次截图已跑完所有匹配仍失败，最佳分数远低于阈值则跳过轮询
     if scale_best_scores and timeout > 0.15:
@@ -790,7 +830,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
             return None
 
-    # 优化:轮询间隔设为 80ms，更快响应
+    # 优化:轮询间隔设为 50ms，更快响应
     _POLL_INTERVAL = 0.05
     _screenshot_none_count = 0
     _exception_count = 0
@@ -808,12 +848,31 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
                 continue
 
-            result = _try_match(screenshot_bgr, skip_multi_scale=False)
-            if result is not None:
-                return result
+            # ⚡ 优先从全屏截图切片 ROI + 灰度匹配（快10倍），每3次做一次全屏
+            if _has_roi and _loop_iter % 3 != 0:
+                roi = screenshot_bgr[_roi_y1:_roi_y1+_roi_h, _roi_x1:_roi_x1+_roi_w].copy()
+                if roi.shape[0] >= template_h and roi.shape[1] >= template_w:
+                    result = _fast_match(roi, image_array)
+                    _, _rv, _, _rl = cv2.minMaxLoc(result)
+                    if _rv >= confidence:
+                        h, w = image_array.shape[:2]
+                        debug_print(f"[匹配诊断] ⚡ 轮询ROI灰度命中(score={_rv:.3f}) iter={_loop_iter}")
+                        return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
+                    if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
+                        scale_best_scores[1.0] = (_rv, (_rl[0] + _roi_x1, _rl[1] + _roi_y1))
+            else:
+                # 全屏灰度匹配（每3次一次，或没有ROI时）
+                result = _fast_match(screenshot_bgr, image_array)
+                _, _rv, _, _rl = cv2.minMaxLoc(result)
+                if _rv >= confidence:
+                    h, w = image_array.shape[:2]
+                    debug_print(f"[匹配诊断] ⚡ 轮询全屏灰度命中(score={_rv:.3f}) iter={_loop_iter}")
+                    return (_rl[0], _rl[1], w, h)
+                if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
+                    scale_best_scores[1.0] = (_rv, _rl)
         except Exception as e:
             _exception_count += 1
-            debug_print(f"[匹配诊断] ❗ 循环中 _try_match 抛异常(第 {_exception_count} 次): {type(e).__name__}: {e}")
+            debug_print(f"[匹配诊断] ❗ 循环中匹配异常(第 {_exception_count} 次): {type(e).__name__}: {e}")
 
         _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
 
@@ -909,6 +968,16 @@ def _mss_grab_array():
     monitor = sct.monitors[1]  # 主显示器
     screenshot = sct.grab(monitor)
     # numpy 视图直接取前3通道，再复制为连续数组（OpenCV 要求连续内存）
+    img = np.frombuffer(screenshot.bgra, dtype=np.uint8).reshape(screenshot.height, screenshot.width, 4)
+    return img[:, :, :3].copy()
+
+def _mss_grab_roi_array(x, y, w, h):
+    """使用 mss 截取指定区域并返回 numpy BGR 数组（比全屏快10倍）"""
+    sct = _get_mss()
+    if sct is None:
+        return None
+    monitor = {"left": int(x), "top": int(y), "width": int(w), "height": int(h)}
+    screenshot = sct.grab(monitor)
     img = np.frombuffer(screenshot.bgra, dtype=np.uint8).reshape(screenshot.height, screenshot.width, 4)
     return img[:, :, :3].copy()
 

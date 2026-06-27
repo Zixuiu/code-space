@@ -9501,7 +9501,7 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.4, consider_color=False, stop_check=lambda: not self.running)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.15, consider_color=False, stop_check=lambda: not self.running)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             try:
@@ -9549,9 +9549,9 @@ class ComboSkillRunner:
                             _wait_deadline = _time.time() + wait_timeout
                             _poll_cnt = 0
                             _disappeared = False
-                            # wait_for_image 使用更高置信度(0.9)和短超时(0.3s)以减少CPU占用和误报
+                            # wait_for_image 使用更高置信度(0.9)和短超时(0.2s)以减少CPU占用和误报
                             _wf_confidence = 0.9
-                            _wf_timeout = 0.3
+                            _wf_timeout = 0.2
                             while self.running and _time.time() < _wait_deadline:
                                 _poll_cnt += 1
                                 loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
@@ -9560,27 +9560,27 @@ class ComboSkillRunner:
                                         _disappeared = True
                                         _wf_log(f"👁 图片已消失，开始等待出现")
                                     else:
-                                        if _poll_cnt % 5 == 0:
+                                        if _poll_cnt % 10 == 0:
                                             _wf_log(f"⏳ 等待图片消失中(已轮询{_poll_cnt}次)")
-                                    _time.sleep(0.3)
+                                    _time.sleep(0.1)
                                     continue
                                 if loc is not None:
-                                    # 连续确认：再检测2次，全部命中才算真正出现（避免单帧闪烁误报）
+                                    # 连续确认：再检测1次，命中2次就算真正出现（避免单帧闪烁误报）
                                     _confirm = 1
-                                    for _ci in range(2):
-                                        _time.sleep(0.2)
+                                    for _ci in range(1):
+                                        _time.sleep(0.08)
                                         _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
                                         if _cloc is not None:
                                             _confirm += 1
-                                    if _confirm >= 3:
+                                    if _confirm >= 2:
                                         condition_met = True
-                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测(3中{_confirm})")
+                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测(2中{_confirm})")
                                         break
                                     else:
-                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/3确认失败)，继续等待")
-                                if _poll_cnt % 5 == 0:
+                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/2确认失败)，继续等待")
+                                if _poll_cnt % 10 == 0:
                                     _wf_log(f"⏳ 等待图片出现中(已轮询{_poll_cnt}次，剩余{max(0,_wait_deadline-_time.time()):.1f}s)")
-                                _time.sleep(0.3)
+                                _time.sleep(0.1)
                             _cond_elapsed = _time.time() - _cond_start
                             if not _disappeared:
                                 _wf_log(f"⚠ 图片始终存在(未消失)，超时{_cond_elapsed:.1f}s 结果=不满足")
@@ -9682,18 +9682,9 @@ class ComboSkillRunner:
                         if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
                             try:
                                 if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⛔ 录制回放中图片匹配失败 {_img_fail_count} 次，立即停止组合技")
-                                    self._main_app.append_log(f"╚═{'═'*40}")
+                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过此流程继续执行")
                             except Exception:
-                                break
-                            self.running = False
-                            break
-                        elif _img_fail_count > 0:
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，但条件为{condition}，继续执行")
-                            except Exception:
-                                break
+                                pass
 
                     try:
                         if self._main_app is not None:
@@ -9702,7 +9693,7 @@ class ComboSkillRunner:
                         pass
 
                     if self.running:
-                        self._wait_interruptible(0.3)
+                        self._wait_interruptible(0.05)
                     flow_index += 1
 
                 _loop_elapsed = _time.time() - _loop_start
@@ -9787,8 +9778,8 @@ class ComboSkillRunner:
                 _t_replay0 = _time.time()
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
-                    replay_interval=0.1, consider_color=False,
-                    match_timeout=3.0,
+                    replay_interval=0.0, consider_color=False,
+                    match_timeout=1.5,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True
                 )
