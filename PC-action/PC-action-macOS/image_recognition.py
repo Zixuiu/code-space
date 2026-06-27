@@ -742,12 +742,17 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 h, w = image_array.shape[:2]
                 debug_print(f"[匹配诊断] ⚡ 全屏1:1快速命中(score={_fast_max_val:.3f}) 位置={_fast_max_loc}")
                 return (_fast_max_loc[0], _fast_max_loc[1], w, h)
-            debug_print(f"[匹配诊断] 全屏1:1未命中(score={_fast_max_val:.3f}<{confidence:.2f}), 进入复杂匹配")
+            debug_print(f"[匹配诊断] 全屏1:1未命中(score={_fast_max_val:.3f}<{confidence:.2f})")
+
+            # ⚡ 如果分数很低（< 阈值60%），图片大概率不在屏幕上，跳过粗匹配/多尺度，直接轮询
+            _skip_complex = _fast_max_val < confidence * 0.6
+            if _skip_complex:
+                debug_print(f"[匹配诊断] ⏭ 分数过低({_fast_max_val:.3f}<{confidence*0.6:.2f})，跳过复杂匹配直接轮询")
 
             # 1:1 没命中，才走粗匹配、多尺度等复杂逻辑
             _coarse_scale = 0.5
             _coarse_thresh = confidence * 0.80
-            if screenshot_w > 1200 and screenshot_h > 800:
+            if not _skip_complex and screenshot_w > 1200 and screenshot_h > 800:
                 try:
                     _cs0 = time.time()
                     _small_screen = cv2.resize(first_screenshot, None, fx=_coarse_scale, fy=_coarse_scale, interpolation=cv2.INTER_AREA)
