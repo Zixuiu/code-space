@@ -8,6 +8,9 @@ from PIL import Image
 import sys
 import cv2
 import numpy as np
+
+# ⚡ 启用 OpenCL GPU 加速 matchTemplate
+cv2.ocl.setUseOpenCL(True)
 import mss
 
 # 尝试导入CUDA加速的OpenCV
@@ -521,15 +524,36 @@ def _match_template_cuda(screenshot_bgr, image_array):
     except Exception:
         return None
 
+_shared_screenshot = None
+_shared_screenshot_time = 0
+_shared_gray_screenshot = None      # 缓存的灰度截图（绿色通道）
+_shared_small_gray_screenshot = None  # 缓存的 0.5x 缩小灰度截图
+_SHARED_SCREENSHOT_INTERVAL = 0.003  # 共享截图刷新间隔3ms
+
 def _get_shared_screenshot():
-    """获取共享截图（线程安全），3ms内复用同一张截图，避免多线程重复抓屏"""
-    global _shared_screenshot, _shared_screenshot_time
+    """获取共享截图（线程安全），3ms内复用同一张截图，同时缓存灰度和缩小版本"""
+    global _shared_screenshot, _shared_screenshot_time, _shared_gray_screenshot, _shared_small_gray_screenshot
     now = time.time()
     with _shared_screenshot_lock:
         if _shared_screenshot is None or (now - _shared_screenshot_time) > _SHARED_SCREENSHOT_INTERVAL:
             _shared_screenshot = _mss_grab_array()
+            if _shared_screenshot is not None:
+                # 用 cvtColor 保证匹配精度（绿色通道会导致误匹配）
+                _shared_gray_screenshot = cv2.cvtColor(_shared_screenshot, cv2.COLOR_BGR2GRAY)
+                # ⚡ 同时缓存缩小版（避免轮询时重复 resize）
+                _shared_small_gray_screenshot = cv2.resize(_shared_gray_screenshot, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
             _shared_screenshot_time = now
         return _shared_screenshot
+
+def _get_shared_gray():
+    """获取缓存的灰度截图（绿色通道）"""
+    _get_shared_screenshot()
+    return _shared_gray_screenshot
+
+def _get_shared_small_gray():
+    """获取缓存的 0.5x 缩小灰度截图"""
+    _get_shared_screenshot()
+    return _shared_small_gray_screenshot
 
 
 def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None):
@@ -631,7 +655,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     # 记录所有尺度的最佳分数（用于失败时诊断）
     scale_best_scores = {}  # {scale: (max_val, max_loc)}
 
-    # ⚡ 预计算灰度模板（consider_color=False 时用灰度匹配，快3倍）
+    # ⚡ 预计算灰度模板（cvtColor 保证精度）
     _gray_template = None
     _gray_first_screenshot = None
     _small_gray_template = None  # 0.5x 缩小模板
@@ -640,7 +664,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         _gray_template = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
         if first_screenshot is not None:
             _gray_first_screenshot = cv2.cvtColor(first_screenshot, cv2.COLOR_BGR2GRAY)
-            # ⚡ 预计算 0.5x 缩小版（全屏匹配快4倍）
+            # ⚡ 预计算 0.5x 缩小版
             if template_w >= 20 and template_h >= 20:
                 _small_gray_template = cv2.resize(_gray_template, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
                 _small_gray_screenshot = cv2.resize(_gray_first_screenshot, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
@@ -869,28 +893,25 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
             return None
 
-    # 优化:轮询间隔设为 20ms，更快响应
-    _POLL_INTERVAL = 0.02
+    # 优化:轮询间隔设为 15ms，更快响应
+    _POLL_INTERVAL = 0.015
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = 30  # 可轮询最多30次
+    _max_poll_iters = 40  # 可轮询最多40次
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return None
         _loop_iter += 1
         try:
-            screenshot_bgr = _get_shared_screenshot()
-            if screenshot_bgr is None:
-                _screenshot_none_count += 1
-                _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
-                continue
-
-            # ⚡ 优先 0.5x 缩小匹配（最快），每3次做一次原始尺寸
+            # ⚡ 用缓存的灰度/缩小截图，省去 cvtColor(5-10ms) + resize(2-5ms)
             if _gray_template is not None and _small_gray_template is not None and _loop_iter % 3 != 0:
-                # 缩小匹配
-                gray_s = cv2.cvtColor(screenshot_bgr, cv2.COLOR_BGR2GRAY)
-                small_s = cv2.resize(gray_s, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+                # 缩小匹配（用缓存的小图）
+                small_s = _get_shared_small_gray()
+                if small_s is None:
+                    _screenshot_none_count += 1
+                    _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
+                    continue
                 result = cv2.matchTemplate(small_s, _small_gray_template, cv2.TM_CCOEFF_NORMED)
                 _, _rv, _, _rl = cv2.minMaxLoc(result)
                 if _rv >= confidence:
@@ -899,8 +920,12 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
                     scale_best_scores[1.0] = (_rv, (_rl[0] * 2, _rl[1] * 2))
             elif _gray_template is not None:
-                # 每3次做一次原始尺寸 ROI 匹配
-                gray_s = cv2.cvtColor(screenshot_bgr, cv2.COLOR_BGR2GRAY)
+                # 每3次做一次原始尺寸（用缓存的灰度图）
+                gray_s = _get_shared_gray()
+                if gray_s is None:
+                    _screenshot_none_count += 1
+                    _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
+                    continue
                 if _has_roi:
                     gray_roi = gray_s[_roi_y1:_roi_y1+_roi_h, _roi_x1:_roi_x1+_roi_w]
                     if gray_roi.shape[0] >= template_h and gray_roi.shape[1] >= template_w:
@@ -916,6 +941,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         h, w = image_array.shape[:2]
                         return (_rl[0], _rl[1], w, h)
             else:
+                screenshot_bgr = _get_shared_screenshot()
+                if screenshot_bgr is None:
+                    _screenshot_none_count += 1
+                    _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
+                    continue
                 result = _fast_match(screenshot_bgr, image_array)
                 _, _rv, _, _rl = cv2.minMaxLoc(result)
                 if _rv >= confidence:
@@ -989,9 +1019,6 @@ _mss_instance = None
 # 共享截图缓存 - 多线程间复用，避免重复截图
 import threading
 _shared_screenshot_lock = threading.Lock()
-_shared_screenshot = None
-_shared_screenshot_time = 0
-_SHARED_SCREENSHOT_INTERVAL = 0.015  # 共享截图刷新间隔3ms（从15ms降到3ms）
 
 # 多尺度匹配的预设尺度 - 覆盖常见 Windows DPI 缩放 (100%/125%/150%/175%/200%)
 # 原范围 [1.0, 0.95, 1.05] 太窄，换电脑/换 DPI 就会匹配不到
