@@ -633,14 +633,22 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
 
     # ⚡ 预计算灰度模板（consider_color=False 时用灰度匹配，快3倍）
     _gray_template = None
+    _gray_first_screenshot = None
     if not consider_color:
         _gray_template = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+        if first_screenshot is not None:
+            _gray_first_screenshot = cv2.cvtColor(first_screenshot, cv2.COLOR_BGR2GRAY)
 
-    def _fast_match(screen_bgr, template_bgr):
-        """快速匹配：灰度比BGR快3倍"""
+    def _fast_match(screen_bgr, template_bgr, gray_screen=None):
+        """快速匹配：灰度比BGR快3倍。可传入预计算的gray_screen避免重复cvtColor"""
         if _gray_template is not None:
-            gray_s = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
-            return cv2.matchTemplate(gray_s, _gray_template, cv2.TM_CCOEFF_NORMED)
+            if gray_screen is not None:
+                gs = gray_screen
+            elif screen_bgr is first_screenshot and _gray_first_screenshot is not None:
+                gs = _gray_first_screenshot
+            else:
+                gs = cv2.cvtColor(screen_bgr, cv2.COLOR_BGR2GRAY)
+            return cv2.matchTemplate(gs, _gray_template, cv2.TM_CCOEFF_NORMED)
         else:
             return cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
 
@@ -830,15 +838,14 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
             return None
 
-    # 优化:轮询间隔设为 50ms，更快响应
-    _POLL_INTERVAL = 0.05
+    # 优化:轮询间隔设为 20ms，更快响应
+    _POLL_INTERVAL = 0.02
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = 20  # 可轮询最多20次（约1s）
+    _max_poll_iters = 30  # 可轮询最多30次
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
-            debug_print(f"[匹配诊断] ⏹ 循环中检测到停止信号,提前退出(timeout 还剩 {max(0, timeout - (time.time() - start_time)):.2f}s)")
             return None
         _loop_iter += 1
         try:
@@ -848,31 +855,35 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
                 continue
 
-            # ⚡ 优先从全屏截图切片 ROI + 灰度匹配（快10倍），每3次做一次全屏
-            if _has_roi and _loop_iter % 3 != 0:
-                roi = screenshot_bgr[_roi_y1:_roi_y1+_roi_h, _roi_x1:_roi_x1+_roi_w].copy()
-                if roi.shape[0] >= template_h and roi.shape[1] >= template_w:
-                    result = _fast_match(roi, image_array)
+            # ⚡ 只做一次 cvtColor，ROI 从灰度图切片
+            if _gray_template is not None:
+                gray_s = cv2.cvtColor(screenshot_bgr, cv2.COLOR_BGR2GRAY)
+                if _has_roi and _loop_iter % 3 != 0:
+                    gray_roi = gray_s[_roi_y1:_roi_y1+_roi_h, _roi_x1:_roi_x1+_roi_w]
+                    if gray_roi.shape[0] >= template_h and gray_roi.shape[1] >= template_w:
+                        result = cv2.matchTemplate(gray_roi, _gray_template, cv2.TM_CCOEFF_NORMED)
+                        _, _rv, _, _rl = cv2.minMaxLoc(result)
+                        if _rv >= confidence:
+                            h, w = image_array.shape[:2]
+                            return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
+                        if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
+                            scale_best_scores[1.0] = (_rv, (_rl[0] + _roi_x1, _rl[1] + _roi_y1))
+                else:
+                    result = cv2.matchTemplate(gray_s, _gray_template, cv2.TM_CCOEFF_NORMED)
                     _, _rv, _, _rl = cv2.minMaxLoc(result)
                     if _rv >= confidence:
                         h, w = image_array.shape[:2]
-                        debug_print(f"[匹配诊断] ⚡ 轮询ROI灰度命中(score={_rv:.3f}) iter={_loop_iter}")
-                        return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
+                        return (_rl[0], _rl[1], w, h)
                     if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
-                        scale_best_scores[1.0] = (_rv, (_rl[0] + _roi_x1, _rl[1] + _roi_y1))
+                        scale_best_scores[1.0] = (_rv, _rl)
             else:
-                # 全屏灰度匹配（每3次一次，或没有ROI时）
                 result = _fast_match(screenshot_bgr, image_array)
                 _, _rv, _, _rl = cv2.minMaxLoc(result)
                 if _rv >= confidence:
                     h, w = image_array.shape[:2]
-                    debug_print(f"[匹配诊断] ⚡ 轮询全屏灰度命中(score={_rv:.3f}) iter={_loop_iter}")
                     return (_rl[0], _rl[1], w, h)
-                if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
-                    scale_best_scores[1.0] = (_rv, _rl)
         except Exception as e:
             _exception_count += 1
-            debug_print(f"[匹配诊断] ❗ 循环中匹配异常(第 {_exception_count} 次): {type(e).__name__}: {e}")
 
         _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
 
