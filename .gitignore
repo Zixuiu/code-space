@@ -20,22 +20,3 @@ debug.log
 *.old
 recordings/
 trash/
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.mp4
-*.avi
-*.mov
-
-# 忽略嵌套的 Git 仓库
-项目/wo-laibang-app/
-项目/ai-news-daily/
-
-# 忽略依赖和大文件
-node_modules/
-unpackage/
-*.exe
-*.dll
-*.so
-*.dylib
