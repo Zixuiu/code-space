@@ -20,7 +20,3 @@ debug.log
 *.old
 recordings/
 trash/
-
-# 忽略嵌套的 Git 仓库
-项目/wo-laibang-app/
-项目/ai-news-daily/
