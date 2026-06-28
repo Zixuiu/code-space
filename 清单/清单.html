@@ -1,0 +1,1718 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极简单元格编辑器</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+body {
+  background: linear-gradient(135deg, #f0f4f9 0%, #e2e8f0 100%);
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.9) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.9) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: center center;
+  padding: 20px;
+  min-height: 100vh;
+}
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 0;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  position: relative;
+  display: flex;
+  min-height: calc(100vh - 40px);
+}
+/* 左侧导航栏 */
+.sidebar {
+  width: 220px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-right: 1px solid #e2e8f0;
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  border-radius: 16px 0 0 16px;
+}
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0 12px 12px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e2e8f0;
+}
+/* 页面标签栏样式 - 改为垂直布局 */
+.page-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+.page-tab {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+}
+.page-tab:hover {
+  background: #e2e8f0;
+}
+.page-tab.active {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: white;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+}
+/* 页面删除图标样式 */
+.page-delete-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.1);
+  color: white;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s ease;
+  user-select: none;
+  margin-left: 8px;
+}
+.page-tab:hover .page-delete-btn {
+  opacity: 1;
+}
+.page-delete-btn:hover {
+  background: #ef4444;
+  transform: scale(1.1);
+}
+.add-page-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px dashed #94a3b8;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #64748b;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  text-align: left;
+  margin-top: 8px;
+}
+.add-page-btn:hover {
+  background: #e2e8f0;
+  border-color: #64748b;
+  color: #334155;
+}
+/* 主内容区域 */
+.main-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  border-radius: 0 16px 16px 0;
+}
+.toolbar {
+  display: none;
+}
+.import-export-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  color: #1e293b;
+}
+.btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transition: all 0.5s ease;
+}
+.btn:hover::before {
+  left: 100%;
+}
+.btn.primary {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+.btn.primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  background: #f8fafc;
+}
+
+.add-cell-btn {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  z-index: 999;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+}
+.add-cell-btn:hover {
+  transform: scale(1.05);
+}
+
+.cell {
+  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  border-radius: 10px;
+  padding: 12px 12px 12px 52px;
+  margin-bottom: 20px;
+  box-shadow:
+    0 2px 6px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,1);
+  position: relative;
+  transition: all 0.1s ease;
+  min-height: 48px;
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #e2e8f0;
+}
+.cell-number {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+.cell.selected .cell-number {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+}
+.cell.selected-last .cell-number {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+.cell-summary {
+  position: absolute;
+  right: 170px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: 200px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
+  border: 1px solid #fbbf24;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  z-index: 1;
+}
+.cell.selected .cell-summary {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e40af;
+  border-color: #60a5fa;
+}
+.cell.summary-loading .cell-summary {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #64748b;
+}
+.summary-btn {
+  position: absolute;
+  left: -5px;
+  right: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+.summary-btn:hover {
+  background: #fef3c7;
+  border-color: #fbbf24;
+  color: #92400e;
+}
+.cell.selected .summary-btn {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #3b82f6;
+}
+/* 移除单元格hover时的动画效果 */
+.cell:hover {
+  box-shadow: 
+    0 2px 6px rgba(0,0,0,0.05),
+    inset 0 1px 0 rgba(255,255,255,1);
+  transform: none;
+  border-color: #e2e8f0;
+}
+
+/* 修改选中单元格样式，移除动画相关属性 */
+.cell.selected {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 2px solid #93c5fd;
+  outline: 3px solid rgba(59, 130, 246, 0.1);
+  /* 移除以下动画相关属性 */
+  /* box-shadow: 
+    0 8px 24px rgba(59, 130, 246, 0.15),
+    0 0 0 6px rgba(59, 130, 246, 0.05),
+    inset 0 1px 0 rgba(255,255,255,1);
+  transform: translateY(-2px); */
+  z-index: 10;
+}
+
+/* 最后一个单元格选中时的特殊样式 - 超级夸张效果（无动画，无上浮） */
+.cell.selected-last {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 4px dashed #3b82f6;
+  outline: 5px solid rgba(59, 130, 246, 0.25);
+  outline-offset: 2px;
+  /* 超强阴影和效果 */
+  box-shadow: 
+    0 10px 35px rgba(59, 130, 246, 0.45),
+    0 0 0 8px rgba(59, 130, 246, 0.12),
+    inset 0 2px 4px rgba(255,255,255,0.9);
+  z-index: 999;
+  transition: none;
+  border-radius: 16px;
+  overflow: visible;
+}
+
+/* 确保最后一个单元格的按钮不被遮挡 */
+.cell.selected-last .actions {
+  z-index: 1000;
+  position: absolute;
+}
+.cell.selected-last .action-btn {
+  position: relative;
+  z-index: 1001;
+}
+
+.content {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 28px;
+  outline: none;
+  padding-right: 350px;
+  word-wrap: break-word;
+  color: #0f172a;
+  font-weight: 450;
+}
+.content:empty:before {
+  content: '输入内容或粘贴图片...';
+  color: #64748b;
+  font-size: 14px;
+  font-style: italic;
+}
+
+.text-input {
+  outline: none;
+  min-height: 20px;
+  display: inline;
+  cursor: text;
+}
+
+.actions {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 6px;
+}
+.action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+/* 移除按钮hover动画 */
+.action-btn:hover {
+  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+  color: #1e293b;
+  transform: none;
+}
+.cell.selected .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  color: #3b82f6;
+  border: 1px solid #bfdbfe;
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.1),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+/* 最后一个单元格选中时的按钮样式 */
+.cell.selected-last .action-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  color: #3b82f6;
+  border: 1px solid #bfdbfe;
+  box-shadow: 
+    0 2px 6px rgba(59, 130, 246, 0.1),
+    inset 0 1px 0 rgba(255,255,255,1);
+}
+/* 移除选中单元格按钮hover动画 */
+.cell.selected .action-btn:hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
+}
+/* 最后一个单元格选中时按钮hover */
+.cell.selected-last .action-btn:hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
+}
+.cell.selected .action-btn.delete {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+.cell.selected .action-btn.delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  transform: scale(1.1);
+}
+/* 最后一个单元格删除按钮hover */
+.cell.selected-last .action-btn.delete {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, #ffffff 0%, #fef2f2 100%);
+}
+.cell.selected-last .action-btn.delete:hover {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+.image-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  margin: 3px 0;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  color: #2563eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+  border: 1px solid #bfdbfe;
+  user-select: none;
+  pointer-events: auto;
+}
+/* 移除图片占位符hover动画 */
+.image-placeholder:hover {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  color: #fff;
+  transform: none;
+}
+.hidden-image { display: none; }
+
+.notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  font-size: 14px;
+  font-weight: 500;
+  display: none;
+  z-index: 100;
+  border-left: 4px solid #059669;
+  border: 1px solid rgba(5, 150, 105, 0.3);
+  color: #065f46;
+}
+
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.95);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.image-modal img {
+  max-width: 90%;
+  max-height: 90%;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+  border: 5px solid #fff;
+}
+.api-key-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+.api-key-content {
+  background: white;
+  padding: 24px;
+  border-radius: 16px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+.api-key-content h3 {
+  margin-bottom: 16px;
+  font-size: 18px;
+  color: #1e293b;
+}
+.api-key-content input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.api-key-content p {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.api-key-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 文本编辑器弹窗样式 */
+.text-editor-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1002;
+}
+.text-editor-content {
+  background: white;
+  padding: 0;
+  border-radius: 16px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.text-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.text-editor-header h3 {
+  font-size: 18px;
+  color: #1e293b;
+  margin: 0;
+}
+.text-editor-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: #f1f5f9;
+  cursor: pointer;
+  font-size: 18px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.text-editor-close:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+.text-editor-content textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 16px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+.text-editor-content textarea::placeholder {
+  color: #94a3b8;
+}
+.text-editor-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- 左侧导航栏 -->
+  <div class="sidebar">
+    <div class="sidebar-title">页面列表</div>
+    <div class="page-tabs" id="pageTabs"></div>
+  </div>
+  
+  <!-- 主内容区域 -->
+  <div class="main-content">
+    <!-- 导入导出工具栏 -->
+    <div class="import-export-toolbar">
+      <button class="btn" onclick="exportData()">📤 导出</button>
+      <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
+      <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
+      <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
+      <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
+    </div>
+
+    <div class="toolbar"></div>
+    <button id="addCellBtn" class="btn primary add-cell-btn" onclick="addCell()">+</button>
+    <div id="container" style="overflow: visible; padding-bottom: 20px;"></div>
+  </div>
+</div>
+
+<div class="notification" id="notice"></div>
+<div class="image-modal" id="imageModal" onclick="this.style.display='none'">
+  <img id="modalImage" src="" alt="预览">
+</div>
+<div class="api-key-modal" id="apiKeyModal" onclick="this.style.display='none'">
+  <div class="api-key-content" onclick="event.stopPropagation()">
+    <h3>🔑 设置 AI API 密钥</h3>
+    <p>请输入您的 OpenAI API 密钥（兼容任何 OpenAI 格式的 API）：</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx">
+    <p>支持的 API 格式：OpenAI、DeepSeek、智谱、通义千问等（需要兼容 OpenAI 接口）</p>
+    <div class="api-key-buttons">
+      <button class="btn" onclick="closeApiKeyDialog()">取消</button>
+      <button class="btn primary" onclick="saveApiKey()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 文本编辑器弹窗 -->
+<div class="text-editor-modal" id="textEditorModal" onclick="closeTextEditor(event)">
+  <div class="text-editor-content" onclick="event.stopPropagation()">
+    <div class="text-editor-header">
+      <h3>📝 编辑 TXT 导入内容</h3>
+      <button class="text-editor-close" onclick="closeTextEditor()">×</button>
+    </div>
+    <textarea id="textEditorInput" placeholder="输入内容，每行一条，例如：&#10;1. 第一条内容&#10;2. 第二条内容&#10;3. 第三条内容"></textarea>
+    <div class="text-editor-buttons">
+      <button class="btn" onclick="closeTextEditor()">取消</button>
+      <button class="btn primary" onclick="confirmTextImport()">✅ 确定导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'cell_editor_data';
+// 改造：多页面数据结构（增加name字段存储页面名称）
+let pagesData = [
+  { name: '页面1', cellsData: [''], cellImages: {}, cellSummaries: {} } // 默认页面1
+];
+let currentPageIndex = 0; // 当前激活的页面索引
+let selectedIndex = -1;
+let isRenaming = false; // 是否正在重命名状态
+let aiApiKey = ''; // AI API密钥（请自行填入）
+
+// 连续回车检测变量
+let lastEnterTime = 0;
+let lastEnterCellIndex = -1;
+const DOUBLE_ENTER_DELAY = 300; // 300ms内算连续两次回车
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadFromStorage();
+  renderPageTabs(); // 渲染页面标签
+  renderAllCells(); // 渲染当前页面的单元格
+  addKeyboardNavigation();
+  startAutoSummary(); // 启动自动总结定时器
+});
+
+// 自动总结定时器
+function startAutoSummary() {
+  // 每1秒检测一次
+  setInterval(() => {
+    const currentPage = getCurrentPageData();
+    if (!currentPage || !currentPage.cellsData) return;
+
+    currentPage.cellsData.forEach((cellText, i) => {
+      // 只有在用户不再选中/编辑该单元格时才进行AI总结
+      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
+        generateSummary(i);
+      }
+    });
+  }, 1000);
+}
+
+// 更新加号按钮位置到单元格左侧
+function updateAddButtonPosition() {
+  const btn = document.getElementById('addCellBtn');
+  const cells = document.querySelectorAll('.cell');
+  
+  if (cells.length === 0) {
+    // 如果没有单元格，隐藏按钮
+    btn.style.display = 'none';
+    return;
+  }
+  
+  btn.style.display = 'flex';
+  
+  // 获取最后一个单元格相对于app容器的位置
+  const app = document.querySelector('.app');
+  const lastCell = cells[cells.length - 1];
+  
+  // 计算位置：垂直居中于最后一个单元格
+  const lastCellTop = lastCell.offsetTop;
+  const lastCellHeight = lastCell.offsetHeight;
+  const top = lastCellTop + lastCellHeight / 2 - 25;
+  
+  // 按钮右边缘在单元格左侧5px
+  btn.style.left = (lastCell.offsetLeft - 55) + 'px';
+  btn.style.top = top + 'px';
+  btn.style.right = 'auto';
+  btn.style.transform = 'none';
+}
+
+// 渲染页面标签
+function renderPageTabs() {
+  if (isRenaming) return; // 重命名中不重新渲染标签
+  
+  const tabsContainer = document.getElementById('pageTabs');
+  tabsContainer.innerHTML = '';
+  
+  // 添加所有页面标签
+  pagesData.forEach((page, index) => {
+    const tab = document.createElement('div');
+    tab.className = `page-tab ${index === currentPageIndex ? 'active' : ''}`;
+    tab.onclick = () => handleTabClick(index);
+    
+    // 页面名称文本
+    const tabText = document.createTextNode(page.name || `页面${index + 1}`);
+    tab.appendChild(tabText);
+    
+    // 删除图标
+    const deleteBtn = document.createElement('span');
+    deleteBtn.className = 'page-delete-btn';
+    deleteBtn.textContent = '×';
+    deleteBtn.onclick = (e) => handleDeletePage(index, e);
+    tab.appendChild(deleteBtn);
+    
+    tabsContainer.appendChild(tab);
+  });
+  
+  // 添加新增页面按钮
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-page-btn';
+  addBtn.textContent = '+ 新增页面';
+  addBtn.onclick = addNewPage;
+  tabsContainer.appendChild(addBtn);
+}
+
+// 处理页面标签点击
+function handleTabClick(index) {
+  if (isRenaming) return; // 重命名中不响应点击
+  
+  // 如果点击的是当前激活的页面 → 进入重命名模式
+  if (index === currentPageIndex) {
+    enterRenameMode(index);
+    return;
+  }
+  
+  // 切换到其他页面
+  currentPageIndex = index;
+  selectedIndex = -1; // 切换页面后重置选中的单元格
+  renderPageTabs(); // 更新标签样式
+  renderAllCells(); // 渲染新页面的单元格
+  show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
+}
+
+// 进入重命名模式
+function enterRenameMode(index) {
+  isRenaming = true;
+  const tab = document.querySelectorAll('.page-tab')[index];
+  const originalName = pagesData[index].name || `页面${index + 1}`;
+  
+  // 清空标签内容，创建输入框
+  tab.innerHTML = '';
+  const input = document.createElement('input');
+  input.className = 'page-rename-input';
+  input.value = originalName;
+  input.onblur = () => confirmRename(index, input.value);
+  input.onkeydown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      confirmRename(index, input.value);
+      input.blur();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelRename(index);
+      input.blur();
+    }
+  };
+  
+  tab.appendChild(input);
+  input.focus();
+  input.select(); // 选中原有文本
+}
+
+// 确认重命名
+function confirmRename(index, newName) {
+  isRenaming = false;
+  // 验证名称（不能为空）
+  if (!newName.trim()) {
+    newName = `页面${index + 1}`;
+  }
+  
+  // 更新页面名称
+  pagesData[index].name = newName.trim();
+  save();
+  renderPageTabs();
+  show(`页面已重命名为：${newName.trim()}`);
+}
+
+// 取消重命名
+function cancelRename(index) {
+  isRenaming = false;
+  renderPageTabs();
+}
+
+// 处理页面删除
+function handleDeletePage(index, e) {
+  e.stopPropagation(); // 阻止触发标签点击事件
+  
+  // 至少保留一个页面
+  if (pagesData.length <= 1) {
+    show('至少需要保留一个页面');
+    return;
+  }
+  
+  // 确认删除
+  if (!confirm(`确定要删除【${pagesData[index].name || `页面${index + 1}`}】吗？`)) {
+    return;
+  }
+  
+  // 删除页面数据
+  pagesData.splice(index, 1);
+  
+  // 调整当前页面索引（如果删除的是当前激活的页面）
+  if (index === currentPageIndex) {
+    currentPageIndex = Math.max(0, index - 1);
+    selectedIndex = -1;
+  } else if (index < currentPageIndex) {
+    currentPageIndex--; // 调整后续页面索引
+  }
+  
+  save();
+  renderPageTabs();
+  renderAllCells();
+  show('页面已删除');
+}
+
+// 添加新页面
+function addNewPage() {
+  if (isRenaming) return; // 重命名中不添加新页面
+  
+  // 添加空白页面（自动命名）
+  const newPageName = `页面${pagesData.length + 1}`;
+  pagesData.push({ 
+    name: newPageName, 
+    cellsData: [''], 
+    cellImages: {},
+    cellSummaries: {}
+  });
+  const newPageIndex = pagesData.length - 1;
+  
+  save();
+  renderPageTabs();
+  switchPage(newPageIndex); // 切换到新页面
+  show(`已创建${newPageName}`);
+}
+
+// 切换页面（内部调用）
+function switchPage(index) {
+  if (index < 0 || index >= pagesData.length) return;
+  
+  currentPageIndex = index;
+  selectedIndex = -1; // 切换页面后重置选中的单元格
+  renderPageTabs(); // 更新标签样式
+  renderAllCells(); // 渲染新页面的单元格
+  show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
+}
+
+function addKeyboardNavigation() {
+  document.addEventListener('keydown', (e) => {
+    if (selectedIndex !== -1 && e.key === 'ArrowDown') {
+      e.preventDefault();
+      const nextIndex = selectedIndex + 1;
+      const totalCells = getCurrentPageData().cellsData.length;
+      if (nextIndex < totalCells) {
+        // 获取当前选中单元格的高度，用于计算滚动距离
+        const currentCell = document.querySelectorAll('.cell')[selectedIndex];
+        let scrollDistance = 0;
+        if (currentCell) {
+          const cellHeight = currentCell.offsetHeight;
+          const computedStyle = window.getComputedStyle(currentCell);
+          const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
+          scrollDistance = cellHeight + marginBottom;
+        }
+        
+        selectCell(nextIndex, true);
+        
+        // 只滚动一格的距离
+        if (scrollDistance > 0) {
+          window.scrollBy({ top: scrollDistance, behavior: 'instant' });
+        }
+      } else if (selectedIndex === totalCells - 1) {
+        // 已经是最后一行，不滚动或只做微调确保按钮可见
+        const lastCell = document.querySelectorAll('.cell')[selectedIndex];
+        if (lastCell) {
+          lastCell.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+        }
+      }
+    }
+  });
+}
+
+// 获取当前页面的数据
+function getCurrentPageData() {
+  return pagesData[currentPageIndex];
+}
+
+function selectCell(index, shouldFocus = false) {
+  const prevIndex = selectedIndex;
+  selectedIndex = index;
+  const currentPage = getCurrentPageData();
+  const totalCells = currentPage.cellsData.length;
+  const isLastCell = index === totalCells - 1;
+  
+  document.querySelectorAll('.cell').forEach((el, i) => {
+    // 清除所有选中样式和transform
+    el.classList.remove('selected', 'selected-last');
+    el.style.transform = '';
+    
+    if (i === index) {
+      // 根据是否是最后一个单元格应用不同样式
+      if (isLastCell) {
+        el.classList.add('selected-last');
+        // 不再使用transform上浮，避免页面跳动
+      } else {
+        el.classList.add('selected');
+      }
+      if (shouldFocus) {
+        setTimeout(() => el.querySelector('.text-input')?.focus(), 0);
+      }
+    }
+  });
+  
+  // 自动总结所有未总结的单元格（排除当前选中的单元格）
+  setTimeout(() => {
+    currentPage.cellsData.forEach((cellText, i) => {
+      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
+        generateSummary(i);
+      }
+    });
+  }, 500);
+}
+
+function onCellClick(i, e) {
+  if (e.target.closest('.action-btn') || e.target.closest('.image-placeholder')) {
+    return;
+  }
+  selectCell(i, true);
+}
+
+function onInputFocus(i) {
+  selectCell(i);
+}
+
+// 处理连续回车
+function handleEnterKey(e, cellIndex) {
+  if (e.key !== 'Enter') return;
+  
+  const now = Date.now();
+  const isSameCell = cellIndex === lastEnterCellIndex;
+  const isQuick = now - lastEnterTime < DOUBLE_ENTER_DELAY;
+
+  if (isSameCell && isQuick) {
+    // 连续两次回车 → 新增单元格
+    e.preventDefault();
+    addCellAfter(cellIndex);
+    show('已新增单元格');
+  } else {
+    // 单次回车 → 记录状态
+    lastEnterTime = now;
+    lastEnterCellIndex = cellIndex;
+  }
+}
+
+// 在指定单元格后新增
+function addCellAfter(index) {
+  const currentPage = getCurrentPageData();
+  currentPage.cellsData.splice(index + 1, 0, '');
+  
+  const newImgs = {};
+  Object.keys(currentPage.cellImages).forEach(k => {
+    const n = +k;
+    newImgs[n <= index ? n : n + 1] = currentPage.cellImages[k];
+  });
+  currentPage.cellImages = newImgs;
+  
+  if (currentPage.cellSummaries) {
+    const newSummaries = {};
+    Object.keys(currentPage.cellSummaries).forEach(k => {
+      const n = +k;
+      newSummaries[n <= index ? n : n + 1] = currentPage.cellSummaries[k];
+    });
+    currentPage.cellSummaries = newSummaries;
+  }
+  
+  save();
+  renderAllCells();
+  selectCell(index + 1, true);
+}
+
+function addCell() {
+  const currentPage = getCurrentPageData();
+  currentPage.cellsData.push('');
+  save();
+  renderAllCells();
+  const idx = currentPage.cellsData.length - 1;
+  setTimeout(() => {
+    selectCell(idx, true);
+    updateAddButtonPosition();
+  }, 10);
+}
+
+function copyText(i) {
+  const currentPage = getCurrentPageData();
+  let t = currentPage.cellsData[i] || '';
+  const pageName = currentPage.name || '';
+  if (pageName) {
+    t = '[' + pageName + '] ' + t;
+  }
+  if (currentPage.cellImages[i]) t = '🖼️ ' + t;
+  navigator.clipboard.writeText(t).then(() => show('已复制文字'));
+}
+
+function copyImage(i) {
+  const currentPage = getCurrentPageData();
+  if (!currentPage.cellImages[i]) {
+    // 无图片时复制文字内容
+    copyText(i);
+    return;
+  }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    const c = document.createElement('canvas');
+    c.width = img.width;
+    c.height = img.height;
+    c.getContext('2d').drawImage(img, 0, 0);
+    c.toBlob(b => {
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': b })])
+        .then(() => show('已复制图片'));
+    });
+  };
+  img.src = currentPage.cellImages[i];
+}
+
+function viewImage(i) {
+  const currentPage = getCurrentPageData();
+  if (!currentPage.cellImages[i]) {
+    // 无图片时复制文字内容
+    copyText(i);
+    return;
+  }
+  document.getElementById('modalImage').src = currentPage.cellImages[i];
+  document.getElementById('imageModal').style.display = 'flex';
+}
+
+function clearCell(i) {
+  const currentPage = getCurrentPageData();
+  currentPage.cellsData[i] = '';
+  delete currentPage.cellImages[i];
+  save();
+  
+  const cell = document.querySelectorAll('.cell')[i];
+  if (cell) {
+    const input = cell.querySelector('.text-input');
+    if (input) input.textContent = '';
+    const placeholder = cell.querySelector('.image-placeholder');
+    if (placeholder) placeholder.remove();
+    selectCell(i, true);
+  } else {
+    renderAllCells();
+  }
+}
+
+function deleteCell(i) {
+  const currentPage = getCurrentPageData();
+  if (currentPage.cellsData.length <= 1) {
+    show('每个页面至少要保留一行单元格');
+    return;
+  }
+  currentPage.cellsData.splice(i, 1);
+  const newImgs = {};
+  Object.keys(currentPage.cellImages).forEach(k => {
+    const n = +k;
+    if (n < i) newImgs[n] = currentPage.cellImages[k];
+    if (n > i) newImgs[n - 1] = currentPage.cellImages[k];
+  });
+  currentPage.cellImages = newImgs;
+  
+  if (currentPage.cellSummaries) {
+    const newSummaries = {};
+    Object.keys(currentPage.cellSummaries).forEach(k => {
+      const n = +k;
+      if (n < i) newSummaries[n] = currentPage.cellSummaries[k];
+      if (n > i) newSummaries[n - 1] = currentPage.cellSummaries[k];
+    });
+    currentPage.cellSummaries = newSummaries;
+  }
+  
+  selectedIndex = -1;
+  save();
+  renderAllCells();
+}
+
+function renderAllCells() {
+  const c = document.getElementById('container');
+  c.innerHTML = '';
+
+  const currentPage = getCurrentPageData();
+  const totalCells = currentPage.cellsData.length;
+  
+  currentPage.cellsData.forEach((txt, i) => {
+    const cell = document.createElement('div');
+    // 根据是否是最后一个单元格和是否选中应用不同样式
+    let className = 'cell';
+    if (i === selectedIndex) {
+      if (i === totalCells - 1) {
+        className += ' selected-last';
+      } else {
+        className += ' selected';
+      }
+    }
+    cell.className = className;
+    cell.addEventListener('click', e => onCellClick(i, e));
+
+    const cellNumber = document.createElement('span');
+    cellNumber.className = 'cell-number';
+    cellNumber.textContent = i + 1;
+    cell.appendChild(cellNumber);
+
+    const currentPage = getCurrentPageData();
+    if (currentPage.cellSummaries && currentPage.cellSummaries[i]) {
+      const summary = document.createElement('span');
+      summary.className = 'cell-summary';
+      summary.textContent = currentPage.cellSummaries[i];
+      summary.title = currentPage.cellSummaries[i];
+      cell.appendChild(summary);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'content';
+
+    if (currentPage.cellImages[i]) {
+      const ph = document.createElement('span');
+      ph.className = 'image-placeholder';
+      ph.textContent = '🖼️ 图片';
+      ph.contentEditable = false;
+      ph.onclick = e => { e.stopPropagation(); viewImage(i); };
+      content.append(ph, ' ');
+    }
+
+    const input = document.createElement('span');
+    input.className = 'text-input';
+    input.contentEditable = true;
+    input.textContent = txt;
+    input.addEventListener('focus', () => onInputFocus(i));
+    input.addEventListener('input', () => {
+      currentPage.cellsData[i] = input.textContent.trim();
+      save();
+    });
+    // 监听回车
+    input.addEventListener('keydown', e => handleEnterKey(e, i));
+    input.addEventListener('paste', e => {
+      const items = e.clipboardData?.items || [];
+      for (const it of items) {
+        if (it.kind === 'file' && it.type.startsWith('image/')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const f = it.getAsFile();
+          const r = new FileReader();
+          r.onload = ev => {
+            currentPage.cellImages[i] = ev.target.result;
+            save();
+            renderAllCells();
+            show('图片粘贴成功');
+            selectCell(i, true);
+          };
+          r.readAsDataURL(f);
+          return;
+        }
+      }
+      setTimeout(() => {
+        currentPage.cellsData[i] = input.textContent.trim();
+        save();
+      }, 0);
+    });
+
+    content.append(input);
+
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const btn = (t, cn, cb) => {
+      const b = document.createElement('button');
+      b.className = 'action-btn ' + cn;
+      b.textContent = t;
+      b.onclick = e => { e.stopPropagation(); cb(); };
+      return b;
+    };
+    actions.append(
+      btn('查', '', () => viewImage(i)),
+      btn('文', '', () => copyText(i)),
+      btn('图', '', () => copyImage(i)),
+      btn('删', 'delete', () => deleteCell(i))
+    );
+
+    cell.append(content, actions);
+    c.append(cell);
+  });
+  
+  if (selectedIndex !== -1) {
+    selectCell(selectedIndex, true);
+  }
+  
+  // 更新加号按钮位置
+  updateAddButtonPosition();
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(pagesData));
+}
+
+function loadFromStorage() {
+  try {
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    // 兼容旧数据结构
+    if (d && !Array.isArray(d)) {
+      // 旧数据：单页面结构，转换为多页面
+      pagesData = [{
+        name: '页面1',
+        cellsData: d.cellsData && d.cellsData.length > 0 ? d.cellsData : [''],
+        cellImages: d.cellImages || {}
+      }];
+    } else if (Array.isArray(d)) {
+      // 新数据：多页面结构（补全name字段和cellSummaries）
+      pagesData = d.map((page, index) => ({
+        name: page.name || `页面${index + 1}`,
+        cellsData: page.cellsData && page.cellsData.length > 0 ? page.cellsData : [''],
+        cellImages: page.cellImages || {},
+        cellSummaries: page.cellSummaries || {}
+      }));
+    } else {
+      pagesData = [{ name: '页面1', cellsData: [''], cellImages: {}, cellSummaries: {} }];
+    }
+  } catch {
+    pagesData = [{ name: '页面1', cellsData: [''], cellImages: {}, cellSummaries: {} }];
+  }
+  currentPageIndex = 0; // 默认显示第一个页面
+}
+
+function show(text) {
+  const n = document.getElementById('notice');
+  n.textContent = text;
+  n.style.display = 'block';
+  setTimeout(() => n.style.display = 'none', 1400);
+}
+
+function exportData() {
+  const currentPage = getCurrentPageData();
+  let text = '';
+
+  currentPage.cellsData.forEach((cell, i) => {
+    if (cell && cell.trim()) {
+      text += `[${i + 1}] ${cell.trim()}\n`;
+    }
+  });
+
+  const blob = new Blob([text.trim()], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentPage.name || '清单'}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+  show(`「${currentPage.name || '当前页面'}」已导出`);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const text = e.target.result;
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+
+      // 尝试解析 JSON 格式（兼容旧格式）
+      if (text.trim().startsWith('[') || text.trim().startsWith('{')) {
+        const importedData = JSON.parse(text);
+        if (Array.isArray(importedData) && importedData.length > 0) {
+          const validData = importedData.map((page, index) => ({
+            name: page.name || `页面${index + 1}`,
+            cellsData: Array.isArray(page.cellsData) ? page.cellsData : [],
+            cellImages: page.cellImages || {},
+            cellSummaries: page.cellSummaries || {}
+          }));
+
+          const choice = confirm(`找到 ${validData.length} 个页面：\n\n「确定」= 合并到现有页面（追加到后面）\n「取消」= 替换所有页面`);
+
+          if (choice) {
+            pagesData = pagesData.concat(validData);
+            currentPageIndex = pagesData.length - validData.length;
+          } else {
+            pagesData = validData;
+            currentPageIndex = 0;
+          }
+
+          selectedIndex = -1;
+          save();
+          renderPageTabs();
+          renderAllCells();
+          show(`成功导入 ${validData.length} 个页面`);
+          return;
+        }
+      }
+
+      // 解析纯文本格式：1. xxx  2. xxx  或 【页面名】
+      const pages = [];
+      let currentPage = { name: '页面1', cellsData: [], cellImages: {}, cellSummaries: {} };
+      const itemRegex = /^(\d+)[\.、\s]+(.+)$/;
+
+      for (const line of lines) {
+        // 页面标题 【页面名】
+        if (line.startsWith('【') && line.endsWith('】')) {
+          if (currentPage.cellsData.length > 0) {
+            pages.push(currentPage);
+          }
+          currentPage = {
+            name: line.slice(1, -1),
+            cellsData: [],
+            cellImages: {},
+            cellSummaries: {}
+          };
+          continue;
+        }
+
+        // 序号条目 1. xxx 或 1、xxx
+        const match = line.match(itemRegex);
+        if (match) {
+          const content = match[2].trim();
+          if (content) {
+            currentPage.cellsData.push(content);
+          }
+        } else {
+          // 没有序号的普通文本，也作为一条内容
+          currentPage.cellsData.push(line);
+        }
+      }
+
+      if (currentPage.cellsData.length > 0) {
+        pages.push(currentPage);
+      }
+
+      if (pages.length === 0) {
+        show('未识别到有效内容');
+        return;
+      }
+
+      const choice = confirm(`找到 ${pages.length} 个页面，共 ${pages.reduce((sum, p) => sum + p.cellsData.length, 0)} 条内容：\n\n「确定」= 合并到现有页面（追加到后面）\n「取消」= 替换所有页面`);
+
+      if (choice) {
+        pagesData = pagesData.concat(pages);
+        currentPageIndex = pagesData.length - pages.length;
+      } else {
+        pagesData = pages;
+        currentPageIndex = 0;
+      }
+
+      selectedIndex = -1;
+      save();
+      renderPageTabs();
+      renderAllCells();
+      show(`成功导入 ${pages.length} 个页面`);
+    } catch (err) {
+      console.error(err);
+      show('导入失败：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function openTextEditor() {
+  document.getElementById('textEditorModal').style.display = 'flex';
+  document.getElementById('textEditorInput').focus();
+}
+
+function closeTextEditor() {
+  document.getElementById('textEditorModal').style.display = 'none';
+}
+
+function confirmTextImport() {
+  const text = document.getElementById('textEditorInput').value;
+  if (!text.trim()) {
+    show('请输入内容');
+    return;
+  }
+
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const currentPage = getCurrentPageData();
+  const itemRegex = /^(\d+)[\.、\s]+(.+)$/;
+  
+  // 解析所有要导入的内容
+  const contentsToImport = [];
+  for (const line of lines) {
+    const match = line.match(itemRegex);
+    if (match) {
+      const content = match[2].trim();
+      if (content) {
+        contentsToImport.push(content);
+      }
+    } else {
+      // 没有序号的普通文本，也作为一条内容
+      contentsToImport.push(line);
+    }
+  }
+
+  if (contentsToImport.length === 0) {
+    show('未识别到有效内容');
+    return;
+  }
+
+  let addedCount = 0;
+  let importIndex = 0; // 当前要导入的内容索引
+
+  // 第一步：先填充空白单元格
+  for (let i = 0; i < currentPage.cellsData.length && importIndex < contentsToImport.length; i++) {
+    if (!currentPage.cellsData[i] || !currentPage.cellsData[i].trim()) {
+      // 找到空白单元格，填充内容
+      currentPage.cellsData[i] = contentsToImport[importIndex];
+      importIndex++;
+      addedCount++;
+    }
+  }
+
+  // 第二步：如果还有剩余内容，另起新行添加
+  while (importIndex < contentsToImport.length) {
+    currentPage.cellsData.push(contentsToImport[importIndex]);
+    importIndex++;
+    addedCount++;
+  }
+
+  if (addedCount > 0) {
+    save();
+    renderAllCells();
+    show(`成功导入 ${addedCount} 条内容`);
+    document.getElementById('textEditorInput').value = '';
+    closeTextEditor();
+  } else {
+    show('未识别到有效内容');
+  }
+}
+
+function openApiKeyDialog() {
+  document.getElementById('apiKeyModal').style.display = 'flex';
+  document.getElementById('apiKeyInput').value = aiApiKey;
+  setTimeout(() => document.getElementById('apiKeyInput').focus(), 100);
+}
+
+function closeApiKeyDialog() {
+  document.getElementById('apiKeyModal').style.display = 'none';
+}
+
+function saveApiKey() {
+  const apiKey = document.getElementById('apiKeyInput').value.trim();
+  if (!apiKey) {
+    show('API密钥不能为空');
+    return;
+  }
+  aiApiKey = apiKey;
+  localStorage.setItem('cell_editor_api_key', apiKey);
+  closeApiKeyDialog();
+  show('API密钥已保存');
+}
+
+// 防止重复生成总结的标记
+const generatingSummaries = new Set();
+
+async function generateSummary(cellIndex) {
+  if (!aiApiKey) {
+    show('请先设置AI API密钥');
+    openApiKeyDialog();
+    return;
+  }
+
+  const currentPage = getCurrentPageData();
+  
+  // 如果已经有总结了，不再生成（防止死循环）
+  if (currentPage.cellSummaries && currentPage.cellSummaries[cellIndex]) {
+    return;
+  }
+  
+  // 防止重复请求
+  const key = `${currentPageIndex}-${cellIndex}`;
+  if (generatingSummaries.has(key)) {
+    return;
+  }
+  generatingSummaries.add(key);
+
+  const cellText = currentPage.cellsData[cellIndex];
+  
+  if (!cellText || !cellText.trim()) {
+    generatingSummaries.delete(key);
+    return;
+  }
+
+  const cell = document.querySelectorAll('.cell')[cellIndex];
+  if (cell) cell.classList.add('summary-loading');
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${aiApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'openai/gpt-oss-120b:free',
+        messages: [
+          {
+            role: 'system',
+            content: '你是一位精准的文本总结专家。请准确理解用户提供的文本的真实含义和意图，严格在15个字符以内总结其核心意思。直接输出总结结果，不添加任何前缀、解释或标点符号。'
+          },
+          {
+            role: 'user',
+            content: cellText
+          }
+        ],
+        max_tokens: 50,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API请求失败: ${response.status}`);
+    }
+
+    const data = await response.json();
+    let summary = data.choices[0].message.content.trim();
+    
+    // 过滤掉常见前缀（中英文）
+    summary = summary.replace(/^(The user says|The user|用户说|这段话的意思是|总结：|Summary[:：]|用户问|询问|表示|意思是|Okay|嗯|好的|嗯嗯)\s*/gi, '');
+    
+    // 如果包含英文，尝试提取中文部分
+    const chineseMatch = summary.match(/[\u4e00-\u9fff]+/g);
+    if (chineseMatch) {
+      summary = chineseMatch.join('');
+    }
+    
+    // 限制长度（15个字以内）
+    if (summary.length > 15) {
+      summary = summary.substring(0, 15);
+    }
+
+    if (!currentPage.cellSummaries) {
+      currentPage.cellSummaries = {};
+    }
+    currentPage.cellSummaries[cellIndex] = summary;
+    
+    save();
+    
+    // 只更新当前单元格的总结显示，不重新渲染所有单元格（避免影响正在编辑的单元格光标）
+    const cells = document.querySelectorAll('.cell');
+    if (cells[cellIndex]) {
+      // 移除旧的总结元素
+      const oldSummary = cells[cellIndex].querySelector('.cell-summary');
+      if (oldSummary) oldSummary.remove();
+      // 添加新的总结元素
+      const summaryEl = document.createElement('span');
+      summaryEl.className = 'cell-summary';
+      summaryEl.textContent = summary;
+      summaryEl.title = summary;
+      cells[cellIndex].appendChild(summaryEl);
+    }
+    
+    show('总结已生成');
+  } catch (error) {
+    console.error('生成总结失败:', error);
+    show('生成总结失败: ' + error.message);
+  } finally {
+    generatingSummaries.delete(key);
+    if (cell) cell.classList.remove('summary-loading');
+  }
+}
+
+async function generateAllSummaries() {
+  if (!aiApiKey) {
+    show('请先设置AI API密钥');
+    openApiKeyDialog();
+    return;
+  }
+
+  const currentPage = getCurrentPageData();
+  const cellsWithContent = [];
+
+  // 找出所有有内容且没有总结的单元格
+  currentPage.cellsData.forEach((txt, i) => {
+    if (txt && txt.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
+      cellsWithContent.push(i);
+    }
+  });
+
+  if (cellsWithContent.length === 0) {
+    show('所有单元格已总结');
+    return;
+  }
+
+  show(`开始生成 ${cellsWithContent.length} 个总结...`);
+
+  // 逐个生成总结
+  for (const index of cellsWithContent) {
+    await generateSummary(index);
+    // 延迟避免 API 请求过快
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  show('所有总结已生成');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const savedKey = localStorage.getItem('cell_editor_api_key');
+  if (savedKey) {
+    aiApiKey = savedKey;
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+import subprocess, os
+from datetime import datetime
+
+root = r"D:\code空间"
+os.chdir(root)
+
+GITHUB_URL = "git@github.com:Zixuiu/code-space.git"
+GITCODE_URL = "git@gitcode.com:weixin_58844486/codespace.git"
+
+safe_gitignore = """__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+/dist/
+/build/
+*.log
+*.db
+.DS_Store
+Thumbs.db
+.trae/
+.vscode/
+_fix_*.py
+_apply_*.py
+_patch_*.py
+_tmp*
+debug.log
+*.bak
+*.bak2
+*.old
+recordings/
+trash/
+"""
+
+def git_push(remote="origin", branch="main", retries=3):
+    for attempt in range(1, retries + 1):
+        result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
+        if result.returncode == 0:
+            return True
+        err = result.stderr.strip()
+        if "LF will be replaced" in err or "CRLF" in err:
+            continue
+        print(f"❌ 推送到 {remote} 失败(第{attempt}次): {err}")
+        if attempt < retries:
+            wait = attempt * 2
+            print(f"⏳ {wait}s 后重试...")
+            import time
+            time.sleep(wait)
+    return False
+
+# 1. 自动添加 known_hosts
+known_hosts = os.path.expanduser("~/.ssh/known_hosts")
+for host in ["github.com", "gitcode.com"]:
+    r = subprocess.run(["ssh-keygen", "-F", host], capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"🔑 正在添加 {host} 到 known_hosts...")
+        subprocess.run(f'ssh-keyscan {host} >> "{known_hosts}"', shell=True)
+
+# 2. 写 .gitignore
+with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
+    f.write(safe_gitignore)
+print("✅ .gitignore 已精简")
+
+# 3. 设置远程仓库
+subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
+subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
+subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
+print(f"✅ 远程仓库(GitHub): {GITHUB_URL}")
+print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
+
+# 4. 检查是否有变更
+status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+
+if not status.stdout.strip():
+    print("📝 没有新文件变更，直接推送...")
+else:
+    subprocess.run(["git", "add", "-A"])
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    commit = subprocess.run(["git", "commit", "-m", f"auto_update {now}"], capture_output=True, text=True)
+    if commit.returncode != 0:
+        err = commit.stderr.strip()
+        if "nothing to commit" in err:
+            print("📝 没有新变更，跳过提交")
+        elif "LF will be replaced" not in err and "CRLF" not in err:
+            print(f"⚠️ 提交跳过: {err}")
+    else:
+        print("✅ 提交成功")
+
+# 5. 推送（自动重试到两个远程仓库）
+all_ok = True
+for rmt, lbl in [("origin", "GitHub"), ("gitcode", "GitCode")]:
+    print(f"⏳ 正在推送到 {lbl}...")
+    if not git_push(remote=rmt, retries=3):
+        all_ok = False
+if all_ok:
+    print("✅ 全部推送完成！")
+else:
+    print("💡 部分推送失败，请检查网络后重试")

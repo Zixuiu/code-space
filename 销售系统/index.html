@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>销售训练系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,"Microsoft YaHei",sans-serif}
+body{background:#f0f2f5;color:#1a2332;display:flex;min-height:100vh}
+/* 侧栏 */
+.sidebar{width:200px;background:#1a2332;color:#fff;position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:100}
+.sidebar .logo{padding:20px 16px 16px;text-align:center;font-size:18px;font-weight:700;border-bottom:1px solid #2a3040;letter-spacing:1px}
+.sidebar .logo span{color:#4fc3f7}
+.sidebar nav{flex:1;padding:8px 0;overflow-y:auto}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:11px 20px;color:#b0b8c8;text-decoration:none;font-size:13px;border-left:3px solid transparent;transition:.15s;cursor:pointer}
+.sidebar nav a:hover,.sidebar nav a.active{color:#fff;background:#2a3040;border-left-color:#4fc3f7}
+.sidebar nav a .ico{font-size:16px;width:22px;text-align:center}
+/* 主体 */
+.main{margin-left:200px;flex:1;padding:20px 24px;min-height:100vh}
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;background:#fff;padding:10px 20px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.topbar h2{font-size:17px}
+.topbar .info{display:flex;align-items:center;gap:12px;font-size:13px;color:#888}
+.topbar .info .dot{width:8px;height:8px;border-radius:50%;background:#4fc3f7;display:inline-block;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.page{display:none}.page.active{display:block}
+/* 统计卡片 */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:#fff;padding:16px 18px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.stat-card .num{font-size:26px;font-weight:700;margin:2px 0 2px}
+.stat-card .lbl{font-size:12px;color:#999}
+.stat-card .chg{font-size:11px;padding:2px 8px;border-radius:20px;display:inline-block;margin-top:4px}
+.chg.up{background:#e8f5e9;color:#2e7d32}
+.chg.down{background:#fce4ec;color:#c62828}
+.chg.mid{background:#fff3e0;color:#e65100}
+/* 卡片 */
+.card{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:16px}
+.card-hd{padding:14px 18px;border-bottom:1px solid #f0f2f5;display:flex;align-items:center;justify-content:space-between;font-size:14px;font-weight:600}
+.card-hd .act{font-size:12px;font-weight:400;color:#4fc3f7;cursor:pointer}
+.card-hd .act:hover{text-decoration:underline}
+.card-bd{padding:14px 18px 16px}
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #f5f5f5}
+th{color:#999;font-weight:500;font-size:12px;background:#fafbfd}
+td:last-child{text-align:right}
+td:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:11px;padding:2px 10px;border-radius:20px;background:#eee;color:#555}
+.tag.easy{background:#e8f5e9;color:#2e7d32}
+.tag.medium{background:#fff3e0;color:#e65100}
+.tag.hard{background:#fce4ec;color:#c62828}
+.tag.blue{background:#e3f2fd;color:#1565c0}
+.tag.purple{background:#f3e5f5;color:#6a1b9a}
+.tag.orange{background:#fff3e0;color:#e65100}
+/* 按钮 */
+.btn{padding:6px 16px;border:none;border-radius:6px;cursor:pointer;font-size:12px;transition:.15s;display:inline-flex;align-items:center;gap:4px}
+.btn-pri{background:#4fc3f7;color:#fff}.btn-pri:hover{background:#29b6f6}
+.btn-red{background:#ef5350;color:#fff}.btn-red:hover{background:#e53935}
+.btn-otl{background:transparent;border:1px solid #ddd;color:#666}.btn-otl:hover{background:#f5f5f5}
+.btn-sm{padding:4px 12px;font-size:11px}
+.btn-green{background:#66bb6a;color:#fff}.btn-green:hover{background:#43a047}
+/* 表单 */
+input,select,textarea{padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;outline:none;width:100%;transition:.15s}
+input:focus,select:focus,textarea:focus{border-color:#4fc3f7;box-shadow:0 0 0 2px rgba(79,195,247,.15)}
+textarea{resize:vertical;min-height:60px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-row.f3c{grid-template-columns:1fr 1fr 1fr}
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:12px;color:#666;margin-bottom:3px;font-weight:500}
+/* 模态框 */
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.4);z-index:200;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:24px;width:90%;max-width:520px;max-height:85vh;overflow-y:auto}
+.modal h3{margin-bottom:14px;font-size:17px}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+/* Toast */
+.toast{position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:300;opacity:0;transform:translateY(-10px);transition:.3s}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{background:#43a047}
+.toast.err{background:#e53935}
+/* 进度条 */
+.progress{height:6px;background:#eee;border-radius:3px;overflow:hidden;margin-top:4px}
+.progress .fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#4fc3f7,#29b6f6);transition:width .5s}
+/* 网格 */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+/* 空状态 */
+.empty{text-align:center;padding:30px 20px;color:#bbb;font-size:14px}
+.empty .ico{font-size:40px;margin-bottom:8px}
+/* 闯关 */
+.level-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.level-item{border:2px solid #e0e6ef;border-radius:10px;padding:14px;text-align:center;cursor:pointer;transition:.2s;background:#fafbfd}
+.level-item:hover{border-color:#4fc3f7}
+.level-item.done{border-color:#66bb6a;background:#e8f5e9}
+.level-item.locked{opacity:.5;cursor:not-allowed}
+.level-item .lvl-icon{font-size:28px}
+.level-item .lvl-name{font-size:13px;font-weight:600;margin:4px 0 2px}
+.level-item .lvl-status{font-size:11px;color:#999}
+.level-item.done .lvl-status{color:#2e7d32}
+/* 短板雷达简单版 */
+.bar-item{margin-bottom:10px}
+.bar-item .bar-lbl{display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px}
+.bar-item .bar-lbl .score{color:#4fc3f7;font-weight:600}
+.bar-item .bar{height:8px;background:#eee;border-radius:4px;overflow:hidden}
+.bar-item .bar .fill{height:100%;border-radius:4px;transition:width .6s}
+/* 表格横向滚动 */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:4px}
+.table-wrap table{min-width:500px}
+
+/* 手机优化 ≤480px */
+@media(max-width:480px){
+  .stats{grid-template-columns:1fr;gap:10px}
+  .stat-card{padding:12px 14px}
+  .stat-card .num{font-size:20px}
+  .topbar{padding:8px 12px;flex-wrap:wrap;gap:6px}
+  .topbar h2{font-size:14px}
+  .topbar .info{font-size:11px}
+  .level-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .level-item{padding:10px 8px}
+  .level-item .lvl-icon{font-size:20px}
+  .card-hd{padding:10px 12px;font-size:13px}
+  .card-bd{padding:10px 12px}
+  .modal{padding:16px;width:96%}
+  .sidebar{width:48px}
+  .sidebar .logo{padding:8px 4px;font-size:12px}
+  .sidebar nav a{padding:8px 4px}
+  .main{margin-left:48px;padding:8px}
+  th,td{padding:6px 5px;font-size:11px}
+  .btn{padding:4px 10px;font-size:11px}
+  .form-row{grid-template-columns:1fr;gap:6px}
+  input,select,textarea{padding:5px 8px;font-size:12px}
+  .g2{gap:10px}
+  .stats .stat-card .lbl{font-size:11px}
+  .bar-item .bar-lbl{font-size:11px}
+}
+
+/* 响应式 */
+@media(max-width:768px){
+  .sidebar{width:56px}
+  .sidebar .logo span:not(.ico),.sidebar nav a span:not(.ico){display:none}
+  .sidebar nav a{justify-content:center;padding:12px 8px}
+  .sidebar .logo{padding:12px 8px;font-size:14px}
+  .main{margin-left:56px;padding:12px}
+  .g2,.g3{grid-template-columns:1fr}
+  .form-row,.form-row.f3c{grid-template-columns:1fr}
+  .table-wrap table{min-width:auto}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== 侧栏 ====== -->
+<div class="sidebar">
+  <div class="logo">🎯<span>销售训练</span></div>
+  <nav>
+    <a class="active" data-page="dashboard"><span class="ico">📊</span><span>教学看板</span></a>
+    <a data-page="customers"><span class="ico">👥</span><span>模拟客户</span></a>
+    <a data-page="followups"><span class="ico">📝</span><span>跟进记录</span></a>
+    <a data-page="scripts"><span class="ico">📖</span><span>话术库</span></a>
+    <a data-page="review"><span class="ico">⭐</span><span>讲师点评</span></a>
+    <a data-page="analysis"><span class="ico">📈</span><span>短板分析</span></a>
+    <a data-page="levels"><span class="ico">🎯</span><span>闯关模式</span></a>
+  </nav>
+</div>
+
+<!-- ====== 主体 ====== -->
+<div class="main">
+
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <h2 id="pageTitle">📊 教学看板</h2>
+    <div class="info"><span class="dot"></span>数据自动保存本地</div>
+  </div>
+
+  <!-- ==================== 看板 ==================== -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats" id="statCards"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-hd">🔥 最近跟进</div>
+        <div class="card-bd"><div class="table-wrap"><table><thead><tr><th>学员</th><th>客户</th><th>内容</th><th>时间</th></tr></thead><tbody id="recentFollowups"></tbody></table></div></div>
+      </div>
+      <div class="card">
+        <div class="card-hd">📖 推荐话术</div>
+        <div class="card-bd"><div class="table-wrap"><table><thead><tr><th>场景</th><th>话术</th><th>热度</th><th></th></tr></thead><tbody id="hotScripts"></tbody></table></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 模拟客户 ==================== -->
+  <div class="page" id="page-customers">
+    <div class="card">
+      <div class="card-hd">👥 模拟客户库 <span class="act" onclick="showCustomerModal()">+ 新增客户</span></div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <select id="cfilter_diff" style="width:auto" onchange="renderCustomers()"><option value="">全部难度</option><option value="easy">⭐简单</option><option value="medium">⭐⭐中等</option><option value="hard">⭐⭐⭐困难</option></select>
+          <select id="cfilter_tag" style="width:auto" onchange="renderCustomers()"><option value="">全部标签</option></select>
+          <input id="cfilter_search" placeholder="搜索客户名..." style="width:160px" oninput="renderCustomers()">
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>客户名</th><th>公司/职位</th><th>难度</th><th>标签</th><th>跟进</th><th>操作</th></tr></thead><tbody id="customerList"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 跟进记录 ==================== -->
+  <div class="page" id="page-followups">
+    <div class="card">
+      <div class="card-hd">📝 跟进记录 <span class="act" onclick="showFollowupModal()">+ 新建跟进</span></div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <select id="ffilter_stu" style="width:auto" onchange="renderFollowups()"><option value="">全部学员</option></select>
+          <select id="ffilter_stage" style="width:auto" onchange="renderFollowups()"><option value="">全部阶段</option></select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>学员</th><th>客户</th><th>方式</th><th>阶段</th><th>摘要</th><th>时间</th><th>操作</th></tr></thead><tbody id="followupList"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 话术库 ==================== -->
+  <div class="page" id="page-scripts">
+    <div class="card">
+      <div class="card-hd">📖 话术库 <span class="act" onclick="showScriptModal()">+ 添加话术</span></div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <select id="sfilter_scene" style="width:auto" onchange="renderScripts()"><option value="">全部场景</option></select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>场景</th><th>标题</th><th>内容</th><th>练习次数</th><th>操作</th></tr></thead><tbody id="scriptList"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 讲师点评 ==================== -->
+  <div class="page" id="page-review">
+    <div class="card">
+      <div class="card-hd">⭐ 讲师点评 <span class="act" onclick="showReviewModal()">+ 新建点评</span></div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <select id="rfilter_stu" style="width:auto" onchange="renderReviews()"><option value="">全部学员</option></select>
+        </div>
+        <div class="table-wrap"><table><thead><tr><th>学员</th><th>客户</th><th>话术</th><th>洞察</th><th>主动</th><th>逻辑</th><th>总分</th><th>点评</th><th>时间</th></tr></thead><tbody id="reviewList"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 短板分析 ==================== -->
+  <div class="page" id="page-analysis">
+    <div class="card">
+      <div class="card-hd">📈 技能短板分析</div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <select id="astudent" style="width:auto" onchange="renderAnalysis()"><option value="">选择学员</option></select>
+        </div>
+        <div id="analysisContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 闯关模式 ==================== -->
+  <div class="page" id="page-levels">
+    <div class="card">
+      <div class="card-hd">🎯 闯关模式 <span class="act" id="levelStudentSelect"></span></div>
+      <div class="card-bd">
+        <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+          <select id="lstudent" style="width:auto" onchange="renderLevels()"><option value="">选择学员</option></select>
+        </div>
+        <div id="levelGrid" class="level-grid"></div>
+        <div id="levelDetail" style="margin-top:16px;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ====== 模态框容器 ====== -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- ====== Toast ====== -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+//  数据层
+// ============================================================
+const STORE_KEY = 'sales_train_data';
+
+const DEFAULT = {
+  customers: [
+    {id:'c1',name:'张总',company:'星辰科技',title:'CEO',industry:'IT/SaaS',diff:'medium',tags:['价格敏感'],budget:'中预算',stage:'interested',student:'',followCount:0,created:Date.now()-864e5*3},
+    {id:'c2',name:'李经理',company:'华泰制造',title:'采购经理',industry:'制造业',diff:'hard',tags:['犹豫不决','决策链长'],budget:'低预算',stage:'aware',student:'',followCount:0,created:Date.now()-864e5*5},
+    {id:'c3',name:'王总',company:'好又多超市',title:'老板',industry:'零售',diff:'easy',tags:['需求明确','爽快'],budget:'高预算',stage:'evaluating',student:'',followCount:0,created:Date.now()-864e5*2},
+    {id:'c4',name:'陈主任',company:'市一院',title:'采购主任',industry:'医疗',diff:'medium',tags:['决策链长','保守'],budget:'中预算',stage:'interested',student:'',followCount:0,created:Date.now()-864e5*7},
+    {id:'c5',name:'赵总',company:'恒达地产',title:'副总裁',industry:'房地产',diff:'hard',tags:['竞品忠诚','高傲'],budget:'高预算',stage:'unaware',student:'',followCount:0,created:Date.now()-864e5},
+  ],
+  followups: [
+    {id:'f1',student:'小明',customerId:'c1',method:'电话',stage:'初次接触',summary:'简单介绍了产品，客户说预算有限，约了下周再聊',nextDate:Date.now()+864e5*7,created:Date.now()-864e5*2},
+    {id:'f2',student:'小红',customerId:'c3',method:'微信',stage:'需求了解',summary:'客户问了详细功能，发了资料过去，客户表示感兴趣',created:Date.now()-864e5},
+  ],
+  scripts: [
+    {id:'s1',scene:'陌生拜访',title:'30秒开场白公式',content:'我是XX公司的XX，今天联系您是因为……您看这个时间方便聊3分钟吗？',count:0},
+    {id:'s2',scene:'异议处理',title:'“太贵了”五步应答法',content:'①理解感受→②拆分价值→③对比方案→④缩小差距→⑤给甜头',count:0},
+    {id:'s3',scene:'需求挖掘',title:'SPIN提问法',content:'Situation现状→Problem问题→Implication影响→Need-payoff需求回报',count:0},
+    {id:'s4',scene:'逼单成交',title:'假定成交法',content:'不问"要不要"，问"您看是A方案还是B方案？"给选择而非是非题',count:0},
+    {id:'s5',scene:'客户跟进',title:'回访三步法',content:'①回顾上次聊了什么→②带来新价值→③推动下一步',count:0},
+    {id:'s6',scene:'异议处理',title:'“我再想想”怎么破',content:'①认同→②探真实顾虑→③给安全感→④降低承诺门槛',count:0},
+  ],
+  reviews: [
+    {id:'r1',student:'小明',customerId:'c1',scores:{talk:8,insight:7,initiative:8,logic:7},comment:'开场不错，但挖掘需求不够深入，要继续追问',created:Date.now()-864e5},
+    {id:'r2',student:'小红',customerId:'c3',scores:{talk:9,insight:8,initiative:7,logic:8},comment:'沟通很自然，客户关系建立得好，逼单可以再直接一些',created:Date.now()-864e5*0.5},
+  ],
+  levels: [
+    {id:'l1',name:'陌生拜访',icon:'🚪',desc:'向一位陌生客户做开场介绍，引起兴趣',doneBy:{}},
+    {id:'l2',name:'需求挖掘',icon:'🔍',desc:'用SPIN提问法挖掘客户深层需求',doneBy:{}},
+    {id:'l3',name:'方案介绍',icon:'📋',desc:'根据客户需求，有针对性地介绍方案',doneBy:{}},
+    {id:'l4',name:'异议处理',icon:'🛡️',desc:'应对客户的3种常见异议并化解',doneBy:{}},
+    {id:'l5',name:'逼单成交',icon:'💰',desc:'识别购买信号并尝试关单',doneBy:{}},
+    {id:'l6',name:'综合实战',icon:'🏆',desc:'一个完整销售流程全套走下来',doneBy:{}},
+  ],
+  students: ['小明','小红','阿强','小丽','大伟'],
+  _nextId:{c:6,f:3,s:7,r:3}
+};
+
+// 数据读写
+function loadData(){
+  try{
+    const raw=localStorage.getItem(STORE_KEY);
+    if(raw){const d=JSON.parse(raw);Object.keys(DEFAULT).forEach(k=>{if(d[k]===undefined)d[k]=DEFAULT[k]});return d}
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT));
+}
+function saveData(){
+  try{localStorage.setItem(STORE_KEY,JSON.stringify(DATA))}catch(e){}
+}
+let DATA=loadData();
+
+function nextId(prefix){
+  const key='_nextId';
+  const map={c:'c',f:'f',s:'s',r:'r'};
+  const p=map[prefix]||prefix;
+  DATA[key][prefix]=(DATA[key][prefix]||0)+1;
+  return p+DATA[key][prefix];
+}
+
+// Toast
+function toast(msg,type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast '+type;
+  setTimeout(()=>t.classList.add('show'),10);
+  setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+// ============================================================
+//  导航
+// ============================================================
+const TITLES={
+  dashboard:'📊 教学看板',customers:'👥 模拟客户库',followups:'📝 跟进记录',
+  scripts:'📖 话术库',review:'⭐ 讲师点评',analysis:'📈 短板分析',levels:'🎯 闯关模式'
+};
+document.querySelectorAll('.sidebar nav a').forEach(a=>{
+  a.addEventListener('click',()=>{
+    document.querySelectorAll('.sidebar nav a').forEach(x=>x.classList.remove('active'));
+    a.classList.add('active');
+    const page=a.dataset.page;
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-'+page).classList.add('active');
+    document.getElementById('pageTitle').textContent=TITLES[page]||page;
+    // 刷新
+    const fns={dashboard:renderDashboard,customers:renderCustomers,followups:renderFollowups,scripts:renderScripts,review:renderReviews,analysis:renderAnalysis,levels:renderLevels};
+    if(fns[page])fns[page]();
+  });
+});
+
+// ============================================================
+//  看板
+// ============================================================
+function renderDashboard(){
+  const cs=DATA.customers;
+  const fs=DATA.followups;
+  const rs=DATA.reviews;
+  const stu=DATA.students;
+  const weekAgo=Date.now()-864e5*7;
+  const newC=cs.filter(c=>c.created>weekAgo).length;
+  const weekF=fs.filter(f=>f.created>weekAgo).length;
+  const pendR=rs.filter(r=>!r.reviewed).length;
+  document.getElementById('statCards').innerHTML=`
+    <div class="stat-card"><div class="lbl">👥 模拟客户</div><div class="num">${cs.length}</div><span class="chg up">+${newC} 本月新增</span></div>
+    <div class="stat-card"><div class="lbl">📝 本周跟进</div><div class="num">${weekF}</div><span class="chg ${weekF>5?'up':'mid'}">${weekF>10?'↑活跃':'正常'}</span></div>
+    <div class="stat-card"><div class="lbl">🎓 学员数</div><div class="num">${stu.length}</div><span class="chg up">${stu.length} 人在训</span></div>
+    <div class="stat-card"><div class="lbl">⭐ 待点评</div><div class="num">${pendR}</div><span class="chg ${pendR>0?'down':'up'}">${pendR>0?'尽快反馈':'已清空'}</span></div>
+  `;
+  // 最近跟进
+  const recent=[...fs].sort((a,b)=>b.created-a.created).slice(0,5);
+  document.getElementById('recentFollowups').innerHTML=recent.map(f=>{
+    const c=cs.find(x=>x.id===f.customerId);
+    return `<tr><td>${f.student}</td><td>${c?c.name:'-'}</td><td style="text-align:left;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.summary}</td><td style="font-size:11px;color:#999">${fmtDate(f.created)}</td></tr>`
+  }).join('')||'<tr><td colspan="4"><div class="empty">暂无跟进记录</div></td></tr>';
+  // 热门话术
+  const hot=[...DATA.scripts].sort((a,b)=>b.count-a.count).slice(0,4);
+  document.getElementById('hotScripts').innerHTML=hot.map(s=>`<tr><td>${s.scene}</td><td>${s.title}</td><td>${s.count}次</td><td><button class="btn btn-pri btn-sm" onclick="practiceScript('${s.id}')">练习</button></td></tr>`).join('');
+}
+function practiceScript(id){
+  const s=DATA.scripts.find(x=>x.id===id);
+  if(s){s.count=(s.count||0)+1;saveData();renderDashboard();toast('✅ 已练习：「'+s.title+'」')}
+}
+
+// ============================================================
+//  模拟客户
+// ============================================================
+function renderCustomers(){
+  const diff=document.getElementById('cfilter_diff').value;
+  const tag=document.getElementById('cfilter_tag').value;
+  const q=document.getElementById('cfilter_search').value.toLowerCase();
+  let list=DATA.customers;
+  if(diff)list=list.filter(c=>c.diff===diff);
+  if(tag)list=list.filter(c=>c.tags.includes(tag));
+  if(q)list=list.filter(c=>c.name.includes(q));
+  // 填充标签筛选
+  const allTags=[...new Set(DATA.customers.flatMap(c=>c.tags))];
+  const sel=document.getElementById('cfilter_tag');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">全部标签</option>'+allTags.map(t=>`<option value="${t}"${t===cur?' selected':''}>${t}</option>`).join('');
+  document.getElementById('customerList').innerHTML=list.map(c=>`<tr>
+    <td><strong>${c.name}</strong><br><span style="font-size:11px;color:#999">${c.company} ${c.title}</span></td>
+    <td>${c.industry}</td>
+    <td><span class="tag ${c.diff}">${c.diff==='easy'?'⭐简单':c.diff==='medium'?'⭐⭐中等':'⭐⭐⭐困难'}</span></td>
+    <td>${c.tags.map(t=>`<span class="tag blue">${t}</span>`).join(' ')}</td>
+    <td>${c.followCount||0}次</td>
+    <td><button class="btn btn-otl btn-sm" onclick="editCustomer('${c.id}')">编辑</button> <button class="btn btn-red btn-sm" onclick="delCustomer('${c.id}')">删除</button></td>
+  </tr>`).join('')||'<tr><td colspan="6"><div class="empty"><div class="ico">📭</div>暂无客户，点击右上角新增</div></td></tr>';
+}
+function showCustomerModal(editId){
+  const c=editId?DATA.customers.find(x=>x.id===editId):null;
+  const allTags=['价格敏感','犹豫不决','决策链长','需求明确','爽快','竞品忠诚','高傲','保守','急性子','热情','多疑','时间紧迫'];
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${c?'编辑':'新增'}模拟客户</h3>
+    <div class="form-row"><div class="form-group"><label>客户名</label><input id="mf_name" value="${c?c.name:''}"></div>
+    <div class="form-group"><label>公司</label><input id="mf_company" value="${c?c.company:''}"></div></div>
+    <div class="form-row"><div class="form-group"><label>职位</label><input id="mf_title" value="${c?c.title:''}"></div>
+    <div class="form-group"><label>行业</label><input id="mf_industry" value="${c?c.industry:''}"></div></div>
+    <div class="form-row"><div class="form-group"><label>难度</label><select id="mf_diff">${['easy','medium','hard'].map(v=>`<option value="${v}"${c&&c.diff===v?' selected':''}>${v==='easy'?'⭐简单':v==='medium'?'⭐⭐中等':'⭐⭐⭐困难'}</option>`).join('')}</select></div>
+    <div class="form-group"><label>预算</label><select id="mf_budget">${['低预算','中预算','高预算'].map(v=>`<option value="${v}"${c&&c.budget===v?' selected':''}>${v}</option>`).join('')}</select></div></div>
+    <div class="form-group"><label>标签（多选，按住Ctrl）</label><select id="mf_tags" multiple style="height:80px">${allTags.map(t=>`<option value="${t}"${c&&c.tags.includes(t)?' selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label>购买阶段</label><select id="mf_stage">${['unaware','aware','interested','evaluating','deciding'].map(v=>`<option value="${v}"${c&&c.stage===v?' selected':''}>${v==='unaware'?'未意识到需求':v==='aware'?'已意识到':v==='interested'?'感兴趣':v==='evaluating'?'评估中':'决策中'}</option>`).join('')}</select></div>
+    <div class="actions"><button class="btn btn-otl" onclick="closeModal()">取消</button><button class="btn btn-pri" onclick="saveCustomer('${editId||''}')">保存</button></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function saveCustomer(editId){
+  const name=document.getElementById('mf_name').value.trim();
+  if(!name)return toast('请输入客户名','err');
+  const tags=[...document.getElementById('mf_tags').selectedOptions].map(o=>o.value);
+  const obj={name,company:document.getElementById('mf_company').value,title:document.getElementById('mf_title').value,industry:document.getElementById('mf_industry').value,diff:document.getElementById('mf_diff').value,budget:document.getElementById('mf_budget').value,tags,stage:document.getElementById('mf_stage').value};
+  if(editId){
+    const c=DATA.customers.find(x=>x.id===editId);
+    if(c)Object.assign(c,obj);
+    toast('✅ 客户已更新');
+  }else{
+    obj.id=nextId('c');obj.student='';obj.followCount=0;obj.created=Date.now();
+    DATA.customers.push(obj);
+    toast('✅ 客户已添加');
+  }
+  saveData();closeModal();renderCustomers();
+}
+function editCustomer(id){showCustomerModal(id)}
+function delCustomer(id){
+  if(!confirm('确定删除该客户？'))return;
+  DATA.customers=DATA.customers.filter(c=>c.id!==id);
+  // 同时删除关联跟进和点评
+  DATA.followups=DATA.followups.filter(f=>f.customerId!==id);
+  DATA.reviews=DATA.reviews.filter(r=>r.customerId!==id);
+  saveData();renderCustomers();toast('🗑️ 已删除');
+}
+
+// ============================================================
+//  跟进记录
+// ============================================================
+function renderFollowups(){
+  const stuF=document.getElementById('ffilter_stu');
+  const stageF=document.getElementById('ffilter_stage');
+  const allStages=['初次接触','需求了解','方案介绍','异议处理','逼单','成交','流失'];
+  const curStu=stuF.value;const curStage=stageF.value;
+  stuF.innerHTML='<option value="">全部学员</option>'+DATA.students.map(s=>`<option value="${s}"${s===curStu?' selected':''}>${s}</option>`).join('');
+  stageF.innerHTML='<option value="">全部阶段</option>'+allStages.map(s=>`<option value="${s}"${s===curStage?' selected':''}>${s}</option>`).join('');
+  let list=[...DATA.followups].sort((a,b)=>b.created-a.created);
+  const sv=stuF.value;if(sv)list=list.filter(f=>f.student===sv);
+  const stv=stageF.value;if(stv)list=list.filter(f=>f.stage===stv);
+  document.getElementById('followupList').innerHTML=list.map(f=>{
+    const c=DATA.customers.find(x=>x.id===f.customerId);
+    return `<tr><td>${f.student}</td><td>${c?c.name:'-'}</td><td><span class="tag">${f.method}</span></td><td><span class="tag blue">${f.stage}</span></td><td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.summary}</td><td style="font-size:11px;color:#999">${fmtDate(f.created)}</td><td><button class="btn btn-otl btn-sm" onclick="editFollowup('${f.id}')">编辑</button> <button class="btn btn-red btn-sm" onclick="delFollowup('${f.id}')">删除</button></td></tr>`
+  }).join('')||'<tr><td colspan="7"><div class="empty"><div class="ico">📝</div>暂无跟进记录</div></td></tr>';
+}
+function showFollowupModal(editId){
+  const f=editId?DATA.followups.find(x=>x.id===editId):null;
+  const allStages=['初次接触','需求了解','方案介绍','异议处理','逼单','成交','流失'];
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${f?'编辑':'新建'}跟进记录</h3>
+    <div class="form-row"><div class="form-group"><label>学员</label><select id="mf_student">${DATA.students.map(s=>`<option value="${s}"${f&&f.student===s?' selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label>客户</label><select id="mf_customer">${DATA.customers.map(c=>`<option value="${c.id}"${f&&f.customerId===c.id?' selected':''}>${c.name}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label>方式</label><select id="mf_method">${['电话','微信','面谈','邮件'].map(v=>`<option value="${v}"${f&&f.method===v?' selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="form-group"><label>阶段</label><select id="mf_stage">${allStages.map(v=>`<option value="${v}"${f&&f.stage===v?' selected':''}>${v}</option>`).join('')}</select></div></div>
+    <div class="form-group"><label>沟通摘要</label><textarea id="mf_summary">${f?f.summary:''}</textarea></div>
+    <div class="actions"><button class="btn btn-otl" onclick="closeModal()">取消</button><button class="btn btn-pri" onclick="saveFollowup('${editId||''}')">保存</button></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function saveFollowup(editId){
+  const student=document.getElementById('mf_student').value;
+  const customerId=document.getElementById('mf_customer').value;
+  const summary=document.getElementById('mf_summary').value.trim();
+  if(!summary)return toast('请输入沟通摘要','err');
+  const obj={student,customerId,method:document.getElementById('mf_method').value,stage:document.getElementById('mf_stage').value,summary};
+  if(editId){
+    const f=DATA.followups.find(x=>x.id===editId);
+    if(f)Object.assign(f,obj);
+    toast('✅ 跟进已更新');
+  }else{
+    obj.id=nextId('f');obj.created=Date.now();
+    DATA.followups.push(obj);
+    // 更新客户跟进计数、阶段
+    const c=DATA.customers.find(x=>x.id===customerId);
+    if(c){c.followCount=(c.followCount||0)+1;c.stage=obj.stage;c.student=student;}
+    toast('✅ 跟进已记录');
+  }
+  saveData();closeModal();renderFollowups();renderCustomers();
+}
+function editFollowup(id){showFollowupModal(id)}
+function delFollowup(id){
+  if(!confirm('确定删除？'))return;
+  DATA.followups=DATA.followups.filter(f=>f.id!==id);
+  saveData();renderFollowups();toast('🗑️ 已删除');
+}
+
+// ============================================================
+//  话术库
+// ============================================================
+function renderScripts(){
+  const sel=document.getElementById('sfilter_scene');
+  const scenes=[...new Set(DATA.scripts.map(s=>s.scene))];
+  const curScene=sel.value;
+  sel.innerHTML='<option value="">全部场景</option>'+scenes.map(s=>`<option value="${s}"${s===curScene?' selected':''}>${s}</option>`).join('');
+  let list=DATA.scripts;
+  const sv=sel.value;if(sv)list=list.filter(s=>s.scene===sv);
+  document.getElementById('scriptList').innerHTML=list.map(s=>`<tr>
+    <td><span class="tag purple">${s.scene}</span></td>
+    <td><strong>${s.title}</strong></td>
+    <td style="text-align:left;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.content}</td>
+    <td>${s.count||0}次</td>
+    <td><button class="btn btn-pri btn-sm" onclick="practiceScript('${s.id}');renderScripts()">练习</button> <button class="btn btn-otl btn-sm" onclick="editScript('${s.id}')">编辑</button> <button class="btn btn-red btn-sm" onclick="delScript('${s.id}')">删除</button></td>
+  </tr>`).join('')||'<tr><td colspan="5"><div class="empty"><div class="ico">📖</div>暂无话术</div></td></tr>';
+}
+function showScriptModal(editId){
+  const s=editId?DATA.scripts.find(x=>x.id===editId):null;
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${s?'编辑':'添加'}话术</h3>
+    <div class="form-row"><div class="form-group"><label>场景</label><select id="ms_scene">${['陌生拜访','需求挖掘','方案介绍','异议处理','逼单成交','客户跟进'].map(v=>`<option value="${v}"${s&&s.scene===v?' selected':''}>${v}</option>`).join('')}</select></div>
+    <div class="form-group"><label>标题</label><input id="ms_title" value="${s?s.title:''}"></div></div>
+    <div class="form-group"><label>内容</label><textarea id="ms_content" rows="4">${s?s.content:''}</textarea></div>
+    <div class="actions"><button class="btn btn-otl" onclick="closeModal()">取消</button><button class="btn btn-pri" onclick="saveScript('${editId||''}')">保存</button></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function saveScript(editId){
+  const title=document.getElementById('ms_title').value.trim();
+  if(!title)return toast('请输入标题','err');
+  const obj={scene:document.getElementById('ms_scene').value,title,content:document.getElementById('ms_content').value.trim()};
+  if(editId){
+    const s=DATA.scripts.find(x=>x.id===editId);
+    if(s)Object.assign(s,obj);
+    toast('✅ 话术已更新');
+  }else{
+    obj.id=nextId('s');obj.count=0;
+    DATA.scripts.push(obj);
+    toast('✅ 话术已添加');
+  }
+  saveData();closeModal();renderScripts();
+}
+function editScript(id){showScriptModal(id)}
+function delScript(id){
+  if(!confirm('确定删除？'))return;
+  DATA.scripts=DATA.scripts.filter(s=>s.id!==id);
+  saveData();renderScripts();toast('🗑️ 已删除');
+}
+
+// ============================================================
+//  讲师点评
+// ============================================================
+function renderReviews(){
+  const sel=document.getElementById('rfilter_stu');
+  const curRev=sel.value;
+  sel.innerHTML='<option value="">全部学员</option>'+DATA.students.map(s=>`<option value="${s}"${s===curRev?' selected':''}>${s}</option>`).join('');
+  let list=[...DATA.reviews].sort((a,b)=>b.created-a.created);
+  const sv=sel.value;if(sv)list=list.filter(r=>r.student===sv);
+  document.getElementById('reviewList').innerHTML=list.map(r=>{
+    const c=DATA.customers.find(x=>x.id===r.customerId);
+    const s=r.scores;const total=s.talk+s.insight+s.initiative+s.logic;
+    return `<tr><td>${r.student}</td><td>${c?c.name:'-'}</td><td>${s.talk}</td><td>${s.insight}</td><td>${s.initiative}</td><td>${s.logic}</td><td><strong>${total}/40</strong></td><td style="text-align:left;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.comment||'-'}</td><td style="font-size:11px;color:#999">${fmtDate(r.created)}</td></tr>`
+  }).join('')||'<tr><td colspan="9"><div class="empty"><div class="ico">⭐</div>暂无点评</div></td></tr>';
+}
+function showReviewModal(editId){
+  const r=editId?DATA.reviews.find(x=>x.id===editId):null;
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${r?'编辑':'新建'}点评</h3>
+    <div class="form-row"><div class="form-group"><label>学员</label><select id="mr_student">${DATA.students.map(s=>`<option value="${s}"${r&&r.student===s?' selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label>客户</label><select id="mr_customer">${DATA.customers.map(c=>`<option value="${c.id}"${r&&r.customerId===c.id?' selected':''}>${c.name}</option>`).join('')}</select></div></div>
+    <div class="form-row f3c"><div class="form-group"><label>话术使用 (1-10)</label><input type="number" min="1" max="10" id="mr_talk" value="${r?r.scores.talk:7}"></div>
+    <div class="form-group"><label>客户洞察 (1-10)</label><input type="number" min="1" max="10" id="mr_insight" value="${r?r.scores.insight:7}"></div>
+    <div class="form-group"><label>主动性 (1-10)</label><input type="number" min="1" max="10" id="mr_initiative" value="${r?r.scores.initiative:7}"></div>
+    <div class="form-group"><label>逻辑性 (1-10)</label><input type="number" min="1" max="10" id="mr_logic" value="${r?r.scores.logic:7}"></div></div>
+    <div class="form-group"><label>点评意见</label><textarea id="mr_comment">${r?r.comment:''}</textarea></div>
+    <div class="actions"><button class="btn btn-otl" onclick="closeModal()">取消</button><button class="btn btn-pri" onclick="saveReview('${editId||''}')">保存</button></div>
+  `;
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function saveReview(editId){
+  const student=document.getElementById('mr_student').value;
+  const customerId=document.getElementById('mr_customer').value;
+  const scores={talk:+document.getElementById('mr_talk').value||7,insight:+document.getElementById('mr_insight').value||7,initiative:+document.getElementById('mr_initiative').value||7,logic:+document.getElementById('mr_logic').value||7};
+  const comment=document.getElementById('mr_comment').value.trim();
+  const obj={student,customerId,scores,comment};
+  if(editId){
+    const r=DATA.reviews.find(x=>x.id===editId);
+    if(r)Object.assign(r,obj);
+    toast('✅ 点评已更新');
+  }else{
+    obj.id=nextId('r');obj.created=Date.now();
+    DATA.reviews.push(obj);
+    toast('✅ 点评已保存');
+  }
+  saveData();closeModal();renderReviews();
+}
+
+// ============================================================
+//  短板分析
+// ============================================================
+function renderAnalysis(){
+  const sel=document.getElementById('astudent');
+  const curAna=sel.value;
+  sel.innerHTML='<option value="">选择学员查看</option>'+DATA.students.map(s=>`<option value="${s}"${s===curAna?' selected':''}>${s}</option>`).join('');
+  const stu=sel.value;
+  const cont=document.getElementById('analysisContent');
+  if(!stu)return cont.innerHTML='<div class="empty"><div class="ico">📈</div>请选择一位学员查看技能分析</div>';
+  const reviews=DATA.reviews.filter(r=>r.student===stu);
+  if(!reviews.length)return cont.innerHTML='<div class="empty"><div class="ico">📊</div>该学员暂无评分数据</div>';
+  const avg=v=>Math.round(reviews.reduce((s,r)=>s+r.scores[v],0)/reviews.length*10)/10;
+  const dims=[
+    {key:'talk',label:'话术使用',color:'#4fc3f7'},
+    {key:'insight',label:'客户洞察',color:'#66bb6a'},
+    {key:'initiative',label:'主动性',color:'#ffa726'},
+    {key:'logic',label:'逻辑性',color:'#ab47bc'}
+  ];
+  const avgs=dims.map(d=>({...d,score:avg(d.key)}));
+  const minDim=avgs.reduce((a,b)=>a.score<b.score?a:b);
+  const maxDim=avgs.reduce((a,b)=>a.score>b.score?a:b);
+  cont.innerHTML=`
+    <div style="margin-bottom:12px"><strong>${stu}</strong> 的评分分析（共 ${reviews.length} 次点评）</div>
+    ${avgs.map(d=>`<div class="bar-item"><div class="bar-lbl"><span>${d.label}</span><span class="score">${d.score}/10</span></div><div class="bar"><div class="fill" style="width:${d.score*10}%;background:${d.color}"></div></div></div>`).join('')}
+    <div style="margin-top:16px;padding:14px;background:#f8faff;border-radius:8px;border:1px solid #e0e6ef">
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">💡 针对性建议</div>
+      <div style="font-size:13px;color:#555;line-height:1.6">
+        ✅ <strong>优势：</strong>${maxDim.label}（${maxDim.score}/10）表现最好，继续保持<br>
+        🔴 <strong>短板：</strong>${minDim.label}（${minDim.score}/10）需要重点加强<br>
+        🎯 <strong>推荐练习：</strong>${minDim.key==='talk'?'建议多练习话术库中的场景对话':minDim.key==='insight'?'建议多分析客户标签和画像':minDim.key==='initiative'?'建议主动增加跟进频率和逼单尝试':'建议跟进时注意沟通的逻辑结构'}<br>
+        📚 <strong>推荐话术：</strong>${minDim.key==='talk'?'「30秒开场白公式」「SPIN提问法」':minDim.key==='insight'?'「需求挖掘话术」「客户分析」':minDim.key==='initiative'?'「逼单成交话术」「假定成交法」':'「方案介绍话术」「异议处理」'}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+//  闯关模式
+// ============================================================
+function renderLevels(){
+  const sel=document.getElementById('lstudent');
+  const curLvl=sel.value;
+  sel.innerHTML='<option value="">选择学员</option>'+DATA.students.map(s=>`<option value="${s}"${s===curLvl?' selected':''}>${s}</option>`).join('');
+  const stu=sel.value;
+  if(!stu){
+    document.getElementById('levelGrid').innerHTML='<div class="empty"><div class="ico">🎯</div>请选择学员查看闯关进度</div>';
+    document.getElementById('levelDetail').style.display='none';
+    return;
+  }
+  const levels=DATA.levels;
+  const doneCount=levels.filter(l=>l.doneBy[stu]).length;
+  document.getElementById('levelGrid').innerHTML=levels.map((l,i)=>{
+    const done=l.doneBy[stu];
+    const prevDone=i===0||levels[i-1].doneBy[stu];
+    const locked=!prevDone&&!done;
+    const cls=done?'done':locked?'locked':'';
+    return `<div class="level-item ${cls}" onclick="${locked?'':'showLevelDetail(\''+l.id+'\',\''+stu+'\')'}">
+      <div class="lvl-icon">${done?'✅':locked?'🔒':l.icon}</div>
+      <div class="lvl-name">L${i+1} ${l.name}</div>
+      <div class="lvl-status">${done?'已完成':locked?'未解锁':'进行中'}</div>
+    </div>`
+  }).join('');
+  document.getElementById('levelStudentSelect').innerHTML=`进度：${doneCount}/${levels.length}`;
+}
+function showLevelDetail(id,stu){
+  const l=DATA.levels.find(x=>x.id===id);
+  if(!l)return;
+  const done=l.doneBy[stu];
+  document.getElementById('levelDetail').style.display='block';
+  document.getElementById('levelDetail').innerHTML=`
+    <div style="padding:16px;background:#f8faff;border-radius:10px;border:1px solid #e0e6ef">
+      <div style="font-size:18px;margin-bottom:4px">${l.icon} L${DATA.levels.indexOf(l)+1} ${l.name}</div>
+      <div style="font-size:13px;color:#666;margin-bottom:10px">${l.desc}</div>
+      ${done?`<span class="tag easy">✅ 已完成</span>`:
+        `<button class="btn btn-green" onclick="completeLevel('${id}','${stu}')">标记为已完成</button>
+         <span style="font-size:12px;color:#999;margin-left:8px">完成后下一关自动解锁</span>`}
+    </div>
+  `;
+}
+function completeLevel(id,stu){
+  const l=DATA.levels.find(x=>x.id===id);
+  if(l){l.doneBy[stu]=true;saveData();renderLevels();showLevelDetail(id,stu);toast('🎉 恭喜通关「'+l.name+'」！')}
+}
+
+// ============================================================
+//  工具
+// ============================================================
+function fmtDate(ts){
+  const d=new Date(ts);
+  return d.getMonth()+1+'月'+d.getDate()+'日';
+}
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+// 点击遮罩关闭
+document.getElementById('modalOverlay').addEventListener('click',e=>{
+  if(e.target===e.currentTarget)closeModal();
+});
+
+// 初始化
+renderDashboard();
+</script>
+</body>
+</html>

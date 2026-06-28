@@ -1,0 +1,1 @@
+直接给出可以一键修改的方案：python -c语法命令，就是用户拿你这个python -c语法命令可以直接修改好代码！！！！Ppython -c语法，默认是在powershell里面运行
