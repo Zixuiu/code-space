@@ -1,0 +1,127 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>我来帮 - 邻里互助平台</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #e8e8e8;
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+      .phone-wrapper {
+        position: relative;
+        width: 360px;
+        height: 650px;
+        background: #ffffff;
+        border-radius: 50px;
+        box-shadow: 0 0 0 2px #1a1a1a, 0 0 0 6px #2c2c2c, 0 20px 60px rgba(0,0,0,0.3);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transform: translateZ(0);
+      }
+      .phone-status-bar {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 999;
+        height: 52px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px 30px 0;
+        color: #000;
+        font-size: 12px;
+        font-weight: 600;
+        pointer-events: none;
+      }
+      .phone-status-bar .time { font-size: 14px; font-weight: 700; }
+      .phone-status-bar .icons { display: flex; gap: 5px; font-size: 12px; }
+      .phone-notch {
+        position: absolute;
+        top: 0; left: 50%;
+        transform: translateX(-50%);
+        width: 160px; height: 32px;
+        background: #1a1a1a;
+        border-radius: 0 0 18px 18px;
+        z-index: 1000;
+      }
+      .phone-home-indicator {
+        position: absolute;
+        bottom: 8px; left: 50%;
+        transform: translateX(-50%);
+        width: 134px; height: 5px;
+        background: #222;
+        border-radius: 100px;
+        z-index: 1000;
+      }
+      .phone-buttons { position: absolute; z-index: -1; }
+      .phone-buttons .btn-silent {
+        position: absolute; left: -6px; top: 160px;
+        width: 4px; height: 30px;
+        background: #2c2c2c; border-radius: 2px 0 0 2px;
+      }
+      .phone-buttons .btn-volup {
+        position: absolute; left: -6px; top: 210px;
+        width: 4px; height: 52px;
+        background: #2c2c2c; border-radius: 2px 0 0 2px;
+      }
+      .phone-buttons .btn-voldown {
+        position: absolute; left: -6px; top: 270px;
+        width: 4px; height: 52px;
+        background: #2c2c2c; border-radius: 2px 0 0 2px;
+      }
+      .phone-buttons .btn-power {
+        position: absolute; right: -6px; top: 190px;
+        width: 4px; height: 70px;
+        background: #2c2c2c; border-radius: 0 2px 2px 0;
+      }
+      #app {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        padding-top: 30px;
+        padding-bottom: 10px;
+      }
+      @media (max-width: 420px) {
+        body { background: #fff; align-items: flex-start; }
+        .phone-wrapper { width: 100%; height: 100vh; border-radius: 0; box-shadow: none; }
+        .phone-status-bar, .phone-notch, .phone-home-indicator, .phone-buttons { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone-buttons">
+      <div class="btn-silent"></div>
+      <div class="btn-volup"></div>
+      <div class="btn-voldown"></div>
+      <div class="btn-power"></div>
+    </div>
+    <div class="phone-wrapper">
+      <div class="phone-notch"></div>
+      <div class="phone-status-bar">
+        <span class="time" id="phoneTime">9:41</span>
+        <span class="icons">📶 📶 🔋</span>
+      </div>
+      <div id="app"></div>
+      <div class="phone-home-indicator"></div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      function updateTime() {
+        const now = new Date();
+        const h = String(now.getHours()).padStart(2, '0');
+        const m = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('phoneTime').textContent = h + ':' + m;
+      }
+      updateTime();
+      setInterval(updateTime, 30000);
+    </script>
+  </body>
+</html>

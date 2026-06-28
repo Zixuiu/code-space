@@ -1,0 +1,356 @@
+{
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			"^IconFont$": "@/components/icon-font/icon-font.vue"
+		}
+	},
+	"pages": [
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "我来帮",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/publish/publish",
+			"style": {
+				"navigationBarTitleText": "发布需求",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/orders/orders",
+			"style": {
+				"navigationBarTitleText": "我的订单",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "个人中心",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/messages/messages",
+			"style": {
+				"navigationBarTitleText": "消息",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/need-detail/need-detail",
+			"style": {
+				"navigationBarTitleText": "需求详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationBarTitleText": "注册",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/forgot-password/forgot-password",
+			"style": {
+				"navigationBarTitleText": "忘记密码",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/chat/chat",
+			"style": {
+				"navigationBarTitleText": "聊天",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/notifications/notifications",
+			"style": {
+				"navigationBarTitleText": "通知",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/edit-profile/edit-profile",
+			"style": {
+				"navigationBarTitleText": "编辑资料",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/settings/settings",
+			"style": {
+				"navigationBarTitleText": "设置",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/skills/skills",
+			"style": {
+				"navigationBarTitleText": "我的技能",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/blacklist/blacklist",
+			"style": {
+				"navigationBarTitleText": "黑名单",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/wallet/wallet",
+			"style": {
+				"navigationBarTitleText": "我的钱包",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/verify/verify",
+			"style": {
+				"navigationBarTitleText": "实名认证",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/order-detail/order-detail",
+			"style": {
+				"navigationBarTitleText": "订单详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/accept-order/accept-order",
+			"style": {
+				"navigationBarTitleText": "确认接单",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/rate/rate",
+			"style": {
+				"navigationBarTitleText": "评价订单",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/help/help",
+			"style": {
+				"navigationBarTitleText": "帮助中心",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/recharge/recharge",
+			"style": {
+				"navigationBarTitleText": "充值",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/withdraw/withdraw",
+			"style": {
+				"navigationBarTitleText": "提现",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/transfer/transfer",
+			"style": {
+				"navigationBarTitleText": "转账",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/privacy/privacy",
+			"style": {
+				"navigationBarTitleText": "隐私安全",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/payment-password/payment-password",
+			"style": {
+				"navigationBarTitleText": "支付密码",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/change-payment-password/change-payment-password",
+			"style": {
+				"navigationBarTitleText": "修改支付密码",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/forgot-payment-password/forgot-payment-password",
+			"style": {
+				"navigationBarTitleText": "忘记支付密码",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/payment-verify/payment-verify",
+			"style": {
+				"navigationBarTitleText": "支付验证",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/rating-history/rating-history",
+			"style": {
+				"navigationBarTitleText": "评价历史",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/notification-settings/notification-settings",
+			"style": {
+				"navigationBarTitleText": "通知设置",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/received-help/received-help",
+			"style": {
+				"navigationBarTitleText": "收到的帮助",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/feedback/feedback",
+			"style": {
+				"navigationBarTitleText": "意见反馈",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/terms-of-service/terms-of-service",
+			"style": {
+				"navigationBarTitleText": "用户协议",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/privacy-policy/privacy-policy",
+			"style": {
+				"navigationBarTitleText": "隐私政策",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/transaction/transaction",
+			"style": {
+				"navigationBarTitleText": "交易流水",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/complaint/complaint",
+			"style": {
+				"navigationBarTitleText": "投诉",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/complaint-list/complaint-list",
+			"style": {
+				"navigationBarTitleText": "投诉记录",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/complaint-detail/complaint-detail",
+			"style": {
+				"navigationBarTitleText": "投诉详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/bind-alipay/bind-alipay",
+			"style": {
+				"navigationBarTitleText": "绑定支付宝",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/bind-bank/bind-bank",
+			"style": {
+				"navigationBarTitleText": "绑定银行卡",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/guide/guide",
+			"style": {
+				"navigationBarTitleText": "引导页",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/about/about",
+			"style": {
+				"navigationBarTitleText": "关于我们",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/simulation/simulation",
+			"style": {
+				"navigationBarTitleText": "模拟用户",
+				"navigationStyle": "custom"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "我来帮",
+		"navigationBarBackgroundColor": "#EFF7EF",
+		"backgroundColor": "#EFF7EF",
+		"rpxCalcMaxDeviceWidth": 360,
+		"rpxCalcBaseDeviceWidth": 360
+	},
+	"tabBar": {
+		"color": "#999999",
+		"selectedColor": "#10B981",
+		"backgroundColor": "#FFFFFF",
+		"borderStyle": "white",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "发现"
+			},
+			{
+				"pagePath": "pages/publish/publish",
+				"text": "发布"
+			},
+			{
+				"pagePath": "pages/orders/orders",
+				"text": "订单"
+			},
+			{
+				"pagePath": "pages/messages/messages",
+				"text": "消息"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的"
+			}
+		]
+	},
+	"uniIdRouter": {},
+	"condition": {}
+}
