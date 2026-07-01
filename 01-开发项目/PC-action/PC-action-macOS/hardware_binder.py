@@ -21,11 +21,19 @@ _USER_DATA_DIR = None                        # 延迟初始化
 def _get_data_dir():
     global _USER_DATA_DIR
     if _USER_DATA_DIR is None:
-        if getattr(sys, 'frozen', False):
-            _USER_DATA_DIR = os.path.join(os.path.dirname(sys.executable), "user_data")
+        # 使用用户可写的标准配置目录，而非 exe 所在目录
+        if sys.platform == "win32":
+            base = os.environ.get("APPDATA", os.path.expanduser("~"))
         else:
-            _USER_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_data")
-        os.makedirs(_USER_DATA_DIR, exist_ok=True)
+            base = os.path.expanduser("~/.config")
+        _USER_DATA_DIR = os.path.join(base, "PC-Action", "user_data")
+        try:
+            os.makedirs(_USER_DATA_DIR, exist_ok=True)
+        except PermissionError:
+            # 终极 fallback：使用 temp 目录
+            import tempfile
+            _USER_DATA_DIR = os.path.join(tempfile.gettempdir(), "PC-Action", "user_data")
+            os.makedirs(_USER_DATA_DIR, exist_ok=True)
     return _USER_DATA_DIR
 
 

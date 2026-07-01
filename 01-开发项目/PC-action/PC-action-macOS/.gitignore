@@ -59,5 +59,15 @@ nul
 *.log
 log_examples/
 
+# 构建辅助脚本
+PC Action.spec
+_build_exe.py
+_check_exe.py
+build_exe.bat
+build_exe.ps1
+
+# 运行时用户数据
+user_data/
+
 # 录制回收站
 recordings/trash/
