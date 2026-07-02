@@ -821,13 +821,38 @@ class SelectionOverlay(QWidget):
     def add_keyboard_shortcut(self, key_str):
         """添加键盘快捷键操作"""
         try:
-            # 确保有录制目录
+            # 如果还没有录制目录，则自动创建（支持Ctrl+快捷键作为第一个操作）
             if not self.recording_dir:
-                print("[DEBUG] 没有录制目录，无法添加键盘操作")
-                return
+                from utils import get_recordings_path
+                recordings_dir = get_recordings_path()
+                os.makedirs(recordings_dir, exist_ok=True)
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                folder_name = f"流程_{timestamp}"
+                self.recording_dir = os.path.join(recordings_dir, folder_name)
+                os.makedirs(self.recording_dir, exist_ok=True)
+                if hasattr(self.parent, 'current_recording_dir'):
+                    self.parent.current_recording_dir = self.recording_dir
+                print(f"[DEBUG] 自动创建录制目录: {self.recording_dir}")
                 
-            # 创建操作数据
+            # 保存当前屏幕状态作为操作截图
+            try:
+                from utils import save_screenshot
+                screen = QGuiApplication.primaryScreen()
+                screen_size = screen.size()
+                next_step = self.operation_count + 1
+                file_path = os.path.join(self.recording_dir, f"操作{next_step}.png")
+                save_screenshot((0, 0, screen_size.width(), screen_size.height()), file_path)
+                print(f"已保存快捷键操作截图: {file_path}")
+            except Exception as e:
+                print(f"保存操作截图失败: {e}")
+                
+            # 增加操作计数
+            self.operation_count += 1
+            
+            # 创建操作数据（包含step字段，确保回放排序正确）
             operation = {
+                "step": self.operation_count,
                 "action_type": "keyboard",
                 "key": key_str,
                 "delay": 0.2
@@ -835,7 +860,7 @@ class SelectionOverlay(QWidget):
             
             # 保存操作
             self.save_operation_to_json(operation)
-            print(f"✅ 已录制快捷键: {key_str}")
+            print(f"✅ 已录制快捷键: {key_str} (步骤 {self.operation_count})")
             
             # 短暂延迟后重新开始选择
             from PyQt5.QtCore import QTimer

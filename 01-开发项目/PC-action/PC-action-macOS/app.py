@@ -1472,21 +1472,44 @@ class FolderManager(QDialog):
             if not isinstance(recording_data, list) or len(recording_data) < 2:
                 return
             recording_data.sort(key=lambda x: x.get('step', 0))
-            step_a = idx_a + 1
-            step_b = idx_b + 1
-            if idx_a >= len(recording_data) or idx_b >= len(recording_data):
+            
+            # ★ 修复：UI 列表只显示有图片的操作，但 recording_data 包含所有操作
+            # 必须通过图片文件名获取步骤号，再映射到 recording_data 中的真实索引
+            image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+            image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
+            if idx_a >= len(image_files) or idx_b >= len(image_files):
                 return
-            recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+            match_a = re.search(r'操作(\d+)', image_files[idx_a])
+            match_b = re.search(r'操作(\d+)', image_files[idx_b])
+            if not match_a or not match_b:
+                return
+            step_a = int(match_a.group(1))
+            step_b = int(match_b.group(1))
+            
+            # 在 recording_data 中找到对应步骤号的索引
+            rec_a_idx = rec_b_idx = None
+            for i, rec in enumerate(recording_data):
+                if rec.get('step') == step_a:
+                    rec_a_idx = i
+                if rec.get('step') == step_b:
+                    rec_b_idx = i
+            if rec_a_idx is None or rec_b_idx is None:
+                return
+            
+            # 交换两个记录
+            recording_data[rec_a_idx], recording_data[rec_b_idx] = recording_data[rec_b_idx], recording_data[rec_a_idx]
+            
+            # 重新编号并更新 image 字段
             for i, rec in enumerate(recording_data):
                 rec['step'] = i + 1
                 if 'image' in rec:
                     rec['image'] = f"操作{i + 1}.png"
             save_json_data(recording_json_path, recording_data)
-            step_a_old = idx_a + 1
-            step_b_old = idx_b + 1
-            img_a = os.path.join(folder_path, f"操作{step_a_old}.png")
-            img_b = os.path.join(folder_path, f"操作{step_b_old}.png")
-            img_a_tmp = os.path.join(folder_path, f"操作{step_a_old}_tmp.png")
+            
+            # 交换图片文件（使用原始步骤号定位文件）
+            img_a = os.path.join(folder_path, f"操作{step_a}.png")
+            img_b = os.path.join(folder_path, f"操作{step_b}.png")
+            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
             if os.path.exists(img_a) and os.path.exists(img_b):
                 os.rename(img_a, img_a_tmp)
                 os.rename(img_b, img_a)
@@ -1495,6 +1518,7 @@ class FolderManager(QDialog):
                 os.rename(img_a, img_b)
             elif os.path.exists(img_b) and not os.path.exists(img_a):
                 os.rename(img_b, img_a)
+            
             if idx_a < len(self.image_actions) and idx_b < len(self.image_actions):
                 self.image_actions[idx_a], self.image_actions[idx_b] = self.image_actions[idx_b], self.image_actions[idx_a]
             self.refresh_view_images(folder_path)
@@ -4920,21 +4944,38 @@ class AutoRecorderApp(QMainWindow):
             if not isinstance(recording_data, list) or len(recording_data) < 2:
                 return
             recording_data.sort(key=lambda x: x.get('step', 0))
-            step_a = idx_a + 1
-            step_b = idx_b + 1
-            if idx_a >= len(recording_data) or idx_b >= len(recording_data):
+            
+            # ★ 修复：UI 列表只显示有图片的操作，但 recording_data 包含所有操作
+            image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+            image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
+            if idx_a >= len(image_files) or idx_b >= len(image_files):
                 return
-            recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+            match_a = re.search(r'操作(\d+)', image_files[idx_a])
+            match_b = re.search(r'操作(\d+)', image_files[idx_b])
+            if not match_a or not match_b:
+                return
+            step_a = int(match_a.group(1))
+            step_b = int(match_b.group(1))
+            
+            rec_a_idx = rec_b_idx = None
+            for i, rec in enumerate(recording_data):
+                if rec.get('step') == step_a:
+                    rec_a_idx = i
+                if rec.get('step') == step_b:
+                    rec_b_idx = i
+            if rec_a_idx is None or rec_b_idx is None:
+                return
+            
+            recording_data[rec_a_idx], recording_data[rec_b_idx] = recording_data[rec_b_idx], recording_data[rec_a_idx]
             for i, rec in enumerate(recording_data):
                 rec['step'] = i + 1
                 if 'image' in rec:
                     rec['image'] = f"操作{i + 1}.png"
             save_json_data(recording_json_path, recording_data)
-            step_a_old = idx_a + 1
-            step_b_old = idx_b + 1
-            img_a = os.path.join(folder_path, f"操作{step_a_old}.png")
-            img_b = os.path.join(folder_path, f"操作{step_b_old}.png")
-            img_a_tmp = os.path.join(folder_path, f"操作{step_a_old}_tmp.png")
+            
+            img_a = os.path.join(folder_path, f"操作{step_a}.png")
+            img_b = os.path.join(folder_path, f"操作{step_b}.png")
+            img_a_tmp = os.path.join(folder_path, f"操作{step_a}_tmp.png")
             if os.path.exists(img_a) and os.path.exists(img_b):
                 os.rename(img_a, img_a_tmp)
                 os.rename(img_b, img_a)
@@ -5039,10 +5080,9 @@ class AutoRecorderApp(QMainWindow):
             json_path = os.path.join(folder_path, 'recording.json')
             data = load_json_data(json_path) if os.path.exists(json_path) else []
             data = [d for d in data if d.get('step') != del_step]
-            for i, d in enumerate(data):
-                d['step'] = i + 1
-            save_json_data(json_path, data)
-            for f in os.listdir(folder_path):
+            
+            # ★ 修复：先重命名磁盘文件（从大到小，避免重名冲突）
+            for f in sorted(os.listdir(folder_path), key=lambda x: -int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0):
                 if f.lower().endswith('.png') and f != fname:
                     m2 = re.search(r'操作(\d+)', f)
                     if m2 and int(m2.group(1)) > del_step:
@@ -5052,76 +5092,85 @@ class AutoRecorderApp(QMainWindow):
                         new = os.path.join(folder_path, new_name)
                         if os.path.exists(old) and not os.path.exists(new):
                             os.rename(old, new)
+            
+            # ★ 修复：同步更新 JSON 中的 step 和 image 字段，使其与重命名后的文件一致
+            for i, d in enumerate(data):
+                d['step'] = i + 1
+                if 'image' in d:
+                    old_image_name = d['image']
+                    image_match = re.search(r'操作(\d+)\.png', old_image_name)
+                    if image_match:
+                        old_image_step = int(image_match.group(1))
+                        if old_image_step > del_step:
+                            new_image_step = old_image_step - 1
+                            d['image'] = f"操作{new_image_step}.png"
+            
+            save_json_data(json_path, data)
             self.show_beautiful_message('information', '成功', '图片删除成功！')
             if hasattr(self, 'table') and self.table.currentRow() >= 0:
                 self.view_folder_images(self.table.currentRow(), folder_path)
         except Exception as e:
-            self.show_beautiful_message('critical', '错误', f"删除失败: {e}", parent=trash_table.window())
+            self.show_beautiful_message('critical', '错误', f"删除失败: {e}", parent=self)
 
     def reorder_images(self, folder_path, old_step, new_step, dialog=None):
         """拖拽重排图片顺序"""
-        imgs = [os.path.join(folder_path, f) for f in os.listdir(folder_path) if f.lower().endswith('.png')]
-        step_imgs = []
-        for p in imgs:
-            sn = self._extract_step_number(os.path.basename(p))
-            if sn:
-                step_imgs.append((sn, p))
-        step_imgs.sort(key=lambda x: x[0])
-        
-        item = step_imgs.pop(old_step - 1)
-        step_imgs.insert(new_step - 1, item)
-        
-        temp_files = []
-        new_names = {}
-        for i, (new_num, old_path) in enumerate(step_imgs):
-            base = os.path.basename(old_path)
-            new_base = re.sub(r'操作\d+', f'操作{i + 1}', base)
-            new_path = os.path.join(folder_path, new_base)
-            # 记录旧路径到新文件名的映射
-            new_names[old_path] = new_base
-            if old_path != new_path and os.path.exists(old_path):
-                temp_path = os.path.join(folder_path, f'temp_{uuid.uuid4().hex[:8]}_{new_base}')
-                shutil.move(old_path, temp_path)
-                temp_files.append((temp_path, new_path))
-        
-        for temp_path, new_path in temp_files:
-            if os.path.exists(temp_path):
-                shutil.move(temp_path, new_path)
-        
         json_path = os.path.join(folder_path, 'recording.json')
-        if os.path.exists(json_path):
-            data = load_json_data(json_path)
-            data.sort(key=lambda x: x.get('step', 0))
-            
-            # 创建step到数据的映射（使用原始step作为键）
-            step_to_data = {}
-            for d in data:
-                step = d.get('step')
-                if step is not None:
-                    step_to_data[step] = d
-            
-            # print(f"[重排] 原始数据步骤: {list(step_to_data.keys())}")  # [日志已禁用]
-            # print(f"[重排] 新的图片顺序: {[sn for sn, _ in step_imgs]}")  # [日志已禁用]
-
-            # 根据新的图片顺序重新映射数据
-            new_data = []
-            for i, (original_step, old_path) in enumerate(step_imgs):
-                new_step = i + 1
-                if original_step in step_to_data:
-                    # 复制数据，避免修改原始数据
-                    d = step_to_data[original_step].copy()
-                    d['step'] = new_step
-                    # 更新image字段为新的图片文件名
-                    d['image'] = new_names.get(old_path, f'操作{new_step}.png')
-                    new_data.append(d)
-                    # print(f"[重排] 步骤 {original_step} -> {new_step}: {d.get('action_type', 'unknown')}")  # [日志已禁用]
-                else:
-                    # 如果找不到对应数据，创建一个新的
-                    # print(f"[重排] 警告: 找不到步骤 {original_step} 的数据，创建默认数据")  # [日志已禁用]
-                    new_data.append({'step': new_step, 'action_type': 'left_click', 'image': f'操作{new_step}.png'})
-            
-            save_json_data(json_path, new_data)
-            # print(f"[重排] 已保存新的顺序: {[d['step'] for d in new_data]}")  # [日志已禁用]
+        if not os.path.exists(json_path):
+            return
+        data = load_json_data(json_path)
+        if not isinstance(data, list) or len(data) < 2:
+            return
+        data.sort(key=lambda x: x.get('step', 0))
+        
+        # ★ 修复：获取所有有图片的操作列表（按步骤号排序）
+        # 不能直接从文件列表推断，因为可能存在非图片操作导致步骤号不连续
+        image_ops = [(d.get('step'), d) for d in data if d.get('image')]
+        image_ops.sort(key=lambda x: x[0])
+        if len(image_ops) < 2:
+            return
+        
+        # 找到 old_step 和 new_step 在 image_ops 中的视觉索引（0-based）
+        old_vi = next((i for i, (sn, _) in enumerate(image_ops) if sn == old_step), None)
+        new_vi = next((i for i, (sn, _) in enumerate(image_ops) if sn == new_step), None)
+        if old_vi is None or new_vi is None:
+            return
+        
+        # 重新排序 image_ops（基于视觉索引，而非步骤号）
+        item = image_ops.pop(old_vi)
+        image_ops.insert(new_vi, item)
+        
+        # ★ 修复：重命名图片文件（使用uuid临时文件避免冲突）
+        for i, (_, d) in enumerate(image_ops):
+            old_image = d.get('image', '')
+            new_image = f'操作{i + 1}.png'
+            if old_image and old_image != new_image:
+                old_path = os.path.join(folder_path, old_image)
+                new_path = os.path.join(folder_path, new_image)
+                if os.path.exists(old_path) and not os.path.exists(new_path):
+                    temp_path = os.path.join(folder_path, f'temp_{uuid.uuid4().hex[:8]}_{new_image}')
+                    shutil.move(old_path, temp_path)
+                    shutil.move(temp_path, new_path)
+        
+        # ★ 修复：重建所有操作列表，保留非图片操作
+        # 按步骤号遍历原数据，将图片操作替换为重新排序后的
+        image_iter = iter(image_ops)
+        new_data = []
+        for d in data:
+            if 'image' in d:
+                # 使用重新排序后的图片操作
+                _, new_d = next(image_iter)
+                new_data.append(new_d.copy())
+            else:
+                # 非图片操作（键盘/滚动/文本输入）保持原样
+                new_data.append(d.copy() if isinstance(d, dict) else d)
+        
+        # 重新编号所有操作，并同步更新 image 字段
+        for i, d in enumerate(new_data):
+            d['step'] = i + 1
+            if 'image' in d:
+                d['image'] = f'操作{i + 1}.png'
+        
+        save_json_data(json_path, new_data)
         
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(300, lambda: self.refresh_view_images(folder_path))
@@ -6214,7 +6263,13 @@ class AutoRecorderApp(QMainWindow):
             _saved_x, _saved_y = _pg.position()
 
             # ★ 修复：检测录制类型，选择正确的回放函数 ★
-            is_coord_only = all(
+            # 如果存在键盘、文本输入或滚动操作，必须使用 replay_coordinate_operations
+            # （replay_coordinates_only 不支持这些操作类型）
+            has_keyboard_or_scroll = any(
+                op.get('action_type') in ('keyboard', 'keyboard_direct', 'text_input', 'scroll')
+                for op in recording_data
+            )
+            is_coord_only = not has_keyboard_or_scroll and all(
                 'image' not in op for op in recording_data
             )
 

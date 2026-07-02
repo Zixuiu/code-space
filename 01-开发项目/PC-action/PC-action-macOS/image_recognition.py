@@ -475,6 +475,11 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 success_count += 1
                 continue
 
+            # 跳过键盘和文本输入操作（replay_coordinates_only 不支持）
+            if action_type in ('keyboard', 'keyboard_direct', 'text_input'):
+                success_count += 1
+                continue
+
             # 极速移动+点击
             _user32.SetCursorPos(x, y)
             if action_type in ('left_click', 'click'):

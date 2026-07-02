@@ -67,11 +67,15 @@ def center_window(window):
 def load_json_data(file_path, default=None):
     """加载JSON数据"""
     if default is None:
-        default = {}
+        default = []  # ★ 修复：默认使用列表而非字典，避免后续 .sort()/.append() 崩溃
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # ★ 修复：防止 JSON 文件中为 null 导致返回 None
+                if data is None:
+                    return default
+                return data
     except Exception as e:
         print(f"加载JSON数据失败: {e}")
     return default
