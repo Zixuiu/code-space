@@ -413,7 +413,8 @@ class LoginDialog(QDialog):
         """写入调试日志到文件"""
         import os
         from datetime import datetime
-        log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug.log")
+        from utils import get_app_base_dir
+        log_file = os.path.join(get_app_base_dir(), "debug.log")
         try:
             with open(log_file, 'a', encoding='utf-8') as f:
                 f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
@@ -2256,4 +2257,3 @@ class LoginDialog(QDialog):
             elif "邮箱" in msg:
                 self.forgot_email_input.setFocus()
                 self.forgot_email_input.selectAll()
-

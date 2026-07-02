@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import re
 import random
@@ -169,9 +170,21 @@ def get_dynamic_radius(width, height):
     return min(width, height) // 20
 
 
+def get_app_base_dir():
+    """
+    获取应用程序基目录。
+    - 打包成 EXE 后，使用 sys.executable 所在目录（即 EXE 所在位置）
+    - 开发环境下，使用当前脚本所在目录
+    """
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+
 def get_recordings_path():
-    """获取录制文件夹路径"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    """获取录制文件夹路径（始终位于应用程序目录下）"""
+    base_dir = get_app_base_dir()
     recordings_dir = os.path.normpath(os.path.join(
         base_dir, "recordings"
     ))
@@ -181,8 +194,8 @@ def get_recordings_path():
 
 
 def get_user_data_path():
-    """获取用户数据文件夹路径"""
-    base_dir = os.path.dirname(os.path.abspath(__file__))
+    """获取用户数据文件夹路径（始终位于应用程序目录下）"""
+    base_dir = get_app_base_dir()
     user_data_dir = os.path.normpath(os.path.join(
         base_dir, "user_data"
     ))
