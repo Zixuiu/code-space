@@ -8,10 +8,6 @@ import sys
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
-# 加载环境变量
-load_dotenv()
 
 # 尝试导入数据库管理器
 try:
@@ -39,8 +35,9 @@ class LoginManager:
         
         self._ensure_data_files()
         
-        # 同步本地用户到Supabase数据库
-        self._sync_local_users_to_db()
+        # 同步本地用户到Supabase数据库（异步执行，不阻塞启动）
+        import threading
+        threading.Thread(target=self._sync_local_users_to_db, daemon=True).start()
     
     def _get_data_directory(self):
         """

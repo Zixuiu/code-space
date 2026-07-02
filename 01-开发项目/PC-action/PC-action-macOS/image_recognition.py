@@ -6,12 +6,38 @@ import pyautogui
 import keyboard
 from PIL import Image
 import sys
-import cv2
-import numpy as np
-
-# ⚡ 启用 OpenCL GPU 加速 matchTemplate
-cv2.ocl.setUseOpenCL(True)
 import mss
+import ctypes
+from ctypes import wintypes
+
+# ⚡ 模块级 Win32 API 常量（避免每次调用都重复导入）
+_user32 = ctypes.windll.user32
+_MOUSEEVENTF_LEFTDOWN = 0x0002
+_MOUSEEVENTF_LEFTUP = 0x0004
+_MOUSEEVENTF_RIGHTDOWN = 0x0008
+_MOUSEEVENTF_RIGHTUP = 0x0010
+_MOUSEEVENTF_MIDDLEDOWN = 0x0020
+_MOUSEEVENTF_MIDDLEUP = 0x0040
+_MOUSEEVENTF_WHEEL = 0x0800
+
+def _fast_click(btn='left'):
+    """极速点击（Win32 API，比pyautogui快5-10倍）"""
+    if btn == 'left':
+        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+    elif btn == 'right':
+        _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+    elif btn == 'middle':
+        _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
+    else:
+        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+
+def _fast_move(x, y):
+    """极速移动鼠标"""
+    _user32.SetCursorPos(x, y)
 
 # 尝试导入CUDA加速的OpenCV
 try:
@@ -112,34 +138,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
 
-    # 缓存Win32 API函数引用（极速点击，比pyautogui快5-10倍）
-    import ctypes
-    _user32 = ctypes.windll.user32
-    _MOUSEEVENTF_LEFTDOWN = 0x0002
-    _MOUSEEVENTF_LEFTUP = 0x0004
-    _MOUSEEVENTF_RIGHTDOWN = 0x0008
-    _MOUSEEVENTF_RIGHTUP = 0x0010
-    _MOUSEEVENTF_MIDDLEDOWN = 0x0020
-    _MOUSEEVENTF_MIDDLEUP = 0x0040
-    _MOUSEEVENTF_WHEEL = 0x0800
-
-    def _fc(btn):
-        if btn == 'left':
-            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        elif btn == 'right':
-            _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
-        elif btn == 'middle':
-            _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
-        else:
-            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-
-    def _fast_move(x, y):
-        _user32.SetCursorPos(x, y)
-    
     # 仅非组合技调用（无stop_check）时清除停止标志
     # 组合技调用时不清除，避免一个runner重置了全局标志导致其他runner无法被正确停止
     if stop_check is None:
@@ -378,17 +376,17 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             # 根据操作类型执行相应操作
             if action_type == 'left_click':
-                _fc('left')
+                _fast_click('left')
             elif action_type == 'right_click':
-                _fc('right')
+                _fast_click('right')
             elif action_type == 'double_click':
-                _fc('left'); _fc('left')
+                _fast_click('left'); _fast_click('left')
             elif action_type == 'drag':
                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
                 _user32.mouse_event(0x0001, 50, 0, 0, 0)  # MOUSEEVENTF_MOVE
                 _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
             else:
-                _fc('left')
+                _fast_click('left')
             
             success_count += 1
 
@@ -432,31 +430,6 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
 
-    # 缓存Win32 API函数引用（极速点击，比pyautogui快5-10倍）
-    import ctypes
-    _user32 = ctypes.windll.user32
-    _MOUSEEVENTF_LEFTDOWN = 0x0002
-    _MOUSEEVENTF_LEFTUP = 0x0004
-    _MOUSEEVENTF_RIGHTDOWN = 0x0008
-    _MOUSEEVENTF_RIGHTUP = 0x0010
-    _MOUSEEVENTF_MIDDLEDOWN = 0x0020
-    _MOUSEEVENTF_MIDDLEUP = 0x0040
-    _MOUSEEVENTF_WHEEL = 0x0800
-
-    def _fc(btn):
-        if btn == 'left':
-            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-        elif btn == 'right':
-            _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
-        elif btn == 'middle':
-            _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
-        else:
-            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-
     if stop_check is None:
         _replay_stop_flag = False
     
@@ -483,15 +456,15 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             # 极速移动+点击
             _user32.SetCursorPos(x, y)
             if action_type in ('left_click', 'click'):
-                _fc('l')
+                _fast_click('left')
             elif action_type == 'right_click':
-                _fc('r')
+                _fast_click('right')
             elif action_type == 'double_click':
-                _fc('l'); _fc('l')
+                _fast_click('left'); _fast_click('left')
             elif action_type == 'middle_click':
-                _fc('m')
+                _fast_click('middle')
             else:
-                _fc('l')
+                _fast_click('left')
             success_count += 1
 
             # 只有明确指定 delay>0 才等，否则不等

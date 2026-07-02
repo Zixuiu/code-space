@@ -4,10 +4,6 @@
 """
 import os
 from datetime import datetime
-from dotenv import load_dotenv
-
-# 加载环境变量
-load_dotenv()
 
 try:
     from supabase import create_client, Client
@@ -19,13 +15,11 @@ except ImportError:
 class HybridDatabaseManager:
     def __init__(self):
         """初始化混合数据库管理器"""
-        self.supabase_url = os.getenv('SUPABASE_URL', 'YOUR_SUPABASE_URL')
-        self.supabase_key = os.getenv('SUPABASE_KEY', 'YOUR_SUPABASE_ANON_KEY')
+        self.supabase_url = None
+        self.supabase_key = None
         self.supabase_client = None
         self.use_supabase = False
-        
-        # 尝试连接Supabase
-        self._try_connect_supabase()
+        # 连接延迟到首次使用时建立，不再在 __init__ 中连接
     
     def _try_connect_supabase(self):
         """尝试连接到Supabase"""
@@ -46,12 +40,26 @@ class HybridDatabaseManager:
             return False
     
     def is_connected(self):
-        """检查是否已连接"""
-        return self.supabase_client is not None
+        """检查是否已连接（惰性连接，首次检查时尝试连接）"""
+        return self._ensure_connected()
+    
+    def _ensure_connected(self):
+        """确保已连接，未连接则尝试连接（惰性加载）"""
+        if self.use_supabase and self.supabase_client is not None:
+            return True
+        if self.supabase_client is not None:
+            return True
+        # 首次使用：读取配置并尝试连接
+        if not self.supabase_url:
+            self.supabase_url = os.getenv('SUPABASE_URL', '')
+            self.supabase_key = os.getenv('SUPABASE_KEY', '')
+        if self.supabase_url and self.supabase_key:
+            return self._try_connect_supabase()
+        return False
     
     def get_users_paginated(self, page=1, page_size=50, order_by='created_at', ascending=False):
         """分页获取用户列表"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return {'data': [], 'count': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
         
         try:
@@ -97,7 +105,7 @@ class HybridDatabaseManager:
     
     def get_user_by_id(self, user_id):
         """根据ID获取用户信息"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return None
         
         try:
@@ -109,7 +117,7 @@ class HybridDatabaseManager:
     
     def update_user(self, user_id, updates):
         """更新用户信息"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             print("数据库未连接")
             return False
         
@@ -154,7 +162,7 @@ class HybridDatabaseManager:
     
     def delete_user(self, user_id):
         """删除用户"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return False
         
         try:
@@ -166,7 +174,7 @@ class HybridDatabaseManager:
     
     def create_user(self, username, email, password_hash, is_admin=False):
         """创建新用户"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return None
         
         try:
@@ -189,7 +197,7 @@ class HybridDatabaseManager:
     
     def get_user(self, username):
         """根据用户名获取用户信息"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return None
         
         try:
@@ -201,7 +209,7 @@ class HybridDatabaseManager:
     
     def get_all_users(self):
         """获取所有用户"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return []
         
         try:
@@ -213,7 +221,7 @@ class HybridDatabaseManager:
     
     def get_all_feedback(self):
         """获取所有反馈信息"""
-        if not self.is_connected():
+        if not self._ensure_connected():
             return []
         
         try:

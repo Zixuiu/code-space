@@ -65,14 +65,19 @@ def center_window(window):
 
 
 def load_json_data(file_path, default=None):
-    """加载JSON数据"""
-    if default is None:
-        default = []  # ★ 修复：默认使用列表而非字典，避免后续 .sort()/.append() 崩溃
+    """加载JSON数据
+    
+    Args:
+        file_path: JSON文件路径
+        default: 文件不存在或解析失败时返回的默认值。
+                 如果为None，会根据调用方期望自动选择类型：
+                 - 如果调用方传了default，则使用传入值
+                 - 否则返回None，由调用方自行处理
+    """
     try:
         if os.path.exists(file_path):
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                # ★ 修复：防止 JSON 文件中为 null 导致返回 None
                 if data is None:
                     return default
                 return data

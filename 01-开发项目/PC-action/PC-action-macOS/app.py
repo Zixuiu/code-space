@@ -29,7 +29,6 @@ import threading
 import shutil
 import copy
 from datetime import datetime
-import keyboard
 import re
 import uuid
 import traceback
@@ -245,17 +244,15 @@ class DraggableWidget(QWidget):
         from PyQt5.QtGui import QBitmap, QPainter, QPainterPath
         s = self.size()
         if s.width() <= 0 or s.height() <= 0: return
-        scale = 4
-        bm = QBitmap(s.width() * scale, s.height() * scale)
+        bm = QBitmap(s.width(), s.height())
         bm.clear()
         p = QPainter(bm)
         p.setRenderHint(QPainter.Antialiasing)
         path = QPainterPath()
-        path.addRoundedRect(0, 0, s.width() * scale, s.height() * scale, 14 * scale, 14 * scale)
+        path.addRoundedRect(0, 0, s.width(), s.height(), 14, 14)
         p.fillPath(path, Qt.color1)
         p.end()
-        from PyQt5.QtGui import QBitmap as _QB
-        self.setMask(_QB(bm.scaled(s, Qt.KeepAspectRatio, Qt.SmoothTransformation)))
+        self.setMask(bm)
 
     def paintEvent(self, event):
         from PyQt5.QtGui import QPainter, QPainterPath, QColor, QPen
@@ -309,7 +306,6 @@ class FeedbackDialog(QDialog):
         self.setWindowTitle("问题反馈")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         # 获取屏幕尺寸
@@ -1207,7 +1203,6 @@ class FolderManager(QDialog):
         # 注册查看图片窗口专用的·键全局热键
         self._view_images_grave_hotkey_id = None
         try:
-            import keyboard
             
             # 使用 suppress=True 确保热键被捕获，不传递给其他应用
             # 保存对话框和路径的引用，避免闭包问题
@@ -1403,7 +1398,6 @@ class FolderManager(QDialog):
             def delayed_cleanup():
                 # 移除查看图片窗口专用的·键热键
                 try:
-                    import keyboard
                     if hasattr(self, '_view_images_grave_hotkey_id') and self._view_images_grave_hotkey_id:
                         keyboard.remove_hotkey(self._view_images_grave_hotkey_id)
                         # print("[查看图片] 移除 grave 键专用热键")  # [日志已禁用]
@@ -2279,7 +2273,6 @@ class FolderManager(QDialog):
                 table.setItem(i, 2, coord_item)
                 # 删除按钮（第3列）
                 _del_w = QWidget()
-                _del_w.setStyleSheet("QWidget{background:transparent;}")
                 _del_w.setStyleSheet("QWidget{background:transparent;}")
                 _del_l = QHBoxLayout(_del_w)
                 _del_l.setContentsMargins(4,0,4,0)
@@ -5078,7 +5071,9 @@ class AutoRecorderApp(QMainWindow):
             del_step = int(m.group(1))
             os.remove(img_path)
             json_path = os.path.join(folder_path, 'recording.json')
-            data = load_json_data(json_path) if os.path.exists(json_path) else []
+            data = load_json_data(json_path, []) if os.path.exists(json_path) else []
+            if not isinstance(data, list):
+                data = []
             data = [d for d in data if d.get('step') != del_step]
             
             # ★ 修复：先重命名磁盘文件（从大到小，避免重名冲突）
@@ -5223,7 +5218,9 @@ class AutoRecorderApp(QMainWindow):
         json_path = os.path.join(button.property("folder_path"), "recording.json")
         if not os.path.exists(json_path):
             return
-        data = load_json_data(json_path)
+        data = load_json_data(json_path, [])
+        if not isinstance(data, list):
+            return
         updated = False
         for d in data:
             if d.get('step') == button.property("step_num"):
@@ -6009,8 +6006,22 @@ class AutoRecorderApp(QMainWindow):
         if not selected:
             return
         
-        # 执行第一个选中的流程
-        self.play_recording(selected[0])
+        # 逐个执行选中的流程，每个回放完成后自动播放下一个
+        self._batch_play_queue = selected.copy()
+        self._play_next_in_batch()
+    
+    def _play_next_in_batch(self):
+        """播放批量队列中的下一个流程"""
+        if not hasattr(self, '_batch_play_queue') or not self._batch_play_queue:
+            if hasattr(self, '_batch_play_queue'):
+                del self._batch_play_queue
+            return
+        next_name = self._batch_play_queue.pop(0)
+        self.play_recording(next_name)
+        # play_recording 为同步阻塞调用，返回时回放已完成
+        # 使用 QTimer 避免潜在递归问题，继续播放下一个
+        if hasattr(self, '_batch_play_queue') and self._batch_play_queue:
+            QTimer.singleShot(0, self._play_next_in_batch)
     
     def show_replay_settings(self):
         """显示回放设置对话框"""
@@ -6021,30 +6032,31 @@ class AutoRecorderApp(QMainWindow):
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         dialog.setAttribute(Qt.WA_TranslucentBackground)
         dialog.setFixedSize(280, 200)
-        dialog.setStyleSheet("""
-            QDialog {
-                background-color: #ffffff;
-            }
-            QLabel {
-                color: #2C3E50;
+        from design_system import ColorPalette as _C
+        dialog.setStyleSheet(f"""
+            QDialog {{
+                background-color: {_C.BG_CARD};
+            }}
+            QLabel {{
+                color: {_C.TEXT_PRIMARY};
                 font-size: 18px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton {
-                background-color: #0A84FF;
+            }}
+            QPushButton {{
+                background-color: {_C.PRIMARY};
                 color: white;
                 border-radius: 12px;
                 padding: 8px 20px;
                 font-size: 16px;
                 font-weight: bold;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton:hover {
-                background-color: #006AE0;
-            }
-            QPushButton:pressed {
-                background-color: #004DB3;
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {_C.PRIMARY_HOVER};
+            }}
+            QPushButton:pressed {{
+                background-color: {_C.PRIMARY_ACTIVE};
+            }}
         """)
         
         layout = QVBoxLayout(dialog)
@@ -6057,18 +6069,18 @@ class AutoRecorderApp(QMainWindow):
         speed_slider = QSlider(Qt.Horizontal)
         speed_slider.setRange(5, 100)
         speed_slider.setValue(10)
-        speed_slider.setStyleSheet("""
-            QSlider::groove:horizontal {
+        speed_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
                 height: 4px;
-                background: #f0f0f0;
+                background: {_C.LIGHT_GRAY_200};
                 border-radius: 2px;
-            }
-            QSlider::handle:horizontal {
+            }}
+            QSlider::handle:horizontal {{
                 width: 12px;
                 height: 12px;
-                background: #FF453A;
+                background: {_C.LIGHT_SYSTEM_RED};
                 border-radius: 6px;
-            }
+            }}
         """)
         layout.addWidget(speed_slider)
         
@@ -6312,6 +6324,10 @@ class AutoRecorderApp(QMainWindow):
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
         try:
+            # 清除批量播放队列
+            if hasattr(self, '_batch_play_queue'):
+                del self._batch_play_queue
+            
             # 设置停止标志，让回放函数自行停止
             from image_recognition import set_replay_stop_flag
             set_replay_stop_flag(True)
@@ -6373,10 +6389,6 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             self.debug_print(f"保存回放指示器位置失败: {e}")
 
-    def close_replay_indicator(self):
-        if hasattr(self, 'replay_status_widget'):
-            self.replay_status_widget.hide()
-    
     def show_replay_indicator(self):
         # 单窗口模式：隐藏主窗口，只显示录制控制窗口
         self.hide()
@@ -8624,7 +8636,9 @@ class AutoRecorderApp(QMainWindow):
         """获取步骤操作类型映射"""
         json_path = os.path.join(folder_path, 'recording.json')
         if os.path.exists(json_path):
-            data = load_json_data(json_path)
+            data = load_json_data(json_path, [])
+            if not isinstance(data, list):
+                return {}
             return {d.get('step', 0): d.get('action_type', 'left_click') for d in data}
         return {}
 
@@ -8665,7 +8679,6 @@ class AutoRecorderApp(QMainWindow):
     def update_shortcuts(self):
         """更新快捷键 - 移除旧的并添加新的"""
         try:
-            import keyboard
             # 先清理旧的快捷键
             for hotkey_id in getattr(self, 'shortcut_objects', []):
                 try:
@@ -9168,7 +9181,8 @@ class ComboSkillManager:
         self.load_combo_skills()
     
     def get_combo_skills_path(self):
-        app_data_dir = os.path.join(os.path.expanduser('~'), 'PC-action', 'data')
+        base_dir = get_app_base_dir()
+        app_data_dir = os.path.join(base_dir, 'data')
         os.makedirs(app_data_dir, exist_ok=True)
         return os.path.join(app_data_dir, 'combo_skills.json')
     
@@ -9177,7 +9191,9 @@ class ComboSkillManager:
             path = self.get_combo_skills_path()
             if os.path.exists(path):
                 from utils import load_json_data
-                self.combo_skills = load_json_data(path)
+                self.combo_skills = load_json_data(path, [])
+                if not isinstance(self.combo_skills, list):
+                    self.combo_skills = []
             else:
                 self.combo_skills = []
         except:

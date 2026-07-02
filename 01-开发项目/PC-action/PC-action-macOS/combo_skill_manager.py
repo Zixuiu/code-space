@@ -1,6 +1,7 @@
 # combo_skill_manager.py
 import os
 import json
+from utils import get_app_base_dir
 
 class ComboSkillManager:
     def __init__(self, parent=None):
@@ -9,7 +10,9 @@ class ComboSkillManager:
         self.load_combo_skills()
     
     def get_combo_skills_path(self):
-        app_data_dir = os.path.join(os.path.expanduser('~'), 'PC-action', 'data')
+        """获取组合技数据路径（与录制数据目录保持一致）"""
+        base_dir = get_app_base_dir()
+        app_data_dir = os.path.join(base_dir, 'data')
         os.makedirs(app_data_dir, exist_ok=True)
         return os.path.join(app_data_dir, 'combo_skills.json')
     

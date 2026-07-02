@@ -1,7 +1,12 @@
 ﻿import os
 import json
-import math
 import sys
+import time
+import math
+import gc
+import shutil
+import ctypes
+import traceback
 import threading
 from datetime import datetime
 
@@ -27,14 +32,18 @@ from PyQt5.QtGui import (
     QKeySequence, QLinearGradient, QRadialGradient, QRegion, QPainterPath
 )
 
-from app import AutoRecorderApp, ComboSkillRunner
+from app import AutoRecorderApp, ComboSkillRunner, FolderManager
 from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_recordings_path
 from combo_skill_manager import ComboSkillManager
 from image_recognition import clear_image_cache, clear_replay_stop_flag, set_replay_stop_flag
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
-    ColorPalette, ShadowSystem, ButtonSize
+    ColorPalette, ShadowSystem, ButtonSize, configure_table, get_table_stylesheet
 )
+from theme_generator import generate_macos_theme
+from beautiful_dialog import StyledMessageDialog
+from combo_skill_edit_dialog import ComboSkillEditDialog
+from selection_overlay import SelectionOverlay
 
 # 兼容旧代码的颜色常量
 THEME_PRIMARY = ColorPalette.PRIMARY
@@ -315,7 +324,7 @@ class MacOSButton(QPushButton):
         """)
     
     @staticmethod
-    def _adjust_color_opacity_static(color_hex, opacity):
+    def _adjust_color_opacity(color_hex, opacity):
         """调整颜色透明度，返回有效的8位十六进制颜色值"""
         color_hex = color_hex.lstrip('#')
         if len(color_hex) == 6:
@@ -324,9 +333,7 @@ class MacOSButton(QPushButton):
             return f"#{color_hex}{alpha}"
         return color_hex
     
-    def _adjust_color_opacity(self, color_hex, opacity):
-        """调整颜色透明度，返回有效的8位十六进制颜色值"""
-        return MacOSButton._adjust_color_opacity_static(color_hex, opacity)
+
 
 
 class MacOSDestructiveButton(QPushButton):
@@ -339,9 +346,9 @@ class MacOSDestructiveButton(QPushButton):
         self.setAutoFillBackground(False)
         self.setAttribute(Qt.WA_StyledBackground, True)
         color = MacOSColors.SYSTEM_RED
-        hover_color = MacOSButton._adjust_color_opacity_static(color, 0.93)
-        pressed_color = MacOSButton._adjust_color_opacity_static(color, 0.8)
-        disabled_color = MacOSButton._adjust_color_opacity_static(color, 0.4)
+        hover_color = MacOSButton._adjust_color_opacity(color, 0.93)
+        pressed_color = MacOSButton._adjust_color_opacity(color, 0.8)
+        disabled_color = MacOSButton._adjust_color_opacity(color, 0.4)
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: {color};
@@ -835,6 +842,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     if not old_runner.isRunning():
                         del self.runners[skill_id]
 
+                # 清除停止标志，确保组合技能正常启动
+                clear_replay_stop_flag()
+
                 runner = ComboSkillRunner(skill, self)
                 runner.skill_id = skill_id
                 self.runners[skill_id] = runner
@@ -855,7 +865,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     self._combo_stop_shortcuts[skill_id] = kb_shortcut
                     self._combo_stop_key_state[skill_id] = False
                     if not self._combo_stop_check_timer.isActive():
-                        self._combo_stop_check_timer.start(100)
+                        self._combo_stop_check_timer.start(500)
                     try:
                         import keyboard as _kb
                         def _mk_hk2(sid):
@@ -898,7 +908,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            import traceback
             traceback.print_exc()
             print(f"[MACOS COMBO] 运行组合技失败: {e}")
 
@@ -971,7 +980,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if hasattr(self, 'combo_tab') and hasattr(self.combo_tab, 'combo_table'):
                 self.load_combo_skills_to_table(self.combo_tab.combo_table)
         except Exception as e:
-            import traceback
             traceback.print_exc()
 
     def initUI(self):
@@ -1030,7 +1038,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         try:
             self.help_tab = self.create_help_tab()
         except Exception as e:
-            import traceback
             traceback.print_exc()
             print(f"\n\n\U0001f525 create_help_tab \u62a5\u9519: {e}\n\n")
             # \u521b\u5efa\u4e00\u4e2a\u7b80\u5355\u7684\u5e2e\u52a9\u9875\u907f\u514d\u5d29\u6e83
@@ -1058,7 +1065,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.macos_stack.setCurrentIndex(0)
 
         # 使用新的设计系统生成统一样式
-        from theme_generator import generate_macos_theme
         self.setStyleSheet(generate_macos_theme())
         body.setStyleSheet("background-color: transparent; border: none;")
         _bo = QFrame(main_widget)
@@ -1270,8 +1276,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.addStretch()
         layout.addLayout(header)
 
-        from design_system import configure_table, get_table_stylesheet
-
         folder_table = QTableWidget()
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
@@ -1335,12 +1339,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def open_view_images_in_tab(self, folder_path):
         try:
-            from app import FolderManager
             folder_manager = FolderManager(self)
             self.folder_manager = folder_manager
             folder_manager.view_images(folder_path)
         except Exception as e:
-            import traceback
             traceback.print_exc()
             self.show_beautiful_message('critical', '错误', f'打开查看图片窗口失败: {e}', parent=self)
 
@@ -1393,12 +1395,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             _apply_saved_column_widths(table_widget, "manager_table", _folder_reload_widths)
             table_widget.horizontalHeader().setStretchLastSection(True)
         except Exception as e:
-            import traceback
             traceback.print_exc()
 
     def set_folder_shortcut_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtCore import Qt, QTimer
-
         folder_name = os.path.basename(folder_path)
         current_shortcut = self.get_folder_shortcut(folder_path)
 
@@ -1556,16 +1555,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     if existing == shortcut_str and os.path.normpath(str(path)).lower() != normalized_path.lower():
                         if not os.path.exists(os.path.normpath(str(path))):
                             continue
-                        from beautiful_dialog import StyledMessageDialog
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被其他流程使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
                 # 检查是否与组合技停止快捷键冲突
-                from combo_skill_manager import ComboSkillManager
                 _combo_mgr = ComboSkillManager(self)
                 for _s in _combo_mgr.combo_skills:
                     if _s.get('stop_shortcut') == shortcut_str:
-                        from beautiful_dialog import StyledMessageDialog
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
@@ -1665,8 +1661,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.reenable_grave_hotkey()
 
     def rename_folder_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtCore import Qt
-
         old_name = os.path.basename(folder_path)
         dialog = QDialog(self)
         dialog.setWindowTitle("重命名流程")
@@ -1803,8 +1797,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         dialog.exec_()
 
     def delete_folder_in_tab(self, folder_path, table_widget):
-        from PyQt5.QtCore import Qt
-
         folder_name = os.path.basename(folder_path)
         dialog = QDialog(self)
         dialog.setWindowTitle("确认删除")
@@ -1896,11 +1888,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         def do_delete():
             try:
-                from datetime import datetime as _dt
                 trash_dir = os.path.join(os.path.dirname(folder_path), 'trash')
                 if not os.path.exists(trash_dir):
                     os.makedirs(trash_dir)
-                import shutil
                 timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
                 trash_folder_name = os.path.basename(folder_path) + timestamp
                 shutil.move(folder_path, os.path.join(trash_dir, trash_folder_name))
@@ -1918,7 +1908,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 self.load_folders_to_table(table_widget)
                 dialog.accept()
             except Exception as e:
-                from beautiful_dialog import StyledMessageDialog
                 _d = StyledMessageDialog(self, title="错误", text=f"删除失败: {e}", msg_type="critical", buttons="ok")
                 _d.exec_()
 
@@ -1941,7 +1930,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             except Exception:
                 pass
 
-        from datetime import datetime
         index_data.append({
             'trash_folder_name': trash_folder_name,
             'original_name': original_name,
@@ -2005,8 +1993,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         top_layout.addStretch()
         layout.addLayout(top_layout)
-
-        from design_system import configure_table, get_table_stylesheet
 
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
@@ -2359,7 +2345,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def open_combo_skill_editor(self, skill=None):
         """打开组合技编辑器"""
-        from combo_skill_edit_dialog import ComboSkillEditDialog
         dialog = ComboSkillEditDialog(self, skill)
         if dialog.exec_() == QDialog.Accepted:
             skill_data = dialog.get_skill_data()
@@ -2410,7 +2395,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         clear_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_RED};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#D63031;}}")
         ok_btn = QPushButton("确定")
         ok_btn.setFixedSize(80, 32)
-        ok_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.ACCENT};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:{MacOSButton._adjust_color_opacity_static(MacOSColors.ACCENT, 0.85)};}}")
+        ok_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.ACCENT};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:{MacOSButton._adjust_color_opacity(MacOSColors.ACCENT, 0.85)};}}")
         cancel_btn = QPushButton("取消")
         cancel_btn.setFixedSize(80, 32)
         cancel_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_GRAY};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#6E6E73;}}")
@@ -2456,7 +2441,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if new_shortcut:
                 for _path, _existing in getattr(self, 'shortcuts', {}).items():
                     if _existing == new_shortcut:
-                        from beautiful_dialog import StyledMessageDialog
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被其他流程的运行快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
@@ -2464,7 +2448,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             combo_manager = ComboSkillManager(self)
             for _s in combo_manager.combo_skills:
                 if _s.get('name') != skill_name and _s.get('stop_shortcut') == new_shortcut:
-                    from beautiful_dialog import StyledMessageDialog
                     _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                     _d.exec_()
                     return
@@ -2493,7 +2476,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
 
     def load_combo_skills_to_table(self, table_widget):
-        import time
         checked_names = set()
         for row in range(table_widget.rowCount()):
             check_item = table_widget.item(row, 0)
@@ -2524,7 +2506,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             tab = self.combo_tab
             if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
                 if running_count > 0:
-                    tab.status_text.setText(f"运行中（{running_count}个组合技锛?")
+                    tab.status_text.setText(f"运行中（{running_count}个组合技）")
                     tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
                     tab.running_names_label.setText("  ".join(running_skill_names))
                     tab.running_names_label.setVisible(True)
@@ -2622,7 +2604,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             table_widget.setItem(row, 6, delete_item)
 
     def _get_combo_manager(self):
-        from app import ComboSkillManager
         return ComboSkillManager(self)
 
     def _convert_shortcut_for_keyboard(self, shortcut):
@@ -2687,7 +2668,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 runner.running = False
                 if hasattr(runner, 'interrupt_event'):
                     runner.interrupt_event.set()
-                set_replay_stop_flag(True)
                 self.append_log(f'[{skill_id}] 快捷键停止')
             self._remove_combo_stop_hotkey(skill_id)
             self._combo_stop_shortcuts.pop(skill_id, None)
@@ -2705,6 +2685,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         try:
             self._combo_stop_shortcuts.pop(skill_id, None)
             self._combo_stop_key_state.pop(skill_id, None)
+            # 清理组合技停止热键ID
+            self._remove_combo_stop_hotkey(skill_id)
             if not self._combo_stop_shortcuts:
                 self._combo_stop_check_timer.stop()
             if skill_id in self.runners:
@@ -2729,7 +2711,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                             runner.reset()
                         except Exception:
                             pass
-                        set_replay_stop_flag(True)
                     self._remove_combo_stop_hotkey(skill_id)
                     self._combo_stop_shortcuts.pop(skill_id, None)
                     self._combo_stop_key_state.pop(skill_id, None)
@@ -2854,7 +2835,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 else:
                     QTimer.singleShot(300, self.start_image_recording)
             except Exception as e:
-                import traceback
                 traceback.print_exc()
                 self._set_recording_state(False)
                 current_mode = self.record_mode_combo.currentText()
@@ -2869,7 +2849,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def start_image_recording(self):
         try:
-            from PyQt5.QtGui import QGuiApplication
             screen = QGuiApplication.primaryScreen()
             screen_pixmap = screen.grabWindow(0)
             self.current_recording_dir = None
@@ -2881,7 +2860,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 except:
                     pass
                 self.selection_overlay = None
-            from selection_overlay import SelectionOverlay
             self.selection_overlay = SelectionOverlay(self, screen_pixmap=screen_pixmap, recording_dir=None)
             self.selection_overlay.closed.connect(self.on_recording_finished)
             self.selection_overlay.show()
@@ -2889,7 +2867,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.selection_overlay.raise_()
             self.selection_overlay.setFocus()
         except Exception as e:
-            import traceback
             traceback.print_exc()
             self._set_recording_state(False)
             current_mode = self.record_mode_combo.currentText()
@@ -2926,14 +2903,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.load_folders_to_table(self.manager_tab.folder_table)
         self.refresh_floating_window_list()
         self.current_recording_dir = None
-        import gc
-        gc.collect()
 
     def on_coordinate_recording_finished(self):
         """坐标录制完成处理"""
         if hasattr(self, 'coordinate_records') and self.coordinate_records:
             try:
-                import json
                 recording_json_path = os.path.join(self.current_recording_dir, "recording.json")
                 with open(recording_json_path, 'w', encoding='utf-8') as f:
                     json.dump(self.coordinate_records, f, indent=2, ensure_ascii=False)
@@ -2972,7 +2946,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.coord_recorder.closed.connect(self.on_coordinate_recording_finished)
             self.coord_recorder.show()
         except Exception as e:
-            import traceback
             traceback.print_exc()
             self._set_recording_state(False)
             self.record_btn.setEnabled(True)
@@ -3047,7 +3020,6 @@ class CoordinateRecorder(QWidget):
 
     def _send_click_to_target(self, px, py):
         # PostMessage 直接发送点击到目标窗口，零残余事件
-        import ctypes
         from ctypes import wintypes
         pt = wintypes.POINT(px, py)
         target_hwnd = ctypes.windll.user32.WindowFromPoint(pt)
@@ -3101,10 +3073,6 @@ class CoordinateRecorder(QWidget):
 
 
 def start_macos_app():
-    import sys
-    import os
-    import ctypes
-
     from PyQt5.QtGui import QFont
 
     try:
