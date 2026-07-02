@@ -33,6 +33,7 @@ import re
 import uuid
 import traceback
 import sqlite3
+import keyboard
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -1316,8 +1317,8 @@ class FolderManager(QDialog):
         list_wrapper.setMaximumWidth(9999)
         list_wrapper.setStyleSheet("background: transparent; border: none;")
         list_layout = QVBoxLayout(list_wrapper)
-        list_layout.setContentsMargins(12, 8, 12, 8)
-        list_layout.setSpacing(4)
+        list_layout.setContentsMargins(12, 0, 12, 0)
+        list_layout.setSpacing(0)
         root_layout.addWidget(list_wrapper)
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
         image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
@@ -1734,7 +1735,7 @@ class FolderManager(QDialog):
 
             # 每行 = macOS 卡片风格
             row_widget = QWidget()
-            row_widget.setFixedHeight(72)
+            row_widget.setFixedHeight(48)
             row_widget.setStyleSheet("""
                 QWidget#listRow {
                     background: rgba(245, 245, 247, 0.8);
@@ -1746,7 +1747,7 @@ class FolderManager(QDialog):
             row_widget.setObjectName("listRow")
 
             row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(12, 8, 12, 10)
+            row_layout.setContentsMargins(12, 0, 12, 0)
             row_layout.setSpacing(10)
 
             # ── ① 编号徽章 (macOS badge 风格) ──
@@ -1763,7 +1764,7 @@ class FolderManager(QDialog):
                     font-family: 'Helvetica Neue', 'PingFang SC', sans-serif;
                 }
             """)
-            row_layout.addWidget(step_label)
+            row_layout.addWidget(step_label,0,Qt.AlignTop)
 
             # ── ② 圆角缩略图 ──
             thumb_w = QPushButton()
@@ -1797,7 +1798,7 @@ class FolderManager(QDialog):
             tl.lower()
             del_btn.raise_()
             pixmap = None
-            row_layout.addWidget(thumb_w)
+            row_layout.addWidget(thumb_w,0,Qt.AlignTop)
 
             # 点击缩略图查看大图
             thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
@@ -1908,7 +1909,7 @@ class FolderManager(QDialog):
             du = QLabel("s")
             du.setStyleSheet("QLabel { color: #999; font-size: 10px; }")
             dl.addWidget(du)
-            row_layout.addWidget(delay_w)
+            row_layout.addWidget(delay_w,0,Qt.AlignTop)
 
             # ── ⑤ 排序按钮 ──
             move_w = QWidget()

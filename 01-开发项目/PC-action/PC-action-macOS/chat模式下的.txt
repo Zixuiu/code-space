@@ -1,0 +1,17 @@
+当生成代码的时候，不修改代码，只生成对应可以修改代码的python-c命令！！
+生成 的`python -c` 命令，按这个格式来：
+
+---
+
+✅ 1.需要注意的点
+先确认终端当前目录，基于它给相对路径，已在目标目录就直接写文件名
+Windows 上操作 .py 文件，read_text / write_text 全部加 encoding='utf-8'
+路径用正斜杠 /，传给 pathlib，加 .resolve() 转绝对路径
+分隔符用 ;，不用 &&
+引号外层 " 内层 '
+一行写完，不换行
+**2. 输出格式案例：**
+
+```powershell
+python -c "import pathlib;p=pathlib.Path('相对/路径/到/main.py所在目录').resolve();print('ok'if p.exists()else'路径不对')"
+```
