@@ -8515,6 +8515,9 @@ class AutoRecorderApp(QMainWindow):
             time_item.setTextAlignment(Qt.AlignCenter)
             trash_table.setItem(i, 2, time_item)
         count_label.setText(f"{len(index_data)} \u9879")
+        # 同步刷新主流程列表
+        if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
+            self.load_folders_to_table(self.manager_tab.folder_table)
 
     def refresh_floating_window_list(self):
         """刷新悬浮窗口的流程列表"""

@@ -1891,7 +1891,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 trash_dir = os.path.join(os.path.dirname(folder_path), 'trash')
                 if not os.path.exists(trash_dir):
                     os.makedirs(trash_dir)
-                timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
+                timestamp = datetime.now().strftime('_%Y%m%d_%H%M%S')
                 trash_folder_name = os.path.basename(folder_path) + timestamp
                 shutil.move(folder_path, os.path.join(trash_dir, trash_folder_name))
                 self.update_trash_index(trash_folder_name, os.path.basename(folder_path), folder_path)
