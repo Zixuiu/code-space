@@ -7,6 +7,8 @@ import keyboard
 from PIL import Image
 import sys
 import mss
+import cv2
+import numpy as np
 import ctypes
 from ctypes import wintypes
 
@@ -517,6 +519,7 @@ def _get_shared_screenshot():
             _shared_screenshot = _mss_grab_array()
             if _shared_screenshot is not None:
                 # 用 cvtColor 保证匹配精度（绿色通道会导致误匹配）
+                import cv2
                 _shared_gray_screenshot = cv2.cvtColor(_shared_screenshot, cv2.COLOR_BGR2GRAY)
                 # ⚡ 同时缓存缩小版（避免轮询时重复 resize）
                 _shared_small_gray_screenshot = cv2.resize(_shared_gray_screenshot, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
@@ -1017,6 +1020,7 @@ def _get_mss():
 
 def _mss_grab_array():
     """使用 mss 截取全屏并直接返回 numpy BGR 数组（最快路径，零拷贝）"""
+    import numpy as np
     sct = _get_mss()
     if sct is None:
         return None
@@ -1028,6 +1032,7 @@ def _mss_grab_array():
 
 def _mss_grab_roi_array(x, y, w, h):
     """使用 mss 截取指定区域并返回 numpy BGR 数组（比全屏快10倍）"""
+    import numpy as np
     sct = _get_mss()
     if sct is None:
         return None
@@ -1099,6 +1104,7 @@ def get_cached_image(image_path):
     try:
         from PIL import Image
         import cv2
+        import numpy as np
         pil_image = Image.open(image_path)
         image_array = np.array(pil_image)
         if len(image_array.shape) == 3 and image_array.shape[2] == 3:
