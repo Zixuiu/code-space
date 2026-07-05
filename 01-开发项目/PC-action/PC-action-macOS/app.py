@@ -8423,6 +8423,14 @@ class AutoRecorderApp(QMainWindow):
                 items.append((trash_folder_path, restore_path, trash_folder_name))
             if not items:
                 return
+
+            class _TrashUISignal(QObject):
+                reload = pyqtSignal()
+                message = pyqtSignal(str, str)
+            ui_signal = _TrashUISignal()
+            ui_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
+            ui_signal.message.connect(lambda title, text: self.show_beautiful_message('information', title, text, parent=trash_table.window()))
+
             def _bg():
                 for path, restore_path, name in items:
                     try:
@@ -8430,8 +8438,8 @@ class AutoRecorderApp(QMainWindow):
                         self.remove_from_trash_index(name)
                     except Exception:
                         pass
-                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
-                QTimer.singleShot(0, lambda: self.show_beautiful_message('information', '恢复成功', f'成功恢复 {len(items)} 个流程', parent=trash_table.window()))
+                ui_signal.reload.emit()
+                ui_signal.message.emit('恢复成功', f'成功恢复 {len(items)} 个流程')
             threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"恢复失败: {e}", parent=trash_table.window())
@@ -8458,6 +8466,14 @@ class AutoRecorderApp(QMainWindow):
                 items.append((item_data['trash_folder_name'], os.path.join(trash_dir, item_data['trash_folder_name'])))
             if not items:
                 return
+
+            class _TrashUISignal(QObject):
+                reload = pyqtSignal()
+                message = pyqtSignal(str, str)
+            ui_signal = _TrashUISignal()
+            ui_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
+            ui_signal.message.connect(lambda title, text: self.show_beautiful_message('information', title, text, parent=trash_table.window()))
+
             def _bg():
                 for name, path in items:
                     try:
@@ -8466,8 +8482,8 @@ class AutoRecorderApp(QMainWindow):
                         self.remove_from_trash_index(name)
                     except Exception:
                         pass
-                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
-                QTimer.singleShot(0, lambda: self.show_beautiful_message('information', '删除成功', f'成功删除 {len(items)} 个流程', parent=trash_table.window()))
+                ui_signal.reload.emit()
+                ui_signal.message.emit('删除成功', f'成功删除 {len(items)} 个流程')
             threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
@@ -8485,6 +8501,12 @@ class AutoRecorderApp(QMainWindow):
                 all_items = [(n, os.path.join(trash_dir, n)) for n in os.listdir(trash_dir)]
             if not all_items:
                 return
+
+            class _ReloadSignal(QObject):
+                reload = pyqtSignal()
+            reload_signal = _ReloadSignal()
+            reload_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
+
             def _bg():
                 for name, p in all_items:
                     try:
@@ -8501,7 +8523,7 @@ class AutoRecorderApp(QMainWindow):
                         os.remove(idx_f)
                 except:
                     pass
-                QTimer.singleShot(0, lambda: self._reload_trash_table(trash_table, count_label))
+                reload_signal.reload.emit()
             threading.Thread(target=_bg, daemon=True).start()
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"清空失败: {e}", parent=trash_table.window())
@@ -8530,6 +8552,16 @@ class AutoRecorderApp(QMainWindow):
             time_item = QTableWidgetItem(item.get('deleted_time', ''))
             time_item.setTextAlignment(Qt.AlignCenter)
             trash_table.setItem(i, 2, time_item)
+
+            btn_r = QPushButton("恢复")
+            btn_r.setStyleSheet("QPushButton{background:#0A84FF;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#006AE0;} QPushButton:pressed{background:#004DB3;}")
+            btn_r.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.restore_selected_trash(trash_table, count_label)))
+            trash_table.setCellWidget(i, 3, btn_r)
+
+            btn_d = QPushButton("删除")
+            btn_d.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#D62820;} QPushButton:pressed{background:#B01A10;}")
+            btn_d.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.delete_selected_trash(trash_table, count_label)))
+            trash_table.setCellWidget(i, 4, btn_d)
         count_label.setText(f"{len(index_data)} \u9879")
         # 同步刷新主流程列表
         if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
