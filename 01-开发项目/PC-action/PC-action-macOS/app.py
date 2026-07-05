@@ -1051,9 +1051,7 @@ class FolderManager(QDialog):
         self.table.setRowCount(len(folders))
         for i, (name, ctime, path) in enumerate(folders):
             # 创建创建时间项
-            count_val = usage_counts.get(name, 0)
-            display_time = f"{ctime}  ({count_val}次)" if count_val > 0 else ctime
-            ctime_item = QTableWidgetItem(display_time)
+            ctime_item = QTableWidgetItem(ctime)
             ctime_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(i, 0, ctime_item)
             
@@ -1306,19 +1304,22 @@ class FolderManager(QDialog):
         _cl.addWidget(title_bar)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; }")
+        scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; padding: 0; margin: 0; }")
+        scroll_area.viewport().setStyleSheet("background: transparent; padding: 0; margin: 0;")
         scroll_root = QWidget()  # 最外层容器 (撑满滚动区)
         scroll_root.setStyleSheet("background: transparent; border: none;")
         root_layout = QHBoxLayout(scroll_root)
         root_layout.setContentsMargins(0, 0, 0, 0)
+        root_layout.setSpacing(0)
 
-        # 居中定宽容器：列表宽度不超过 560px，居中显示
+        # 列表容器：占满整个宽度
         list_wrapper = QWidget()
-        list_wrapper.setMaximumWidth(9999)
-        list_wrapper.setStyleSheet("background: transparent; border: none;")
+        list_wrapper.setStyleSheet("background: rgba(245, 245, 247, 0.8); border: none;")
+        list_wrapper.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         list_layout = QVBoxLayout(list_wrapper)
-        list_layout.setContentsMargins(12, 0, 12, 0)
+        list_layout.setContentsMargins(12, 12, 12, 12)
         list_layout.setSpacing(0)
+        list_layout.setAlignment(Qt.AlignTop)
         root_layout.addWidget(list_wrapper)
         image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
         image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
@@ -1727,7 +1728,6 @@ class FolderManager(QDialog):
 
         control_height = 24
         action_font_size = 11
-        row_height = 54
 
         for i, img_file in enumerate(image_files):
             img_path = os.path.join(folder_path, img_file)
@@ -1736,19 +1736,26 @@ class FolderManager(QDialog):
             # 每行 = macOS 卡片风格
             row_widget = QWidget()
             row_widget.setFixedHeight(48)
+            row_widget.setMaximumHeight(48)
+            row_widget.setContentsMargins(0, 0, 0, 0)
+            row_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
             row_widget.setStyleSheet("""
                 QWidget#listRow {
                     background: rgba(245, 245, 247, 0.8);
                     border-radius: 0px;
                     border: none;
+                    height: 48px;
+                    max-height: 48px;
+                    min-height: 48px;
                 }
 
             """)
             row_widget.setObjectName("listRow")
 
             row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(12, 0, 12, 0)
-            row_layout.setSpacing(10)
+            row_layout.setContentsMargins(8, 0, 8, 0)
+            row_layout.setSpacing(6)
 
             # ── ① 编号徽章 (macOS badge 风格) ──
             step_label = QLabel(str(step_num))
@@ -1856,7 +1863,7 @@ class FolderManager(QDialog):
                         QPushButton::menu-indicator {{ width: 0; }}
                     """)
                     
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
+                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
                 else:
                     cb = QPushButton(f"{ci.get(at, '👆')} {at}")
                     cb.setFixedSize(ACT_W, control_height)
@@ -1872,7 +1879,7 @@ class FolderManager(QDialog):
                         QPushButton::menu-indicator {{ width: 0; }}
                     """)
                     
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
+                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
             else:
                 cb = QPushButton(f"{ci['Click']} Click")
                 cb.setFixedSize(ACT_W, control_height)
@@ -1888,7 +1895,7 @@ class FolderManager(QDialog):
                     QPushButton::menu-indicator {{ width: 0; }}
                 """)
                 
-                _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignVCenter)
+                _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
 
             # ── ④ 延迟 ⏱0.5s ──
             delay_w = QWidget()
@@ -1925,9 +1932,9 @@ class FolderManager(QDialog):
             btn_down.setFixedSize(24, 24)
             btn_down.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:rgba(10,132,255,0.15);color:#0A84FF;}")
             btn_down.setEnabled(i < len(image_files) - 1)
-            ml.addWidget(btn_up, 0, Qt.AlignVCenter)
-            ml.addWidget(btn_down, 0, Qt.AlignVCenter)
-            row_layout.addWidget(move_w, 0, Qt.AlignVCenter)
+            ml.addWidget(btn_up, 0, Qt.AlignTop)
+            ml.addWidget(btn_down, 0, Qt.AlignTop)
+            row_layout.addWidget(move_w, 0, Qt.AlignTop)
 
             btn_up.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx - 1, fp))
             btn_down.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx + 1, fp))
@@ -1951,8 +1958,10 @@ class FolderManager(QDialog):
                 w.mouseMoveEvent=_mme.__get__(w,QWidget)
             _bd(row_widget)
 
-            row_layout.addStretch()
-            list_layout.addWidget(row_widget)
+            list_layout.addWidget(row_widget, 0, Qt.AlignTop)
+
+        list_layout.activate()
+        list_layout.parentWidget().adjustSize()
 
         # ── 列表级放置处理（拖到任意子控件上也生效） ──
         _lw = list_layout.parentWidget()
@@ -4169,26 +4178,31 @@ class FolderManager(QDialog):
 
     def show_context_menu(self, position):
         """显示右键菜单"""
-        # 获取点击位置的行和列
         row = self.table.rowAt(position.y())
         col = self.table.columnAt(position.x())
         
-        # 只在文件夹名称列（第1列）显示右键菜单
-        if col == 1 and row >= 0:
-            # 获取文件夹路径
-            item = self.table.item(row, col)
-            if item:
-                folder_path = item.data(Qt.UserRole)
+        if row >= 0:
+            name_item = self.table.item(row, 1)
+            if name_item:
+                folder_path = name_item.data(Qt.UserRole)
+                folder_name = name_item.text()
                 if folder_path and os.path.exists(folder_path):
-                    # 创建右键菜单
+                    usage_counts = {}
+                    if hasattr(self, 'parent') and self.parent:
+                        usage_counts = self.parent._get_usage_counts()
+                    count = usage_counts.get(folder_name, 0)
+                    
                     menu = QMenu(self)
                     
-                    # 添加删除动作
+                    if count > 0:
+                        count_action = menu.addAction(f"已执行 {count} 次")
+                        count_action.setEnabled(False)
+                        menu.addSeparator()
+                    
                     delete_action = QAction("删除", self)
                     delete_action.triggered.connect(lambda: self.delete_folder(folder_path))
                     menu.addAction(delete_action)
                     
-                    # 在鼠标位置显示菜单
                     menu.exec_(self.table.viewport().mapToGlobal(position))
 
     def on_table_show(self, event):
@@ -9151,6 +9165,7 @@ class ComboSkillRunner:
             try:
                 if self._main_app is not None:
                     self._main_app.append_log(f" ║  ✅ 动作 '{action}' 完成: {_time.time()-_ea_start:.3f}s")
+                    self._main_app._increment_usage_count(action)
             except Exception:
                 pass
             return True, img_fail_count

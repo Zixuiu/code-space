@@ -1,4 +1,4 @@
-﻿"""
+"""
 文件: combo_skill_edit_dialog.py
 用途: 组合技编辑对话框 - 完整的流程编辑、条件设置、图片选择等功能
 """
@@ -487,6 +487,7 @@ class ComboSkillEditDialog(QDialog):
             condition_layout.addWidget(else_indent)
 
         condition_combo = QComboBox()
+        condition_combo.blockSignals(True)
         condition_combo.addItems(["总是执行", "找到图片", "找不到图片", "等待图片"])
         condition_combo.setCurrentIndex({"always": 0, "image_found": 1, "image_not_found": 2, "wait_for_image": 3}.get(condition, 0))
         condition_combo.setStyleSheet(f"""
@@ -539,6 +540,7 @@ class ComboSkillEditDialog(QDialog):
             condition_combo.currentIndexChanged.connect(lambda idx, i=index: self.on_else_condition_changed(i, idx))
         else:
             condition_combo.currentIndexChanged.connect(lambda idx, i=index: self.on_condition_changed(i, idx))
+        condition_combo.blockSignals(False)
         condition_layout.addWidget(condition_combo)
 
         if not is_else:
@@ -561,11 +563,13 @@ class ComboSkillEditDialog(QDialog):
             condition_layout.addWidget(del_else_btn)
 
         wait_time_spin = QSpinBox()
+        wait_time_spin.blockSignals(True)
         wait_time_spin.setRange(1, 999999)
         wait_time_spin.setValue(flow_data.get('wait_timeout', 30))
         wait_time_spin.setFixedWidth(50)
         wait_time_spin.setVisible(condition == "wait_for_image")
         wait_time_spin.valueChanged.connect(lambda val, i=index, ie=is_else: self.on_wait_time_changed(i, val, ie))
+        wait_time_spin.blockSignals(False)
         condition_layout.addWidget(wait_time_spin)
 
         condition_layout.addStretch()
@@ -612,6 +616,7 @@ class ComboSkillEditDialog(QDialog):
         action_layout.setSpacing(5)
 
         action_type_combo = QComboBox()
+        action_type_combo.blockSignals(True)
         action_type_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {T['bg_card']};
@@ -664,6 +669,7 @@ class ComboSkillEditDialog(QDialog):
         action_layout.addWidget(action_type_combo)
 
         action_detail_combo = QComboBox()
+        action_detail_combo.blockSignals(True)
         action_detail_combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: {T['bg_card']};
@@ -722,6 +728,9 @@ class ComboSkillEditDialog(QDialog):
             lambda idx, i=index, atc=action_type_combo, adc=action_detail_combo, ie=is_else: self.on_action_detail_changed(i, atc, adc, ie)
         )
 
+        action_type_combo.blockSignals(False)
+        action_detail_combo.blockSignals(False)
+
         action_layout.addStretch()
         self.tree_widget.setItemWidget(tree_item, 2, action_widget)
 
@@ -733,12 +742,14 @@ class ComboSkillEditDialog(QDialog):
         delay_layout.setSpacing(3)
 
         delay_spin = QDoubleSpinBox()
+        delay_spin.blockSignals(True)
         delay_spin.setRange(0, 999.9)
         delay_spin.setValue(flow_data.get('delay_after', 0))
         delay_spin.setDecimals(1)
         delay_spin.setSingleStep(0.5)
         delay_spin.setFixedWidth(70)
         delay_spin.valueChanged.connect(lambda val, i=index, ie=is_else: self.on_delay_changed(i, val, ie))
+        delay_spin.blockSignals(False)
         delay_layout.addWidget(delay_spin)
 
         delay_layout.addStretch()
@@ -931,9 +942,6 @@ class ComboSkillEditDialog(QDialog):
         if not current_action:
             type_combo.setCurrentIndex(2)
             self.load_execute_options(detail_combo)
-            if detail_combo.count() > 0:
-                detail_combo.setCurrentIndex(0)
-                self.flows[index]['action'] = detail_combo.itemData(0)
         elif current_action == 'end':
             type_combo.setCurrentIndex(0)
             detail_combo.clear()
@@ -941,17 +949,27 @@ class ComboSkillEditDialog(QDialog):
         elif current_action.startswith('跳转_'):
             type_combo.setCurrentIndex(1)
             self.load_goto_options(detail_combo, index)
+            found_match = False
             for i in range(detail_combo.count()):
                 if detail_combo.itemData(i) == current_action:
                     detail_combo.setCurrentIndex(i)
+                    found_match = True
                     break
+            if not found_match:
+                detail_combo.addItem(f'⚠ {current_action}', current_action)
+                detail_combo.setCurrentIndex(detail_combo.count() - 1)
         else:
             type_combo.setCurrentIndex(2)
             self.load_execute_options(detail_combo)
+            found_match = False
             for i in range(detail_combo.count()):
                 if detail_combo.itemData(i) == current_action:
                     detail_combo.setCurrentIndex(i)
+                    found_match = True
                     break
+            if not found_match:
+                detail_combo.addItem(f'⚠ {current_action}', current_action)
+                detail_combo.setCurrentIndex(detail_combo.count() - 1)
 
     def on_action_type_changed(self, index, type_combo, detail_combo, is_else):
         action_type = type_combo.currentData()

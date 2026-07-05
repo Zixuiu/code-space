@@ -324,28 +324,20 @@ body {
 /* 修改选中单元格样式，移除动画相关属性 */
 .cell.selected {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 2px solid #93c5fd;
-  outline: 3px solid rgba(59, 130, 246, 0.1);
-  /* 移除以下动画相关属性 */
-  /* box-shadow: 
-    0 8px 24px rgba(59, 130, 246, 0.15),
-    0 0 0 6px rgba(59, 130, 246, 0.05),
-    inset 0 1px 0 rgba(255,255,255,1);
-  transform: translateY(-2px); */
+  border: 1px solid #93c5fd;
+  outline: 3px solid rgba(59, 130, 246, 0.3);
+  outline-offset: 2px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
   z-index: 10;
 }
 
-/* 最后一个单元格选中时的特殊样式 - 超级夸张效果（无动画，无上浮） */
+/* 最后一个单元格选中时的特殊样式 */
 .cell.selected-last {
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-  border: 4px dashed #3b82f6;
-  outline: 5px solid rgba(59, 130, 246, 0.25);
-  outline-offset: 2px;
-  /* 超强阴影和效果 */
-  box-shadow: 
-    0 10px 35px rgba(59, 130, 246, 0.45),
-    0 0 0 8px rgba(59, 130, 246, 0.12),
-    inset 0 2px 4px rgba(255,255,255,0.9);
+  border: 1px dashed #3b82f6;
+  outline: 3px solid rgba(59, 130, 246, 0.4);
+  outline-offset: 3px;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25);
   z-index: 999;
   transition: none;
   border-radius: 16px;
@@ -1001,27 +993,22 @@ function selectCell(index, shouldFocus = false) {
   const currentPage = getCurrentPageData();
   const totalCells = currentPage.cellsData.length;
   const isLastCell = index === totalCells - 1;
+  const cells = document.querySelectorAll('.cell');
   
-  document.querySelectorAll('.cell').forEach((el, i) => {
-    // 清除所有选中样式和transform
-    el.classList.remove('selected', 'selected-last');
-    el.style.transform = '';
-    
-    if (i === index) {
-      // 根据是否是最后一个单元格应用不同样式
-      if (isLastCell) {
-        el.classList.add('selected-last');
-        // 不再使用transform上浮，避免页面跳动
-      } else {
-        el.classList.add('selected');
-      }
-      if (shouldFocus) {
-        setTimeout(() => el.querySelector('.text-input')?.focus(), 0);
-      }
+  if (prevIndex !== -1 && prevIndex !== index && cells[prevIndex]) {
+    cells[prevIndex].classList.remove('selected', 'selected-last');
+    cells[prevIndex].style.transform = '';
+  }
+  
+  if (cells[index]) {
+    cells[index].classList.remove('selected', 'selected-last');
+    cells[index].style.transform = '';
+    cells[index].classList.add(isLastCell ? 'selected-last' : 'selected');
+    if (shouldFocus) {
+      setTimeout(() => cells[index].querySelector('.text-input')?.focus(), 0);
     }
-  });
+  }
   
-  // 自动总结所有未总结的单元格（排除当前选中的单元格）
   setTimeout(() => {
     currentPage.cellsData.forEach((cellText, i) => {
       if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
@@ -1035,11 +1022,28 @@ function onCellClick(i, e) {
   if (e.target.closest('.action-btn') || e.target.closest('.image-placeholder')) {
     return;
   }
+  if (selectedIndex === i) {
+    const cell = document.querySelectorAll('.cell')[i];
+    if (cell) setTimeout(() => cell.querySelector('.text-input')?.focus(), 0);
+    return;
+  }
   selectCell(i, true);
 }
 
 function onInputFocus(i) {
-  selectCell(i);
+  if (selectedIndex === i) return;
+  selectedIndex = i;
+  requestAnimationFrame(() => {
+    const currentPage = getCurrentPageData();
+    const totalCells = currentPage.cellsData.length;
+    document.querySelectorAll('.cell').forEach((el, idx) => {
+      el.classList.remove('selected', 'selected-last');
+      el.style.transform = '';
+      if (idx === i) {
+        el.classList.add(idx === totalCells - 1 ? 'selected-last' : 'selected');
+      }
+    });
+  });
 }
 
 // 处理连续回车

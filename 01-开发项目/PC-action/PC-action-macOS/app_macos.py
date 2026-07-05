@@ -1327,8 +1327,12 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         self.delete_folder_in_tab(data[1], folder_table)
 
         folder_table.cellClicked.connect(on_folder_table_click)
+        
+        folder_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        folder_table.customContextMenuRequested.connect(lambda pos, ft=folder_table: self.show_folder_context_menu(pos, ft))
+        
         _connect_column_width_saver(folder_table, "manager_table")
-        layout.addWidget(folder_table)
+        layout.addWidget(folder_table, 1)
 
         refresh_btn.clicked.connect(lambda: self.load_folders_to_table(folder_table))
         trash_btn.clicked.connect(self.open_trash_dialog)
@@ -1345,6 +1349,34 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         except Exception as e:
             traceback.print_exc()
             self.show_beautiful_message('critical', '错误', f'打开查看图片窗口失败: {e}', parent=self)
+
+    def show_folder_context_menu(self, position, table_widget):
+        row = table_widget.rowAt(position.y())
+        col = table_widget.columnAt(position.x())
+        
+        if row >= 0:
+            name_item = table_widget.item(row, 1)
+            if name_item:
+                folder_path = name_item.data(Qt.UserRole)
+                folder_name = name_item.text()
+                if folder_path and os.path.exists(folder_path):
+                    usage_counts = self._get_usage_counts()
+                    count = usage_counts.get(folder_name, 0)
+                    
+                    menu = QMenu(self)
+                    
+                    if count > 0:
+                        count_action = menu.addAction(f"已执行 {count} 次")
+                        count_action.setEnabled(False)
+                        menu.addSeparator()
+                    
+                    rename_action = menu.addAction("✏️ 重命名")
+                    rename_action.triggered.connect(lambda: self.rename_folder_in_tab(folder_path, table_widget))
+                    
+                    delete_action = menu.addAction("🗑️ 删除")
+                    delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, table_widget))
+                    
+                    menu.exec_(table_widget.viewport().mapToGlobal(position))
 
     def load_folders_to_table(self, table_widget):
         table_widget.setRowCount(0)
@@ -1371,8 +1403,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
             table_widget.setRowCount(len(folders_with_count))
             for row, (ctime, name, path, count) in enumerate(folders_with_count):
-                display_time = f"{ctime}  ({count}次)" if count > 0 else ctime
-                table_widget.setItem(row, 0, QTableWidgetItem(display_time))
+                table_widget.setItem(row, 0, QTableWidgetItem(ctime))
                 name_item = QTableWidgetItem(name)
                 name_item.setData(Qt.UserRole, path)
                 table_widget.setItem(row, 1, name_item)
