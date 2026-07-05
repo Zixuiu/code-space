@@ -33,7 +33,12 @@ from PyQt5.QtGui import (
 )
 
 from app import AutoRecorderApp, ComboSkillRunner, FolderManager
-from utils import get_screen_size, load_json_data, save_json_data, get_user_data_path, get_recordings_path
+from utils import (
+    get_screen_size, load_json_data, save_json_data,
+    get_user_data_path, get_recordings_path,
+    log_info, log_error, log_warning, log_debug, log_exception,
+    is_admin, run_as_admin
+)
 from combo_skill_manager import ComboSkillManager
 from image_recognition import clear_image_cache, clear_replay_stop_flag, set_replay_stop_flag
 from design_system import (
@@ -1074,6 +1079,35 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         _bo.raise_()
         _bo.setAttribute(Qt.WA_TransparentForMouseEvents)
         self._border_overlay = _bo
+
+        QTimer.singleShot(500, self._check_admin_permission)
+
+    def _check_admin_permission(self):
+        if sys.platform != 'win32':
+            return
+        if is_admin():
+            log_info("当前以管理员权限运行")
+            return
+        log_warning("当前未以管理员权限运行，快捷键和自动化操作可能受限")
+        # 仅在打包后的 exe 中提示，保持开发版原版体验一致
+        if not getattr(sys, 'frozen', False):
+            return
+        try:
+            from beautiful_dialog import StyledMessageDialog
+            dialog = StyledMessageDialog(
+                parent=self,
+                title='权限提示',
+                text='检测到当前未以管理员身份运行\n\n全局快捷键、键鼠模拟等功能可能无法正常工作\n\n建议以管理员身份重新启动程序',
+                msg_type='warning',
+                buttons='yes_no'
+            )
+            result = dialog.exec_()
+            if result == StyledMessageDialog.YES:
+                log_info("用户选择以管理员身份重启")
+                if run_as_admin():
+                    QTimer.singleShot(100, self.close)
+        except Exception as e:
+            log_exception(e, "显示管理员权限提示失败")
 
     def resizeEvent(self, e):
         if hasattr(self, "_border_overlay") and self._border_overlay:
@@ -3105,6 +3139,16 @@ class CoordinateRecorder(QWidget):
 
 def start_macos_app():
     from PyQt5.QtGui import QFont
+
+    log_info("=" * 50)
+    log_info("程序启动")
+    
+    admin_status = "管理员" if is_admin() else "非管理员"
+    log_info(f"权限状态: {admin_status}")
+    
+    frozen_status = "打包版" if getattr(sys, 'frozen', False) else "开发版"
+    log_info(f"运行模式: {frozen_status}")
+    log_info(f"工作目录: {os.getcwd()}")
 
     try:
         ctypes.windll.kernel32.SetEnvironmentVariableW('QT_ENABLE_DIRECTWRITE', '1')

@@ -66,7 +66,9 @@ from beautiful_dialog import StyledMessageDialog
 from utils import (
     load_json_data, save_json_data, center_window, get_screen_size, load_qpixmap, 
     load_qimage, get_common_styles, create_styled_button, create_styled_input,
-    get_common_dialog_style, get_dynamic_radius
+    get_common_dialog_style, get_dynamic_radius,
+    log_info, log_error, log_warning, log_debug, log_exception,
+    is_admin, run_as_admin
 )
 # 延迟导入Supabase，避免启动时立即连接
 def get_supabase_manager():

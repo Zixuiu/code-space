@@ -5,12 +5,92 @@ import re
 import random
 import string
 import hashlib
+import logging
+from logging.handlers import RotatingFileHandler
 from PyQt5.QtWidgets import QApplication, QDesktopWidget
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt
 
-# 样式可用标志
 STYLES_AVAILABLE = True
+
+_logger = None
+
+
+def get_logger():
+    global _logger
+    if _logger is not None:
+        return _logger
+    
+    logger = logging.getLogger('pc_action')
+    logger.setLevel(logging.DEBUG)
+    
+    try:
+        log_dir = get_user_data_path()
+        log_file = os.path.join(log_dir, 'app.log')
+        
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=5 * 1024 * 1024,
+            backupCount=3,
+            encoding='utf-8'
+        )
+        file_handler.setLevel(logging.DEBUG)
+        
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        
+        formatter = logging.Formatter(
+            '%(asctime)s [%(levelname)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+    except Exception:
+        pass
+    
+    _logger = logger
+    return logger
+
+
+def log_info(msg):
+    try:
+        get_logger().info(msg)
+    except Exception:
+        pass
+
+
+def log_error(msg):
+    try:
+        get_logger().error(msg)
+    except Exception:
+        pass
+
+
+def log_warning(msg):
+    try:
+        get_logger().warning(msg)
+    except Exception:
+        pass
+
+
+def log_debug(msg):
+    try:
+        get_logger().debug(msg)
+    except Exception:
+        pass
+
+
+def log_exception(e, context=""):
+    import traceback
+    try:
+        tb = traceback.format_exc()
+        msg = f"{context}: {str(e)}\n{tb}" if context else f"{str(e)}\n{tb}"
+        get_logger().error(msg)
+    except Exception:
+        pass
 
 
 def hash_password(password):
@@ -177,6 +257,34 @@ def get_dynamic_radius(width, height):
     if isinstance(width, str) or isinstance(height, str):
         return 8  # 默认圆角半径
     return min(width, height) // 20
+
+
+def is_admin():
+    if sys.platform != 'win32':
+        return True
+    try:
+        import ctypes
+        return ctypes.windll.shell32.IsUserAnAdmin() != 0
+    except Exception:
+        return False
+
+
+def run_as_admin():
+    if sys.platform != 'win32':
+        return False
+    try:
+        import ctypes
+        if getattr(sys, 'frozen', False):
+            exe_path = sys.executable
+        else:
+            exe_path = sys.executable
+            params = ' '.join([f'"{x}"' for x in sys.argv])
+        ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", exe_path, None, None, 1
+        )
+        return True
+    except Exception:
+        return False
 
 
 def get_app_base_dir():
