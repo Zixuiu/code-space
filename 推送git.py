@@ -1,7 +1,7 @@
 import subprocess, os
 from datetime import datetime
 
-root = r"D:\code空间"
+root = r"D:\codespace"
 os.chdir(root)
 
 GITHUB_URL = "git@github.com:Zixuiu/code-space.git"

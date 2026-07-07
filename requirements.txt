@@ -1,0 +1,24 @@
+PyQt5>=5.15.0
+PyQt5-sip>=12.12.0
+
+# 图像识别与屏幕捕获
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+mss>=9.0.0
+
+# 键鼠操作与自动化
+pyautogui>=0.9.54
+keyboard>=0.13.5
+pynput>=1.7.6
+
+# 窗口管理与剪贴板
+pygetwindow>=0.0.9
+pyperclip>=1.8.2
+
+# 网络请求
+requests>=2.31.0
+
+# 云数据库 Supabase
+supabase>=2.0.0
+python-dotenv>=1.0.0
