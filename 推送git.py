@@ -4,7 +4,6 @@ from datetime import datetime
 root = r"D:\codespace"
 os.chdir(root)
 
-GITHUB_URL = "git@github.com:Zixuiu/code-space.git"
 GITCODE_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 
 safe_gitignore = """__pycache__/
@@ -49,7 +48,7 @@ def git_push(remote="origin", branch="main", retries=3):
 
 # 1. 自动添加 known_hosts
 known_hosts = os.path.expanduser("~/.ssh/known_hosts")
-for host in ["github.com", "gitcode.com"]:
+for host in ["gitcode.com"]:
     r = subprocess.run(["ssh-keygen", "-F", host], capture_output=True, text=True)
     if r.returncode != 0:
         print(f"🔑 正在添加 {host} 到 known_hosts...")
@@ -61,10 +60,7 @@ with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
 print("✅ .gitignore 已精简")
 
 # 3. 设置远程仓库
-subprocess.run(["git", "remote", "set-url", "origin", GITHUB_URL])
-subprocess.run(["git", "remote", "rm", "gitcode"], capture_output=True)
-subprocess.run(["git", "remote", "add", "gitcode", GITCODE_URL])
-print(f"✅ 远程仓库(GitHub): {GITHUB_URL}")
+subprocess.run(["git", "remote", "set-url", "origin", GITCODE_URL])
 print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
 
 # 4. 检查是否有变更
@@ -85,13 +81,10 @@ else:
     else:
         print("✅ 提交成功")
 
-# 5. 推送（自动重试到两个远程仓库）
-all_ok = True
-for rmt, lbl in [("origin", "GitHub"), ("gitcode", "GitCode")]:
-    print(f"⏳ 正在推送到 {lbl}...")
-    if not git_push(remote=rmt, retries=3):
-        all_ok = False
+# 5. 推送（自动重试）
+print(f"⏳ 正在推送到 GitCode...")
+all_ok = git_push(retries=3)
 if all_ok:
-    print("✅ 全部推送完成！")
+    print("✅ 推送完成！")
 else:
-    print("💡 部分推送失败，请检查网络后重试")
+    print("💡 推送失败，请检查网络后重试")
