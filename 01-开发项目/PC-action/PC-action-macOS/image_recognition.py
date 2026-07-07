@@ -1185,6 +1185,20 @@ def preprocess_image(image_array):
         return image_array
 
 
+def _save_debug_screenshot(screenshot_bgr, name="debug"):
+    """保存匹配失败的调试截图到 _debug_failed_match 目录"""
+    try:
+        from datetime import datetime
+        debug_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '_debug_failed_match')
+        os.makedirs(debug_dir, exist_ok=True)
+        ts = datetime.now().strftime("%H%M%S_%f")[:-3]
+        safe_name = name.replace("..", ".").replace("/", "_").replace("\\", "_")
+        save_path = os.path.join(debug_dir, f"{safe_name}_{ts}.png")
+        cv2.imwrite(save_path, screenshot_bgr)
+        debug_print(f"[调试截图] 已保存: {save_path}")
+    except Exception as e:
+        debug_print(f"[调试截图] 保存失败: {e}")
+
 def find_image_on_screen(image_path, confidence=0.8, consider_color=True, region_center=None, use_cache=True):
     """
     在屏幕上查找指定图像，增强对纯色图像的识别能力

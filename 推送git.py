@@ -31,13 +31,27 @@ trash/
 """
 
 def git_push(remote="origin", branch="main", retries=3):
+    # 关键：设置 SSH 自动接受新主机密钥，防止交互式提示卡死
+    env = os.environ.copy()
+    env["GIT_SSH_COMMAND"] = "ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10"
     for attempt in range(1, retries + 1):
-        result = subprocess.run(["git", "push", remote, branch], capture_output=True, text=True, timeout=60)
+        try:
+            result = subprocess.run(
+                ["git", "push", remote, branch],
+                capture_output=True, text=True, timeout=45, env=env,
+                # 标准输入重定向到 DEVNULL，防止 SSH 等待输入
+                stdin=subprocess.DEVNULL
+            )
+        except subprocess.TimeoutExpired:
+            print(f"⏱️ 推送到 {remote} 超时(第{attempt}次)")
+            if attempt < retries:
+                print(f"⏳ {attempt * 2}s 后重试...")
+                import time
+                time.sleep(attempt * 2)
+            continue
         if result.returncode == 0:
             return True
         err = result.stderr.strip()
-        if "LF will be replaced" in err or "CRLF" in err:
-            continue
         print(f"❌ 推送到 {remote} 失败(第{attempt}次): {err}")
         if attempt < retries:
             wait = attempt * 2
@@ -95,3 +109,6 @@ if all_ok:
     print("✅ 推送完成！")
 else:
     print("💡 推送失败，请检查网络后重试")
+
+print("\n⏹️  按 Enter 键退出...")
+input()

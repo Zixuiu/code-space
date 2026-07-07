@@ -8748,26 +8748,25 @@ class AutoRecorderApp(QMainWindow):
                     shortcut_groups[shortcut_str] = []
                 shortcut_groups[shortcut_str].append(folder_path)
             
-            # 添加新的快捷键
+            # 添加新的快捷键（每个快捷键的回放在独立线程中执行，避免阻塞键盘钩子）
             for shortcut_str, folder_paths in shortcut_groups.items():
                 try:
-                    def make_handler(paths=folder_paths.copy()):
+                    def make_handler(paths=folder_paths.copy(), _sc=shortcut_str):
                         def handler():
                             try:
-                                # 快捷键回放需要检查回放状态
                                 if not self.replay_enabled:
-                                    self.debug_print(f"快捷键回放被忽略，当前回放状态为: {self.replay_enabled}")
                                     return
-                                # 添加调试日志，确认进入回放分支
-                                self.debug_print(f"[快捷键] 触发回放，快捷键: {shortcut_str}, 文件夹列表: {paths}, replay_enabled: {self.replay_enabled}")
-                                # 直接从当前线程调用，不使用 QTimer.singleShot
-                                # 因为在键盘钩子回调线程中调用 QTimer.singleShot 可能不生效
+                                import threading as _th
                                 for path in paths:
-                                    self.replay_folder_operations(path)
+                                    if not self.replay_enabled:
+                                        break
+                                    _t = _th.Thread(target=self._safe_replay_folder, args=(path,), daemon=True)
+                                    _t.start()
                             except Exception as e:
-                                self.debug_print(f"[快捷键] 处理快捷键回放时出错: {e}")
-                                import traceback
-                                traceback.print_exc()
+                                try:
+                                    self.debug_print(f"[快捷键] 处理快捷键回放时出错: {e}")
+                                except Exception:
+                                    pass
                         return handler
                     
                     hotkey_id = keyboard.add_hotkey(shortcut_str, make_handler())
@@ -8779,6 +8778,19 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print(f"[快捷键] 更新快捷键失败: {e}")
             pass
 
+    def _safe_replay_folder(self, folder_path):
+        """在线程中安全执行回放，防止异常导致线程崩溃"""
+        try:
+            self.replay_folder_operations(folder_path)
+        except Exception as e:
+            try:
+                self.debug_print(f"[回放] 线程中回放异常: {e}")
+                import traceback
+                traceback.print_exc()
+            except Exception:
+                pass
+            finally:
+                self.is_replaying = False
 
 
 class ComboSkillRunner:

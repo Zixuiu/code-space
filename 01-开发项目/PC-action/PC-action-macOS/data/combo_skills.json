@@ -1,17 +1,1 @@
-[
-  {
-    "name": "123",
-    "loop_type": "times",
-    "loop_count": 1,
-    "until_image": "",
-    "flows": [
-      {
-        "action": "",
-        "condition": "always",
-        "condition_image": ""
-      }
-    ],
-    "stop_shortcut": "",
-    "note": ""
-  }
-]
+[]
