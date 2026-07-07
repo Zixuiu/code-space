@@ -46,13 +46,20 @@ def git_push(remote="origin", branch="main", retries=3):
             time.sleep(wait)
     return False
 
-# 1. 自动添加 known_hosts
+# 1. 自动添加 known_hosts（带超时保护）
 known_hosts = os.path.expanduser("~/.ssh/known_hosts")
 for host in ["gitcode.com"]:
-    r = subprocess.run(["ssh-keygen", "-F", host], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["ssh-keygen", "-F", host], capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        print(f"⏱️ ssh-keygen 查询 {host} 超时，跳过 known_hosts 检查")
+        continue
     if r.returncode != 0:
         print(f"🔑 正在添加 {host} 到 known_hosts...")
-        subprocess.run(f'ssh-keyscan {host} >> "{known_hosts}"', shell=True)
+        try:
+            subprocess.run(f'ssh-keyscan -H {host} >> "{known_hosts}"', shell=True, timeout=15)
+        except subprocess.TimeoutExpired:
+            print(f"⏱️ ssh-keyscan 连接 {host} 超时，已跳过（可稍后手动添加）")
 
 # 2. 写 .gitignore
 with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
@@ -60,18 +67,18 @@ with open(os.path.join(root, ".gitignore"), "w", encoding="utf-8") as f:
 print("✅ .gitignore 已精简")
 
 # 3. 设置远程仓库
-subprocess.run(["git", "remote", "set-url", "origin", GITCODE_URL])
+subprocess.run(["git", "remote", "set-url", "origin", GITCODE_URL], timeout=15)
 print(f"✅ 远程仓库(GitCode): {GITCODE_URL}")
 
 # 4. 检查是否有变更
-status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, timeout=15)
 
 if not status.stdout.strip():
     print("📝 没有新文件变更，直接推送...")
 else:
-    subprocess.run(["git", "add", "-A"])
+    subprocess.run(["git", "add", "-A"], timeout=30)
     now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    commit = subprocess.run(["git", "commit", "-m", f"auto_update {now}"], capture_output=True, text=True)
+    commit = subprocess.run(["git", "commit", "-m", f"auto_update {now}"], capture_output=True, text=True, timeout=30)
     if commit.returncode != 0:
         err = commit.stderr.strip()
         if "nothing to commit" in err:

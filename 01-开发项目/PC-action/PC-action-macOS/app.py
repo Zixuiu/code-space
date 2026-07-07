@@ -4196,10 +4196,9 @@ class FolderManager(QDialog):
                     
                     menu = QMenu(self)
                     
-                    if count > 0:
-                        count_action = menu.addAction(f"已执行 {count} 次")
-                        count_action.setEnabled(False)
-                        menu.addSeparator()
+                    count_action = menu.addAction(f"已执行 {count} 次")
+                    count_action.setEnabled(False)
+                    menu.addSeparator()
                     
                     delete_action = QAction("删除", self)
                     delete_action.triggered.connect(lambda: self.delete_folder(folder_path))
@@ -6207,8 +6206,7 @@ class AutoRecorderApp(QMainWindow):
         try:
             # 设置当前流程
             self.current_recording = recording_name
-            # 递增调用次数
-            self._increment_usage_count(recording_name)
+            # 计数已统一在 replay_folder_operations 中处理
             
             # 如果已有回放正在运行，先完全停止
             if getattr(self, 'is_replaying', False):
@@ -6270,6 +6268,10 @@ class AutoRecorderApp(QMainWindow):
     def replay_folder_operations(self, folder_path):
         """执行指定文件夹中的操作回放"""
         try:
+            # 递增调用次数（只要是回放就计数，不依赖成功失败）
+            folder_name = os.path.basename(folder_path)
+            self._increment_usage_count(folder_name)
+            
             # 读取recording.json文件
             recording_json_path = os.path.join(folder_path, 'recording.json')
             if not os.path.exists(recording_json_path):
@@ -9187,6 +9189,13 @@ class ComboSkillRunner:
                 except Exception:
                     pass
 
+            # 先计数（不管成功失败，只要调用了就计数）
+            try:
+                if self._main_app is not None:
+                    self._main_app._increment_usage_count(action)
+            except Exception:
+                pass
+
             # 如果全部步骤都失败，返回 False
             if ok == 0 and total > 0:
                 try:
@@ -9199,7 +9208,6 @@ class ComboSkillRunner:
             try:
                 if self._main_app is not None:
                     self._main_app.append_log(f" ║  ✅ 动作 '{action}' 完成: {_time.time()-_ea_start:.3f}s")
-                    self._main_app._increment_usage_count(action)
             except Exception:
                 pass
             return True, img_fail_count

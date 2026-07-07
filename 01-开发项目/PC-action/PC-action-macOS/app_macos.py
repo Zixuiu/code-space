@@ -1399,10 +1399,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     
                     menu = QMenu(self)
                     
-                    if count > 0:
-                        count_action = menu.addAction(f"已执行 {count} 次")
-                        count_action.setEnabled(False)
-                        menu.addSeparator()
+                    count_action = menu.addAction(f"已执行 {count} 次")
+                    count_action.setEnabled(False)
+                    menu.addSeparator()
                     
                     rename_action = menu.addAction("✏️ 重命名")
                     rename_action.triggered.connect(lambda: self.rename_folder_in_tab(folder_path, table_widget))
