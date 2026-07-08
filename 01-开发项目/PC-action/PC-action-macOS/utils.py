@@ -274,13 +274,13 @@ def run_as_admin():
         return False
     try:
         import ctypes
+        exe_path = sys.executable
         if getattr(sys, 'frozen', False):
-            exe_path = sys.executable
+            params = None
         else:
-            exe_path = sys.executable
             params = ' '.join([f'"{x}"' for x in sys.argv])
         ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", exe_path, None, None, 1
+            None, "runas", exe_path, params, None, 1
         )
         return True
     except Exception:

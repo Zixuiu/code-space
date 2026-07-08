@@ -35,7 +35,7 @@ from PyQt5.QtGui import (
 from app import AutoRecorderApp, ComboSkillRunner, FolderManager
 from utils import (
     get_screen_size, load_json_data, save_json_data,
-    get_user_data_path, get_recordings_path,
+    get_user_data_path, get_recordings_path, get_app_base_dir,
     log_info, log_error, log_warning, log_debug, log_exception,
     is_admin, run_as_admin
 )
@@ -2858,7 +2858,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         QTimer.singleShot(0, lambda: self.stop_combo_skill())
                         stopped = True
             self.stop_replay_hotkey_id = _kb.add_hotkey('f12', stop_handler)
-        except Exception:
+            log_info(f'[热键] macOS版已注册 F12 停止热键，id={self.stop_replay_hotkey_id}')
+        except Exception as _e:
+            log_error(f'[热键] macOS版注册 F12 停止热键失败: {_e}')
             self.stop_replay_hotkey_id = None
 
     def _set_recording_state(self, state: bool):
@@ -3162,7 +3164,8 @@ def start_macos_app():
             if whnd != 0:
                 ctypes.windll.user32.ShowWindow(whnd, 0)
                 ctypes.windll.user32.ShowWindow(whnd, 0)
-            ctypes.windll.kernel32.SetEnvironmentVariableW("__COMPAT_LAYER", "RUNASINVOKER")
+            # 不再设置 RUNASINVOKER，否则程序不会请求管理员权限，
+            # 导致 keyboard 库的全局热键在某些窗口/场景下被系统忽略。
         except:
             pass
 
@@ -3230,6 +3233,31 @@ def start_macos_app():
     main_window = MacOSAutoRecorderApp(login_manager=login_manager)
     main_window.setWindowFlags(Qt.FramelessWindowHint)
     main_window.show()
+
+    # 启动时检查管理员权限，未以管理员运行时提示一次
+    def _show_admin_tip_once():
+        try:
+            if sys.platform != 'win32' or is_admin():
+                return
+            flag_path = os.path.join(get_user_data_path(), '.admin_tip_shown')
+            if os.path.exists(flag_path):
+                return
+            QMessageBox.information(
+                main_window,
+                '权限提示',
+                '检测到当前未以管理员身份运行。\n'
+                '全局快捷键在某些窗口或安全软件环境下可能需要管理员权限才能正常响应。\n\n'
+                '如果快捷键偶尔失效，请尝试右键程序图标选择「以管理员身份运行」。'
+            )
+            try:
+                with open(flag_path, 'w', encoding='utf-8') as _f:
+                    _f.write('1')
+            except Exception:
+                pass
+        except Exception as _e:
+            log_error(f'显示管理员提示失败: {_e}')
+
+    QTimer.singleShot(800, _show_admin_tip_once)
 
     main_window.create_replay_status_indicator()
 

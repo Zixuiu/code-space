@@ -18,8 +18,8 @@ if sys.platform == "win32":
             ctypes.windll.user32.ShowWindow(whnd, 0)
             # 额外确保窗口完全隐藏
             ctypes.windll.user32.ShowWindow(whnd, 0)  # 再次调用确保隐藏
-        # 设置环境变量，禁用UAC提示
-        ctypes.windll.kernel32.SetEnvironmentVariableW("__COMPAT_LAYER", "RUNASINVOKER")
+        # 注意：不再设置 RUNASINVOKER，否则程序不会请求管理员权限，
+        # keyboard 库的全局热键在 Windows 上需要管理员权限才能稳定拦截。
     except:
         pass
 
@@ -4660,6 +4660,7 @@ class AutoRecorderApp(QMainWindow):
         self.update_shortcuts()
         self.register_record_hotkey()
         self.register_stop_replay_hotkey()
+        self._start_hotkey_health_check()
         self.load_font_size_setting()
         if hasattr(self, 'status_label') and self.current_user:
             self.status_label.setText(f"当前用户: {self.current_user}")
@@ -4733,7 +4734,9 @@ class AutoRecorderApp(QMainWindow):
             self.replay_timer.stop()
         if hasattr(self, 'status_timer') and self.status_timer:
             self.status_timer.stop()
-        
+        if hasattr(self, '_hotkey_health_timer') and self._hotkey_health_timer:
+            self._hotkey_health_timer.stop()
+
         # 清理快捷键
         if hasattr(self, 'registered_shortcuts'):
             for hotkey_id in self.registered_shortcuts:
@@ -4742,21 +4745,30 @@ class AutoRecorderApp(QMainWindow):
                 except:
                     pass
             self.registered_shortcuts.clear()
-        
+
+        # 清理文件夹快捷键
+        if hasattr(self, 'shortcut_objects'):
+            for hotkey_id in self.shortcut_objects:
+                try:
+                    keyboard.remove_hotkey(hotkey_id)
+                except:
+                    pass
+            self.shortcut_objects.clear()
+
         # 清理录制热键
         if hasattr(self, 'grave_hotkey_id') and self.grave_hotkey_id:
             try:
                 keyboard.remove_hotkey(self.grave_hotkey_id)
             except:
                 pass
-        
+
         # 清理停止回放热键
         if hasattr(self, 'stop_replay_hotkey_id') and self.stop_replay_hotkey_id:
             try:
                 keyboard.remove_hotkey(self.stop_replay_hotkey_id)
             except:
                 pass
-        
+
         # 隐藏托盘图标
         if hasattr(self, 'tray_icon') and self.tray_icon:
             self.tray_icon.hide()
@@ -5132,57 +5144,62 @@ class AutoRecorderApp(QMainWindow):
         if not isinstance(data, list) or len(data) < 2:
             return
         data.sort(key=lambda x: x.get('step', 0))
-        
-        # ★ 修复：获取所有有图片的操作列表（按步骤号排序）
-        # 不能直接从文件列表推断，因为可能存在非图片操作导致步骤号不连续
-        image_ops = [(d.get('step'), d) for d in data if d.get('image')]
-        image_ops.sort(key=lambda x: x[0])
+
+        # 获取所有有图片的操作（按步骤号排序），用于映射视觉索引
+        image_ops = [(i, d) for i, d in enumerate(data) if d.get('image')]
         if len(image_ops) < 2:
             return
-        
-        # 找到 old_step 和 new_step 在 image_ops 中的视觉索引（0-based）
-        old_vi = next((i for i, (sn, _) in enumerate(image_ops) if sn == old_step), None)
-        new_vi = next((i for i, (sn, _) in enumerate(image_ops) if sn == new_step), None)
+
+        # 找到 old_step 和 new_step 在 image_ops 中的视觉索引（0-based，仅限有图片的条目）
+        old_vi = next((vi for vi, (_, d) in enumerate(image_ops) if d.get('step') == old_step), None)
+        new_vi = next((vi for vi, (_, d) in enumerate(image_ops) if d.get('step') == new_step), None)
         if old_vi is None or new_vi is None:
             return
-        
-        # 重新排序 image_ops（基于视觉索引，而非步骤号）
-        item = image_ops.pop(old_vi)
-        image_ops.insert(new_vi, item)
-        
-        # ★ 修复：重命名图片文件（使用uuid临时文件避免冲突）
-        for i, (_, d) in enumerate(image_ops):
-            old_image = d.get('image', '')
-            new_image = f'操作{i + 1}.png'
-            if old_image and old_image != new_image:
-                old_path = os.path.join(folder_path, old_image)
-                new_path = os.path.join(folder_path, new_image)
-                if os.path.exists(old_path) and not os.path.exists(new_path):
-                    temp_path = os.path.join(folder_path, f'temp_{uuid.uuid4().hex[:8]}_{new_image}')
-                    shutil.move(old_path, temp_path)
-                    shutil.move(temp_path, new_path)
-        
-        # ★ 修复：重建所有操作列表，保留非图片操作
-        # 按步骤号遍历原数据，将图片操作替换为重新排序后的
-        image_iter = iter(image_ops)
-        new_data = []
-        for d in data:
-            if 'image' in d:
-                # 使用重新排序后的图片操作
-                _, new_d = next(image_iter)
-                new_data.append(new_d.copy())
+
+        # 找到 source 在 data 中的实际索引
+        old_data_idx = next((i for i, d in enumerate(data) if d.get('step') == old_step), None)
+        if old_data_idx is None:
+            return
+
+        # 计算目标位置在 data 中的实际索引
+        # new_vi 是 visual index（在有图片的条目中的位置），需要映射回 data 中的真实索引
+        target_vi = new_vi
+        if new_vi >= old_vi:
+            # 向后移动时，目标在 data 中的索引是目标 visual 条目后面的位置
+            # 但我们需要的是在移动前找到目标位置
+            if target_vi + 1 < len(image_ops):
+                next_img_data_idx = image_ops[target_vi + 1][0]
             else:
-                # 非图片操作（键盘/滚动/文本输入）保持原样
-                new_data.append(d.copy() if isinstance(d, dict) else d)
-        
-        # 重新编号所有操作，并同步更新 image 字段
-        for i, d in enumerate(new_data):
+                next_img_data_idx = len(data)  # 移到末尾
+        else:
+            # 向前移动时，目标在 data 中的索引就是目标 visual 条目的位置
+            next_img_data_idx = image_ops[target_vi][0]
+
+        # pop + insert：真正地移动条目位置
+        item = data.pop(old_data_idx)
+        # 如果 old_data_idx < new_target，由于前面已经 pop 了，索引会偏移
+        insert_idx = next_img_data_idx
+        if old_data_idx < insert_idx:
+            insert_idx -= 1
+        data.insert(insert_idx, item)
+
+        # ★ 重新编号所有操作，并同步更新 image 字段
+        for i, d in enumerate(data):
             d['step'] = i + 1
             if 'image' in d:
-                d['image'] = f'操作{i + 1}.png'
-        
-        save_json_data(json_path, new_data)
-        
+                old_image = d.get('image', '')
+                new_image = f'操作{i + 1}.png'
+                if old_image and old_image != new_image:
+                    old_path = os.path.join(folder_path, old_image)
+                    new_path = os.path.join(folder_path, new_image)
+                    if os.path.exists(old_path) and not os.path.exists(new_path):
+                        temp_path = os.path.join(folder_path, f'temp_{uuid.uuid4().hex[:8]}_{new_image}')
+                        shutil.move(old_path, temp_path)
+                        shutil.move(temp_path, new_path)
+                d['image'] = new_image
+
+        save_json_data(json_path, data)
+
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(300, lambda: self.refresh_view_images(folder_path))
 
@@ -8609,12 +8626,12 @@ class AutoRecorderApp(QMainWindow):
             def hotkey_handler():
                 # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
                 QTimer.singleShot(0, self.toggle_recording)
-                
+
             # 保存·键的hotkey_id，以便可以临时禁用和重新启用
             self.grave_hotkey_id = keyboard.add_hotkey('grave', hotkey_handler)
-            # print("成功注册·键作为开始录制的快捷键")  # [日志已禁用]
+            log_info(f'[热键] 已注册 · 键录制热键，id={self.grave_hotkey_id}')
         except Exception as e:
-            # print(f"注册·键快捷键失败: {e}")  # [日志已禁用]
+            log_error(f"[热键] 注册·键快捷键失败: {e}")
             self.grave_hotkey_id = None
     
     def register_stop_replay_hotkey(self):
@@ -8631,31 +8648,132 @@ class AutoRecorderApp(QMainWindow):
 
             # 保存F12键的hotkey_id
             self.stop_replay_hotkey_id = keyboard.add_hotkey('f12', stop_handler)
+            log_info(f'[热键] 已注册 F12 停止回放热键，id={self.stop_replay_hotkey_id}')
         except Exception as e:
-            self.debug_print(f"注册F12停止快捷键失败: {e}")
+            log_error(f"[热键] 注册F12停止快捷键失败: {e}")
             self.stop_replay_hotkey_id = None
-    
+
+    def _start_hotkey_health_check(self):
+        """启动全局热键健康检查定时器，自动恢复失效的热键"""
+        self._hotkey_health_timer = QTimer(self)
+        self._hotkey_health_timer.timeout.connect(self._check_and_restore_hotkeys)
+        self._hotkey_health_timer.start(5000)  # 每5秒检查一次
+        log_info('[热键健康] 已启动热键健康检查定时器')
+
+    def _check_and_restore_hotkeys(self):
+        """检查全局热键是否仍然有效，失效时自动重新注册"""
+        try:
+            import keyboard as _kb
+        except Exception as _e:
+            log_error(f'[热键健康] 无法导入 keyboard 模块: {_e}')
+            return
+
+        try:
+            # 检查 keyboard 后台监听线程是否存活
+            listener_alive = False
+            try:
+                listener = getattr(_kb, '_listener', None)
+                if listener is not None:
+                    listener_alive = listener.is_alive()
+            except Exception:
+                listener_alive = False
+
+            grave_disabled = getattr(self, '_grave_hotkey_temporarily_disabled', False)
+            has_grave = getattr(self, 'grave_hotkey_id', None) is not None
+            has_f12 = getattr(self, 'stop_replay_hotkey_id', None) is not None
+            shortcut_objects = getattr(self, 'shortcut_objects', [])
+            shortcuts_config = getattr(self, 'shortcuts', {})
+            expected_folder_shortcuts = len(shortcuts_config)
+            actual_folder_shortcuts = len(shortcut_objects)
+
+            need_restore = False
+            if not listener_alive:
+                log_warning('[热键健康] keyboard 监听线程未存活，准备重新初始化热键')
+                need_restore = True
+            elif not grave_disabled and not has_grave:
+                log_warning('[热键健康] ·键录制热键未注册，准备重新初始化')
+                need_restore = True
+            elif not has_f12:
+                log_warning('[热键健康] F12 停止回放热键未注册，准备重新初始化')
+                need_restore = True
+            elif expected_folder_shortcuts > 0 and actual_folder_shortcuts == 0:
+                log_warning(f'[热键健康] 配置了 {expected_folder_shortcuts} 个文件夹快捷键，但均未注册，准备重新初始化')
+                need_restore = True
+
+            if need_restore:
+                self._reinitialize_all_hotkeys()
+        except Exception as _e:
+            log_error(f'[热键健康] 检查失败: {_e}')
+
+    def _reinitialize_all_hotkeys(self):
+        """清理并重新注册所有全局热键"""
+        try:
+            log_info('[热键健康] 开始重新初始化所有全局热键')
+            self._cleanup_all_hotkeys()
+            self.update_shortcuts()
+            self.register_record_hotkey()
+            self.register_stop_replay_hotkey()
+            log_info('[热键健康] 全局热键重新初始化完成')
+        except Exception as _e:
+            log_error(f'[热键健康] 重新初始化失败: {_e}')
+
+    def _cleanup_all_hotkeys(self):
+        """清理所有已注册的全局热键"""
+        try:
+            import keyboard as _kb
+        except Exception:
+            return
+
+        # 强制清理所有 keyboard 钩子，确保 listener 异常后能重新初始化
+        try:
+            _kb.unhook_all()
+        except Exception:
+            pass
+
+        for hotkey_id in getattr(self, 'shortcut_objects', []):
+            try:
+                _kb.remove_hotkey(hotkey_id)
+            except Exception:
+                pass
+        self.shortcut_objects = []
+
+        if getattr(self, 'grave_hotkey_id', None):
+            try:
+                _kb.remove_hotkey(self.grave_hotkey_id)
+            except Exception:
+                pass
+            self.grave_hotkey_id = None
+
+        if getattr(self, 'stop_replay_hotkey_id', None):
+            try:
+                _kb.remove_hotkey(self.stop_replay_hotkey_id)
+            except Exception:
+                pass
+            self.stop_replay_hotkey_id = None
+
     def temporarily_disable_grave_hotkey(self):
         """临时禁用·键的全局快捷键"""
+        self._grave_hotkey_temporarily_disabled = True
         if hasattr(self, 'grave_hotkey_id') and self.grave_hotkey_id is not None:
             try:
                 keyboard.remove_hotkey(self.grave_hotkey_id)
-                # print("临时禁用·键快捷键")  # [日志已禁用]
+                log_info('[热键] 临时禁用 · 键全局快捷键')
             except Exception as e:
-                # print(f"禁用·键快捷键失败: {e}")  # [日志已禁用]
+                log_error(f"[热键] 禁用·键快捷键失败: {e}")
                 pass
-    
+
     def reenable_grave_hotkey(self):
         """重新启用·键的全局快捷键"""
+        self._grave_hotkey_temporarily_disabled = False
         try:
             def hotkey_handler():
                 # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
                 QTimer.singleShot(0, self.toggle_recording)
-            
+
             self.grave_hotkey_id = keyboard.add_hotkey('grave', hotkey_handler)
-            # print("重新启用·键快捷键")  # [日志已禁用]
+            log_info(f'[热键] 重新启用 · 键全局快捷键，id={self.grave_hotkey_id}')
         except Exception as e:
-            # print(f"重新启用·键快捷键失败: {e}")  # [日志已禁用]
+            log_error(f"[热键] 重新启用·键快捷键失败: {e}")
             self.grave_hotkey_id = None
     
     def logout(self):
@@ -8740,14 +8858,16 @@ class AutoRecorderApp(QMainWindow):
                 except Exception:
                     pass
             self.shortcut_objects = []
-            
+
             # 按快捷键分组，一个快捷键可以绑定多个流程
             shortcut_groups = {}
             for folder_path, shortcut_str in self.shortcuts.items():
                 if shortcut_str not in shortcut_groups:
                     shortcut_groups[shortcut_str] = []
                 shortcut_groups[shortcut_str].append(folder_path)
-            
+
+            log_info(f'[热键] 开始更新文件夹快捷键，共 {len(shortcut_groups)} 组')
+
             # 添加新的快捷键（每个快捷键的回放在独立线程中执行，避免阻塞键盘钩子）
             for shortcut_str, folder_paths in shortcut_groups.items():
                 try:
@@ -8764,18 +8884,19 @@ class AutoRecorderApp(QMainWindow):
                                     _t.start()
                             except Exception as e:
                                 try:
-                                    self.debug_print(f"[快捷键] 处理快捷键回放时出错: {e}")
+                                    log_error(f"[热键] 处理快捷键回放时出错: {e}")
                                 except Exception:
                                     pass
                         return handler
-                    
+
                     hotkey_id = keyboard.add_hotkey(shortcut_str, make_handler())
                     self.shortcut_objects.append(hotkey_id)
+                    log_info(f'[热键] 已注册文件夹快捷键 {shortcut_str} -> {folder_paths}，id={hotkey_id}')
                 except Exception as e:
-                    self.debug_print(f"[快捷键] 注册快捷键失败 {shortcut_str}: {e}")
+                    log_error(f"[热键] 注册快捷键失败 {shortcut_str}: {e}")
                     pass
         except Exception as e:
-            self.debug_print(f"[快捷键] 更新快捷键失败: {e}")
+            log_error(f"[热键] 更新快捷键失败: {e}")
             pass
 
     def _safe_replay_folder(self, folder_path):
