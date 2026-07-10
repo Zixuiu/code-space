@@ -174,10 +174,25 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             saved_clipboard = pyperclip.paste()
                         except Exception:
                             pass
+                        # 将文本复制到剪贴板
                         pyperclip.copy(text)
-                        if _interruptible_sleep(0.15, stop_check=stop_check):
+                        # 等待剪贴板稳定（从0.15s增加到0.3s，确保系统剪贴板完成更新）
+                        if _interruptible_sleep(0.3, stop_check=stop_check):
                             break
+                        # 诊断：验证剪贴板内容是否正确
+                        try:
+                            verify = pyperclip.paste()
+                            if verify != text:
+                                debug_print(f"[回放] ⚠️ 步骤 {step}: 剪贴板验证不匹配！预期={len(text)}字符，实际={len(verify) if verify else 0}字符，重试复制...")
+                                pyperclip.copy(text)
+                                _interruptible_sleep(0.2, stop_check=stop_check)
+                            else:
+                                debug_print(f"[回放] 步骤 {step}: 剪贴板验证通过 ({len(verify)}字符)")
+                        except Exception:
+                            pass
                         pyautogui.hotkey('ctrl', 'v')
+                        # 等待粘贴完成（新增：确保目标应用处理完粘贴事件）
+                        _interruptible_sleep(0.2, stop_check=stop_check)
                         # 恢复用户原来的剪贴板内容，防止后续 Ctrl+V 粘贴错误内容
                         if saved_clipboard is not None:
                             try:
@@ -197,7 +212,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     pyautogui.scroll(scroll_amount)
                     success_count += 1
                     debug_print(f"[回放] 步骤 {step}: 滚动完成")
-                    continue
 
                 elif action_type in ['keyboard', 'keyboard_direct']:
                     key = operation.get('key', 'enter')
@@ -240,7 +254,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 完成")
-                            continue  # 组合键执行完毕，跳过后续图片匹配
                         except Exception as e:
                             # 尝试手动按下和释放
                             try:
@@ -257,7 +270,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
                                 success_count += 1
                                 debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 完成（手动回退）")
-                                continue  # 组合键执行完毕，跳过后续图片匹配
                             except Exception as e2:
                                 debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 失败: {e2}")
                                 continue
@@ -305,7 +317,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 debug_print(f"[回放] 步骤 {step}: pyautogui.press('{key}') 调用完成")
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
-                            continue  # 按键执行完毕，跳过后续图片匹配
                         except Exception as e:
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 失败: {e}")
                             continue

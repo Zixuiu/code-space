@@ -117,7 +117,7 @@ class SelectionOverlay(QWidget):
         
         # 抓取键盘输入，无需依赖窗口焦点也能捕获快捷键
         # grabKeyboard() 将所有键盘事件定向到此窗口，不依赖焦点
-        self.grabKeyboard()
+        self._retry_grab_keyboard()
         print("SelectionOverlay: 已抓取键盘输入 (grabKeyboard)")
         
         # 使用定时器持续确保焦点（作为grabKeyboard的补充，用于鼠标事件）
@@ -141,17 +141,33 @@ class SelectionOverlay(QWidget):
         """确保窗口始终有焦点和键盘抓取（仅在可见时抢焦点，避免干扰隐藏状态）"""
         if not self.isVisible():
             return  # 窗口隐藏时不抢焦点，避免干扰操作执行
-        # 每次检查都重新抓取键盘，防止系统弹窗/焦点切换导致 grabKeyboard 丢失
-        try:
-            self.grabKeyboard()
-        except Exception:
-            pass
+        # 先确保窗口有焦点（grabKeyboard 需要窗口是前台窗口才能成功）
         if not self.hasFocus():
             self.raise_()
             self.activateWindow()
             self.setFocus(Qt.ActiveWindowFocusReason)
-            # print("SelectionOverlay: 重新获取焦点")  # 注释掉避免刷屏
+            from PyQt5.QtWidgets import QApplication
+            QApplication.processEvents()
+        # 窗口有焦点后再抓取键盘，防止系统弹窗/焦点切换导致 grabKeyboard 丢失
+        self._retry_grab_keyboard()
     
+    def _retry_grab_keyboard(self, max_retries=3):
+        """尝试抓取键盘，失败时自动重试"""
+        for attempt in range(max_retries):
+            try:
+                self.grabKeyboard()
+                return True
+            except Exception:
+                if attempt < max_retries - 1:
+                    from PyQt5.QtCore import QTimer
+                    loop = QTimer()
+                    loop.setSingleShot(True)
+                    loop.timeout.connect(lambda: None)
+                    loop.start(50 * (attempt + 1))
+                    from PyQt5.QtWidgets import QApplication
+                    QApplication.processEvents()
+        return False
+
     def paintEvent(self, event):
         """绘制事件"""
         painter = QPainter(self)
@@ -532,7 +548,7 @@ class SelectionOverlay(QWidget):
             self.setFocus(Qt.ActiveWindowFocusReason)
             
             # 抓取键盘输入，确保快捷键能立即响应
-            self.grabKeyboard()
+            self._retry_grab_keyboard()
             
             # 强制重绘窗口，确保显示最新的屏幕内容
             self.update()
@@ -547,7 +563,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
                 
                 self.update()
             except:
@@ -694,7 +710,12 @@ class SelectionOverlay(QWidget):
         parent = self.parent
         self._saved_grave_id = getattr(parent, 'grave_hotkey_id', None)
         self._saved_stop_id = getattr(parent, 'stop_replay_hotkey_id', None)
-        self._saved_shortcuts = getattr(parent, 'registered_shortcuts', [])[:]
+        self._saved_shortcuts = []
+        # 保存所有文件夹快捷键的完整配置
+        if hasattr(parent, 'shortcuts'):
+            self._saved_shortcuts_config = getattr(parent, 'shortcuts', {})
+        else:
+            self._saved_shortcuts_config = {}
         
         # 1. 取消所有系统级钩子 (UnhookWindowsHookEx)
         try: _kb.unhook_all()
@@ -702,22 +723,33 @@ class SelectionOverlay(QWidget):
         # 短暂等待，确保钩子线程退出
         _time.sleep(0.05)
         
-        # 2. 重置监听器状态，使其能被重新启动
-        if hasattr(_kb, '_listener') and _kb._listener:
-            _kb._listener.listening = False
-            _kb._listener.handlers.clear()
+        # 2. 重置监听器状态，使其下次 add_hotkey 时重新创建线程
+        # 注意: 不能设置 _listener = None，因为 add_hotkey 会直接调用 _listener.start_if_necessary()
+        # 正确做法是将 listening 设为 False，让 start_if_necessary 能重新启动
+        try:
+            if hasattr(_kb, '_listener') and _kb._listener:
+                _kb._listener.listening = False
+                _kb._listener.handlers.clear()
+        except Exception:
+            pass
 
     def _reenable_global_hooks(self):
         """重新注册所有键盘钩子 (会重启监听线程)"""
         parent = self.parent
+        # 重新启用 · 键录制热键
         if hasattr(parent, 'reenable_grave_hotkey'):
             parent.reenable_grave_hotkey()
-        if self._saved_stop_id and hasattr(parent, 'register_stop_replay_hotkey'):
+        # 重新注册 F12 停止回放热键
+        if hasattr(parent, 'register_stop_replay_hotkey'):
             parent.register_stop_replay_hotkey()
-        if self._saved_shortcuts and hasattr(parent, 'update_shortcuts'):
+        # 重新注册所有文件夹快捷键
+        if hasattr(parent, 'update_shortcuts'):
             parent.update_shortcuts()
+        # 清理保存的临时数据
         self._saved_grave_id = self._saved_stop_id = None
         self._saved_shortcuts = []
+        self._saved_shortcuts_config = None
+        print("[热键恢复] 已重新启用所有全局键盘钩子")
 
     def add_text_input(self):
         """添加文本输入操作"""
@@ -853,7 +885,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
                 
         except Exception as e:
             print(f"添加文本输入失败: {e}")
@@ -865,7 +897,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
             except:
                 pass
 
@@ -1263,7 +1295,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
                 
         except Exception as e:
             print(f"添加按键操作失败: {e}")
@@ -1275,7 +1307,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
             except:
                 pass
     
@@ -1316,7 +1348,7 @@ class SelectionOverlay(QWidget):
             self.setFocus(Qt.ActiveWindowFocusReason)
             
             # 抓取键盘输入，确保快捷键能立即响应
-            self.grabKeyboard()
+            self._retry_grab_keyboard()
             
             # 强制重绘窗口，确保显示最新的屏幕内容
             self.update()
@@ -1338,7 +1370,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
-                self.grabKeyboard()
+                self._retry_grab_keyboard()
             except:
                 pass
     
@@ -1364,6 +1396,9 @@ class SelectionOverlay(QWidget):
         
         # 强制重绘窗口，确保显示最新的屏幕内容
         self.update()
+        
+        # 重新抓取键盘，确保快捷键能响应
+        self._retry_grab_keyboard()
         
         # 直接继续选择，不询问用户
         # 用户可以通过按ESC键来结束选择过程

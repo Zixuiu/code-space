@@ -1531,6 +1531,7 @@ class FolderManager(QDialog):
         recording_json_path = os.path.join(folder_path, 'recording.json')
         has_recording_json = os.path.exists(recording_json_path)
         self.image_actions = []
+        self.image_step_map = {}  # 记录视觉索引(index) → 实际步骤号(step)的映射
         if has_recording_json:
             recording_data = load_json_data(recording_json_path)
             if isinstance(recording_data, list):
@@ -1556,16 +1557,19 @@ class FolderManager(QDialog):
                     else:
                         step_action_map[step_num] = action_type_map.get(action_type, 'Click')
                 # 根据image_files的顺序构建image_actions，确保两者完全对齐
-                for img_file in image_files:
+                for idx, img_file in enumerate(image_files):
                     match = re.search(r'操作(\d+)', img_file)
                     if match:
                         step_num = int(match.group(1))
                         self.image_actions.append(step_action_map.get(step_num, 'Click'))
+                        self.image_step_map[idx] = step_num  # 记录索引→步骤号的映射
                     else:
                         self.image_actions.append('Click')
+                        self.image_step_map[idx] = idx + 1  # 降级：使用索引+1
         # 如果没有JSON数据，使用默认值
         if not self.image_actions:
             self.image_actions = ["Click"] * len(image_files)
+            self.image_step_map = {i: i + 1 for i in range(len(image_files))}
         
 
 
@@ -2149,7 +2153,8 @@ class FolderManager(QDialog):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
                     action_type_map = {'Click':'left_click', '右击':'right_click', '双击':'double_click', '中键点击':'middle_click', '中击':'middle_click'}
-                    step = index + 1
+                    # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                    step = self.image_step_map.get(index, index + 1)
                     for d in recording_data:
                         if d.get('step') == step:
                             if action.startswith('按键:'):
@@ -2625,7 +2630,8 @@ class FolderManager(QDialog):
                     if os.path.exists(recording_json_path):
                         recording_data = load_json_data(recording_json_path)
                         if isinstance(recording_data, list):
-                            step = index + 1
+                            # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                            step = self.image_step_map.get(index, index + 1)
                             for d in recording_data:
                                 if d.get('step') == step:
                                     d['action_type'] = 'keyboard'
@@ -2651,7 +2657,8 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
-                    step = index + 1
+                    # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                    step = self.image_step_map.get(index, index + 1)
                     for d in recording_data:
                         if d.get('step') == step and d.get('action_type') == 'scroll':
                             current_scroll_amount = d.get('scroll_amount', 3)
@@ -2756,7 +2763,8 @@ class FolderManager(QDialog):
                 if os.path.exists(recording_json_path):
                     recording_data = load_json_data(recording_json_path)
                     if isinstance(recording_data, list):
-                        step = index + 1
+                        # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                        step = self.image_step_map.get(index, index + 1)
                         for d in recording_data:
                             if d.get('step') == step:
                                 d['action_type'] = 'scroll'
@@ -2782,7 +2790,8 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
-                    step = index + 1
+                    # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                    step = self.image_step_map.get(index, index + 1)
                     for d in recording_data:
                         if d.get('step') == step and d.get('action_type') == 'text_input':
                             current_text = d.get('text', '')
@@ -2867,7 +2876,8 @@ class FolderManager(QDialog):
                 if os.path.exists(recording_json_path):
                     recording_data = load_json_data(recording_json_path)
                     if isinstance(recording_data, list):
-                        step = index + 1
+                        # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                        step = self.image_step_map.get(index, index + 1)
                         for d in recording_data:
                             if d.get('step') == step:
                                 d['action_type'] = 'text_input'
@@ -2887,7 +2897,8 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
-                    step = step_index + 1
+                    # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                    step = self.image_step_map.get(step_index, step_index + 1)
                     for d in recording_data:
                         if d.get('step') == step:
                             return d.get('delay', 0)
@@ -2903,7 +2914,8 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 recording_data = load_json_data(recording_json_path)
                 if isinstance(recording_data, list):
-                    step = index + 1
+                    # 使用 image_step_map 获取实际步骤号，避免键盘操作无图片导致的错位
+                    step = self.image_step_map.get(index, index + 1)
                     for d in recording_data:
                         if d.get('step') == step:
                             d['delay'] = delay_seconds
@@ -4641,6 +4653,7 @@ class AutoRecorderApp(QMainWindow):
         self.replay_interval = 0.001  # 操作间隔1毫秒
         # 图像匹配超时时间（秒）：至少要 1.5s 才能确保小图标有足够时间匹配
         self.replay_timeout = 2.0
+        self._replay_lock = threading.Lock()  # ★ 多线程回放互斥锁
         self.replay_enabled = False  # 回放功能开关（默认关闭）
         self.shortcuts = {}
         self.shortcut_objects = []
@@ -6288,7 +6301,10 @@ class AutoRecorderApp(QMainWindow):
         """直接开始回放 - 调用实际的回放方法（按钮回放，不检查回放状态，也不改变回放状态）"""
         # print(f"[DEBUG] _start_replay_direct called: {recording_name}")  # [日志已禁用]
         try:
-            # 按钮回放不改变回放状态，只执行回放操作
+            # ★ 防止并发回放：如果已有回放在运行，跳过本次请求
+            if getattr(self, 'is_replaying', False):
+                self.debug_print("[回放] 检测到已有回放在运行，跳过重复请求")
+                return
             
             # 获取录制文件夹路径
             from utils import get_recordings_path
@@ -6312,7 +6328,27 @@ class AutoRecorderApp(QMainWindow):
     
     def replay_folder_operations(self, folder_path):
         """执行指定文件夹中的操作回放"""
+        # ★ 线程安全锁：防止多线程并发回放
+        if not self._replay_lock.acquire(blocking=False):
+            self.debug_print("[回放] 检测到回放已在执行中，跳过本次请求")
+            return
+        
+        # ★ 保存钩子禁用状态，用于回放完成后恢复
+        _hooks_disabled = False
         try:
+            # ★ 禁用全局键盘钩子，避免keyboard库的钩子拦截模拟按键
+            # 确保 pyautogui.hotkey/press 发出的按键能到达目标应用窗口
+            import keyboard as _kb_hook
+            try:
+                _kb_hook.unhook_all()
+                if hasattr(_kb_hook, '_listener') and _kb_hook._listener:
+                    _kb_hook._listener.listening = False
+                    _kb_hook._listener.handlers.clear()
+                _hooks_disabled = True
+                self.debug_print("[回放] 已禁用全局键盘钩子，确保模拟按键直达目标窗口")
+            except Exception as _hook_err:
+                self.debug_print(f"[回放] 禁用键盘钩子失败（不影响回放）: {_hook_err}")
+
             # 递增调用次数（只要是回放就计数，不依赖成功失败）
             folder_name = os.path.basename(folder_path)
             self._increment_usage_count(folder_name)
@@ -6384,6 +6420,16 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print(f"[回放] 回放失败: {e}")
             import traceback
             traceback.print_exc()
+        finally:
+            # ★ 释放回放锁，允许后续回放执行
+            self._replay_lock.release()
+            # ★ 回放结束后恢复全局键盘钩子，确保录制/停止热键可用 ★
+            if _hooks_disabled:
+                try:
+                    self._reinitialize_all_hotkeys()
+                    self.debug_print("[回放] 已恢复全局键盘钩子")
+                except Exception as _re_err:
+                    self.debug_print(f"[回放] 恢复键盘钩子失败: {_re_err}")
     
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
@@ -8652,8 +8698,11 @@ class AutoRecorderApp(QMainWindow):
         """注册·键作为开始录制的快捷键"""
         try:
             def hotkey_handler():
-                # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
-                QTimer.singleShot(0, self.toggle_recording)
+                try:
+                    # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
+                    QTimer.singleShot(0, self.toggle_recording)
+                except Exception as _eh:
+                    log_error(f'[热键] ·键回调异常: {_eh}')
 
             # 保存·键的hotkey_id，以便可以临时禁用和重新启用
             self.grave_hotkey_id = keyboard.add_hotkey('grave', hotkey_handler)
@@ -8666,13 +8715,16 @@ class AutoRecorderApp(QMainWindow):
         """注册F12键作为停止回放的快捷键"""
         try:
             def stop_handler():
-                self.debug_print("[DEBUG] F12键被按下，准备停止当前回放")
-                # 只有在回放进行中时才执行停止
-                if getattr(self, 'is_replaying', False):
-                    QTimer.singleShot(0, self.stop_replay)
-                    self.debug_print("[回放控制] F12停止快捷键已触发")
-                else:
-                    self.debug_print("[回放控制] F12被按下，但没有正在进行的回放")
+                try:
+                    self.debug_print("[DEBUG] F12键被按下，准备停止当前回放")
+                    # 只有在回放进行中时才执行停止
+                    if getattr(self, 'is_replaying', False):
+                        QTimer.singleShot(0, self.stop_replay)
+                        self.debug_print("[回放控制] F12停止快捷键已触发")
+                    else:
+                        self.debug_print("[回放控制] F12被按下，但没有正在进行的回放")
+                except Exception as _eh:
+                    log_error(f'[热键] F12回调异常: {_eh}')
 
             # 保存F12键的hotkey_id
             self.stop_replay_hotkey_id = keyboard.add_hotkey('f12', stop_handler)
@@ -8685,8 +8737,14 @@ class AutoRecorderApp(QMainWindow):
         """启动全局热键健康检查定时器，自动恢复失效的热键"""
         self._hotkey_health_timer = QTimer(self)
         self._hotkey_health_timer.timeout.connect(self._check_and_restore_hotkeys)
-        self._hotkey_health_timer.start(5000)  # 每5秒检查一次
-        log_info('[热键健康] 已启动热键健康检查定时器')
+        self._hotkey_health_timer.start(1000)  # 每1秒检查一次，更快响应
+        self._force_restart_counter = 0  # 强制重启计数器，每5分钟强制刷新一次
+        log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
+        
+        # 健康检查日志定时器（每30秒打印一次状态，避免刷屏）
+        self._health_log_timer = QTimer(self)
+        self._health_log_timer.timeout.connect(self._log_hotkey_status)
+        self._health_log_timer.start(30000)
 
     def _check_and_restore_hotkeys(self):
         """检查全局热键是否仍然有效，失效时自动重新注册"""
@@ -8698,11 +8756,19 @@ class AutoRecorderApp(QMainWindow):
 
         try:
             # 检查 keyboard 后台监听线程是否存活
+            # 注意: _KeyboardListener 没有 is_alive() 方法，需要通过 listening_thread 检查
             listener_alive = False
             try:
                 listener = getattr(_kb, '_listener', None)
                 if listener is not None:
-                    listener_alive = listener.is_alive()
+                    # 先检查 listening 标志
+                    if listener.listening:
+                        # 再检查线程是否真的存活
+                        if hasattr(listener, 'listening_thread') and listener.listening_thread:
+                            listener_alive = listener.listening_thread.is_alive()
+                        else:
+                            # 没有线程对象但 listening=True，说明状态异常
+                            listener_alive = False
             except Exception:
                 listener_alive = False
 
@@ -8715,23 +8781,51 @@ class AutoRecorderApp(QMainWindow):
             actual_folder_shortcuts = len(shortcut_objects)
 
             need_restore = False
+            # 1. 检查监听线程是否存活
             if not listener_alive:
                 log_warning('[热键健康] keyboard 监听线程未存活，准备重新初始化热键')
                 need_restore = True
+            # 2. 检查grave热键是否注册
             elif not grave_disabled and not has_grave:
                 log_warning('[热键健康] ·键录制热键未注册，准备重新初始化')
                 need_restore = True
+            # 3. 检查F12热键是否注册
             elif not has_f12:
                 log_warning('[热键健康] F12 停止回放热键未注册，准备重新初始化')
                 need_restore = True
+            # 4. 检查文件夹快捷键是否注册
             elif expected_folder_shortcuts > 0 and actual_folder_shortcuts == 0:
                 log_warning(f'[热键健康] 配置了 {expected_folder_shortcuts} 个文件夹快捷键，但均未注册，准备重新初始化')
                 need_restore = True
+
+            # 5. 即使正常，每5分钟也强制刷新一次，防止"隐形失效"
+            self._force_restart_counter += 1
+            if not need_restore and self._force_restart_counter >= 300:  # 300次 * 1秒 = 5分钟
+                log_info('[热键健康] 5分钟定期强制刷新热键，防止隐形失效')
+                need_restore = True
+                self._force_restart_counter = 0
 
             if need_restore:
                 self._reinitialize_all_hotkeys()
         except Exception as _e:
             log_error(f'[热键健康] 检查失败: {_e}')
+
+    def _log_hotkey_status(self):
+        """记录热键状态日志"""
+        try:
+            import keyboard as _kb
+            listener = getattr(_kb, '_listener', None)
+            alive = False
+            if listener:
+                if hasattr(listener, 'listening_thread') and listener.listening_thread:
+                    alive = listener.listening_thread.is_alive()
+                else:
+                    alive = listener.listening
+            has_grave = getattr(self, 'grave_hotkey_id', None) is not None
+            has_f12 = getattr(self, 'stop_replay_hotkey_id', None) is not None
+            log_info(f'[热键状态] listener={alive} | grave={"✓" if has_grave else "✗"} | f12={"✓" if has_f12 else "✗"} | shortcuts={len(getattr(self, "shortcut_objects", []))}')
+        except Exception:
+            pass
 
     def _reinitialize_all_hotkeys(self):
         """清理并重新注册所有全局热键"""
@@ -8779,6 +8873,15 @@ class AutoRecorderApp(QMainWindow):
                 pass
             self.stop_replay_hotkey_id = None
 
+        # 强制重置监听器状态，让 keyboard 下次 add_hotkey 时重新创建线程
+        # 注意: 不能设置 _listener = None，因为 add_hotkey 会直接调用 _listener.start_if_necessary()
+        try:
+            if hasattr(_kb, '_listener') and _kb._listener:
+                _kb._listener.listening = False
+                _kb._listener.handlers.clear()
+        except Exception:
+            pass
+
     def temporarily_disable_grave_hotkey(self):
         """临时禁用·键的全局快捷键"""
         self._grave_hotkey_temporarily_disabled = True
@@ -8795,8 +8898,11 @@ class AutoRecorderApp(QMainWindow):
         self._grave_hotkey_temporarily_disabled = False
         try:
             def hotkey_handler():
-                # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
-                QTimer.singleShot(0, self.toggle_recording)
+                try:
+                    # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
+                    QTimer.singleShot(0, self.toggle_recording)
+                except Exception as _eh:
+                    log_error(f'[热键] ·键回调异常(reenable): {_eh}')
 
             self.grave_hotkey_id = keyboard.add_hotkey('grave', hotkey_handler)
             log_info(f'[热键] 重新启用 · 键全局快捷键，id={self.grave_hotkey_id}')
