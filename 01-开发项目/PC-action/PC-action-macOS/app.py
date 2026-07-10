@@ -4654,6 +4654,7 @@ class AutoRecorderApp(QMainWindow):
         # 图像匹配超时时间（秒）：至少要 1.5s 才能确保小图标有足够时间匹配
         self.replay_timeout = 2.0
         self._replay_lock = threading.Lock()  # ★ 多线程回放互斥锁
+        self._reinitializing = False  # ★ 热键重初始化标志（含超时检测，防止卡死）
         self.replay_enabled = False  # 回放功能开关（默认关闭）
         self.shortcuts = {}
         self.shortcut_objects = []
@@ -6333,6 +6334,9 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print("[回放] 检测到回放已在执行中，跳过本次请求")
             return
         
+        # ★ 记录锁获取时间，用于超时检测
+        self._replay_lock_time = time.time()
+        
         # ★ 保存钩子禁用状态，用于回放完成后恢复
         _hooks_disabled = False
         try:
@@ -6340,7 +6344,17 @@ class AutoRecorderApp(QMainWindow):
             # 确保 pyautogui.hotkey/press 发出的按键能到达目标应用窗口
             import keyboard as _kb_hook
             try:
-                _kb_hook.unhook_all()
+                # ★ 安全禁用钩子：用超时线程包装 unhook_all，防止死锁 ★
+                _disable_hooks_ok = False
+                def _do_unhook():
+                    nonlocal _disable_hooks_ok
+                    _kb_hook.unhook_all()
+                    _disable_hooks_ok = True
+                _t = threading.Thread(target=_do_unhook, daemon=True)
+                _t.start()
+                _t.join(timeout=3.0)
+                if not _disable_hooks_ok:
+                    self.debug_print("[回放] unhook_all 超时(3s)，直接设置 listening=False 强制禁用")
                 if hasattr(_kb_hook, '_listener') and _kb_hook._listener:
                     _kb_hook._listener.listening = False
                     _kb_hook._listener.handlers.clear()
@@ -6422,12 +6436,23 @@ class AutoRecorderApp(QMainWindow):
             traceback.print_exc()
         finally:
             # ★ 释放回放锁，允许后续回放执行
+            self._replay_lock_time = None
             self._replay_lock.release()
             # ★ 回放结束后恢复全局键盘钩子，确保录制/停止热键可用 ★
             if _hooks_disabled:
                 try:
-                    self._reinitialize_all_hotkeys()
-                    self.debug_print("[回放] 已恢复全局键盘钩子")
+                    # ★ 在后台线程中重新初始化热键，不阻塞当前线程 ★
+                    # 注意：不能在后台线程调用 QTimer.singleShot（无事件循环）
+                    # 也不能在主线程调用 _reinitialize_all_hotkeys（可能卡死）
+                    # 正确做法：在后台线程中直接调用 _reinitialize_all_hotkeys
+                    import keyboard as _kb_hook2
+                    if hasattr(_kb_hook2, '_listener') and _kb_hook2._listener:
+                        _kb_hook2._listener.listening = False
+                        _kb_hook2._listener.handlers.clear()
+                    self.debug_print("[回放] 已禁用旧钩子，立即在后台线程恢复热键")
+                    # 直接在后台线程中重新初始化热键
+                    import threading as _th
+                    _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
                 except Exception as _re_err:
                     self.debug_print(f"[回放] 恢复键盘钩子失败: {_re_err}")
     
@@ -8756,18 +8781,14 @@ class AutoRecorderApp(QMainWindow):
 
         try:
             # 检查 keyboard 后台监听线程是否存活
-            # 注意: _KeyboardListener 没有 is_alive() 方法，需要通过 listening_thread 检查
             listener_alive = False
             try:
                 listener = getattr(_kb, '_listener', None)
                 if listener is not None:
-                    # 先检查 listening 标志
                     if listener.listening:
-                        # 再检查线程是否真的存活
                         if hasattr(listener, 'listening_thread') and listener.listening_thread:
                             listener_alive = listener.listening_thread.is_alive()
                         else:
-                            # 没有线程对象但 listening=True，说明状态异常
                             listener_alive = False
             except Exception:
                 listener_alive = False
@@ -8783,30 +8804,43 @@ class AutoRecorderApp(QMainWindow):
             need_restore = False
             # 1. 检查监听线程是否存活
             if not listener_alive:
-                log_warning('[热键健康] keyboard 监听线程未存活，准备重新初始化热键')
+                self.debug_print('[热键健康] ❌ 监听线程未存活，准备恢复')
                 need_restore = True
             # 2. 检查grave热键是否注册
             elif not grave_disabled and not has_grave:
-                log_warning('[热键健康] ·键录制热键未注册，准备重新初始化')
+                self.debug_print('[热键健康] ❌ ·键录制热键未注册，准备恢复')
                 need_restore = True
             # 3. 检查F12热键是否注册
             elif not has_f12:
-                log_warning('[热键健康] F12 停止回放热键未注册，准备重新初始化')
+                self.debug_print('[热键健康] ❌ F12停止热键未注册，准备恢复')
                 need_restore = True
             # 4. 检查文件夹快捷键是否注册
             elif expected_folder_shortcuts > 0 and actual_folder_shortcuts == 0:
-                log_warning(f'[热键健康] 配置了 {expected_folder_shortcuts} 个文件夹快捷键，但均未注册，准备重新初始化')
+                self.debug_print(f'[热键健康] ❌ 配置了{expected_folder_shortcuts}个快捷键但均未注册，准备恢复')
                 need_restore = True
 
-            # 5. 即使正常，每5分钟也强制刷新一次，防止"隐形失效"
+            # 5. 检查回放锁是否超时
+            lock_time = getattr(self, '_replay_lock_time', None)
+            if lock_time is not None:
+                elapsed = time.time() - lock_time
+                if elapsed > 300:
+                    self.debug_print(f'[热键健康] 回放锁已锁定{elapsed:.0f}秒，强制释放')
+                    try:
+                        self._replay_lock.release()
+                        self._replay_lock_time = None
+                    except Exception as _re_err:
+                        log_error(f'[热键健康] 强制释放回放锁失败: {_re_err}')
+
+            # 6. 每5分钟强制刷新一次
             self._force_restart_counter += 1
-            if not need_restore and self._force_restart_counter >= 300:  # 300次 * 1秒 = 5分钟
-                log_info('[热键健康] 5分钟定期强制刷新热键，防止隐形失效')
+            if not need_restore and self._force_restart_counter >= 300:
+                self.debug_print('[热键健康] 5分钟定期刷新热键')
                 need_restore = True
                 self._force_restart_counter = 0
 
             if need_restore:
-                self._reinitialize_all_hotkeys()
+                import threading as _th
+                _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
         except Exception as _e:
             log_error(f'[热键健康] 检查失败: {_e}')
 
@@ -8828,36 +8862,86 @@ class AutoRecorderApp(QMainWindow):
             pass
 
     def _reinitialize_all_hotkeys(self):
-        """清理并重新注册所有全局热键"""
+        """清理并重新注册所有全局热键（带超时看门狗，防止卡死）"""
+        # ★ 超时检测：如果上次重初始化超过10秒未完成，视为卡死，强制重试
+        if self._reinitializing:
+            if time.time() - self._reinitializing_start > 10:
+                log_warning('[热键健康] 上次重初始化超过10秒未完成，疑似卡死，强制重试')
+            else:
+                log_info('[热键健康] 重初始化已在执行中，跳过本次请求')
+                self.debug_print('[热键恢复] 跳过：重初始化已在执行中')
+                return
+        self._reinitializing = True
+        self._reinitializing_start = time.time()
+        self.debug_print('[热键恢复] 开始重新初始化所有全局热键')
+
+        # ★ 启动看门狗线程：15秒后如果重初始化仍未完成，自动重置标志位
+        _watchdog_start = time.time()
+        _watchdog_triggered = [False]
+        def _watchdog():
+            while time.time() - _watchdog_start < 15:
+                time.sleep(1)
+                if not self._reinitializing:
+                    return
+            if self._reinitializing:
+                _watchdog_triggered[0] = True
+                log_warning('[热键健康] ★ 重初始化看门狗超时(15s)，强制重置 _reinitializing 标志')
+                self.debug_print('[热键恢复] ★ 看门狗超时(15s)，强制重置标志')
+                self._reinitializing = False
+        _wd = threading.Thread(target=_watchdog, daemon=True)
+        _wd.start()
+
         try:
-            log_info('[热键健康] 开始重新初始化所有全局热键')
+            self.debug_print('[热键恢复] 清理旧钩子...')
             self._cleanup_all_hotkeys()
+            self.debug_print('[热键恢复] 注册文件夹快捷键...')
             self.update_shortcuts()
+            self.debug_print('[热键恢复] 注册·键录制热键...')
             self.register_record_hotkey()
+            self.debug_print('[热键恢复] 注册F12停止热键...')
             self.register_stop_replay_hotkey()
-            log_info('[热键健康] 全局热键重新初始化完成')
+            self.debug_print('[热键恢复] ★ 所有全局热键重新初始化完成')
         except Exception as _e:
-            log_error(f'[热键健康] 重新初始化失败: {_e}')
+            self.debug_print(f'[热键恢复] ❌ 重新初始化失败: {_e}')
+        finally:
+            if not _watchdog_triggered[0]:
+                self._reinitializing = False
+                self.debug_print('[热键恢复] 标志位已重置')
 
     def _cleanup_all_hotkeys(self):
         """清理所有已注册的全局热键"""
         try:
             import keyboard as _kb
         except Exception:
+            self.debug_print('[热键清理] 无法导入keyboard模块')
             return
 
         # 强制清理所有 keyboard 钩子，确保 listener 异常后能重新初始化
-        try:
-            _kb.unhook_all()
-        except Exception:
-            pass
+        # ★ 使用超时保护，防止 unhook_all 死锁 ★
+        _unhook_ok = False
+        def _do_unhook():
+            nonlocal _unhook_ok
+            try:
+                _kb.unhook_all()
+                _unhook_ok = True
+            except Exception:
+                _unhook_ok = True  # 即使异常也算完成
+        _t = threading.Thread(target=_do_unhook, daemon=True)
+        _t.start()
+        _t.join(timeout=3.0)
+        if not _unhook_ok:
+            log_warning('[热键清理] unhook_all 超时(3s)，强制继续')
+            self.debug_print('[热键清理] ⚠️ unhook_all 超时(3s)')
 
+        # 手动清理已注册的快捷键
+        shortcut_count = len(getattr(self, 'shortcut_objects', []))
         for hotkey_id in getattr(self, 'shortcut_objects', []):
             try:
                 _kb.remove_hotkey(hotkey_id)
             except Exception:
                 pass
         self.shortcut_objects = []
+        self.debug_print(f'[热键清理] 已清理 {shortcut_count} 个文件夹快捷键')
 
         if getattr(self, 'grave_hotkey_id', None):
             try:
@@ -8865,6 +8949,7 @@ class AutoRecorderApp(QMainWindow):
             except Exception:
                 pass
             self.grave_hotkey_id = None
+            self.debug_print('[热键清理] 已清理·键录制热键')
 
         if getattr(self, 'stop_replay_hotkey_id', None):
             try:
@@ -8872,6 +8957,7 @@ class AutoRecorderApp(QMainWindow):
             except Exception:
                 pass
             self.stop_replay_hotkey_id = None
+            self.debug_print('[热键清理] 已清理F12停止热键')
 
         # 强制重置监听器状态，让 keyboard 下次 add_hotkey 时重新创建线程
         # 注意: 不能设置 _listener = None，因为 add_hotkey 会直接调用 _listener.start_if_necessary()
@@ -8879,8 +8965,9 @@ class AutoRecorderApp(QMainWindow):
             if hasattr(_kb, '_listener') and _kb._listener:
                 _kb._listener.listening = False
                 _kb._listener.handlers.clear()
-        except Exception:
-            pass
+                self.debug_print('[热键清理] 已重置监听器状态')
+        except Exception as _e:
+            self.debug_print(f'[热键清理] 重置监听器状态失败: {_e}')
 
     def temporarily_disable_grave_hotkey(self):
         """临时禁用·键的全局快捷键"""
@@ -9006,10 +9093,20 @@ class AutoRecorderApp(QMainWindow):
             for shortcut_str, folder_paths in shortcut_groups.items():
                 try:
                     def make_handler(paths=folder_paths.copy(), _sc=shortcut_str):
+                        # ★ 防抖：记录每个快捷键的上次触发时间，同一快捷键 500ms 内只执行一次
+                        _last_trigger_time = 0
                         def handler():
+                            nonlocal _last_trigger_time
                             try:
                                 if not self.replay_enabled:
                                     return
+                                # ★ 防抖：如果 500ms 内已触发过，忽略本次
+                                _now = time.time()
+                                if _now - _last_trigger_time < 0.5:
+                                    return
+                                _last_trigger_time = _now
+                                # ★ 诊断日志：记录热键被触发
+                                self.debug_print(f"[热键] 快捷键 {_sc} 被触发，共 {len(paths)} 个流程")
                                 import threading as _th
                                 for path in paths:
                                     if not self.replay_enabled:
@@ -9017,6 +9114,7 @@ class AutoRecorderApp(QMainWindow):
                                     # ★ 跳过已删除/无效的流程文件夹
                                     recording_json = os.path.join(path, 'recording.json')
                                     if not os.path.exists(recording_json):
+                                        self.debug_print(f"[热键] 跳过无效流程: {os.path.basename(path)}（无recording.json）")
                                         continue
                                     _t = _th.Thread(target=self._safe_replay_folder, args=(path,), daemon=True)
                                     _t.start()
