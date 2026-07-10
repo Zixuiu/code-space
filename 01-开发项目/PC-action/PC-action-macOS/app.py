@@ -9014,6 +9014,10 @@ class AutoRecorderApp(QMainWindow):
                                 for path in paths:
                                     if not self.replay_enabled:
                                         break
+                                    # ★ 跳过已删除/无效的流程文件夹
+                                    recording_json = os.path.join(path, 'recording.json')
+                                    if not os.path.exists(recording_json):
+                                        continue
                                     _t = _th.Thread(target=self._safe_replay_folder, args=(path,), daemon=True)
                                     _t.start()
                             except Exception as e:
@@ -9035,6 +9039,11 @@ class AutoRecorderApp(QMainWindow):
 
     def _safe_replay_folder(self, folder_path):
         """在线程中安全执行回放，防止异常导致线程崩溃"""
+        # ★ 提前检查文件夹和recording.json是否存在，避免不必要地获取锁
+        recording_json_path = os.path.join(folder_path, 'recording.json')
+        if not os.path.exists(recording_json_path):
+            self.debug_print(f"[回放] 找不到recording.json文件: {recording_json_path}")
+            return
         try:
             self.replay_folder_operations(folder_path)
         except Exception as e:
@@ -9044,8 +9053,8 @@ class AutoRecorderApp(QMainWindow):
                 traceback.print_exc()
             except Exception:
                 pass
-            finally:
-                self.is_replaying = False
+        finally:
+            self.is_replaying = False
 
 
 class ComboSkillRunner:
