@@ -84,6 +84,14 @@ class SelectionOverlay(QWidget):
         from PyQt5.QtCore import QTimer
         QTimer.singleShot(100, self._delayed_show)
     
+    def hideEvent(self, event):
+        """窗口隐藏事件 - 自动释放键盘抓取，避免干扰其他应用"""
+        try:
+            self.releaseKeyboard()
+        except Exception:
+            pass
+        super().hideEvent(event)
+    
     def _delayed_show(self):
         """延迟显示和置顶操作"""
         # 立即显示并置顶
@@ -107,9 +115,14 @@ class SelectionOverlay(QWidget):
         # 再次设置焦点，确保键盘事件能被捕获
         self.setFocus(Qt.ActiveWindowFocusReason)
         
-        # 使用定时器持续确保焦点
+        # 抓取键盘输入，无需依赖窗口焦点也能捕获快捷键
+        # grabKeyboard() 将所有键盘事件定向到此窗口，不依赖焦点
+        self.grabKeyboard()
+        print("SelectionOverlay: 已抓取键盘输入 (grabKeyboard)")
+        
+        # 使用定时器持续确保焦点（作为grabKeyboard的补充，用于鼠标事件）
         from PyQt5.QtCore import QTimer
-        self.focus_timer = QTimer()
+        self.focus_timer = QTimer(self)
         self.focus_timer.timeout.connect(self.ensure_focus)
         # 如果刚刚录了 Win+key（可能打开了系统对话框），先不抢焦点
         if getattr(self, '_win_last_recorded', '') == '':
@@ -125,12 +138,19 @@ class SelectionOverlay(QWidget):
         self._start_win_hook()
     
     def ensure_focus(self):
-        """确保窗口始终有焦点"""
+        """确保窗口始终有焦点和键盘抓取（仅在可见时抢焦点，避免干扰隐藏状态）"""
+        if not self.isVisible():
+            return  # 窗口隐藏时不抢焦点，避免干扰操作执行
+        # 每次检查都重新抓取键盘，防止系统弹窗/焦点切换导致 grabKeyboard 丢失
+        try:
+            self.grabKeyboard()
+        except Exception:
+            pass
         if not self.hasFocus():
             self.raise_()
             self.activateWindow()
             self.setFocus(Qt.ActiveWindowFocusReason)
-            print("SelectionOverlay: 重新获取焦点")
+            # print("SelectionOverlay: 重新获取焦点")  # 注释掉避免刷屏
     
     def paintEvent(self, event):
         """绘制事件"""
@@ -290,16 +310,20 @@ class SelectionOverlay(QWidget):
     
     def keyPressEvent(self, event):
         """键盘按下事件"""
+        # 始终消费事件，阻止传播到系统或其他窗口
         if event.key() == Qt.Key_Escape:
             # ESC键取消选择
             print(f"[DEBUG] ESC键被按下，准备关闭SelectionOverlay，当前recording_dir: {self.recording_dir}")
             self.close()
+            event.accept()
         elif event.key() == Qt.Key_T:
             # T键添加文本输入
             self.add_text_input()
+            event.accept()
         elif event.key() == Qt.Key_K:
             # K键添加按键操作
             self.add_keyboard_input()
+            event.accept()
         elif event.modifiers() & Qt.ControlModifier:
             # 处理Ctrl组合键
             key = event.key()
@@ -316,6 +340,9 @@ class SelectionOverlay(QWidget):
             elif key == Qt.Key_S:
                 self.add_keyboard_shortcut('ctrl+s')
             # 阻止事件传播，避免系统快捷键触发
+            event.accept()
+        else:
+            # 其他按键也消费掉，防止误触透传到下层窗口
             event.accept()
     
     def save_selection(self, x1, y1, x2, y2, button=Qt.LeftButton):
@@ -504,6 +531,9 @@ class SelectionOverlay(QWidget):
             # 强制设置焦点，确保键盘事件能被捕获
             self.setFocus(Qt.ActiveWindowFocusReason)
             
+            # 抓取键盘输入，确保快捷键能立即响应
+            self.grabKeyboard()
+            
             # 强制重绘窗口，确保显示最新的屏幕内容
             self.update()
             
@@ -517,6 +547,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
                 
                 self.update()
             except:
@@ -692,6 +723,10 @@ class SelectionOverlay(QWidget):
         """添加文本输入操作"""
         try:
             # 先隐藏选择窗口，让用户能看到后面的界面
+            # 停止焦点定时器，避免干扰隐藏状态
+            if hasattr(self, 'focus_timer') and self.focus_timer is not None:
+                if self.focus_timer.isActive():
+                    self.focus_timer.stop()
             self.hide()
             
             # 短暂延迟确保窗口完全隐藏
@@ -784,12 +819,26 @@ class SelectionOverlay(QWidget):
                 import pyperclip
                 import pyautogui
                 
+                # 先保存用户当前的剪贴板内容，避免文本输入覆盖用户已复制的文本
+                saved_clipboard = None
+                try:
+                    saved_clipboard = pyperclip.paste()
+                except Exception:
+                    pass
+                
                 # 将文本复制到剪贴板
                 pyperclip.copy(text)
                 
                 # 使用Ctrl+V粘贴文本
                 pyautogui.hotkey('ctrl', 'v')
                 print(f"执行文本输入(通过剪贴板): '{text}'")
+                
+                # 恢复用户原来的剪贴板内容
+                if saved_clipboard is not None:
+                    try:
+                        pyperclip.copy(saved_clipboard)
+                    except Exception:
+                        pass
                 
                 # 短暂延迟等待文本输入完成
                 time.sleep(0.5)
@@ -804,6 +853,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
                 
         except Exception as e:
             print(f"添加文本输入失败: {e}")
@@ -815,6 +865,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
             except:
                 pass
 
@@ -834,11 +885,36 @@ class SelectionOverlay(QWidget):
                 if hasattr(self.parent, 'current_recording_dir'):
                     self.parent.current_recording_dir = self.recording_dir
                 print(f"[DEBUG] 自动创建录制目录: {self.recording_dir}")
-                
-            # 保存当前屏幕状态作为操作截图
+            
+            # 先隐藏覆盖层，让快捷键能真正执行在目标应用上
+            # 停止焦点定时器，避免干扰隐藏状态
+            if hasattr(self, 'focus_timer') and self.focus_timer is not None:
+                if self.focus_timer.isActive():
+                    self.focus_timer.stop()
+            self.hide()
+            import time
+            # 确保窗口完全隐藏再执行快捷键
+            QApplication.processEvents()
+            time.sleep(0.1)
+            
+            # 在目标应用中实际执行快捷键
+            import pyautogui
+            keys = key_str.lower().split('+')
+            if len(keys) > 1:
+                pyautogui.hotkey(*keys)
+                print(f"已执行快捷键: {key_str}")
+            else:
+                pyautogui.press(keys[0])
+                print(f"已执行按键: {key_str}")
+            time.sleep(0.3)
+            
+            # 重新截取屏幕（快捷键执行后的状态）
+            screen = QGuiApplication.primaryScreen()
+            self.screen_pixmap = screen.grabWindow(0)
+            
+            # 保存当前屏幕状态作为操作截图（快捷键执行后）
             try:
                 from utils import save_screenshot
-                screen = QGuiApplication.primaryScreen()
                 screen_size = screen.size()
                 next_step = self.operation_count + 1
                 file_path = os.path.join(self.recording_dir, f"操作{next_step}.png")
@@ -858,13 +934,24 @@ class SelectionOverlay(QWidget):
                 "delay": 0.2
             }
             
+            # 如果是粘贴操作（Ctrl+V），保存当前剪贴板内容，确保回放时能粘贴正确内容
+            lower_key = key_str.lower()
+            if 'ctrl' in lower_key and 'v' in lower_key:
+                import pyperclip
+                try:
+                    clipboard_content = pyperclip.paste()
+                    if clipboard_content:
+                        operation['clipboard'] = clipboard_content
+                        print(f"已保存剪贴板内容({len(clipboard_content)}字符)用于Ctrl+V回放")
+                except Exception:
+                    pass
+            
             # 保存操作
             self.save_operation_to_json(operation)
             print(f"✅ 已录制快捷键: {key_str} (步骤 {self.operation_count})")
             
-            # 短暂延迟后重新开始选择
-            from PyQt5.QtCore import QTimer
-            QTimer.singleShot(200, self.start_new_selection)
+            # 重新开始选择（基于快捷键执行后的新截图）
+            self.start_new_selection()
             
         except Exception as e:
             print(f"添加键盘快捷键操作失败: {e}")
@@ -1176,6 +1263,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
                 
         except Exception as e:
             print(f"添加按键操作失败: {e}")
@@ -1187,6 +1275,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
             except:
                 pass
     
@@ -1226,8 +1315,16 @@ class SelectionOverlay(QWidget):
             # 强制设置焦点，确保键盘事件能被捕获
             self.setFocus(Qt.ActiveWindowFocusReason)
             
+            # 抓取键盘输入，确保快捷键能立即响应
+            self.grabKeyboard()
+            
             # 强制重绘窗口，确保显示最新的屏幕内容
             self.update()
+            
+            # 确保焦点定时器正在运行（窗口可见时持续抢焦点）
+            if hasattr(self, 'focus_timer') and self.focus_timer is not None:
+                if not self.focus_timer.isActive():
+                    self.focus_timer.start(100)
             
             print("已重新截取屏幕并开始新的选择流程")
             
@@ -1241,6 +1338,7 @@ class SelectionOverlay(QWidget):
                 
                 # 强制设置焦点，确保键盘事件能被捕获
                 self.setFocus(Qt.ActiveWindowFocusReason)
+                self.grabKeyboard()
             except:
                 pass
     
@@ -1774,6 +1872,11 @@ class SelectionOverlay(QWidget):
     
     def closeEvent(self, event):
         """窗口关闭事件"""
+        # 释放键盘抓取
+        try:
+            self.releaseKeyboard()
+        except Exception:
+            pass
         self._stop_win_hook()
         
         # 停止焦点检查定时器

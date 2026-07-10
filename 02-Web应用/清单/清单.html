@@ -672,6 +672,7 @@ body {
       <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
       <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
       <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
+      <button class="btn" id="copyTitleBtn" onclick="toggleCopyTitle()" style="background:#e2e8f0;color:#64748b;">📋 标题</button>
       <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
     </div>
 
@@ -723,6 +724,7 @@ let currentPageIndex = 0; // 当前激活的页面索引
 let selectedIndex = -1;
 let isRenaming = false; // 是否正在重命名状态
 let aiApiKey = ''; // AI API密钥（请自行填入）
+let copyWithPageTitle = true; // 复制时是否带页面标题
 
 // 连续回车检测变量
 let lastEnterTime = 0;
@@ -734,24 +736,9 @@ document.addEventListener('DOMContentLoaded', () => {
   renderPageTabs(); // 渲染页面标签
   renderAllCells(); // 渲染当前页面的单元格
   addKeyboardNavigation();
-  startAutoSummary(); // 启动自动总结定时器
+  // 不自动启动AI总结，避免弹框困扰
+  // 如需要AI总结，可点击工具栏「AI密钥」按钮设置后手动使用
 });
-
-// 自动总结定时器
-function startAutoSummary() {
-  // 每1秒检测一次
-  setInterval(() => {
-    const currentPage = getCurrentPageData();
-    if (!currentPage || !currentPage.cellsData) return;
-
-    currentPage.cellsData.forEach((cellText, i) => {
-      // 只有在用户不再选中/编辑该单元格时才进行AI总结
-      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
-        generateSummary(i);
-      }
-    });
-  }, 1000);
-}
 
 // 更新加号按钮位置到单元格左侧
 function updateAddButtonPosition() {
@@ -1009,14 +996,9 @@ function selectCell(index, shouldFocus = false) {
     }
   }
   
-  setTimeout(() => {
-    currentPage.cellsData.forEach((cellText, i) => {
-      if (i !== selectedIndex && cellText && cellText.trim() && (!currentPage.cellSummaries || !currentPage.cellSummaries[i])) {
-        generateSummary(i);
-      }
-    });
-  }, 500);
 }
+
+// 移除自动AI总结调用，避免弹框
 
 function onCellClick(i, e) {
   if (e.target.closest('.action-btn') || e.target.closest('.image-placeholder')) {
@@ -1104,15 +1086,43 @@ function addCell() {
   }, 10);
 }
 
+// 手动添加AI总结按钮（可选）
 function copyText(i) {
   const currentPage = getCurrentPageData();
   let t = currentPage.cellsData[i] || '';
-  const pageName = currentPage.name || '';
-  if (pageName) {
-    t = '[' + pageName + '] ' + t;
+  if (copyWithPageTitle) {
+    const pageName = currentPage.name || '';
+    if (pageName) {
+      t = '[' + pageName + '] ' + t;
+    }
   }
   if (currentPage.cellImages[i]) t = '🖼️ ' + t;
   navigator.clipboard.writeText(t).then(() => show('已复制文字'));
+}
+
+// 切换复制时是否带页面标题
+function toggleCopyTitle() {
+  copyWithPageTitle = !copyWithPageTitle;
+  localStorage.setItem('cell_editor_copy_title', copyWithPageTitle);
+  updateCopyTitleBtn();
+  show(copyWithPageTitle ? '复制已带页面标题' : '复制已取消页面标题');
+}
+
+// 更新复制标题按钮样式
+function updateCopyTitleBtn() {
+  const btn = document.getElementById('copyTitleBtn');
+  if (!btn) return;
+  if (copyWithPageTitle) {
+    btn.style.background = 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)';
+    btn.style.color = '#fff';
+    btn.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.2)';
+    btn.textContent = '📋 标题 ON';
+  } else {
+    btn.style.background = '#e2e8f0';
+    btn.style.color = '#64748b';
+    btn.style.boxShadow = 'none';
+    btn.textContent = '📋 标题 OFF';
+  }
 }
 
 function copyImage(i) {
@@ -1572,9 +1582,7 @@ const generatingSummaries = new Set();
 
 async function generateSummary(cellIndex) {
   if (!aiApiKey) {
-    show('请先设置AI API密钥');
-    openApiKeyDialog();
-    return;
+    return; // 没有API密钥，静默跳过
   }
 
   const currentPage = getCurrentPageData();
@@ -1679,8 +1687,7 @@ async function generateSummary(cellIndex) {
 
 async function generateAllSummaries() {
   if (!aiApiKey) {
-    show('请先设置AI API密钥');
-    openApiKeyDialog();
+    show('请先设置AI API密钥，使用工具栏「AI密钥」按钮设置');
     return;
   }
 
@@ -1716,6 +1723,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedKey) {
     aiApiKey = savedKey;
   }
+  // 加载复制标题开关状态
+  const savedCopyTitle = localStorage.getItem('cell_editor_copy_title');
+  if (savedCopyTitle !== null) {
+    copyWithPageTitle = savedCopyTitle === 'true';
+  }
+  updateCopyTitleBtn();
 });
 </script>
 </body>

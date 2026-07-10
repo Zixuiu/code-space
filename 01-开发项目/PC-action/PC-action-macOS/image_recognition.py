@@ -168,10 +168,22 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         debug_print(f"[回放] 步骤 {step}: 文本输入 '{preview}' (共 {len(text)} 字符)")
                         # 使用剪贴板方式支持中文输入
                         import pyperclip
+                        # 先保存用户当前剪贴板内容，避免文本输入污染剪贴板
+                        saved_clipboard = None
+                        try:
+                            saved_clipboard = pyperclip.paste()
+                        except Exception:
+                            pass
                         pyperclip.copy(text)
                         if _interruptible_sleep(0.15, stop_check=stop_check):
                             break
                         pyautogui.hotkey('ctrl', 'v')
+                        # 恢复用户原来的剪贴板内容，防止后续 Ctrl+V 粘贴错误内容
+                        if saved_clipboard is not None:
+                            try:
+                                pyperclip.copy(saved_clipboard)
+                            except Exception:
+                                pass
                         success_count += 1
                         debug_print(f"[回放] 步骤 {step}: 文本输入完成")
                     else:
@@ -219,6 +231,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
                         # 执行组合键
                         try:
+                            # 如果是 Ctrl+V 且有保存的剪贴板内容，先恢复剪贴板
+                            if 'clipboard' in operation and operation['clipboard']:
+                                import pyperclip
+                                pyperclip.copy(operation['clipboard'])
+                                debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             # 使用pyautogui的hotkey方法处理组合键
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1

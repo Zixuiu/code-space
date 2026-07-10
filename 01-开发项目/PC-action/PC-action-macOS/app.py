@@ -1653,24 +1653,36 @@ class FolderManager(QDialog):
                             del recording_data[i]
                             break
                     
-                    # 重命名后续图片文件（按编号从大到小排序，避免重名冲突）
+                    # 重命名后续图片文件（两步法：先改临时名，再改回正式名，避免冲突）
                     other_files = [
                         f for f in os.listdir(folder_path)
                         if f.lower().endswith('.png') and f != img_file
                         and re.search(r'操作(\d+)\.png', f)
                     ]
-                    other_files.sort(key=lambda x: -int(re.search(r'操作(\d+)\.png', x).group(1)))
+                    # 第一步：将所有需要重命名的文件先改为临时文件名
+                    for other_file in other_files:
+                        other_match = re.search(r'操作(\d+)\.png', other_file)
+                        if other_match:
+                            other_step = int(other_match.group(1))
+                            if other_step > deleted_step:
+                                old_path = os.path.join(folder_path, other_file)
+                                temp_name = f"操作{other_step}_tmp.png"
+                                temp_path = os.path.join(folder_path, temp_name)
+                                if os.path.exists(old_path):
+                                    os.rename(old_path, temp_path)
+                    # 第二步：将临时文件名改为最终的新编号
                     for other_file in other_files:
                         other_match = re.search(r'操作(\d+)\.png', other_file)
                         if other_match:
                             other_step = int(other_match.group(1))
                             if other_step > deleted_step:
                                 new_step = other_step - 1
+                                temp_name = f"操作{other_step}_tmp.png"
                                 new_name = f"操作{new_step}.png"
-                                old_path = os.path.join(folder_path, other_file)
+                                temp_path = os.path.join(folder_path, temp_name)
                                 new_path = os.path.join(folder_path, new_name)
-                                if os.path.exists(old_path) and not os.path.exists(new_path):
-                                    os.rename(old_path, new_path)
+                                if os.path.exists(temp_path):
+                                    os.rename(temp_path, new_path)
                     
                     # 重新排序步骤，并同步更新image字段
                     for i, step in enumerate(recording_data):
@@ -5467,6 +5479,22 @@ class AutoRecorderApp(QMainWindow):
                 
                 self.log_text_edit.append(log_line)
                 
+                # 限制日志行数，防止 QTextEdit 文档过大导致 UI 卡死
+                doc = self.log_text_edit.document()
+                MAX_LOG_LINES = 500
+                if doc.blockCount() > MAX_LOG_LINES:
+                    # 删除最前面的 100 行，保留最近的内容
+                    cursor = self.log_text_edit.textCursor()
+                    cursor.movePosition(cursor.Start)
+                    # 选择前 100 个 block 的文本内容
+                    for _ in range(100):
+                        cursor.movePosition(cursor.Down, cursor.KeepAnchor)
+                    cursor.removeSelectedText()
+                    # 删除留下的空行（block separator）
+                    cursor.movePosition(cursor.Start)
+                    if cursor.movePosition(cursor.Down, cursor.KeepAnchor):
+                        cursor.removeSelectedText()
+                
                 # 只有在用户在底部时才自动滚动
                 if should_auto_scroll:
                     scrollbar.setValue(scrollbar.maximum())
@@ -5509,8 +5537,8 @@ class AutoRecorderApp(QMainWindow):
 
         self.log_window = QDialog(self)
         self.log_window.setWindowTitle("运行日志")
-        self.log_window.setMinimumSize(700, 500)
         self.log_window.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.log_window.setMinimumSize(700, 500)
         center_window(self.log_window)
 
         layout = QVBoxLayout(self.log_window)
