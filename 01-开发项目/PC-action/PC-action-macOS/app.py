@@ -1212,10 +1212,13 @@ class FolderManager(QDialog):
             
             def view_images_grave_handler():
                 """查看图片窗口中 grave 键的处理"""
+                # ★ 检查临时禁用标志
+                if getattr(self, '_hotkeys_temporarily_disabled', False):
+                    return
                 # print("[查看图片] ===== 全局热键 grave 被按下 =====")  # [日志已禁用]
                 # print(f"[查看图片] current_dialog: {current_dialog}")  # [日志已禁用]
                 # print(f"[查看图片] current_folder: {current_folder}")  # [日志已禁用]
-                
+
                 # 直接调用，不使用 QTimer
                 try:
                     self._on_grave_key_in_view_images(current_dialog, current_folder)
@@ -4655,6 +4658,7 @@ class AutoRecorderApp(QMainWindow):
         self.replay_timeout = 2.0
         self._replay_lock = threading.Lock()  # ★ 多线程回放互斥锁
         self._reinitializing = False  # ★ 热键重初始化标志（含超时检测，防止卡死）
+        self._hotkeys_temporarily_disabled = False  # ★ 回放期间临时禁用热键标志（不清空字典）
         self.replay_enabled = False  # 回放功能开关（默认关闭）
         self.shortcuts = {}
         self.shortcut_objects = []
@@ -6336,34 +6340,15 @@ class AutoRecorderApp(QMainWindow):
         
         # ★ 记录锁获取时间，用于超时检测
         self._replay_lock_time = time.time()
-        
-        # ★ 保存钩子禁用状态，用于回放完成后恢复
+        # ★ 新策略：使用标志位禁用热键，不清空字典
+        # 这样可以保留 keyboard 库的完整状态（handlers、nonblocking_hotkeys 等）
+        # 避免事件处理链断裂的风险，回放完成后只需清除标志位
         _hooks_disabled = False
         try:
-            # ★ 临时禁用全局热键处理器（不杀死监听线程！）
-            # 旧代码使用 unhook_all() 会杀死 keyboard 监听线程，
-            # 且旧线程的 finally 块会卸载新线程刚安装的钩子，导致热键永久失效。
-            # 正确做法：只清空 hotkey 字典（blocking_hotkeys/nonblocking_hotkeys），
-            # 保留原始 handlers 和监听线程，回放结束后重新注册热键即可。
-            import keyboard as _kb_hook
-            try:
-                if hasattr(_kb_hook, '_listener') and _kb_hook._listener:
-                    # ★ 关键修复：不清空原始 handlers（否则 keyboard 库事件链断裂）
-                    # 热键实际存储在 blocking_hotkeys 和 nonblocking_hotkeys 中
-                    if hasattr(_kb_hook._listener, 'blocking_hotkeys'):
-                        _kb_hook._listener.blocking_hotkeys.clear()
-                    if hasattr(_kb_hook._listener, 'nonblocking_hotkeys'):
-                        _kb_hook._listener.nonblocking_hotkeys.clear()
-                    if hasattr(_kb_hook._listener, 'blocking_keys'):
-                        _kb_hook._listener.blocking_keys.clear()
-                    if hasattr(_kb_hook._listener, 'nonblocking_keys'):
-                        _kb_hook._listener.nonblocking_keys.clear()
-                    if hasattr(_kb_hook._listener, 'filtered_modifiers'):
-                        _kb_hook._listener.filtered_modifiers.clear()
-                _hooks_disabled = True
-                self.debug_print("[回放] 已临时清空热键字典，监听线程仍在运行")
-            except Exception as _hook_err:
-                self.debug_print(f"[回放] 禁用热键处理器失败（不影响回放）: {_hook_err}")
+            # ★ 设置临时禁用标志
+            self._hotkeys_temporarily_disabled = True
+            _hooks_disabled = True
+            self.debug_print("[回放] 已设置热键临时禁用标志，keyboard库状态完整保留")
 
             # 递增调用次数（只要是回放就计数，不依赖成功失败）
             folder_name = os.path.basename(folder_path)
@@ -6440,16 +6425,14 @@ class AutoRecorderApp(QMainWindow):
             # ★ 释放回放锁，允许后续回放执行
             self._replay_lock_time = None
             self._replay_lock.release()
-            # ★ 回放结束后恢复全局热键处理器（监听线程仍然存活，只需重新注册处理器）★
+            # ★ 回放结束后恢复全局热键处理器（只需清除标志位）★
             if _hooks_disabled:
                 try:
-                    # ★ 监听线程仍在运行，只需重新注册处理器即可 ★
-                    # 不需要重新启动监听线程，避免旧线程 finally 卸载新钩子的竞态条件
-                    self.debug_print("[回放] 已禁用旧钩子，立即在后台线程恢复热键")
-                    import threading as _th
-                    _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
+                    # ★ 新策略：keyboard 库状态完整保留，只需清除禁用标志
+                    self._hotkeys_temporarily_disabled = False
+                    self.debug_print("[回放] 已清除热键临时禁用标志，热键恢复响应")
                 except Exception as _re_err:
-                    self.debug_print(f"[回放] 恢复键盘钩子失败: {_re_err}")
+                    self.debug_print(f"[回放] 恢复热键失败: {_re_err}")
     
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
@@ -6457,14 +6440,16 @@ class AutoRecorderApp(QMainWindow):
             # 清除批量播放队列
             if hasattr(self, '_batch_play_queue'):
                 del self._batch_play_queue
-            
+
             # 设置停止标志，让回放函数自行停止
             from image_recognition import set_replay_stop_flag
             set_replay_stop_flag(True)
-            
+
             # 立即重置回放状态
             self.is_replaying = False
             self.replay_enabled = False
+            # ★ 清除热键临时禁用标志
+            self._hotkeys_temporarily_disabled = False
             
             # 同时停止所有组合技
             if hasattr(self, 'runners') and self.runners:
@@ -8719,6 +8704,9 @@ class AutoRecorderApp(QMainWindow):
         try:
             def hotkey_handler():
                 try:
+                    # ★ 检查临时禁用标志
+                    if getattr(self, '_hotkeys_temporarily_disabled', False):
+                        return
                     # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
                     QTimer.singleShot(0, self.toggle_recording)
                 except Exception as _eh:
@@ -8882,6 +8870,8 @@ class AutoRecorderApp(QMainWindow):
                 return
         self._reinitializing = True
         self._reinitializing_start = time.time()
+        # ★ 清除热键临时禁用标志，确保恢复后可以正常工作
+        self._hotkeys_temporarily_disabled = False
         self.debug_print('[热键恢复] 开始重新初始化所有全局热键')
 
         # ★ 启动看门狗线程：15秒后如果重初始化仍未完成，自动重置标志位
@@ -9058,6 +9048,9 @@ class AutoRecorderApp(QMainWindow):
         try:
             def hotkey_handler():
                 try:
+                    # ★ 检查临时禁用标志
+                    if getattr(self, '_hotkeys_temporarily_disabled', False):
+                        return
                     # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
                     QTimer.singleShot(0, self.toggle_recording)
                 except Exception as _eh:
@@ -9170,6 +9163,11 @@ class AutoRecorderApp(QMainWindow):
                         def handler():
                             nonlocal _last_trigger_time
                             try:
+                                # ★ 新策略：使用标志位禁用热键，不清空字典
+                                # 这样可以保留 keyboard 库的完整状态，避免事件链断裂
+                                if getattr(self, '_hotkeys_temporarily_disabled', False):
+                                    # 回放期间临时禁用，不执行任何操作
+                                    return
                                 # ★ 诊断：即使不执行也要记录热键触发，便于排查问题
                                 if not self.replay_enabled:
                                     self.debug_print(f"[热键] 快捷键 {_sc} 触发但回放已关闭 (replay_enabled=False)")
