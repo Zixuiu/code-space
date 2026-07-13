@@ -8945,14 +8945,26 @@ class AutoRecorderApp(QMainWindow):
                     _bl = getattr(_kb_diag._listener, 'blocking_hotkeys', {})
                     _nb_count = len(_nb)
                     _bl_count = len(_bl)
-                    _h_count = len(getattr(_kb_diag._listener, 'handlers', []))
+                    _handlers = getattr(_kb_diag._listener, 'handlers', [])
+                    _h_count = len(_handlers)
+                    # ★ 检查 handlers 中是否有 process_event 函数
+                    _has_process_event = any('process_event' in str(h) for h in _handlers)
                     _listener_alive = False
                     _processor_alive = False
                     if hasattr(_kb_diag._listener, 'listening_thread') and _kb_diag._listener.listening_thread:
                         _listener_alive = _kb_diag._listener.listening_thread.is_alive()
                     if hasattr(_kb_diag._listener, 'processing_thread') and _kb_diag._listener.processing_thread:
                         _processor_alive = _kb_diag._listener.processing_thread.is_alive()
-                    self.debug_print(f'[热键诊断] nonblocking_hotkeys={_nb_count}个 | blocking_hotkeys={_bl_count}个 | handlers={_h_count}个(原始) | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_kb_diag._listener.listening}')
+                    self.debug_print(f'[热键诊断] nonblocking_hotkeys={_nb_count}个 | blocking_hotkeys={_bl_count}个 | handlers={_h_count}个(原始,process_event={_has_process_event}) | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_kb_diag._listener.listening}')
+                    # ★ 如果 handlers 为空但 nonblocking_hotkeys 有内容，说明事件链断裂
+                    if _h_count == 0 and _nb_count > 0:
+                        self.debug_print('[热键诊断] ⚠️ handlers为空但有热键注册，事件处理链可能断裂！')
+                        # 尝试修复：调用 keyboard.hook() 强制添加事件处理器
+                        try:
+                            _kb_diag.hook(lambda e: None, suppress=False)
+                            self.debug_print('[热键诊断] 已尝试通过 hook() 修复事件处理器')
+                        except Exception as _fix_e:
+                            self.debug_print(f'[热键诊断] 修复失败: {_fix_e}')
                 else:
                     self.debug_print('[热键诊断] ⚠️ _listener 为 None')
             except Exception as _diag_e:
@@ -9158,7 +9170,9 @@ class AutoRecorderApp(QMainWindow):
                         def handler():
                             nonlocal _last_trigger_time
                             try:
+                                # ★ 诊断：即使不执行也要记录热键触发，便于排查问题
                                 if not self.replay_enabled:
+                                    self.debug_print(f"[热键] 快捷键 {_sc} 触发但回放已关闭 (replay_enabled=False)")
                                     return
                                 # ★ 防抖：如果 500ms 内已触发过，忽略本次
                                 _now = time.time()
