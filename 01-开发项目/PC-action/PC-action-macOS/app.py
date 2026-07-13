@@ -6340,28 +6340,30 @@ class AutoRecorderApp(QMainWindow):
         # ★ 保存钩子禁用状态，用于回放完成后恢复
         _hooks_disabled = False
         try:
-            # ★ 禁用全局键盘钩子，避免keyboard库的钩子拦截模拟按键
-            # 确保 pyautogui.hotkey/press 发出的按键能到达目标应用窗口
+            # ★ 临时禁用全局热键处理器（不杀死监听线程！）
+            # 旧代码使用 unhook_all() 会杀死 keyboard 监听线程，
+            # 且旧线程的 finally 块会卸载新线程刚安装的钩子，导致热键永久失效。
+            # 正确做法：只清空 hotkey 字典（blocking_hotkeys/nonblocking_hotkeys），
+            # 保留原始 handlers 和监听线程，回放结束后重新注册热键即可。
             import keyboard as _kb_hook
             try:
-                # ★ 安全禁用钩子：用超时线程包装 unhook_all，防止死锁 ★
-                _disable_hooks_ok = False
-                def _do_unhook():
-                    nonlocal _disable_hooks_ok
-                    _kb_hook.unhook_all()
-                    _disable_hooks_ok = True
-                _t = threading.Thread(target=_do_unhook, daemon=True)
-                _t.start()
-                _t.join(timeout=3.0)
-                if not _disable_hooks_ok:
-                    self.debug_print("[回放] unhook_all 超时(3s)，直接设置 listening=False 强制禁用")
                 if hasattr(_kb_hook, '_listener') and _kb_hook._listener:
-                    _kb_hook._listener.listening = False
-                    _kb_hook._listener.handlers.clear()
+                    # ★ 关键修复：不清空原始 handlers（否则 keyboard 库事件链断裂）
+                    # 热键实际存储在 blocking_hotkeys 和 nonblocking_hotkeys 中
+                    if hasattr(_kb_hook._listener, 'blocking_hotkeys'):
+                        _kb_hook._listener.blocking_hotkeys.clear()
+                    if hasattr(_kb_hook._listener, 'nonblocking_hotkeys'):
+                        _kb_hook._listener.nonblocking_hotkeys.clear()
+                    if hasattr(_kb_hook._listener, 'blocking_keys'):
+                        _kb_hook._listener.blocking_keys.clear()
+                    if hasattr(_kb_hook._listener, 'nonblocking_keys'):
+                        _kb_hook._listener.nonblocking_keys.clear()
+                    if hasattr(_kb_hook._listener, 'filtered_modifiers'):
+                        _kb_hook._listener.filtered_modifiers.clear()
                 _hooks_disabled = True
-                self.debug_print("[回放] 已禁用全局键盘钩子，确保模拟按键直达目标窗口")
+                self.debug_print("[回放] 已临时清空热键字典，监听线程仍在运行")
             except Exception as _hook_err:
-                self.debug_print(f"[回放] 禁用键盘钩子失败（不影响回放）: {_hook_err}")
+                self.debug_print(f"[回放] 禁用热键处理器失败（不影响回放）: {_hook_err}")
 
             # 递增调用次数（只要是回放就计数，不依赖成功失败）
             folder_name = os.path.basename(folder_path)
@@ -6438,19 +6440,12 @@ class AutoRecorderApp(QMainWindow):
             # ★ 释放回放锁，允许后续回放执行
             self._replay_lock_time = None
             self._replay_lock.release()
-            # ★ 回放结束后恢复全局键盘钩子，确保录制/停止热键可用 ★
+            # ★ 回放结束后恢复全局热键处理器（监听线程仍然存活，只需重新注册处理器）★
             if _hooks_disabled:
                 try:
-                    # ★ 在后台线程中重新初始化热键，不阻塞当前线程 ★
-                    # 注意：不能在后台线程调用 QTimer.singleShot（无事件循环）
-                    # 也不能在主线程调用 _reinitialize_all_hotkeys（可能卡死）
-                    # 正确做法：在后台线程中直接调用 _reinitialize_all_hotkeys
-                    import keyboard as _kb_hook2
-                    if hasattr(_kb_hook2, '_listener') and _kb_hook2._listener:
-                        _kb_hook2._listener.listening = False
-                        _kb_hook2._listener.handlers.clear()
+                    # ★ 监听线程仍在运行，只需重新注册处理器即可 ★
+                    # 不需要重新启动监听线程，避免旧线程 finally 卸载新钩子的竞态条件
                     self.debug_print("[回放] 已禁用旧钩子，立即在后台线程恢复热键")
-                    # 直接在后台线程中重新初始化热键
                     import threading as _th
                     _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
                 except Exception as _re_err:
@@ -8763,7 +8758,7 @@ class AutoRecorderApp(QMainWindow):
         self._hotkey_health_timer = QTimer(self)
         self._hotkey_health_timer.timeout.connect(self._check_and_restore_hotkeys)
         self._hotkey_health_timer.start(1000)  # 每1秒检查一次，更快响应
-        self._force_restart_counter = 0  # 强制重启计数器，每5分钟强制刷新一次
+        # ★ 不再使用强制重启计数器（旧代码每5分钟强制刷新导致热键永久失效）
         log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
         
         # 健康检查日志定时器（每30秒打印一次状态，避免刷屏）
@@ -8780,18 +8775,27 @@ class AutoRecorderApp(QMainWindow):
             return
 
         try:
-            # 检查 keyboard 后台监听线程是否存活
+            # 检查 keyboard 后台线程是否存活
+            # ★ 关键：需要检查 BOTH listening_thread 和 processing_thread
             listener_alive = False
+            processing_alive = False
             try:
                 listener = getattr(_kb, '_listener', None)
                 if listener is not None:
                     if listener.listening:
+                        # 检查接收OS事件的线程
                         if hasattr(listener, 'listening_thread') and listener.listening_thread:
                             listener_alive = listener.listening_thread.is_alive()
                         else:
                             listener_alive = False
+                        # 检查处理热键回调的线程（processing_thread 死亡会导致事件入队却无人处理）
+                        if hasattr(listener, 'processing_thread') and listener.processing_thread:
+                            processing_alive = listener.processing_thread.is_alive()
+                        else:
+                            processing_alive = False
             except Exception:
                 listener_alive = False
+                processing_alive = False
 
             grave_disabled = getattr(self, '_grave_hotkey_temporarily_disabled', False)
             has_grave = getattr(self, 'grave_hotkey_id', None) is not None
@@ -8802,9 +8806,13 @@ class AutoRecorderApp(QMainWindow):
             actual_folder_shortcuts = len(shortcut_objects)
 
             need_restore = False
-            # 1. 检查监听线程是否存活
+            # 1. 检查 listening_thread 是否存活
             if not listener_alive:
-                self.debug_print('[热键健康] ❌ 监听线程未存活，准备恢复')
+                self.debug_print('[热键健康] ❌ listening_thread 未存活，准备恢复')
+                need_restore = True
+            # 1b. 检查 processing_thread 是否存活
+            elif not processing_alive:
+                self.debug_print('[热键健康] ❌ processing_thread 未存活（事件入队但无人处理），准备恢复')
                 need_restore = True
             # 2. 检查grave热键是否注册
             elif not grave_disabled and not has_grave:
@@ -8831,12 +8839,10 @@ class AutoRecorderApp(QMainWindow):
                     except Exception as _re_err:
                         log_error(f'[热键健康] 强制释放回放锁失败: {_re_err}')
 
-            # 6. 每5分钟强制刷新一次
-            self._force_restart_counter += 1
-            if not need_restore and self._force_restart_counter >= 300:
-                self.debug_print('[热键健康] 5分钟定期刷新热键')
-                need_restore = True
-                self._force_restart_counter = 0
+            # 6. ★ 不再主动强制刷新 — 强行重启反而会破坏正常工作的热键
+            #     旧代码每5分钟调用 unhook_all() 会杀死监听线程，
+            #     且旧线程的 finally 块会卸载新线程刚安装的钩子，导致热键永久失效
+            #     改为：只在实际检测到热键失效时才恢复
 
             if need_restore:
                 import threading as _th
@@ -8850,14 +8856,17 @@ class AutoRecorderApp(QMainWindow):
             import keyboard as _kb
             listener = getattr(_kb, '_listener', None)
             alive = False
+            proc_alive = False
             if listener:
                 if hasattr(listener, 'listening_thread') and listener.listening_thread:
                     alive = listener.listening_thread.is_alive()
                 else:
                     alive = listener.listening
+                if hasattr(listener, 'processing_thread') and listener.processing_thread:
+                    proc_alive = listener.processing_thread.is_alive()
             has_grave = getattr(self, 'grave_hotkey_id', None) is not None
             has_f12 = getattr(self, 'stop_replay_hotkey_id', None) is not None
-            log_info(f'[热键状态] listener={alive} | grave={"✓" if has_grave else "✗"} | f12={"✓" if has_f12 else "✗"} | shortcuts={len(getattr(self, "shortcut_objects", []))}')
+            log_info(f'[热键状态] listener={alive} | processor={proc_alive} | grave={"✓" if has_grave else "✗"} | f12={"✓" if has_f12 else "✗"} | shortcuts={len(getattr(self, "shortcut_objects", []))}')
         except Exception:
             pass
 
@@ -8894,6 +8903,31 @@ class AutoRecorderApp(QMainWindow):
         try:
             self.debug_print('[热键恢复] 清理旧钩子...')
             self._cleanup_all_hotkeys()
+
+            # ★ 关键修复：检查 keyboard 监听线程是否还活着
+            # keyboard 的监听线程可能因异常崩溃，但 listening 标志位仍是 True
+            # 导致 add_hotkey → start_if_necessary 跳过启动新线程，热键永久失效
+            # ★ 新增：同时检查 processing_thread，如果死亡则事件入队但无人处理，热键也不响应
+            try:
+                import keyboard as _kb_check
+                if hasattr(_kb_check, '_listener') and _kb_check._listener:
+                    _kb_listener = _kb_check._listener
+                    _need_reset = False
+                    # 检查 listening_thread
+                    if hasattr(_kb_listener, 'listening_thread') and _kb_listener.listening_thread:
+                        if not _kb_listener.listening_thread.is_alive() and _kb_listener.listening:
+                            self.debug_print('[热键恢复] ⚠️ listening_thread 已死但 listening=True，强制重置')
+                            _need_reset = True
+                    # 检查 processing_thread（事件处理线程，死亡会导致热键无响应）
+                    if hasattr(_kb_listener, 'processing_thread') and _kb_listener.processing_thread:
+                        if not _kb_listener.processing_thread.is_alive() and _kb_listener.listening:
+                            self.debug_print('[热键恢复] ⚠️ processing_thread 已死但 listening=True，强制重置')
+                            _need_reset = True
+                    if _need_reset:
+                        _kb_listener.listening = False
+            except Exception as _le:
+                self.debug_print(f'[热键恢复] 检查监听线程状态失败: {_le}')
+
             self.debug_print('[热键恢复] 注册文件夹快捷键...')
             self.update_shortcuts()
             self.debug_print('[热键恢复] 注册·键录制热键...')
@@ -8901,6 +8935,28 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print('[热键恢复] 注册F12停止热键...')
             self.register_stop_replay_hotkey()
             self.debug_print('[热键恢复] ★ 所有全局热键重新初始化完成')
+
+            # ★ 诊断：检查注册后热键容器状态（注意：hotkey存储在 nonblocking_hotkeys 和 blocking_hotkeys 中，
+            # 不是存储在 handlers 列表中！handlers 是原始事件处理器列表，hotkey 不在这里）
+            try:
+                import keyboard as _kb_diag
+                if hasattr(_kb_diag, '_listener') and _kb_diag._listener:
+                    _nb = getattr(_kb_diag._listener, 'nonblocking_hotkeys', {})
+                    _bl = getattr(_kb_diag._listener, 'blocking_hotkeys', {})
+                    _nb_count = len(_nb)
+                    _bl_count = len(_bl)
+                    _h_count = len(getattr(_kb_diag._listener, 'handlers', []))
+                    _listener_alive = False
+                    _processor_alive = False
+                    if hasattr(_kb_diag._listener, 'listening_thread') and _kb_diag._listener.listening_thread:
+                        _listener_alive = _kb_diag._listener.listening_thread.is_alive()
+                    if hasattr(_kb_diag._listener, 'processing_thread') and _kb_diag._listener.processing_thread:
+                        _processor_alive = _kb_diag._listener.processing_thread.is_alive()
+                    self.debug_print(f'[热键诊断] nonblocking_hotkeys={_nb_count}个 | blocking_hotkeys={_bl_count}个 | handlers={_h_count}个(原始) | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_kb_diag._listener.listening}')
+                else:
+                    self.debug_print('[热键诊断] ⚠️ _listener 为 None')
+            except Exception as _diag_e:
+                self.debug_print(f'[热键诊断] 失败: {_diag_e}')
         except Exception as _e:
             self.debug_print(f'[热键恢复] ❌ 重新初始化失败: {_e}')
         finally:
@@ -8909,29 +8965,36 @@ class AutoRecorderApp(QMainWindow):
                 self.debug_print('[热键恢复] 标志位已重置')
 
     def _cleanup_all_hotkeys(self):
-        """清理所有已注册的全局热键"""
+        """清理所有已注册的全局热键（不卸载 Windows 钩子，只移除处理器）"""
         try:
             import keyboard as _kb
         except Exception:
             self.debug_print('[热键清理] 无法导入keyboard模块')
             return
 
-        # 强制清理所有 keyboard 钩子，确保 listener 异常后能重新初始化
-        # ★ 使用超时保护，防止 unhook_all 死锁 ★
-        _unhook_ok = False
-        def _do_unhook():
-            nonlocal _unhook_ok
-            try:
-                _kb.unhook_all()
-                _unhook_ok = True
-            except Exception:
-                _unhook_ok = True  # 即使异常也算完成
-        _t = threading.Thread(target=_do_unhook, daemon=True)
-        _t.start()
-        _t.join(timeout=3.0)
-        if not _unhook_ok:
-            log_warning('[热键清理] unhook_all 超时(3s)，强制继续')
-            self.debug_print('[热键清理] ⚠️ unhook_all 超时(3s)')
+        # ★ 关键修复：不再调用 unhook_all()，它会导致：
+        #   1. 杀死 keyboard 监听线程
+        #   2. 旧线程 finally 块会卸载新线程刚安装的钩子
+        #   3. 热键永久失效
+        # 正确做法：只移除处理器，保留监听线程和钩子继续运行
+
+        # ★ 检查两个线程是否存活，如果已死则重置 listening 标志
+        # 避免 add_hotkey → start_if_necessary 因 listening=True 而跳过启动新线程
+        try:
+            if hasattr(_kb, '_listener') and _kb._listener:
+                _need_reset = False
+                if hasattr(_kb._listener, 'listening_thread') and _kb._listener.listening_thread:
+                    if not _kb._listener.listening_thread.is_alive() and _kb._listener.listening:
+                        self.debug_print('[热键清理] ⚠️ listening_thread 已死，重置 listening=False 以便重新启动')
+                        _need_reset = True
+                if hasattr(_kb._listener, 'processing_thread') and _kb._listener.processing_thread:
+                    if not _kb._listener.processing_thread.is_alive() and _kb._listener.listening:
+                        self.debug_print('[热键清理] ⚠️ processing_thread 已死，重置 listening=False 以便重新启动')
+                        _need_reset = True
+                if _need_reset:
+                    _kb._listener.listening = False
+        except Exception as _le:
+            self.debug_print(f'[热键清理] 检查监听线程状态失败: {_le}')
 
         # 手动清理已注册的快捷键
         shortcut_count = len(getattr(self, 'shortcut_objects', []))
@@ -8959,15 +9022,12 @@ class AutoRecorderApp(QMainWindow):
             self.stop_replay_hotkey_id = None
             self.debug_print('[热键清理] 已清理F12停止热键')
 
-        # 强制重置监听器状态，让 keyboard 下次 add_hotkey 时重新创建线程
-        # 注意: 不能设置 _listener = None，因为 add_hotkey 会直接调用 _listener.start_if_necessary()
-        try:
-            if hasattr(_kb, '_listener') and _kb._listener:
-                _kb._listener.listening = False
-                _kb._listener.handlers.clear()
-                self.debug_print('[热键清理] 已重置监听器状态')
-        except Exception as _e:
-            self.debug_print(f'[热键清理] 重置监听器状态失败: {_e}')
+        # ★ 注意：不清空 _listener.handlers！
+        # handlers 是 keyboard 库自己的原始事件处理器列表，清空会导致事件处理链断裂
+        # 热键处理器存储在 blocking_hotkeys 和 nonblocking_hotkeys 中，
+        # 已通过上面的 remove_hotkey() 调用正确清理，无需额外操作
+        # 保留监听线程继续运行，避免旧线程的 finally 卸载新钩子
+        self.debug_print('[热键清理] 已清理所有热键处理器（保留监听线程）')
 
     def temporarily_disable_grave_hotkey(self):
         """临时禁用·键的全局快捷键"""
