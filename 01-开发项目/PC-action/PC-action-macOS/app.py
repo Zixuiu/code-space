@@ -6466,14 +6466,18 @@ class AutoRecorderApp(QMainWindow):
                         _has_pe = any('process_event' in str(h) for h in _handlers)
                         self.debug_print(f"[回放诊断] handlers={len(_handlers)}个, process_event={_has_pe}")
 
-                        # 如果缺少 process_event，手动添加
+                        # 如果缺少 process_event，手动添加到 handlers 最前面
                         if not _has_pe:
                             self.debug_print("[回放诊断] ⚠️ handlers中缺少process_event，尝试恢复")
                             try:
                                 _pe = getattr(_listener, 'process_event', None)
-                                if _pe and hasattr(_listener, 'add_handler'):
-                                    _listener.add_handler(_pe)
-                                    self.debug_print("[回放诊断] 已手动添加 process_event")
+                                if _pe:
+                                    # 直接添加到 handlers 列表最前面
+                                    _handlers.insert(0, _pe)
+                                    self.debug_print("[回放诊断] ✅ 已手动添加 process_event 到 handlers 最前面")
+                                    # 验证添加成功
+                                    _has_pe_after = any('process_event' in str(h) for h in _handlers)
+                                    self.debug_print(f"[回放诊断] 验证: handlers={len(_handlers)}个, process_event={_has_pe_after}")
                             except Exception as _e:
                                 self.debug_print(f"[回放诊断] 恢复失败: {_e}")
                 except Exception as _diag_err:
@@ -8822,9 +8826,19 @@ class AutoRecorderApp(QMainWindow):
                             break
                 except Exception:
                     pass
-            # 添加到 handlers 最前面，确保最先被调用
+            # 添加到 handlers，使用 append 而不是 insert，避免覆盖 process_event
             if hasattr(_kb_global, '_listener') and _kb_global._listener:
-                _kb_global._listener.handlers.insert(0, _global_key_logger)
+                # ★ 关键：先确保 process_event 在 handlers 中
+                _handlers = _kb_global._listener.handlers
+                _has_pe = any('process_event' in str(h) for h in _handlers)
+                if not _has_pe:
+                    self.debug_print("[按键检测] ⚠️ handlers中缺少process_event，正在添加...")
+                    _pe = getattr(_kb_global._listener, 'process_event', None)
+                    if _pe:
+                        _handlers.append(_pe)
+                        self.debug_print("[按键检测] 已添加 process_event 到 handlers")
+                # 添加按键监听器
+                _kb_global._listener.handlers.append(_global_key_logger)
                 self.debug_print("[按键检测] 已注册全局按键监听器")
         except Exception as _e:
             self.debug_print(f"[按键检测] 注册失败: {_e}")
