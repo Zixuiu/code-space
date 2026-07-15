@@ -6392,13 +6392,13 @@ class AutoRecorderApp(QMainWindow):
             # ★ 热键状态诊断
             try:
                 import keyboard as _kb_pre
+                _hotkeys = getattr(_kb_pre, '_hotkeys', {})
                 _listener = getattr(_kb_pre, '_listener', None)
                 if _listener:
-                    _nb_pre = len(getattr(_listener, 'nonblocking_hotkeys', {}))
                     _h_pre = len(getattr(_listener, 'handlers', []))
                     _lt = getattr(_listener, 'listening_thread', None)
                     _lt_alive = _lt.is_alive() if _lt else False
-                    self.debug_print(f"[热键诊断-回放前] nonblocking={_nb_pre} | handlers={_h_pre} | listen线程={_lt_alive}")
+                    self.debug_print(f"[热键诊断-回放前] _hotkeys={len(_hotkeys)} | handlers={_h_pre} | listen线程={_lt_alive}")
             except Exception:
                 pass
 
@@ -9010,45 +9010,26 @@ class AutoRecorderApp(QMainWindow):
             self.register_stop_replay_hotkey()
             self.debug_print('[热键恢复] ★ 所有全局热键重新初始化完成')
 
-            # ★ 诊断：检查注册后热键容器状态（注意：hotkey存储在 nonblocking_hotkeys 和 blocking_hotkeys 中，
-            # 不是存储在 handlers 列表中！handlers 是原始事件处理器列表，hotkey 不在这里）
+            # ★ 诊断：检查注册后热键容器状态
+            # keyboard 库使用 _hotkeys 字典存储热键（模块级别），不是 _listener.nonblocking_hotkeys
             try:
                 import keyboard as _kb_diag
+                # ★ 热键存储在模块级别的 _hotkeys 字典中
+                _hotkeys = getattr(_kb_diag, '_hotkeys', {})
+                _hotkeys_count = len(_hotkeys)
+                _handlers = getattr(_kb_diag._listener, 'handlers', []) if hasattr(_kb_diag, '_listener') and _kb_diag._listener else []
+                _h_count = len(_handlers)
+                _listener_alive = False
+                _processor_alive = False
                 if hasattr(_kb_diag, '_listener') and _kb_diag._listener:
-                    _nb = getattr(_kb_diag._listener, 'nonblocking_hotkeys', {})
-                    _bl = getattr(_kb_diag._listener, 'blocking_hotkeys', {})
-                    _nb_count = len(_nb)
-                    _bl_count = len(_bl)
-                    _handlers = getattr(_kb_diag._listener, 'handlers', [])
-                    _h_count = len(_handlers)
-                    # ★ 检查 handlers 中是否有 process_event 函数
-                    _has_process_event = any('process_event' in str(h) for h in _handlers)
-                    _listener_alive = False
-                    _processor_alive = False
                     if hasattr(_kb_diag._listener, 'listening_thread') and _kb_diag._listener.listening_thread:
                         _listener_alive = _kb_diag._listener.listening_thread.is_alive()
                     if hasattr(_kb_diag._listener, 'processing_thread') and _kb_diag._listener.processing_thread:
                         _processor_alive = _kb_diag._listener.processing_thread.is_alive()
-                    self.debug_print(f'[热键诊断] nonblocking_hotkeys={_nb_count}个 | blocking_hotkeys={_bl_count}个 | handlers={_h_count}个(原始,process_event={_has_process_event}) | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_kb_diag._listener.listening}')
-                    # ★ 如果 handlers 为空或缺少 process_event，说明事件链断裂
-                    # 检查 handlers 中是否有 process_event 函数
-                    _has_process_event = any('process_event' in str(h) for h in _handlers)
-                    if not _has_process_event and _nb_count > 0:
-                        self.debug_print('[热键诊断] ⚠️ handlers中缺少process_event，事件处理链断裂！')
-                        self.debug_print(f'[热键诊断] handlers内容: {[type(h).__name__ for h in _handlers]}')
-                        # ★ 修复：不要调用 hook()，它会添加空函数覆盖 process_event
-                        # 正确做法是调用 _listener.add_handler(process_event)
-                        try:
-                            if hasattr(_kb_diag._listener, 'add_handler'):
-                                # 获取 process_event 函数
-                                _process_event = getattr(_kb_diag._listener, 'process_event', None)
-                                if _process_event:
-                                    _kb_diag._listener.add_handler(_process_event)
-                                    self.debug_print('[热键诊断] 已手动添加 process_event 到 handlers')
-                        except Exception as _fix_e:
-                            self.debug_print(f'[热键诊断] 修复失败: {_fix_e}')
+                    _listening = _kb_diag._listener.listening
                 else:
-                    self.debug_print('[热键诊断] ⚠️ _listener 为 None')
+                    _listening = False
+                self.debug_print(f'[热键诊断] _hotkeys={_hotkeys_count}个 | handlers={_h_count}个 | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_listening}')
             except Exception as _diag_e:
                 self.debug_print(f'[热键诊断] 失败: {_diag_e}')
         except Exception as _e:
@@ -9268,9 +9249,10 @@ class AutoRecorderApp(QMainWindow):
                                 # ★ 热键触发时打印 keyboard 库状态
                                 try:
                                     import keyboard as _kb_trig
+                                    _hk = getattr(_kb_trig, '_hotkeys', {})
                                     _l = getattr(_kb_trig, '_listener', None)
                                     if _l:
-                                        self.debug_print(f"[热键诊断-触发时] nonblocking={len(getattr(_l, 'nonblocking_hotkeys', {}))} | handlers={len(getattr(_l, 'handlers', []))} | listen线程={getattr(_l, 'listening_thread', None) and getattr(_l, 'listening_thread', None).is_alive()}")
+                                        self.debug_print(f"[热键诊断-触发时] _hotkeys={len(_hk)} | handlers={len(getattr(_l, 'handlers', []))} | listen线程={getattr(_l, 'listening_thread', None) and getattr(_l, 'listening_thread', None).is_alive()}")
                                 except Exception:
                                     pass
                                 # ★ 防抖：如果 500ms 内已触发过，忽略本次
