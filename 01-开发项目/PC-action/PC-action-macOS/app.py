@@ -8986,16 +8986,33 @@ class AutoRecorderApp(QMainWindow):
                 if _pe_to_restore:
                     self.debug_print(f"[热键恢复] ✅ 已保存 process_event 引用: {_pe_to_restore}")
                 else:
-                    self.debug_print("[热键恢复] ⚠️ process_event 不存在，尝试创建替代函数")
-                    # 创建一个简单的替代函数，直接调用 nonblocking_hotkeys 中的回调
-                    def _fallback_process_event(event):
-                        try:
-                            for _key, _callback in list(_kb_pre._listener.nonblocking_hotkeys.items()):
-                                _callback(event)
-                        except Exception:
-                            pass
-                    _pe_to_restore = _fallback_process_event
-                    self.debug_print(f"[热键恢复] 已创建替代处理函数")
+                    self.debug_print("[热键恢复] ⚠️ process_event 属性不存在，检查 handlers 列表")
+                    # 检查 handlers 中是否有包含 process_event 的函数
+                    for _h in _kb_pre._listener.handlers:
+                        self.debug_print(f"[热键恢复] handler: {type(_h).__name__}, str: {str(_h)[:50]}")
+
+                    # 直接使用 handlers 中已有的函数（如果包含 process_event）
+                    for _h in _kb_pre._listener.handlers:
+                        if 'process_event' in str(_h):
+                            _pe_to_restore = _h
+                            self.debug_print(f"[热键恢复] ✅ 从 handlers 中找到 process_event: {_h}")
+                            break
+
+                    if not _pe_to_restore:
+                        self.debug_print("[热键恢复] ⚠️ 创建替代处理函数")
+                        # 创建一个简单的替代函数
+                        _listener_obj = _kb_pre._listener
+                        def _fallback_process_event(event):
+                            try:
+                                for _key, _callback in list(getattr(_listener_obj, 'nonblocking_hotkeys', {}).items()):
+                                    try:
+                                        _callback(event)
+                                    except Exception:
+                                        pass
+                            except Exception:
+                                pass
+                        _pe_to_restore = _fallback_process_event
+                        self.debug_print(f"[热键恢复] 已创建替代处理函数")
             else:
                 self.debug_print("[热键恢复] ⚠️ _listener 不存在")
         except Exception as _e:
