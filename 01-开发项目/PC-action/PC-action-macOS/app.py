@@ -6386,6 +6386,22 @@ class AutoRecorderApp(QMainWindow):
                 'image' not in op for op in recording_data
             )
 
+            # ★ 每次回放前清空日志窗口
+            self.clear_log()
+
+            # ★ 热键状态诊断
+            try:
+                import keyboard as _kb_pre
+                _listener = getattr(_kb_pre, '_listener', None)
+                if _listener:
+                    _nb_pre = len(getattr(_listener, 'nonblocking_hotkeys', {}))
+                    _h_pre = len(getattr(_listener, 'handlers', []))
+                    _lt = getattr(_listener, 'listening_thread', None)
+                    _lt_alive = _lt.is_alive() if _lt else False
+                    self.debug_print(f"[热键诊断-回放前] nonblocking={_nb_pre} | handlers={_h_pre} | listen线程={_lt_alive}")
+            except Exception:
+                pass
+
             # 执行回放
             self.debug_print(f"[回放] 开始执行回放: {folder_path}")
             if is_coord_only:
@@ -9187,11 +9203,20 @@ class AutoRecorderApp(QMainWindow):
                                 # 这样可以保留 keyboard 库的完整状态，避免事件链断裂
                                 if getattr(self, '_hotkeys_temporarily_disabled', False):
                                     # 回放期间临时禁用，不执行任何操作
+                                    self.debug_print(f"[热键] {_sc} 触发但热键已临时禁用")
                                     return
                                 # ★ 诊断：即使不执行也要记录热键触发，便于排查问题
                                 if not self.replay_enabled:
                                     self.debug_print(f"[热键] 快捷键 {_sc} 触发但回放已关闭 (replay_enabled=False)")
                                     return
+                                # ★ 热键触发时打印 keyboard 库状态
+                                try:
+                                    import keyboard as _kb_trig
+                                    _l = getattr(_kb_trig, '_listener', None)
+                                    if _l:
+                                        self.debug_print(f"[热键诊断-触发时] nonblocking={len(getattr(_l, 'nonblocking_hotkeys', {}))} | handlers={len(getattr(_l, 'handlers', []))} | listen线程={getattr(_l, 'listening_thread', None) and getattr(_l, 'listening_thread', None).is_alive()}")
+                                except Exception:
+                                    pass
                                 # ★ 防抖：如果 500ms 内已触发过，忽略本次
                                 _now = time.time()
                                 if _now - _last_trigger_time < 0.5:
