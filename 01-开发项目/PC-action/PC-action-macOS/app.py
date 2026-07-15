@@ -8796,11 +8796,38 @@ class AutoRecorderApp(QMainWindow):
         self._hotkey_health_timer.start(1000)  # 每1秒检查一次，更快响应
         # ★ 不再使用强制重启计数器（旧代码每5分钟强制刷新导致热键永久失效）
         log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
-        
+
         # 健康检查日志定时器（每30秒打印一次状态，避免刷屏）
         self._health_log_timer = QTimer(self)
         self._health_log_timer.timeout.connect(self._log_hotkey_status)
         self._health_log_timer.start(30000)
+
+        # ★ 新增：全局按键事件监听器，用于诊断热键是否被检测到
+        try:
+            import keyboard as _kb_global
+            _last_key_time = [0]  # 防抖：同一按键 500ms 内只记录一次
+            def _global_key_logger(event):
+                try:
+                    if not event.event_type == 'down':
+                        return
+                    # 只记录配置的热键组合
+                    _key_name = event.name
+                    # 检查是否是配置的热键中的键
+                    for _sc in self.shortcuts.values() if hasattr(self, 'shortcuts') else []:
+                        if _key_name.lower() in _sc.lower():
+                            _now = time.time()
+                            if _now - _last_key_time[0] > 0.5:
+                                self.debug_print(f"[按键检测] 检测到按键 '{_key_name}' (可能是 '{_sc}' 的一部分)")
+                                _last_key_time[0] = _now
+                            break
+                except Exception:
+                    pass
+            # 添加到 handlers 最前面，确保最先被调用
+            if hasattr(_kb_global, '_listener') and _kb_global._listener:
+                _kb_global._listener.handlers.insert(0, _global_key_logger)
+                self.debug_print("[按键检测] 已注册全局按键监听器")
+        except Exception as _e:
+            self.debug_print(f"[按键检测] 注册失败: {_e}")
 
     def _check_and_restore_hotkeys(self):
         """检查全局热键是否仍然有效，失效时自动重新注册"""
