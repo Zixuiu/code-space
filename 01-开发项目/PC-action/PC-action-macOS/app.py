@@ -8777,7 +8777,6 @@ class AutoRecorderApp(QMainWindow):
         self._hotkey_health_timer = QTimer(self)
         self._hotkey_health_timer.timeout.connect(self._check_and_restore_hotkeys)
         self._hotkey_health_timer.start(1000)  # 每1秒检查一次，更快响应
-        # ★ 不再使用强制重启计数器（旧代码每5分钟强制刷新导致热键永久失效）
         log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
 
         # 健康检查日志定时器（每30秒打印一次状态，避免刷屏）
@@ -8785,7 +8784,18 @@ class AutoRecorderApp(QMainWindow):
         self._health_log_timer.timeout.connect(self._log_hotkey_status)
         self._health_log_timer.start(30000)
 
-        # ★ 不再添加自定义 handlers，避免干扰 keyboard 库的 process_event
+        # ★ 添加全局按键监听器，用于诊断 keyboard 库是否捕获到按键
+        try:
+            import keyboard as _kb
+            def _key_logger(event):
+                if event.event_type == 'down':
+                    # 只记录 Alt 和 Ctrl 等修饰键，以及字母数字键
+                    if event.name in ['alt', 'ctrl', 'shift', 'left alt', 'right alt'] or len(event.name) == 1:
+                        self.debug_print(f"[键盘事件] 捕获按键: {event.name}")
+            _kb.hook(_key_logger)
+            self.debug_print("[热键健康] 已注册全局按键监听器")
+        except Exception as _e:
+            self.debug_print(f"[热键健康] 注册按键监听器失败: {_e}")
 
     def _check_and_restore_hotkeys(self):
         """检查全局热键是否仍然有效，失效时自动重新注册"""
