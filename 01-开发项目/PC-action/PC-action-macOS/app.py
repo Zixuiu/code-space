@@ -6443,59 +6443,27 @@ class AutoRecorderApp(QMainWindow):
             self._replay_lock.release()
             # ★ 回放结束后恢复全局热键处理器（只需清除标志位）★
             if _hooks_disabled:
-                # ★ 新策略：keyboard 库状态完整保留，只需清除禁用标志
+                # ★ 策略变更：不再调用 _reinitialize_all_hotkeys，它可能破坏 keyboard 库状态
+                # 只清除禁用标志，让热键回调正常工作
                 self._hotkeys_temporarily_disabled = False
                 self.debug_print("[回放] 已清除热键临时禁用标志，热键恢复响应")
 
-                # ★ 关键修复：pyautogui 模拟的按键可能干扰 keyboard 库的内部状态
-                # 即使 handlers 和 listen线程看起来正常，回调也可能不触发
-                # 解决方案：强制重新初始化所有热键
-                self.debug_print("[回放诊断] 强制调用 _reinitialize_all_hotkeys 确保热键可用")
-
-                # ★ 新增：检查并修复 Windows 钩子状态
+                # 简单诊断：检查 keyboard 库状态
                 try:
-                    import keyboard as _kb_fix
-                    _listener = getattr(_kb_fix, '_listener', None)
+                    import keyboard as _kb_simple
+                    _hotkeys = len(getattr(_kb_simple, '_hotkeys', {}))
+                    _listener = getattr(_kb_simple, '_listener', None)
                     if _listener:
-                        # 检查 listening 标志位
+                        _lt = getattr(_listener, 'listening_thread', None)
+                        _lt_alive = _lt.is_alive() if _lt else False
+                        _pt = getattr(_listener, 'processing_thread', None)
+                        _pt_alive = _pt.is_alive() if _pt else False
                         _listening = getattr(_listener, 'listening', False)
-                        self.debug_print(f"[回放诊断] keyboard.listening={_listening}")
+                        self.debug_print(f"[回放诊断] _hotkeys={_hotkeys} | listen线程={_lt_alive} | process线程={_pt_alive} | listening={_listening}")
+                except Exception as _e:
+                    self.debug_print(f"[回放诊断] 检查失败: {_e}")
 
-                        # 检查 handlers 中是否有 process_event
-                        _handlers = getattr(_listener, 'handlers', [])
-                        _has_pe = any('process_event' in str(h) for h in _handlers)
-                        self.debug_print(f"[回放诊断] handlers={len(_handlers)}个, process_event={_has_pe}")
-
-                        # 如果缺少 process_event，手动添加到 handlers 最前面
-                        if not _has_pe:
-                            self.debug_print("[回放诊断] ⚠️ handlers中缺少process_event，尝试恢复")
-                            try:
-                                _pe = getattr(_listener, 'process_event', None)
-                                self.debug_print(f"[回放诊断] process_event获取: {_pe}")
-                                if _pe:
-                                    # 直接添加到 handlers 列表最前面
-                                    _handlers.insert(0, _pe)
-                                    self.debug_print("[回放诊断] ✅ 已手动添加 process_event 到 handlers 最前面")
-                                    # 验证添加成功
-                                    _has_pe_after = any('process_event' in str(h) for h in _handlers)
-                                    self.debug_print(f"[回放诊断] 验证: handlers={len(_handlers)}个, process_event={_has_pe_after}")
-                                else:
-                                    self.debug_print("[回放诊断] ❌ process_event 为 None，无法恢复")
-                                    # 尝试直接从 keyboard 模块获取
-                                    import types
-                                    if hasattr(_kb_fix, 'process_event'):
-                                        _pe_alt = getattr(_kb_fix, 'process_event', None)
-                                        self.debug_print(f"[回放诊断] 尝试从keyboard模块获取: {_pe_alt}")
-                                        if _pe_alt:
-                                            _handlers.insert(0, _pe_alt)
-                                            self.debug_print("[回放诊断] ✅ 已添加 process_event (从keyboard模块)")
-                            except Exception as _e:
-                                self.debug_print(f"[回放诊断] 恢复失败: {_e}")
-                except Exception as _diag_err:
-                    self.debug_print(f"[回放诊断] 诊断异常: {_diag_err}")
-
-                import threading as _th
-                _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
+                # ★ 不再调用 _reinitialize_all_hotkeys，避免破坏 keyboard 库状态
     
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
