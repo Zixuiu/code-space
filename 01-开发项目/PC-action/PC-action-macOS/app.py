@@ -6431,6 +6431,23 @@ class AutoRecorderApp(QMainWindow):
                     # ★ 新策略：keyboard 库状态完整保留，只需清除禁用标志
                     self._hotkeys_temporarily_disabled = False
                     self.debug_print("[回放] 已清除热键临时禁用标志，热键恢复响应")
+                    # ★ 添加诊断：检查 keyboard 库状态
+                    import keyboard as _kb_diag
+                    if hasattr(_kb_diag, '_listener') and _kb_diag._listener:
+                        _nb_count = len(getattr(_kb_diag._listener, 'nonblocking_hotkeys', {}))
+                        _h_count = len(getattr(_kb_diag._listener, 'handlers', []))
+                        _listen_alive = False
+                        if hasattr(_kb_diag._listener, 'listening_thread') and _kb_diag._listener.listening_thread:
+                            _listen_alive = _kb_diag._listener.listening_thread.is_alive()
+                        self.debug_print(f"[回放诊断] 热键恢复后: nonblocking_hotkeys={_nb_count}个 | handlers={_h_count}个 | listen线程={_listen_alive}")
+                        if _h_count == 0 or not _listen_alive:
+                            self.debug_print("[回放诊断] ⚠️ 检测到热键状态异常，尝试修复...")
+                            # 尝试触发 keyboard 库重新初始化
+                            try:
+                                _kb_diag.hook(lambda e: None, suppress=False)
+                                self.debug_print("[回放诊断] 已尝试通过 hook() 修复")
+                            except Exception as _fix_e:
+                                self.debug_print(f"[回放诊断] 修复失败: {_fix_e}")
                 except Exception as _re_err:
                     self.debug_print(f"[回放] 恢复热键失败: {_re_err}")
     
