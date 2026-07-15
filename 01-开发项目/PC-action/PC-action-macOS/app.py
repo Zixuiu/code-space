@@ -8991,28 +8991,47 @@ class AutoRecorderApp(QMainWindow):
                     for _h in _kb_pre._listener.handlers:
                         self.debug_print(f"[热键恢复] handler: {type(_h).__name__}, str: {str(_h)[:50]}")
 
-                    # 直接使用 handlers 中已有的函数（如果包含 process_event）
-                    for _h in _kb_pre._listener.handlers:
-                        if 'process_event' in str(_h):
-                            _pe_to_restore = _h
-                            self.debug_print(f"[热键恢复] ✅ 从 handlers 中找到 process_event: {_h}")
-                            break
+                    # ★ 关键修复：原始 process_event 已丢失，需要重新创建 keyboard 监听
+                    # 方案：调用 keyboard.hook() 强制重建 process_event
+                    self.debug_print("[热键恢复] ⚠️ 原始 process_event 已丢失，尝试重建 keyboard 监听")
 
-                    if not _pe_to_restore:
-                        self.debug_print("[热键恢复] ⚠️ 创建替代处理函数")
-                        # 创建一个简单的替代函数
-                        _listener_obj = _kb_pre._listener
-                        def _fallback_process_event(event):
+                    # 保存当前所有热键
+                    _saved_hotkeys = dict(getattr(_kb_pre._listener, 'nonblocking_hotkeys', {}))
+                    self.debug_print(f"[热键恢复] 已保存 {len(_saved_hotkeys)} 个热键")
+
+                    # 尝试通过添加一个空钩子来触发 process_event 重建
+                    try:
+                        # 清空 handlers 列表（移除损坏的 fallback 函数）
+                        _kb_pre._listener.handlers.clear()
+                        self.debug_print("[热键恢复] 已清空 handlers 列表")
+
+                        # 调用 hook() 触发重建
+                        _temp_hook = _kb_pre.hook(lambda e: None, suppress=False)
+                        self.debug_print(f"[热键恢复] 已调用 hook() 重建监听")
+
+                        # 检查 process_event 是否恢复
+                        _pe_new = getattr(_kb_pre._listener, 'process_event', None)
+                        if _pe_new:
+                            self.debug_print(f"[热键恢复] ✅ process_event 已重建: {_pe_new}")
+                            _pe_to_restore = _pe_new
+                        else:
+                            # 检查 handlers 中是否有新函数
+                            for _h in _kb_pre._listener.handlers:
+                                self.debug_print(f"[热键恢复] 新 handler: {type(_h).__name__}, str: {str(_h)[:50]}")
+                                if 'process_event' in str(_h) and 'fallback' not in str(_h):
+                                    _pe_to_restore = _h
+                                    self.debug_print(f"[热键恢复] ✅ 从新 handlers 中找到 process_event")
+                                    break
+
+                        # 移除临时钩子
+                        if _temp_hook:
                             try:
-                                for _key, _callback in list(getattr(_listener_obj, 'nonblocking_hotkeys', {}).items()):
-                                    try:
-                                        _callback(event)
-                                    except Exception:
-                                        pass
+                                _kb_pre.unhook(_temp_hook)
                             except Exception:
                                 pass
-                        _pe_to_restore = _fallback_process_event
-                        self.debug_print(f"[热键恢复] 已创建替代处理函数")
+
+                    except Exception as _hook_err:
+                        self.debug_print(f"[热键恢复] 重建监听失败: {_hook_err}")
             else:
                 self.debug_print("[热键恢复] ⚠️ _listener 不存在")
         except Exception as _e:
