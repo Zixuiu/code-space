@@ -6461,12 +6461,19 @@ class AutoRecorderApp(QMainWindow):
                         _listening = getattr(_listener, 'listening', False)
                         self.debug_print(f"[回放诊断] keyboard.listening={_listening}")
 
-                        # 如果 listening 为 False，说明钩子被移除
-                        if not _listening:
-                            self.debug_print("[回放诊断] ⚠️ keyboard.listening=False，尝试恢复")
+                        # 检查 handlers 中是否有 process_event
+                        _handlers = getattr(_listener, 'handlers', [])
+                        _has_pe = any('process_event' in str(h) for h in _handlers)
+                        self.debug_print(f"[回放诊断] handlers={len(_handlers)}个, process_event={_has_pe}")
+
+                        # 如果缺少 process_event，手动添加
+                        if not _has_pe:
+                            self.debug_print("[回放诊断] ⚠️ handlers中缺少process_event，尝试恢复")
                             try:
-                                # 强制重新启动监听
-                                _kb_fix.hook(lambda e: None, suppress=False)
+                                _pe = getattr(_listener, 'process_event', None)
+                                if _pe and hasattr(_listener, 'add_handler'):
+                                    _listener.add_handler(_pe)
+                                    self.debug_print("[回放诊断] 已手动添加 process_event")
                             except Exception as _e:
                                 self.debug_print(f"[回放诊断] 恢复失败: {_e}")
                 except Exception as _diag_err:
@@ -8987,13 +8994,21 @@ class AutoRecorderApp(QMainWindow):
                     if hasattr(_kb_diag._listener, 'processing_thread') and _kb_diag._listener.processing_thread:
                         _processor_alive = _kb_diag._listener.processing_thread.is_alive()
                     self.debug_print(f'[热键诊断] nonblocking_hotkeys={_nb_count}个 | blocking_hotkeys={_bl_count}个 | handlers={_h_count}个(原始,process_event={_has_process_event}) | listen线程={_listener_alive} | process线程={_processor_alive} | listening={_kb_diag._listener.listening}')
-                    # ★ 如果 handlers 为空但 nonblocking_hotkeys 有内容，说明事件链断裂
-                    if _h_count == 0 and _nb_count > 0:
-                        self.debug_print('[热键诊断] ⚠️ handlers为空但有热键注册，事件处理链可能断裂！')
-                        # 尝试修复：调用 keyboard.hook() 强制添加事件处理器
+                    # ★ 如果 handlers 为空或缺少 process_event，说明事件链断裂
+                    # 检查 handlers 中是否有 process_event 函数
+                    _has_process_event = any('process_event' in str(h) for h in _handlers)
+                    if not _has_process_event and _nb_count > 0:
+                        self.debug_print('[热键诊断] ⚠️ handlers中缺少process_event，事件处理链断裂！')
+                        self.debug_print(f'[热键诊断] handlers内容: {[type(h).__name__ for h in _handlers]}')
+                        # ★ 修复：不要调用 hook()，它会添加空函数覆盖 process_event
+                        # 正确做法是调用 _listener.add_handler(process_event)
                         try:
-                            _kb_diag.hook(lambda e: None, suppress=False)
-                            self.debug_print('[热键诊断] 已尝试通过 hook() 修复事件处理器')
+                            if hasattr(_kb_diag._listener, 'add_handler'):
+                                # 获取 process_event 函数
+                                _process_event = getattr(_kb_diag._listener, 'process_event', None)
+                                if _process_event:
+                                    _kb_diag._listener.add_handler(_process_event)
+                                    self.debug_print('[热键诊断] 已手动添加 process_event 到 handlers')
                         except Exception as _fix_e:
                             self.debug_print(f'[热键诊断] 修复失败: {_fix_e}')
                 else:
