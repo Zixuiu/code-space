@@ -6491,6 +6491,13 @@ class AutoRecorderApp(QMainWindow):
                         _lt_after = getattr(_listener, 'listening_thread', None)
                         _lt_alive_after = _lt_after.is_alive() if _lt_after else False
                         self.debug_print(f"[回放诊断] 激活后: listening={_listening_after}, listen线程={_lt_alive_after}")
+                        
+                        # ★ 新增：检查热键是否正确注册
+                        _hk_dict = getattr(_kb_reactivate, '_hotkeys', {})
+                        self.debug_print(f"[回放诊断] _hotkeys 字典中有 {len(_hk_dict)} 个条目")
+                        # 打印前5个热键
+                        _hk_sample = list(_hk_dict.keys())[:5]
+                        self.debug_print(f"[回放诊断] 热键示例: {_hk_sample}")
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
     
