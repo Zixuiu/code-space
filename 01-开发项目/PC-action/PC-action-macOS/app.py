@@ -6471,6 +6471,7 @@ class AutoRecorderApp(QMainWindow):
                             self.debug_print("[回放诊断] ⚠️ handlers中缺少process_event，尝试恢复")
                             try:
                                 _pe = getattr(_listener, 'process_event', None)
+                                self.debug_print(f"[回放诊断] process_event获取: {_pe}")
                                 if _pe:
                                     # 直接添加到 handlers 列表最前面
                                     _handlers.insert(0, _pe)
@@ -6478,6 +6479,16 @@ class AutoRecorderApp(QMainWindow):
                                     # 验证添加成功
                                     _has_pe_after = any('process_event' in str(h) for h in _handlers)
                                     self.debug_print(f"[回放诊断] 验证: handlers={len(_handlers)}个, process_event={_has_pe_after}")
+                                else:
+                                    self.debug_print("[回放诊断] ❌ process_event 为 None，无法恢复")
+                                    # 尝试直接从 keyboard 模块获取
+                                    import types
+                                    if hasattr(_kb_fix, 'process_event'):
+                                        _pe_alt = getattr(_kb_fix, 'process_event', None)
+                                        self.debug_print(f"[回放诊断] 尝试从keyboard模块获取: {_pe_alt}")
+                                        if _pe_alt:
+                                            _handlers.insert(0, _pe_alt)
+                                            self.debug_print("[回放诊断] ✅ 已添加 process_event (从keyboard模块)")
                             except Exception as _e:
                                 self.debug_print(f"[回放诊断] 恢复失败: {_e}")
                 except Exception as _diag_err:
@@ -8963,6 +8974,20 @@ class AutoRecorderApp(QMainWindow):
         self._hotkeys_temporarily_disabled = False
         self.debug_print('[热键恢复] 开始重新初始化所有全局热键')
 
+        # ★ 关键修复：在清理前确保 process_event 存在并保存
+        try:
+            import keyboard as _kb_pre
+            if hasattr(_kb_pre, '_listener') and _kb_pre._listener:
+                _pe_to_restore = getattr(_kb_pre._listener, 'process_event', None)
+                if _pe_to_restore:
+                    self.debug_print(f"[热键恢复] 已保存 process_event 引用: {_pe_to_restore}")
+                else:
+                    self.debug_print("[热键恢复] ⚠️ process_event 不存在，无法恢复")
+                    _pe_to_restore = None
+        except Exception as _e:
+            self.debug_print(f"[热键恢复] 获取 process_event 失败: {_e}")
+            _pe_to_restore = None
+
         # ★ 启动看门狗线程：15秒后如果重初始化仍未完成，自动重置标志位
         _watchdog_start = time.time()
         _watchdog_triggered = [False]
@@ -8982,6 +9007,25 @@ class AutoRecorderApp(QMainWindow):
         try:
             self.debug_print('[热键恢复] 清理旧钩子...')
             self._cleanup_all_hotkeys()
+
+            # ★ 关键修复：清理后立即恢复 process_event
+            if _pe_to_restore:
+                try:
+                    import keyboard as _kb_restore
+                    if hasattr(_kb_restore, '_listener') and _kb_restore._listener:
+                        _handlers = _kb_restore._listener.handlers
+                        # 检查是否已有 process_event
+                        _has_pe = any('process_event' in str(h) for h in _handlers)
+                        if not _has_pe:
+                            _handlers.insert(0, _pe_to_restore)
+                            self.debug_print(f"[热键恢复] ✅ 已恢复 process_event 到 handlers 最前面")
+                            # 验证
+                            _has_pe_after = any('process_event' in str(h) for h in _handlers)
+                            self.debug_print(f"[热键恢复] 验证: handlers={len(_handlers)}个, process_event={_has_pe_after}")
+                        else:
+                            self.debug_print("[热键恢复] process_event 已存在，无需恢复")
+                except Exception as _e:
+                    self.debug_print(f"[热键恢复] 恢复 process_event 失败: {_e}")
 
             # ★ 关键修复：检查 keyboard 监听线程是否还活着
             # keyboard 的监听线程可能因异常崩溃，但 listening 标志位仍是 True
