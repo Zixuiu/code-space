@@ -6498,6 +6498,29 @@ class AutoRecorderApp(QMainWindow):
                         # 打印前5个热键
                         _hk_sample = list(_hk_dict.keys())[:5]
                         self.debug_print(f"[回放诊断] 热键示例: {_hk_sample}")
+                        
+                        # ★ 关键修复：强制重新注册所有热键，确保热键匹配逻辑正常
+                        self.debug_print("[回放诊断] 强制重新注册所有热键...")
+                        try:
+                            # 先移除所有现有热键
+                            for _hk in list(_kb_reactivate._hotkeys.keys()):
+                                try:
+                                    _kb_reactivate.remove_hotkey(_hk)
+                                except Exception:
+                                    pass
+                            self.debug_print("[回放诊断] 已移除旧热键")
+                            
+                            # 重新注册热键
+                            self.debug_print("[回放诊断] 重新注册热键...")
+                            self.update_shortcuts()
+                            self.register_record_hotkey()
+                            self.register_stop_replay_hotkey()
+                            
+                            # 验证
+                            _hk_after = len(getattr(_kb_reactivate, '_hotkeys', {}))
+                            self.debug_print(f"[回放诊断] 重新注册后热键数量: {_hk_after}")
+                        except Exception as _reg_e:
+                            self.debug_print(f"[回放诊断] 重新注册失败: {_reg_e}")
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
     
