@@ -8817,42 +8817,7 @@ class AutoRecorderApp(QMainWindow):
         self._health_log_timer.timeout.connect(self._log_hotkey_status)
         self._health_log_timer.start(30000)
 
-        # ★ 新增：全局按键事件监听器，用于诊断热键是否被检测到
-        try:
-            import keyboard as _kb_global
-            _last_key_time = [0]  # 防抖：同一按键 500ms 内只记录一次
-            def _global_key_logger(event):
-                try:
-                    if not event.event_type == 'down':
-                        return
-                    # 只记录配置的热键组合
-                    _key_name = event.name
-                    # 检查是否是配置的热键中的键
-                    for _sc in self.shortcuts.values() if hasattr(self, 'shortcuts') else []:
-                        if _key_name.lower() in _sc.lower():
-                            _now = time.time()
-                            if _now - _last_key_time[0] > 0.5:
-                                self.debug_print(f"[按键检测] 检测到按键 '{_key_name}' (可能是 '{_sc}' 的一部分)")
-                                _last_key_time[0] = _now
-                            break
-                except Exception:
-                    pass
-            # 添加到 handlers，使用 append 而不是 insert，避免覆盖 process_event
-            if hasattr(_kb_global, '_listener') and _kb_global._listener:
-                # ★ 关键：先确保 process_event 在 handlers 中
-                _handlers = _kb_global._listener.handlers
-                _has_pe = any('process_event' in str(h) for h in _handlers)
-                if not _has_pe:
-                    self.debug_print("[按键检测] ⚠️ handlers中缺少process_event，正在添加...")
-                    _pe = getattr(_kb_global._listener, 'process_event', None)
-                    if _pe:
-                        _handlers.append(_pe)
-                        self.debug_print("[按键检测] 已添加 process_event 到 handlers")
-                # 添加按键监听器
-                _kb_global._listener.handlers.append(_global_key_logger)
-                self.debug_print("[按键检测] 已注册全局按键监听器")
-        except Exception as _e:
-            self.debug_print(f"[按键检测] 注册失败: {_e}")
+        # ★ 不再添加自定义 handlers，避免干扰 keyboard 库的 process_event
 
     def _check_and_restore_hotkeys(self):
         """检查全局热键是否仍然有效，失效时自动重新注册"""
@@ -8974,70 +8939,22 @@ class AutoRecorderApp(QMainWindow):
         self._hotkeys_temporarily_disabled = False
         self.debug_print('[热键恢复] 开始重新初始化所有全局热键')
 
-        # ★ 关键修复：在清理前确保 process_event 存在并保存
-        _pe_to_restore = None  # 先初始化
+        # ★ 简化：不再手动操作 handlers，让 keyboard 库自己管理
+        # 检查 handlers 状态用于诊断
         try:
             import keyboard as _kb_pre
             self.debug_print(f"[热键恢复] 正在获取 process_event, _listener存在: {hasattr(_kb_pre, '_listener')}")
             if hasattr(_kb_pre, '_listener') and _kb_pre._listener:
                 self.debug_print(f"[热键恢复] _listener 类型: {type(_kb_pre._listener)}")
                 self.debug_print(f"[热键恢复] _listener 有 process_event: {hasattr(_kb_pre._listener, 'process_event')}")
-                _pe_to_restore = getattr(_kb_pre._listener, 'process_event', None)
-                if _pe_to_restore:
-                    self.debug_print(f"[热键恢复] ✅ 已保存 process_event 引用: {_pe_to_restore}")
-                else:
-                    self.debug_print("[热键恢复] ⚠️ process_event 属性不存在，检查 handlers 列表")
-                    # 检查 handlers 中是否有包含 process_event 的函数
-                    for _h in _kb_pre._listener.handlers:
-                        self.debug_print(f"[热键恢复] handler: {type(_h).__name__}, str: {str(_h)[:50]}")
-
-                    # ★ 关键修复：原始 process_event 已丢失，需要重新创建 keyboard 监听
-                    # 方案：调用 keyboard.hook() 强制重建 process_event
-                    self.debug_print("[热键恢复] ⚠️ 原始 process_event 已丢失，尝试重建 keyboard 监听")
-
-                    # 保存当前所有热键
-                    _saved_hotkeys = dict(getattr(_kb_pre._listener, 'nonblocking_hotkeys', {}))
-                    self.debug_print(f"[热键恢复] 已保存 {len(_saved_hotkeys)} 个热键")
-
-                    # 尝试通过添加一个空钩子来触发 process_event 重建
-                    try:
-                        # 清空 handlers 列表（移除损坏的 fallback 函数）
-                        _kb_pre._listener.handlers.clear()
-                        self.debug_print("[热键恢复] 已清空 handlers 列表")
-
-                        # 调用 hook() 触发重建
-                        _temp_hook = _kb_pre.hook(lambda e: None, suppress=False)
-                        self.debug_print(f"[热键恢复] 已调用 hook() 重建监听")
-
-                        # 检查 process_event 是否恢复
-                        _pe_new = getattr(_kb_pre._listener, 'process_event', None)
-                        if _pe_new:
-                            self.debug_print(f"[热键恢复] ✅ process_event 已重建: {_pe_new}")
-                            _pe_to_restore = _pe_new
-                        else:
-                            # 检查 handlers 中是否有新函数
-                            for _h in _kb_pre._listener.handlers:
-                                self.debug_print(f"[热键恢复] 新 handler: {type(_h).__name__}, str: {str(_h)[:50]}")
-                                if 'process_event' in str(_h) and 'fallback' not in str(_h):
-                                    _pe_to_restore = _h
-                                    self.debug_print(f"[热键恢复] ✅ 从新 handlers 中找到 process_event")
-                                    break
-
-                        # 移除临时钩子
-                        if _temp_hook:
-                            try:
-                                _kb_pre.unhook(_temp_hook)
-                            except Exception:
-                                pass
-
-                    except Exception as _hook_err:
-                        self.debug_print(f"[热键恢复] 重建监听失败: {_hook_err}")
-            else:
-                self.debug_print("[热键恢复] ⚠️ _listener 不存在")
+                
+                # 检查 handlers 中有什么
+                _handlers = _kb_pre._listener.handlers
+                self.debug_print(f"[热键恢复] handlers 数量: {len(_handlers)}")
+                for i, _h in enumerate(_handlers):
+                    self.debug_print(f"[热键恢复] handler[{i}]: {type(_h).__name__}, str: {str(_h)[:60]}")
         except Exception as _e:
-            self.debug_print(f"[热键恢复] 获取 process_event 失败: {_e}")
-            import traceback
-            self.debug_print(f"[热键恢复] 异常堆栈: {traceback.format_exc()}")
+            self.debug_print(f"[热键恢复] 检查状态失败: {_e}")
 
         # ★ 启动看门狗线程：15秒后如果重初始化仍未完成，自动重置标志位
         _watchdog_start = time.time()
@@ -9059,24 +8976,7 @@ class AutoRecorderApp(QMainWindow):
             self.debug_print('[热键恢复] 清理旧钩子...')
             self._cleanup_all_hotkeys()
 
-            # ★ 关键修复：清理后立即恢复 process_event
-            if _pe_to_restore:
-                try:
-                    import keyboard as _kb_restore
-                    if hasattr(_kb_restore, '_listener') and _kb_restore._listener:
-                        _handlers = _kb_restore._listener.handlers
-                        # 检查是否已有 process_event
-                        _has_pe = any('process_event' in str(h) for h in _handlers)
-                        if not _has_pe:
-                            _handlers.insert(0, _pe_to_restore)
-                            self.debug_print(f"[热键恢复] ✅ 已恢复 process_event 到 handlers 最前面")
-                            # 验证
-                            _has_pe_after = any('process_event' in str(h) for h in _handlers)
-                            self.debug_print(f"[热键恢复] 验证: handlers={len(_handlers)}个, process_event={_has_pe_after}")
-                        else:
-                            self.debug_print("[热键恢复] process_event 已存在，无需恢复")
-                except Exception as _e:
-                    self.debug_print(f"[热键恢复] 恢复 process_event 失败: {_e}")
+            # ★ 不再手动恢复 process_event，让 keyboard 库自己管理
 
             # ★ 关键修复：检查 keyboard 监听线程是否还活着
             # keyboard 的监听线程可能因异常崩溃，但 listening 标志位仍是 True
