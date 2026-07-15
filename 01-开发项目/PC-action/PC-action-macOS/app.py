@@ -6451,6 +6451,27 @@ class AutoRecorderApp(QMainWindow):
                 # 即使 handlers 和 listen线程看起来正常，回调也可能不触发
                 # 解决方案：强制重新初始化所有热键
                 self.debug_print("[回放诊断] 强制调用 _reinitialize_all_hotkeys 确保热键可用")
+
+                # ★ 新增：检查并修复 Windows 钩子状态
+                try:
+                    import keyboard as _kb_fix
+                    _listener = getattr(_kb_fix, '_listener', None)
+                    if _listener:
+                        # 检查 listening 标志位
+                        _listening = getattr(_listener, 'listening', False)
+                        self.debug_print(f"[回放诊断] keyboard.listening={_listening}")
+
+                        # 如果 listening 为 False，说明钩子被移除
+                        if not _listening:
+                            self.debug_print("[回放诊断] ⚠️ keyboard.listening=False，尝试恢复")
+                            try:
+                                # 强制重新启动监听
+                                _kb_fix.hook(lambda e: None, suppress=False)
+                            except Exception as _e:
+                                self.debug_print(f"[回放诊断] 恢复失败: {_e}")
+                except Exception as _diag_err:
+                    self.debug_print(f"[回放诊断] 诊断异常: {_diag_err}")
+
                 import threading as _th
                 _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
     
