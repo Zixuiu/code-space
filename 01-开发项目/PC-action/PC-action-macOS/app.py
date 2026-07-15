@@ -8975,18 +8975,33 @@ class AutoRecorderApp(QMainWindow):
         self.debug_print('[热键恢复] 开始重新初始化所有全局热键')
 
         # ★ 关键修复：在清理前确保 process_event 存在并保存
+        _pe_to_restore = None  # 先初始化
         try:
             import keyboard as _kb_pre
+            self.debug_print(f"[热键恢复] 正在获取 process_event, _listener存在: {hasattr(_kb_pre, '_listener')}")
             if hasattr(_kb_pre, '_listener') and _kb_pre._listener:
+                self.debug_print(f"[热键恢复] _listener 类型: {type(_kb_pre._listener)}")
+                self.debug_print(f"[热键恢复] _listener 有 process_event: {hasattr(_kb_pre._listener, 'process_event')}")
                 _pe_to_restore = getattr(_kb_pre._listener, 'process_event', None)
                 if _pe_to_restore:
-                    self.debug_print(f"[热键恢复] 已保存 process_event 引用: {_pe_to_restore}")
+                    self.debug_print(f"[热键恢复] ✅ 已保存 process_event 引用: {_pe_to_restore}")
                 else:
-                    self.debug_print("[热键恢复] ⚠️ process_event 不存在，无法恢复")
-                    _pe_to_restore = None
+                    self.debug_print("[热键恢复] ⚠️ process_event 不存在，尝试创建替代函数")
+                    # 创建一个简单的替代函数，直接调用 nonblocking_hotkeys 中的回调
+                    def _fallback_process_event(event):
+                        try:
+                            for _key, _callback in list(_kb_pre._listener.nonblocking_hotkeys.items()):
+                                _callback(event)
+                        except Exception:
+                            pass
+                    _pe_to_restore = _fallback_process_event
+                    self.debug_print(f"[热键恢复] 已创建替代处理函数")
+            else:
+                self.debug_print("[热键恢复] ⚠️ _listener 不存在")
         except Exception as _e:
             self.debug_print(f"[热键恢复] 获取 process_event 失败: {_e}")
-            _pe_to_restore = None
+            import traceback
+            self.debug_print(f"[热键恢复] 异常堆栈: {traceback.format_exc()}")
 
         # ★ 启动看门狗线程：15秒后如果重初始化仍未完成，自动重置标志位
         _watchdog_start = time.time()
