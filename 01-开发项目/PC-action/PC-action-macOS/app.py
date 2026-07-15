@@ -6447,28 +6447,12 @@ class AutoRecorderApp(QMainWindow):
                 self._hotkeys_temporarily_disabled = False
                 self.debug_print("[回放] 已清除热键临时禁用标志，热键恢复响应")
 
-                # ★ 强制诊断和修复 keyboard 库状态（不受 try-except 影响）
-                try:
-                    import keyboard as _kb_diag
-                    _listener = getattr(_kb_diag, '_listener', None)
-                    if _listener:
-                        _nb = getattr(_listener, 'nonblocking_hotkeys', {})
-                        _handlers = getattr(_listener, 'handlers', [])
-                        _nb_count = len(_nb)
-                        _h_count = len(_handlers)
-
-                        _listen_thread = getattr(_listener, 'listening_thread', None)
-                        _listen_alive = _listen_thread.is_alive() if _listen_thread else False
-
-                        self.debug_print(f"[回放诊断] nonblocking_hotkeys={_nb_count} | handlers={_h_count} | listen线程={_listen_alive}")
-
-                        # ★ 关键：如果 handlers 为空或监听线程死亡，强制重新初始化
-                        if _h_count == 0 or not _listen_alive:
-                            self.debug_print("[回放诊断] ⚠️ 热键状态异常，调用 _reinitialize_all_hotkeys 修复")
-                            import threading as _th
-                            _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
-                except Exception as _diag_err:
-                    self.debug_print(f"[回放诊断] 诊断异常: {_diag_err}")
+                # ★ 关键修复：pyautogui 模拟的按键可能干扰 keyboard 库的内部状态
+                # 即使 handlers 和 listen线程看起来正常，回调也可能不触发
+                # 解决方案：强制重新初始化所有热键
+                self.debug_print("[回放诊断] 强制调用 _reinitialize_all_hotkeys 确保热键可用")
+                import threading as _th
+                _th.Thread(target=self._reinitialize_all_hotkeys, daemon=True).start()
     
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
