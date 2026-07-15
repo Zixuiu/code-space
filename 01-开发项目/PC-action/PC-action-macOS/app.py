@@ -6463,7 +6463,36 @@ class AutoRecorderApp(QMainWindow):
                 except Exception as _e:
                     self.debug_print(f"[回放诊断] 检查失败: {_e}")
 
-                # ★ 不再调用 _reinitialize_all_hotkeys，避免破坏 keyboard 库状态
+                # ★ 关键修复：keyboard 库可能因为 pyautogui 模拟按键而失效
+                # 尝试通过调用 keyboard.hook() 来"激活"监听线程
+                try:
+                    import keyboard as _kb_reactivate
+                    self.debug_print("[回放诊断] 尝试重新激活 keyboard 库...")
+                    
+                    # 检查 listening 状态
+                    _listener = getattr(_kb_reactivate, '_listener', None)
+                    if _listener:
+                        _was_listening = getattr(_listener, 'listening', False)
+                        self.debug_print(f"[回放诊断] 当前 listening={_was_listening}")
+                        
+                        # 如果 listening 为 True 但实际失效，强制重置
+                        # 添加一个空钩子来触发内部状态更新
+                        _temp_hook = _kb_reactivate.hook(lambda e: None)
+                        self.debug_print("[回放诊断] 已添加临时钩子激活监听")
+                        
+                        # 立即移除临时钩子
+                        try:
+                            _kb_reactivate.unhook(_temp_hook)
+                        except Exception:
+                            pass
+                        
+                        # 验证状态
+                        _listening_after = getattr(_listener, 'listening', False)
+                        _lt_after = getattr(_listener, 'listening_thread', None)
+                        _lt_alive_after = _lt_after.is_alive() if _lt_after else False
+                        self.debug_print(f"[回放诊断] 激活后: listening={_listening_after}, listen线程={_lt_alive_after}")
+                except Exception as _react_e:
+                    self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
     
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
