@@ -6495,32 +6495,38 @@ class AutoRecorderApp(QMainWindow):
                         # ★ 新增：检查热键是否正确注册
                         _hk_dict = getattr(_kb_reactivate, '_hotkeys', {})
                         self.debug_print(f"[回放诊断] _hotkeys 字典中有 {len(_hk_dict)} 个条目")
-                        # 打印前5个热键
-                        _hk_sample = list(_hk_dict.keys())[:5]
-                        self.debug_print(f"[回放诊断] 热键示例: {_hk_sample}")
+                        # 打印热键字符串（不是函数对象）
+                        _hk_keys = [k for k in _hk_dict.keys() if isinstance(k, str)]
+                        self.debug_print(f"[回放诊断] 热键字符串: {_hk_keys[:10]}")
                         
-                        # ★ 关键修复：强制重新注册所有热键，确保热键匹配逻辑正常
-                        self.debug_print("[回放诊断] 强制重新注册所有热键...")
+                        # ★ 关键诊断：检查 keyboard 库的热键匹配状态
+                        _pressed = getattr(_kb_reactivate, '_pressed_keys', set())
+                        self.debug_print(f"[回放诊断] 当前按下键集合: {_pressed}")
+                        
+                        # 检查触发器状态
+                        _triggers = getattr(_kb_reactivate, '_triggers', [])
+                        self.debug_print(f"[回放诊断] 触发器数量: {len(_triggers)}")
+                        
+                        # ★ 尝试手动触发热键匹配测试
                         try:
-                            # 先移除所有现有热键
-                            for _hk in list(_kb_reactivate._hotkeys.keys()):
-                                try:
-                                    _kb_reactivate.remove_hotkey(_hk)
-                                except Exception:
-                                    pass
-                            self.debug_print("[回放诊断] 已移除旧热键")
+                            # 测试 alt+m 是否在 _hotkeys 中
+                            _test_hotkey = 'alt+m'
+                            if _test_hotkey in _hk_dict:
+                                self.debug_print(f"[回放诊断] ✅ '{_test_hotkey}' 在 _hotkeys 中")
+                            else:
+                                self.debug_print(f"[回放诊断] ❌ '{_test_hotkey}' 不在 _hotkeys 中")
                             
-                            # 重新注册热键
-                            self.debug_print("[回放诊断] 重新注册热键...")
-                            self.update_shortcuts()
-                            self.register_record_hotkey()
-                            self.register_stop_replay_hotkey()
+                            # ★ 关键修复：强制清空按下键集合，重置热键匹配状态
+                            if hasattr(_kb_reactivate, '_pressed_keys'):
+                                _kb_reactivate._pressed_keys.clear()
+                                self.debug_print("[回放诊断] ✅ 已清空 _pressed_keys")
                             
-                            # 验证
-                            _hk_after = len(getattr(_kb_reactivate, '_hotkeys', {}))
-                            self.debug_print(f"[回放诊断] 重新注册后热键数量: {_hk_after}")
-                        except Exception as _reg_e:
-                            self.debug_print(f"[回放诊断] 重新注册失败: {_reg_e}")
+                            # 清空触发器
+                            if hasattr(_kb_reactivate, '_triggers'):
+                                _kb_reactivate._triggers.clear()
+                                self.debug_print("[回放诊断] ✅ 已清空 _triggers")
+                        except Exception as _test_e:
+                            self.debug_print(f"[回放诊断] 热键测试失败: {_test_e}")
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
     
