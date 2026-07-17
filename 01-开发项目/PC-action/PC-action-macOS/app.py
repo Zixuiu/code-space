@@ -6544,7 +6544,114 @@ class AutoRecorderApp(QMainWindow):
                             self.debug_print(f"[回放诊断] 热键测试失败: {_test_e}")
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
-    
+
+            # ★★★ 关键修复：回放后强制重新注册所有热键 ★★★
+            # 根据项目约束：After replay completion, remove all existing hotkeys and re-register all hotkeys
+            # 注意:此代码在 finally 块的 if _hooks_disabled 内,无论前面是否有异常都会执行
+            try:
+                self.debug_print("=" * 60)
+                self.debug_print("[回放诊断] ★★★ 强制重新注册所有热键 ★★★")
+                self.debug_print("=" * 60)
+
+                # 1. 移除所有已注册的热键（包括文件夹快捷键、录制热键、停止热键）
+                import keyboard as _kb_rereg
+                _removed_count = 0
+
+                # 移除文件夹快捷键
+                if hasattr(self, 'shortcut_objects') and self.shortcut_objects:
+                    for hid in self.shortcut_objects:
+                        try:
+                            _kb_rereg.remove_hotkey(hid)
+                            _removed_count += 1
+                        except Exception:
+                            pass
+                    self.shortcut_objects = []
+
+                # 移除录制热键 (grave)
+                if hasattr(self, 'grave_hotkey_id') and self.grave_hotkey_id:
+                    try:
+                        _kb_rereg.remove_hotkey(self.grave_hotkey_id)
+                        _removed_count += 1
+                    except Exception:
+                        pass
+                    self.grave_hotkey_id = None
+
+                # 移除停止热键
+                if hasattr(self, 'stop_hotkey_id') and self.stop_hotkey_id:
+                    try:
+                        _kb_rereg.remove_hotkey(self.stop_hotkey_id)
+                        _removed_count += 1
+                    except Exception:
+                        pass
+                    self.stop_hotkey_id = None
+
+                # 移除查看图片grave热键
+                if hasattr(self, '_view_images_grave_hotkey_id') and self._view_images_grave_hotkey_id:
+                    try:
+                        _kb_rereg.remove_hotkey(self._view_images_grave_hotkey_id)
+                        _removed_count += 1
+                    except Exception:
+                        pass
+
+                self.debug_print(f"[回放诊断] 已移除 {_removed_count} 个旧热键")
+
+                # 2. 重新注册所有热键
+                # 重新注册文件夹快捷键
+                self.update_shortcuts()
+
+                # 重新注册录制热键 (grave)
+                try:
+                    self.register_record_hotkey()
+                    log_info('[热键] 重新注册录制热键 `')
+                except Exception as e:
+                    log_error(f'[热键] 重新注册录制热键失败: {e}')
+
+                # 重新注册停止热键
+                try:
+                    self.register_stop_replay_hotkey()
+                    log_info('[热键] 重新注册停止热键 F12')
+                except Exception as e:
+                    log_error(f'[热键] 重新注册停止热键失败: {e}')
+
+                # 验证重新注册结果
+                _hk_after = getattr(_kb_rereg, '_hotkeys', {})
+                self.debug_print(f"[回放诊断] 重新注册后热键数量: {len(_hk_after)}")
+
+                # ★ 深入诊断：检查重新注册后的 keyboard 库内部状态
+                _listener_after = getattr(_kb_rereg, '_listener', None)
+                if _listener_after:
+                    _handlers_after = getattr(_listener_after, 'handlers', [])
+                    _nb_after = getattr(_listener_after, 'nonblocking_hotkeys', {})
+                    self.debug_print(f"[回放诊断] 重新注册后 handlers={len(_handlers_after)} | nonblocking_hotkeys={len(_nb_after)}")
+
+                    # 检查 handlers 中是否有 process_event
+                    _has_process_event = False
+                    for _h in _handlers_after:
+                        _h_name = getattr(_h, '__name__', str(_h))
+                        if 'process_event' in _h_name:
+                            _has_process_event = True
+                            break
+                    self.debug_print(f"[回放诊断] 重新注册后 handlers 中有 process_event: {_has_process_event}")
+
+                    # 打印所有 handlers 的名称用于诊断
+                    _handler_names = []
+                    for _h in _handlers_after:
+                        _h_name = getattr(_h, '__name__', str(_h)[:50])
+                        _handler_names.append(_h_name)
+                    self.debug_print(f"[回放诊断] handlers 列表: {_handler_names}")
+
+                # 测试 Alt+M 是否在 _hotkeys 中（大小写都测试）
+                for _test_key in ['alt+m', 'Alt+M', 'Alt+m', 'alt+M']:
+                    if _test_key in _hk_after:
+                        self.debug_print(f"[回放诊断] ✅ '{_test_key}' 在 _hotkeys 中")
+                    else:
+                        self.debug_print(f"[回放诊断] ❌ '{_test_key}' 不在 _hotkeys 中")
+
+            except Exception as _rereg_e:
+                import traceback
+                self.debug_print(f"[回放诊断] 重新注册失败: {_rereg_e}")
+                self.debug_print(f"[回放诊断] 失败堆栈: {traceback.format_exc()}")
+
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""
         try:
