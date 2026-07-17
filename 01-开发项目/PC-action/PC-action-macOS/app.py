@@ -6500,12 +6500,13 @@ class AutoRecorderApp(QMainWindow):
                         self.debug_print(f"[回放诊断] 热键字符串: {_hk_keys[:10]}")
                         
                         # ★ 关键诊断：检查 keyboard 库的热键匹配状态
-                        _pressed = getattr(_kb_reactivate, '_pressed_keys', set())
-                        self.debug_print(f"[回放诊断] 当前按下键集合: {_pressed}")
+                        _pressed = getattr(_kb_reactivate, '_pressed_events', set())
+                        self.debug_print(f"[回放诊断] 当前按下事件集合: {_pressed}")
                         
-                        # 检查触发器状态
-                        _triggers = getattr(_kb_reactivate, '_triggers', [])
-                        self.debug_print(f"[回放诊断] 触发器数量: {len(_triggers)}")
+                        # 检查物理和逻辑按下键
+                        _phys_pressed = getattr(_kb_reactivate, '_physically_pressed_keys', set())
+                        _log_pressed = getattr(_kb_reactivate, '_logically_pressed_keys', set())
+                        self.debug_print(f"[回放诊断] 物理按下键: {_phys_pressed}, 逻辑按下键: {_log_pressed}")
                         
                         # ★ 尝试手动触发热键匹配测试
                         try:
@@ -6517,14 +6518,24 @@ class AutoRecorderApp(QMainWindow):
                                 self.debug_print(f"[回放诊断] ❌ '{_test_hotkey}' 不在 _hotkeys 中")
                             
                             # ★ 关键修复：强制清空按下键集合，重置热键匹配状态
-                            if hasattr(_kb_reactivate, '_pressed_keys'):
-                                _kb_reactivate._pressed_keys.clear()
-                                self.debug_print("[回放诊断] ✅ 已清空 _pressed_keys")
+                            # keyboard 库有多种按下键状态，需要全部清空
+                            _cleaned = []
+                            for _attr in ['_pressed_events', '_physically_pressed_keys', '_logically_pressed_keys']:
+                                if hasattr(_kb_reactivate, _attr):
+                                    getattr(_kb_reactivate, _attr).clear()
+                                    _cleaned.append(_attr)
+                            if _cleaned:
+                                self.debug_print(f"[回放诊断] ✅ 已清空按下键状态: {_cleaned}")
                             
                             # 清空触发器
                             if hasattr(_kb_reactivate, '_triggers'):
                                 _kb_reactivate._triggers.clear()
                                 self.debug_print("[回放诊断] ✅ 已清空 _triggers")
+                                
+                            # 清空 hooks 中可能残留的状态
+                            if hasattr(_kb_reactivate, '_hooks'):
+                                # 不要清空 _hooks，只打印状态
+                                self.debug_print(f"[回放诊断] _hooks 数量: {len(_kb_reactivate._hooks)}")
                         except Exception as _test_e:
                             self.debug_print(f"[回放诊断] 热键测试失败: {_test_e}")
                 except Exception as _react_e:
@@ -9243,15 +9254,7 @@ class AutoRecorderApp(QMainWindow):
             config_path = os.path.join(self.user_data_dir, f'shortcuts_{self.current_user}.json')
             if os.path.exists(config_path):
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    loaded_shortcuts = json.load(f)
-                    # ★ 修复：将热键字符串转换为 keyboard 库的标准格式（小写）
-                    # keyboard 库内部使用小写格式，如 'alt+m'，而不是 'Alt+M'
-                    self.shortcuts = {}
-                    for path, shortcut in loaded_shortcuts.items():
-                        if shortcut:
-                            # 转换为小写格式：'Alt+M' -> 'alt+m'
-                            normalized_shortcut = shortcut.lower()
-                            self.shortcuts[path] = normalized_shortcut
+                    self.shortcuts = json.load(f)
                     # print(f"快捷键配置加载成功: {self.shortcuts}")  # [日志已禁用]
             else:
                 self.shortcuts = {}
