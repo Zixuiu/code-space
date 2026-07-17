@@ -9243,7 +9243,15 @@ class AutoRecorderApp(QMainWindow):
             config_path = os.path.join(self.user_data_dir, f'shortcuts_{self.current_user}.json')
             if os.path.exists(config_path):
                 with open(config_path, 'r', encoding='utf-8') as f:
-                    self.shortcuts = json.load(f)
+                    loaded_shortcuts = json.load(f)
+                    # ★ 修复：将热键字符串转换为 keyboard 库的标准格式（小写）
+                    # keyboard 库内部使用小写格式，如 'alt+m'，而不是 'Alt+M'
+                    self.shortcuts = {}
+                    for path, shortcut in loaded_shortcuts.items():
+                        if shortcut:
+                            # 转换为小写格式：'Alt+M' -> 'alt+m'
+                            normalized_shortcut = shortcut.lower()
+                            self.shortcuts[path] = normalized_shortcut
                     # print(f"快捷键配置加载成功: {self.shortcuts}")  # [日志已禁用]
             else:
                 self.shortcuts = {}
