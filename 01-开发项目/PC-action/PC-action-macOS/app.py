@@ -6474,18 +6474,11 @@ class AutoRecorderApp(QMainWindow):
                     if _listener:
                         _was_listening = getattr(_listener, 'listening', False)
                         self.debug_print(f"[回放诊断] 当前 listening={_was_listening}")
-                        
-                        # 如果 listening 为 True 但实际失效，强制重置
-                        # 添加一个空钩子来触发内部状态更新
-                        _temp_hook = _kb_reactivate.hook(lambda e: None)
-                        self.debug_print("[回放诊断] 已添加临时钩子激活监听")
-                        
-                        # 立即移除临时钩子
-                        try:
-                            _kb_reactivate.unhook(_temp_hook)
-                        except Exception:
-                            pass
-                        
+
+                        # ★ 不要添加临时钩子！它可能覆盖 process_event，导致事件处理链断裂
+                        # 之前的尝试证明：添加空钩子会破坏 keyboard 库的内部状态
+                        # _temp_hook = _kb_reactivate.hook(lambda e: None)  # 已禁用
+
                         # 验证状态
                         _listening_after = getattr(_listener, 'listening', False)
                         _lt_after = getattr(_listener, 'listening_thread', None)
@@ -6533,12 +6526,16 @@ class AutoRecorderApp(QMainWindow):
                                     _cleaned.append(_attr)
                             if _cleaned:
                                 self.debug_print(f"[回放诊断] ✅ 已清空按下键状态: {_cleaned}")
-                            
-                            # 清空触发器
+
+                            # ★ 不要清空 _triggers！它破坏了 keyboard 库的热键触发机制
+                            # _triggers 用于追踪热键触发状态，清空它会导致热键无法被正确触发
+                            # if hasattr(_kb_reactivate, '_triggers'):
+                            #     _kb_reactivate._triggers.clear()
+
+                            # 打印 _triggers 状态用于诊断
                             if hasattr(_kb_reactivate, '_triggers'):
-                                _kb_reactivate._triggers.clear()
-                                self.debug_print("[回放诊断] ✅ 已清空 _triggers")
-                                
+                                self.debug_print(f"[回放诊断] _triggers 数量: {len(_kb_reactivate._triggers)}")
+
                             # 清空 hooks 中可能残留的状态
                             if hasattr(_kb_reactivate, '_hooks'):
                                 # 不要清空 _hooks，只打印状态
