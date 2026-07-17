@@ -6503,6 +6503,13 @@ class AutoRecorderApp(QMainWindow):
                         _pressed = getattr(_kb_reactivate, '_pressed_events', set())
                         self.debug_print(f"[回放诊断] 当前按下事件集合: {_pressed}")
                         
+                        # ★ 真正的热键匹配字典在 _listener.nonblocking_hotkeys
+                        _nb_hotkeys = getattr(_listener, 'nonblocking_hotkeys', {})
+                        self.debug_print(f"[回放诊断] nonblocking_hotkeys 数量: {len(_nb_hotkeys)}")
+                        # 打印前5个热键组合
+                        _nb_keys = list(_nb_hotkeys.keys())[:5]
+                        self.debug_print(f"[回放诊断] 热键组合示例: {_nb_keys}")
+                        
                         # 检查物理和逻辑按下键
                         _phys_pressed = getattr(_kb_reactivate, '_physically_pressed_keys', set())
                         _log_pressed = getattr(_kb_reactivate, '_logically_pressed_keys', set())
