@@ -136,17 +136,29 @@
         "delay_after": 2.0
       },
       {
-        "action": "跳转_8",
+        "action": "点到底",
         "condition": "image_found",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
-        "delay_after": 0.2,
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/点到底/操作1.png",
+        "delay_after": 0.4,
         "else_branch": {
-          "action": "跳转_6",
+          "action": "跳转_2",
           "condition": "image_not_found",
-          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
-          "delay_after": 0.2
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/点到底/操作1.png",
+          "delay_after": 0.9
         },
-        "wait_timeout": 30
+        "wait_timeout": 90
+      },
+      {
+        "action": "复制联系人内容",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/复制联系人内容/操作1.png",
+        "delay_after": 0.0,
+        "else_branch": {
+          "action": "跳转_1",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/复制联系人内容/操作1.png",
+          "delay_after": 0.0
+        }
       },
       {
         "action": "点击进去具体客户里面",
@@ -156,13 +168,13 @@
       {
         "action": "添加跟进内容来着",
         "condition": "always",
-        "condition_image": ""
+        "condition_image": "",
+        "delay_after": 0.6
       },
       {
         "action": "重置准备开启下一轮",
         "condition": "always",
-        "condition_image": "",
-        "delay_after": 0.2
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png"
       },
       {
         "action": "跳转_0",
@@ -174,27 +186,6 @@
           "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png",
           "delay_after": 0.0
         }
-      },
-      {
-        "action": "复制联系人内容",
-        "condition": "always",
-        "condition_image": ""
-      },
-      {
-        "condition": "always",
-        "condition_image": "",
-        "action": "跳转_2"
-      },
-      {
-        "condition": "always",
-        "condition_image": "",
-        "action": "异常",
-        "delay_after": 5.0
-      },
-      {
-        "condition": "always",
-        "condition_image": "",
-        "action": "跳转_1"
       }
     ],
     "stop_shortcut": "Shift+A",
