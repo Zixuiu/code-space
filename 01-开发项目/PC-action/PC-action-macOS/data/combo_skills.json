@@ -1,1 +1,204 @@
-[]
+[
+  {
+    "name": "看客户有无招聘",
+    "loop_type": "times",
+    "loop_count": 1,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "复制-搜索岗位",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 0.9
+      },
+      {
+        "action": "添加wps-返回单元格",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png",
+        "else_branch": {
+          "action": "跳转_3",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png"
+        }
+      },
+      {
+        "action": "跳转_0",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "选择下一个",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 0.1
+      },
+      {
+        "action": "复制-搜索岗位",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png",
+        "else_branch": {
+          "action": "跳转_0",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png"
+        }
+      }
+    ],
+    "stop_shortcut": "Alt+W",
+    "note": "保持boss在33%的缩放",
+    "skip_on_fail": false
+  },
+  {
+    "name": "领取公海客户",
+    "loop_type": "times",
+    "loop_count": 1,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "一个个领取",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png",
+        "delay_after": 0.0,
+        "else_branch": {
+          "action": "跳转_1",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png",
+          "delay_after": 0.0
+        }
+      },
+      {
+        "action": "一个个领取",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "跳转_0",
+        "condition": "always",
+        "condition_image": ""
+      }
+    ],
+    "stop_shortcut": "Alt+E",
+    "note": "",
+    "skip_on_fail": true
+  },
+  {
+    "name": "看看有没有曾用名",
+    "loop_type": "times",
+    "loop_count": 1,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "复制到蜂鸟查查",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 0.3
+      },
+      {
+        "action": "添加wps-返回单元格",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/有曾用名/操作1.png",
+        "else_branch": {
+          "action": "跳转_3",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/有曾用名/操作1.png",
+          "delay_after": 0.0
+        }
+      },
+      {
+        "action": "跳转_0",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "选择下一个",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "跳转_0",
+        "condition": "always",
+        "condition_image": ""
+      }
+    ],
+    "stop_shortcut": "Alt+A",
+    "note": "",
+    "skip_on_fail": false
+  },
+  {
+    "name": "查手机号来着",
+    "loop_type": "times",
+    "loop_count": 1,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "发送给豆包",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 2.0
+      },
+      {
+        "action": "跳转_8",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
+        "delay_after": 0.2,
+        "else_branch": {
+          "action": "跳转_6",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
+          "delay_after": 0.2
+        },
+        "wait_timeout": 30
+      },
+      {
+        "action": "点击进去具体客户里面",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "添加跟进内容来着",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "action": "重置准备开启下一轮",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 0.2
+      },
+      {
+        "action": "跳转_0",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png",
+        "else_branch": {
+          "action": "end",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png",
+          "delay_after": 0.0
+        }
+      },
+      {
+        "action": "复制联系人内容",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "跳转_2"
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "异常",
+        "delay_after": 5.0
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "跳转_1"
+      }
+    ],
+    "stop_shortcut": "Shift+A",
+    "note": "发送给豆包后-豆包执行中-CRM待坐标点击\n\n发送给豆包\n等待4s\n找复制按钮\n执行复制+点击CRM\n执行坐标流程\n执行粘贴+录入CRM",
+    "skip_on_fail": false
+  }
+]

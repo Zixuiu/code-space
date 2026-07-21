@@ -114,7 +114,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -125,6 +125,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         consider_color: 是否考虑颜色匹配 (True=同时考虑形状和颜色, False=只考虑形状)
         match_timeout: 图像匹配超时时间（秒），默认1.5秒
         stop_check: 可选的停止检查函数，返回True时停止执行（用于多组合技并行时各runner独立停止）
+        skip_on_fail: 是否在图片匹配失败时跳过该步骤继续执行（默认False，失败即停止）
     
     Returns:
         tuple: (成功执行的操作数, 总操作数, 图片匹配失败次数)
@@ -135,6 +136,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     image_match_fail_count = 0  # 追踪图片匹配失败次数
     recording_data = sorted(recording_data, key=lambda op: op.get('step', 0))
     total_operations = len(recording_data)
+    _saved_clipboard = None  # 保存的剪贴板内容，用于 save_clipboard / restore_clipboard
     
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)
     pyautogui.FAILSAFE = False
@@ -146,6 +148,59 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         _replay_stop_flag = False
     
     _replay_start = time.time()
+    _clipboard_log_enabled = _debug_mode
+
+    _first_paste_clipboard = None
+    def _capture_first_paste():
+        nonlocal _first_paste_clipboard
+        if _first_paste_clipboard is not None:
+            return
+        try:
+            import pyperclip
+            _first_paste_clipboard = pyperclip.paste()
+            if _clipboard_log_enabled and _first_paste_clipboard is not None:
+                _cl = len(_first_paste_clipboard)
+                _cp = str(_first_paste_clipboard)[:50] + ("..." if _cl > 50 else "")
+                debug_print(f"[剪贴板] 首次粘贴内容已锁定: {_cl}字符 - {_cp}")
+        except Exception:
+            pass
+
+    def _restore_first_paste_before_paste():
+        nonlocal _first_paste_clipboard
+        if _first_paste_clipboard is None:
+            return False
+        try:
+            import pyperclip
+            import time as _t
+            current = pyperclip.paste()
+            if current != _first_paste_clipboard:
+                pyperclip.copy(_first_paste_clipboard)
+                _t.sleep(0.05)
+                if _clipboard_log_enabled:
+                    _rlen = len(_first_paste_clipboard) if _first_paste_clipboard else 0
+                    debug_print(f"[剪贴板修复] 已恢复为首次粘贴内容({_rlen}字符)")
+                return True
+        except Exception as _e:
+            if _clipboard_log_enabled:
+                debug_print(f"[剪贴板修复] 恢复失败: {_e}")
+        return False
+
+    def _log_clipboard(label):
+        if not _clipboard_log_enabled:
+            return
+        try:
+            import pyperclip
+            cb = pyperclip.paste()
+            if cb is None:
+                cb_str = "None"
+            else:
+                cb_str = str(cb)
+                if len(cb_str) > 80:
+                    cb_str = cb_str[:80] + f"...({len(cb_str)}字符)"
+            debug_print(f"[剪贴板] {label}: {cb_str}")
+        except Exception as e:
+            debug_print(f"[剪贴板] {label}: 读取失败({e})")
+
     for i, operation in enumerate(recording_data):
         _step_start = time.time()
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
@@ -156,7 +211,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             action_type = operation.get('action_type', 'left_click')
             image_name = operation.get('image', '')
             delay = operation.get('delay', 0)
-            
+
+            _log_clipboard(f"步骤{step}前({action_type})")
+
             # 处理不需要图像的操作类型
             if action_type in ['text_input', 'keyboard', 'keyboard_direct', 'scroll']:
                 # 文本输入、键盘操作和滚动操作不需要图像匹配
@@ -250,6 +307,19 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 import pyperclip
                                 pyperclip.copy(operation['clipboard'])
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
+                            elif 'v' == main_key and 'ctrl' in modifiers:
+                                _capture_first_paste()
+                                _restore_first_paste_before_paste()
+                            # Ctrl+V 调试: 粘贴前再读一次确认
+                            if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
+                                try:
+                                    import pyperclip
+                                    _cb_before = pyperclip.paste()
+                                    _cb_len = len(_cb_before) if _cb_before else 0
+                                    _cb_preview = str(_cb_before)[:60] + ("..." if _cb_len > 60 else "")
+                                    debug_print(f"[剪贴板诊断] Ctrl+V 即将粘贴: len={_cb_len} 内容={_cb_preview}")
+                                except Exception as _e:
+                                    debug_print(f"[剪贴板诊断] Ctrl+V前读取失败: {_e}")
                             # 使用pyautogui的hotkey方法处理组合键
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1
@@ -321,6 +391,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 失败: {e}")
                             continue
 
+                _log_clipboard(f"步骤{step}后({action_type})")
+
                 # 操作间隔 - 使用每个操作设置的延迟时间
                 if i < total_operations - 1:  # 不是最后一个操作
                     # 如果设置了延迟时间，使用设置的延迟；否则使用默认间隔
@@ -388,9 +460,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _match_t1 = time.time()
 
                 if not location:
-                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，立即停止回放（图片: {image_name}）")
                     image_match_fail_count += 1
-                    break
+                    if skip_on_fail:
+                        debug_print(f"[回放] ⏭ 步骤 {step}: 图片匹配失败，跳过此步骤继续执行（图片: {image_name}）")
+                        continue
+                    else:
+                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，立即停止回放（图片: {image_name}）")
+                        break
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
                     x, y, width, height = location
@@ -419,6 +495,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _fast_click('left')
             
             success_count += 1
+
+            _log_clipboard(f"步骤{step}后({action_type})")
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
@@ -538,6 +616,26 @@ _shared_gray_screenshot = None      # 缓存的灰度截图（绿色通道）
 _shared_small_gray_screenshot = None  # 缓存的 0.5x 缩小灰度截图
 _SHARED_SCREENSHOT_INTERVAL = 0.003  # 共享截图刷新间隔3ms
 
+# DPI 缩放比例缓存（录制坐标是逻辑坐标，截图是物理坐标，需要转换）
+_dpi_scale_cache = None
+def _get_dpi_scale():
+    """获取系统 DPI 缩放比例（物理坐标 / 逻辑坐标）"""
+    global _dpi_scale_cache
+    if _dpi_scale_cache is not None:
+        return _dpi_scale_cache
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        # GetDpiForSystem: 96=100%, 144=150%, 192=200%
+        dpi = user32.GetDpiForSystem()
+        if dpi > 0:
+            _dpi_scale_cache = dpi / 96.0
+            return _dpi_scale_cache
+    except Exception:
+        pass
+    _dpi_scale_cache = 1.0
+    return _dpi_scale_cache
+
 def _get_shared_screenshot():
     """获取共享截图（线程安全），3ms内复用同一张截图，同时缓存灰度和缩小版本"""
     global _shared_screenshot, _shared_screenshot_time, _shared_gray_screenshot, _shared_small_gray_screenshot
@@ -613,7 +711,7 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         pass
     return None
 
-def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None, strict=False):
+def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None, strict=False, skip_small_match=False):
     """
     在屏幕上查找指定图像，支持超时等待，支持可中断停止
     
@@ -692,14 +790,43 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             return cv2.matchTemplate(screen_bgr, template_bgr, cv2.TM_CCOEFF_NORMED)
 
     def _fast_match_small():
-        """⚡ 0.5x 缩小匹配，比全屏快4倍。返回 (x, y, w, h) 或 None"""
+        """⚡ 0.5x 缩小匹配，比全屏快4倍。返回 (x, y, w, h) 或 None
+
+        注意：0.5x 缩小图信息量少，分数容易虚高/虚低，位置精度也差（×2 估算）。
+        所以缩小图命中后，必须用原图在候选位置附近做一次精匹配验证：
+        - 精匹配过阈值 → 返回精匹配的位置（精度高）
+        - 精匹配不过阈值 → 当作没命中，返回 None（避免误匹配）
+        """
         if _small_gray_template is None or _small_gray_screenshot is None:
             return None
         result = cv2.matchTemplate(_small_gray_screenshot, _small_gray_template, cv2.TM_CCOEFF_NORMED)
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
         if max_val >= confidence:
+            # 缩小图过阈值，但分数不可信，必须用原图精匹配验证
             h, w = image_array.shape[:2]
-            return (max_loc[0] * 2, max_loc[1] * 2, w, h)
+            cand_x = max_loc[0] * 2
+            cand_y = max_loc[1] * 2
+            # 在候选位置附近切 ROI 做原图精匹配（pad 留出搜索余地，纠正 ×2 的位置偏差）
+            pad = 16
+            x1 = max(0, cand_x - pad)
+            y1 = max(0, cand_y - pad)
+            x2 = min(first_screenshot.shape[1], cand_x + w + pad)
+            y2 = min(first_screenshot.shape[0], cand_y + h + pad)
+            roi = first_screenshot[y1:y2, x1:x2]
+            if roi.shape[0] >= h and roi.shape[1] >= w:
+                # _fast_match 返回 matchTemplate 的 result 矩阵
+                rr = _fast_match(roi, image_array)
+                _, refine_val, _, refine_loc = cv2.minMaxLoc(rr)
+                # 用原图精匹配的真实分数和位置覆盖（避免日志显示 score=0.000）
+                real_x = refine_loc[0] + x1
+                real_y = refine_loc[1] + y1
+                scale_best_scores[1.0] = (refine_val, (real_x, real_y))
+                if refine_val >= confidence:
+                    return (real_x, real_y, w, h)
+                # 精匹配不过阈值 → 缩小图是误报，丢弃
+                return None
+            # ROI 切不出来（边界情况），保守起见返回 None
+            return None
         if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < max_val:
             scale_best_scores[1.0] = (max_val, (max_loc[0] * 2, max_loc[1] * 2))
         return None
@@ -734,18 +861,24 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             _first0 = time.time()
 
             # ⚡ 最快路径：0.5x 缩小匹配（1280x800，比全屏快4倍，约0.04s）
-            _small_result = _fast_match_small()
-            if _small_result is not None:
-                debug_print(f"[匹配诊断] ⚡ 0.5x缩小命中(score={scale_best_scores.get(1.0, (0,))[0]:.3f})")
-                iteration = 1
-                return _small_result
+            # 注意：有 roi_hint（录制坐标）时跳过缩小匹配，因为缩小图位置精度差、
+            # 对窄图/常见图案容易假命中，roi_hint 路径更可靠
+            # skip_small_match=True 时也跳过（用于组合技条件判断，避免误判）
+            if roi_hint is None and not skip_small_match:
+                _small_result = _fast_match_small()
+                if _small_result is not None:
+                    debug_print(f"[匹配诊断] ⚡ 0.5x缩小命中(score={scale_best_scores.get(1.0, (0,))[0]:.3f})")
+                    iteration = 1
+                    return _small_result
 
             # ⚡ 次快路径：如果有 roi_hint，从全屏截图切片 ROI + 灰度匹配
             if roi_hint is not None:
                 try:
-                    rx, ry = int(roi_hint[0]), int(roi_hint[1])
+                    # 录制坐标是逻辑坐标，截图是物理坐标，需要乘以 DPI 缩放比例
+                    _dpi = _get_dpi_scale()
+                    rx, ry = int(roi_hint[0] * _dpi), int(roi_hint[1] * _dpi)
                     img_h, img_w = image_array.shape[:2]
-                    pad = 300
+                    pad = int(300 * _dpi)
                     x1 = max(0, rx - pad)
                     y1 = max(0, ry - pad)
                     x2 = min(first_screenshot.shape[1], rx + img_w + pad)
@@ -758,7 +891,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         iteration = 1
                         if roi_max_val >= confidence:
                             h, w = image_array.shape[:2]
-                            debug_print(f"[匹配诊断] ⚡ ROI灰度命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2})")
+                            debug_print(f"[匹配诊断] ⚡ ROI灰度命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2}) DPI={_dpi}")
                             return (roi_max_loc[0] + x1, roi_max_loc[1] + y1, w, h)
                         debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 尝试全屏灰度1:1")
                 except Exception as _roi_e:
@@ -880,9 +1013,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     _has_roi = False
     if roi_hint is not None:
         try:
-            _rx, _ry = int(roi_hint[0]), int(roi_hint[1])
+            # 录制坐标是逻辑坐标，截图是物理坐标，需要乘以 DPI 缩放比例
+            _dpi = _get_dpi_scale()
+            _rx, _ry = int(roi_hint[0] * _dpi), int(roi_hint[1] * _dpi)
             _ih, _iw = image_array.shape[:2]
-            _pad = 300
+            _pad = int(300 * _dpi)
             _roi_x1 = max(0, _rx - _pad)
             _roi_y1 = max(0, _ry - _pad)
             _roi_x2 = min(2560, _rx + _iw + _pad)

@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QFrame,
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QWidget, QComboBox,
     QDoubleSpinBox, QSpinBox, QTextEdit, QStackedWidget, QFrame,
-    QFileDialog, QMessageBox, QApplication
+    QFileDialog, QMessageBox, QApplication, QCheckBox
 )
 T = {
     'primary': '#007AFF', 'primary_hover': '#0051D5',
@@ -116,6 +116,21 @@ class ComboSkillEditDialog(QDialog):
         self.loop_count_spin.setValue(self.skill_data.get('loop_count', 1))
         self.loop_count_spin.setStyleSheet("background:transparent; border:none;")
         top_layout.addWidget(self.loop_count_spin)
+
+        self.skip_on_fail_check = QCheckBox("跳过失败")
+        self.skip_on_fail_check.setChecked(self.skill_data.get('skip_on_fail', False))
+        self.skip_on_fail_check.setToolTip("开启后，图片匹配失败时跳过该步骤继续执行；关闭后，匹配失败立即停止运行")
+        self.skip_on_fail_check.setStyleSheet("""
+            QCheckBox {
+                font-size: 13px;
+                padding: 4px 8px;
+            }
+            QCheckBox::indicator {
+                width: 18px;
+                height: 18px;
+            }
+        """)
+        top_layout.addWidget(self.skip_on_fail_check)
 
         note_btn = QPushButton("📝 备注")
         note_btn.setStyleSheet(f"""
@@ -776,7 +791,8 @@ class ComboSkillEditDialog(QDialog):
         self.flows[index]['else_branch'] = {
             'condition': 'always',
             'condition_image': '',
-            'action': ''
+            'action': '',
+            'delay_after': 0.0
         }
         self.build_flow_tree()
 
@@ -940,8 +956,11 @@ class ComboSkillEditDialog(QDialog):
 
     def setup_action_combos(self, type_combo, detail_combo, current_action, index):
         if not current_action:
+            # action 为空时显示"请选择动作"占位，不假装选中第0项，避免 UI 看着选了实际没存
             type_combo.setCurrentIndex(2)
-            self.load_execute_options(detail_combo)
+            detail_combo.setEnabled(True)
+            detail_combo.clear()
+            detail_combo.addItem("⚠ 请选择动作", "")
         elif current_action == 'end':
             type_combo.setCurrentIndex(0)
             detail_combo.clear()
@@ -1221,6 +1240,7 @@ class ComboSkillEditDialog(QDialog):
         stop_shortcut = self.skill_data.get('stop_shortcut', '')
         note = self.note_text.toPlainText().strip() if hasattr(self, 'note_text') else self.skill_data.get('note', '')
         loop_count = self.loop_count_spin.value() if hasattr(self, 'loop_count_spin') else self.skill_data.get('loop_count', 1)
+        skip_on_fail = self.skip_on_fail_check.isChecked() if hasattr(self, 'skip_on_fail_check') else self.skill_data.get('skip_on_fail', False)
 
         return {
             "name": name,
@@ -1229,5 +1249,6 @@ class ComboSkillEditDialog(QDialog):
             "until_image": "",
             "flows": all_flows,
             "stop_shortcut": stop_shortcut,
-            "note": note
+            "note": note,
+            "skip_on_fail": skip_on_fail
         }

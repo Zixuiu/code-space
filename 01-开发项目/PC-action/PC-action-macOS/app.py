@@ -9519,6 +9519,7 @@ class ComboSkillRunner:
             pass
         try:
             flows = self.skill_data.get("flows", [])
+            self.skip_on_fail = self.skill_data.get("skip_on_fail", False)
             total_loops = max(1, self._loop_count)
             _t0 = _time.time()
             from image_recognition import find_image_with_timeout
@@ -9575,7 +9576,7 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.15, consider_color=False, stop_check=lambda: not self.running)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.15, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             try:
@@ -9592,7 +9593,7 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                             condition_met = loc is None
                             _cond_elapsed = _time.time() - _cond_start
                             try:
@@ -9628,7 +9629,7 @@ class ComboSkillRunner:
                             _wf_timeout = 0.2
                             while self.running and _time.time() < _wait_deadline:
                                 _poll_cnt += 1
-                                loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
+                                loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
                                 if not _disappeared:
                                     if loc is None:
                                         _disappeared = True
@@ -9643,7 +9644,7 @@ class ComboSkillRunner:
                                     _confirm = 1
                                     for _ci in range(1):
                                         _time.sleep(0.08)
-                                        _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True)
+                                        _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
                                         if _cloc is not None:
                                             _confirm += 1
                                     if _confirm >= 2:
@@ -9672,6 +9673,13 @@ class ComboSkillRunner:
                     branch_label = "主分支" if condition_met else "Else分支"
                     target_action = action if condition_met else else_branch.get("action", "")
                     target_else_branch = else_branch if not condition_met else None
+                    # 取当前被执行分支的 delay_after（动作执行完后等待多久再进入下一个流程）
+                    delay_after = 0.0
+                    if condition_met:
+                        delay_after = flow.get("delay_after", 0) or 0
+                    else:
+                        delay_after = (else_branch or {}).get("delay_after", 0) or 0
+                    delay_after = max(0.0, float(delay_after))
 
                     step_info = {
                         "step_num": flow_index + 1,
@@ -9712,7 +9720,15 @@ class ComboSkillRunner:
                                     self._main_app.append_log(f" ║  ➡️ 跳转到流程 {target+1}")
                             except Exception:
                                 break
-                            self._wait_interruptible(0.01)
+                            if delay_after > 0:
+                                try:
+                                    if self._main_app is not None:
+                                        self._main_app.append_log(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
+                                except Exception:
+                                    pass
+                                self._wait_interruptible(delay_after)
+                            else:
+                                self._wait_interruptible(0.01)
                             continue
                         else:
                             flow_index += 1
@@ -9766,7 +9782,14 @@ class ComboSkillRunner:
                     except Exception:
                         pass
 
-                    if self.running:
+                    if delay_after > 0 and self.running:
+                        try:
+                            if self._main_app is not None:
+                                self._main_app.append_log(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
+                        except Exception:
+                            pass
+                        self._wait_interruptible(delay_after)
+                    elif self.running:
                         self._wait_interruptible(0.05)
                     flow_index += 1
 
@@ -9811,6 +9834,7 @@ class ComboSkillRunner:
         if not action or action == "end":
             return True, 0
         try:
+            skip_on_fail = self.skill_data.get("skip_on_fail", False)
             _ea_start = _time.time()
             from utils import get_recordings_path, load_json_data
             folder_path = os.path.join(get_recordings_path(), action)
@@ -9855,7 +9879,8 @@ class ComboSkillRunner:
                     replay_interval=0.0, consider_color=False,
                     match_timeout=1.5,
                     stop_check=lambda: not self.running,
-                    skip_cache_clear=True
+                    skip_cache_clear=True,
+                    skip_on_fail=self.skip_on_fail
                 )
                 # 兼容新旧返回值
                 if len(replay_result) == 3:

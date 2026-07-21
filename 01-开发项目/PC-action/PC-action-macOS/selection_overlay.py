@@ -1134,9 +1134,16 @@ class SelectionOverlay(QWidget):
                     self.line_edit.setFocus()
                     event.accept()
                     
+                def event(self, event):
+                    # 拦截 Tab/Backtab 键，避免被 Qt 焦点链吃掉，直接交给 keyPressEvent
+                    if event.type() == event.KeyPress and event.key() in (Qt.Key_Tab, Qt.Key_Backtab):
+                        self.keyPressEvent(event)
+                        return True
+                    return super().event(event)
+
                 def keyPressEvent(self, event):
                     key = event.key()
-                    
+
                     # 处理Enter键：如果有文本就直接确认，否则填入'enter'并确认
                     if key in [Qt.Key_Return, Qt.Key_Enter]:
                         if self.line_edit.text():
@@ -1151,7 +1158,7 @@ class SelectionOverlay(QWidget):
                             self.accept()
                             event.accept()
                             return
-                    
+
                     # 处理修饰键
                     if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
                         return
