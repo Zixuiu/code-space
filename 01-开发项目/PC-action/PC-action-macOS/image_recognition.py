@@ -217,6 +217,23 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             debug_print(f"[剪贴板修复] 已恢复为首次粘贴内容({_rlen}字符)")
         return ok
 
+    def _detect_clipboard_change(label=""):
+        """检测剪贴板变化：如果当前内容与锁定值不同，更新锁定值（支持点击复制等非Ctrl+C场景）"""
+        nonlocal _first_paste_clipboard
+        if _first_paste_clipboard is None:
+            return
+        try:
+            import pyperclip
+            cb = pyperclip.paste()
+            if cb and cb != _first_paste_clipboard:
+                _first_paste_clipboard = cb
+                if _clipboard_log_enabled:
+                    _cl = len(cb)
+                    _cp = str(cb)[:50] + ("..." if _cl > 50 else "")
+                    debug_print(f"[剪贴板] {label}检测到变化，更新锁定内容: {_cl}字符 - {_cp}")
+        except Exception:
+            pass
+
     def _log_clipboard(label):
         if not _clipboard_log_enabled:
             return
@@ -444,6 +461,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
+                _detect_clipboard_change(f"步骤{step}后")
 
                 # 操作间隔 - 使用每个操作设置的延迟时间
                 if i < total_operations - 1:  # 不是最后一个操作
@@ -549,6 +567,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
+            _detect_clipboard_change(f"步骤{step}后")
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
