@@ -512,6 +512,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
+                _detect_clipboard_change(f"步骤{step}后")
 
                 # 操作间隔 - 使用每个操作设置的延迟时间
                 if i < total_operations - 1:  # 不是最后一个操作
@@ -617,6 +618,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
+            _detect_clipboard_change(f"步骤{step}后")
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
