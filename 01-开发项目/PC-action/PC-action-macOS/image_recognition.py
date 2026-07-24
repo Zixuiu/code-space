@@ -446,14 +446,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             
                             # 转换为小写并检查是否为特殊键
                             key_lower = key.lower()
-                            debug_print(f"[回放] 步骤 {step}: 准备调用 pyautogui.press('{key_lower}')")
-                            if key_lower in special_keys:
-                                pyautogui.press(special_keys[key_lower])
-                                debug_print(f"[回放] 步骤 {step}: pyautogui.press('{special_keys[key_lower]}') 调用完成")
-                            else:
-                                # 普通字符键
-                                pyautogui.press(key)
-                                debug_print(f"[回放] 步骤 {step}: pyautogui.press('{key}') 调用完成")
+                            actual_key = special_keys.get(key_lower, key)
+                            debug_print(f"[回放] 步骤 {step}: 按键 '{key}' (瞬按模式)")
+                            # 极速瞬按：keyDown + 极短延迟 + keyUp，避免因按下时间过长触发系统自动重复
+                            pyautogui.keyDown(actual_key)
+                            time.sleep(0.002)
+                            pyautogui.keyUp(actual_key)
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
                         except Exception as e:
