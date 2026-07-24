@@ -1341,10 +1341,14 @@ function createCellElement(i, currentPage) {
         return;
       }
     }
-    setTimeout(() => {
+    // 文本粘贴：同步从剪贴板读取并插入，避免虚拟滚动重渲染时内容被旧值覆盖
+    const text = e.clipboardData?.getData('text/plain') || '';
+    if (text) {
+      e.preventDefault();
+      document.execCommand('insertText', false, text);
       currentPage.cellsData[i] = input.textContent.trim();
       save();
-    }, 0);
+    }
   });
 
   content.append(input);
