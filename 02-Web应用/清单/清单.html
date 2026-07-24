@@ -137,6 +137,7 @@ body {
   padding: 20px;
   overflow-y: auto;
   border-radius: 0 16px 16px 0;
+  scroll-padding-bottom: 200px;
 }
 .toolbar {
   display: none;
@@ -375,8 +376,10 @@ body {
 .text-input {
   outline: none;
   min-height: 20px;
-  display: inline;
+  display: block;
   cursor: text;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
 .actions {
@@ -675,7 +678,7 @@ body {
 
     <div class="toolbar"></div>
     <button id="addCellBtn" class="btn primary add-cell-btn" onclick="addCell()">+</button>
-    <div id="container" style="overflow: visible; padding-bottom: 20px;"></div>
+    <div id="container" style="overflow: visible; padding-bottom: 60vh;"></div>
   </div>
 </div>
 
@@ -732,36 +735,61 @@ document.addEventListener('DOMContentLoaded', () => {
   loadFromStorage();
   renderPageTabs(); // 渲染页面标签
   renderAllCells(); // 渲染当前页面的单元格
+  // 默认选中最后一个单元格并聚焦
+  const totalCells = getCurrentPageData().cellsData.length;
+  if (totalCells > 0) {
+    selectCell(totalCells - 1, true);
+  }
   addKeyboardNavigation();
-  // 不自动启动AI总结，避免弹框困扰
-  // 如需要AI总结，可点击工具栏「AI密钥」按钮设置后手动使用
+
+  // 虚拟滚动：监听滚动和窗口大小变化，仅渲染可见单元格
+  window.addEventListener('scroll', () => {
+    if (scrollRenderPending) return;
+    scrollRenderPending = true;
+    requestAnimationFrame(() => {
+      scrollRenderPending = false;
+      renderVisibleCells();
+    });
+  }, { passive: true });
+
+  window.addEventListener('resize', () => {
+    currentRenderStart = -1;
+    currentRenderEnd = -1;
+    renderVisibleCells();
+  });
 });
 
-// 更新加号按钮位置到单元格左侧
 function updateAddButtonPosition() {
   const btn = document.getElementById('addCellBtn');
-  const cells = document.querySelectorAll('.cell');
-  
-  if (cells.length === 0) {
-    // 如果没有单元格，隐藏按钮
+  const currentPage = getCurrentPageData();
+  const totalCells = currentPage.cellsData.length;
+
+  if (totalCells === 0) {
     btn.style.display = 'none';
     return;
   }
-  
+
   btn.style.display = 'flex';
-  
-  // 获取最后一个单元格相对于app容器的位置
+
+  // 优先使用已渲染的最后一个单元格定位
+  const lastCell = getCellElement(totalCells - 1);
   const app = document.querySelector('.app');
-  const lastCell = cells[cells.length - 1];
-  
-  // 计算位置：垂直居中于最后一个单元格
-  const lastCellTop = lastCell.offsetTop;
-  const lastCellHeight = lastCell.offsetHeight;
-  const top = lastCellTop + lastCellHeight / 2 - 25;
-  
-  // 按钮右边缘在单元格左侧5px
-  btn.style.left = (lastCell.offsetLeft - 55) + 'px';
-  btn.style.top = top + 'px';
+  const appRect = app.getBoundingClientRect();
+
+  if (lastCell) {
+    const cellRect = lastCell.getBoundingClientRect();
+    const top = cellRect.top - appRect.top + cellRect.height / 2 - 25;
+    const left = cellRect.left - appRect.left - 55;
+    btn.style.left = left + 'px';
+    btn.style.top = top + 'px';
+  } else {
+    // 最后一个单元格未渲染，用估算位置定位
+    const container = document.getElementById('container');
+    const containerRect = container.getBoundingClientRect();
+    const lastCellTop = containerRect.top - appRect.top + (totalCells - 1) * CELL_HEIGHT;
+    btn.style.left = (containerRect.left - appRect.left - 55) + 'px';
+    btn.style.top = (lastCellTop + CELL_HEIGHT / 2 - 25) + 'px';
+  }
   btn.style.right = 'auto';
   btn.style.transform = 'none';
 }
@@ -815,7 +843,13 @@ function handleTabClick(index) {
   currentPageIndex = index;
   selectedIndex = -1; // 切换页面后重置选中的单元格
   renderPageTabs(); // 更新标签样式
+  window.scrollTo({ top: 0, behavior: 'instant' }); // 切换页面时回到顶部
   renderAllCells(); // 渲染新页面的单元格
+  // 默认选中最后一个单元格并聚焦
+  const totalCells = getCurrentPageData().cellsData.length;
+  if (totalCells > 0) {
+    selectCell(totalCells - 1, true);
+  }
   show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
 }
 
@@ -897,6 +931,7 @@ function handleDeletePage(index, e) {
   
   save();
   renderPageTabs();
+  window.scrollTo({ top: 0, behavior: 'instant' });
   renderAllCells();
   show('页面已删除');
 }
@@ -929,6 +964,11 @@ function switchPage(index) {
   selectedIndex = -1; // 切换页面后重置选中的单元格
   renderPageTabs(); // 更新标签样式
   renderAllCells(); // 渲染新页面的单元格
+  // 默认选中最后一个单元格并聚焦
+  const totalCells = getCurrentPageData().cellsData.length;
+  if (totalCells > 0) {
+    selectCell(totalCells - 1, true);
+  }
   show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
 }
 
@@ -939,25 +979,10 @@ function addKeyboardNavigation() {
       const nextIndex = selectedIndex + 1;
       const totalCells = getCurrentPageData().cellsData.length;
       if (nextIndex < totalCells) {
-        // 获取当前选中单元格的高度，用于计算滚动距离
-        const currentCell = document.querySelectorAll('.cell')[selectedIndex];
-        let scrollDistance = 0;
-        if (currentCell) {
-          const cellHeight = currentCell.offsetHeight;
-          const computedStyle = window.getComputedStyle(currentCell);
-          const marginBottom = parseFloat(computedStyle.marginBottom) || 0;
-          scrollDistance = cellHeight + marginBottom;
-        }
-        
+        // 虚拟滚动下用固定估算高度计算滚动距离
         selectCell(nextIndex, true);
-        
-        // 只滚动一格的距离
-        if (scrollDistance > 0) {
-          window.scrollBy({ top: scrollDistance, behavior: 'instant' });
-        }
       } else if (selectedIndex === totalCells - 1) {
-        // 已经是最后一行，不滚动或只做微调确保按钮可见
-        const lastCell = document.querySelectorAll('.cell')[selectedIndex];
+        const lastCell = getCellElement(selectedIndex);
         if (lastCell) {
           lastCell.scrollIntoView({ behavior: 'instant', block: 'nearest' });
         }
@@ -977,22 +1002,47 @@ function selectCell(index, shouldFocus = false) {
   const currentPage = getCurrentPageData();
   const totalCells = currentPage.cellsData.length;
   const isLastCell = index === totalCells - 1;
-  const cells = document.querySelectorAll('.cell');
-  
-  if (prevIndex !== -1 && prevIndex !== index && cells[prevIndex]) {
-    cells[prevIndex].classList.remove('selected', 'selected-last');
-    cells[prevIndex].style.transform = '';
-  }
-  
-  if (cells[index]) {
-    cells[index].classList.remove('selected', 'selected-last');
-    cells[index].style.transform = '';
-    cells[index].classList.add(isLastCell ? 'selected-last' : 'selected');
-    if (shouldFocus) {
-      setTimeout(() => cells[index].querySelector('.text-input')?.focus(), 0);
+
+  // 取消上一个选中（仅操作已渲染的元素）
+  if (prevIndex !== -1 && prevIndex !== index) {
+    const prevCell = getCellElement(prevIndex);
+    if (prevCell) {
+      prevCell.classList.remove('selected', 'selected-last');
+      prevCell.style.transform = '';
     }
   }
-  
+
+  // 获取目标单元格，若未渲染则先滚动到该位置
+  let cell = getCellElement(index);
+  if (!cell) {
+    scrollToCellIndex(index);
+    renderVisibleCells();
+    cell = getCellElement(index);
+  }
+
+  if (cell) {
+    cell.classList.remove('selected', 'selected-last');
+    cell.style.transform = '';
+    cell.classList.add(isLastCell ? 'selected-last' : 'selected');
+    if (shouldFocus) {
+      setTimeout(() => cell.querySelector('.text-input')?.focus(), 0);
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  } else if (shouldFocus) {
+    // 极端情况：仍未渲染，下一帧再试
+    requestAnimationFrame(() => {
+      renderVisibleCells();
+      const c = getCellElement(index);
+      if (c) {
+        c.classList.add(isLastCell ? 'selected-last' : 'selected');
+        c.querySelector('.text-input')?.focus();
+      }
+    });
+  }
 }
 
 // 移除自动AI总结调用，避免弹框
@@ -1002,7 +1052,7 @@ function onCellClick(i, e) {
     return;
   }
   if (selectedIndex === i) {
-    const cell = document.querySelectorAll('.cell')[i];
+    const cell = getCellElement(i);
     if (cell) setTimeout(() => cell.querySelector('.text-input')?.focus(), 0);
     return;
   }
@@ -1011,18 +1061,22 @@ function onCellClick(i, e) {
 
 function onInputFocus(i) {
   if (selectedIndex === i) return;
+  const prevIndex = selectedIndex;
   selectedIndex = i;
-  requestAnimationFrame(() => {
-    const currentPage = getCurrentPageData();
-    const totalCells = currentPage.cellsData.length;
-    document.querySelectorAll('.cell').forEach((el, idx) => {
-      el.classList.remove('selected', 'selected-last');
-      el.style.transform = '';
-      if (idx === i) {
-        el.classList.add(idx === totalCells - 1 ? 'selected-last' : 'selected');
-      }
-    });
-  });
+  const currentPage = getCurrentPageData();
+  const totalCells = currentPage.cellsData.length;
+  // 仅操作涉及的单元格，不再遍历全部
+  if (prevIndex !== -1 && prevIndex !== i) {
+    const prevCell = getCellElement(prevIndex);
+    if (prevCell) {
+      prevCell.classList.remove('selected', 'selected-last');
+      prevCell.style.transform = '';
+    }
+  }
+  const cell = getCellElement(i);
+  if (cell) {
+    cell.classList.add(i === totalCells - 1 ? 'selected-last' : 'selected');
+  }
 }
 
 // 处理连续回车
@@ -1160,8 +1214,8 @@ function clearCell(i) {
   currentPage.cellsData[i] = '';
   delete currentPage.cellImages[i];
   save();
-  
-  const cell = document.querySelectorAll('.cell')[i];
+
+  const cell = getCellElement(i);
   if (cell) {
     const input = cell.querySelector('.text-input');
     if (input) input.textContent = '';
@@ -1203,121 +1257,190 @@ function deleteCell(i) {
   renderAllCells();
 }
 
-function renderAllCells() {
-  const c = document.getElementById('container');
-  c.innerHTML = '';
+// === 虚拟滚动（仅渲染可见单元格，解决大数据量卡顿）===
+const CELL_HEIGHT = 68; // 估算：min-height 48 + margin-bottom 20
+const RENDER_BUFFER = 8; // 视口外额外渲染的单元格数
+let currentRenderStart = -1;
+let currentRenderEnd = -1;
+let scrollRenderPending = false;
 
-  const currentPage = getCurrentPageData();
+function getCellElement(index) {
+  return document.querySelector('.cell[data-index="' + index + '"]');
+}
+
+function scrollToCellIndex(index) {
+  const container = document.getElementById('container');
+  const containerTop = container.getBoundingClientRect().top + window.scrollY;
+  const cellTop = containerTop + index * CELL_HEIGHT;
+  window.scrollTo({ top: cellTop - window.innerHeight / 2 + CELL_HEIGHT / 2, behavior: 'instant' });
+}
+
+function createCellElement(i, currentPage) {
   const totalCells = currentPage.cellsData.length;
-  
-  currentPage.cellsData.forEach((txt, i) => {
-    const cell = document.createElement('div');
-    // 根据是否是最后一个单元格和是否选中应用不同样式
-    let className = 'cell';
-    if (i === selectedIndex) {
-      if (i === totalCells - 1) {
-        className += ' selected-last';
-      } else {
-        className += ' selected';
+  const txt = currentPage.cellsData[i];
+  const cell = document.createElement('div');
+  cell.setAttribute('data-index', i);
+  let className = 'cell';
+  if (i === selectedIndex) {
+    className += (i === totalCells - 1) ? ' selected-last' : ' selected';
+  }
+  cell.className = className;
+  cell.addEventListener('click', e => onCellClick(i, e));
+
+  const cellNumber = document.createElement('span');
+  cellNumber.className = 'cell-number';
+  cellNumber.textContent = i + 1;
+  cell.appendChild(cellNumber);
+
+  if (currentPage.cellSummaries && currentPage.cellSummaries[i]) {
+    const summary = document.createElement('span');
+    summary.className = 'cell-summary';
+    summary.textContent = currentPage.cellSummaries[i];
+    summary.title = currentPage.cellSummaries[i];
+    cell.appendChild(summary);
+  }
+
+  const content = document.createElement('div');
+  content.className = 'content';
+
+  if (currentPage.cellImages[i]) {
+    const ph = document.createElement('span');
+    ph.className = 'image-placeholder';
+    ph.textContent = '🖼️ 图片';
+    ph.contentEditable = false;
+    ph.onclick = e => { e.stopPropagation(); viewImage(i); };
+    content.append(ph, ' ');
+  }
+
+  const input = document.createElement('span');
+  input.className = 'text-input';
+  input.contentEditable = true;
+  input.textContent = txt;
+  input.addEventListener('focus', () => onInputFocus(i));
+  input.addEventListener('input', () => {
+    currentPage.cellsData[i] = input.textContent.trim();
+    save();
+  });
+  input.addEventListener('keydown', e => handleEnterKey(e, i));
+  input.addEventListener('paste', e => {
+    const items = e.clipboardData?.items || [];
+    for (const it of items) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const f = it.getAsFile();
+        const r = new FileReader();
+        r.onload = ev => {
+          currentPage.cellImages[i] = ev.target.result;
+          save();
+          renderVisibleCells();
+          show('图片粘贴成功');
+          selectCell(i, true);
+        };
+        r.readAsDataURL(f);
+        return;
       }
     }
-    cell.className = className;
-    cell.addEventListener('click', e => onCellClick(i, e));
-
-    const cellNumber = document.createElement('span');
-    cellNumber.className = 'cell-number';
-    cellNumber.textContent = i + 1;
-    cell.appendChild(cellNumber);
-
-    const currentPage = getCurrentPageData();
-    if (currentPage.cellSummaries && currentPage.cellSummaries[i]) {
-      const summary = document.createElement('span');
-      summary.className = 'cell-summary';
-      summary.textContent = currentPage.cellSummaries[i];
-      summary.title = currentPage.cellSummaries[i];
-      cell.appendChild(summary);
-    }
-
-    const content = document.createElement('div');
-    content.className = 'content';
-
-    if (currentPage.cellImages[i]) {
-      const ph = document.createElement('span');
-      ph.className = 'image-placeholder';
-      ph.textContent = '🖼️ 图片';
-      ph.contentEditable = false;
-      ph.onclick = e => { e.stopPropagation(); viewImage(i); };
-      content.append(ph, ' ');
-    }
-
-    const input = document.createElement('span');
-    input.className = 'text-input';
-    input.contentEditable = true;
-    input.textContent = txt;
-    input.addEventListener('focus', () => onInputFocus(i));
-    input.addEventListener('input', () => {
+    setTimeout(() => {
       currentPage.cellsData[i] = input.textContent.trim();
       save();
-    });
-    // 监听回车
-    input.addEventListener('keydown', e => handleEnterKey(e, i));
-    input.addEventListener('paste', e => {
-      const items = e.clipboardData?.items || [];
-      for (const it of items) {
-        if (it.kind === 'file' && it.type.startsWith('image/')) {
-          e.preventDefault();
-          e.stopPropagation();
-          const f = it.getAsFile();
-          const r = new FileReader();
-          r.onload = ev => {
-            currentPage.cellImages[i] = ev.target.result;
-            save();
-            renderAllCells();
-            show('图片粘贴成功');
-            selectCell(i, true);
-          };
-          r.readAsDataURL(f);
-          return;
-        }
-      }
-      setTimeout(() => {
-        currentPage.cellsData[i] = input.textContent.trim();
-        save();
-      }, 0);
-    });
-
-    content.append(input);
-
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    const btn = (t, cn, cb) => {
-      const b = document.createElement('button');
-      b.className = 'action-btn ' + cn;
-      b.textContent = t;
-      b.onclick = e => { e.stopPropagation(); cb(); };
-      return b;
-    };
-    actions.append(
-      btn('查', '', () => viewImage(i)),
-      btn('文', '', () => copyText(i)),
-      btn('图', '', () => copyImage(i)),
-      btn('删', 'delete', () => deleteCell(i))
-    );
-
-    cell.append(content, actions);
-    c.append(cell);
+    }, 0);
   });
-  
-  if (selectedIndex !== -1) {
-    selectCell(selectedIndex, true);
+
+  content.append(input);
+
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const btn = (t, cn, cb) => {
+    const b = document.createElement('button');
+    b.className = 'action-btn ' + cn;
+    b.textContent = t;
+    b.onclick = e => { e.stopPropagation(); cb(); };
+    return b;
+  };
+  actions.append(
+    btn('查', '', () => viewImage(i)),
+    btn('文', '', () => copyText(i)),
+    btn('图', '', () => copyImage(i)),
+    btn('删', 'delete', () => deleteCell(i))
+  );
+
+  cell.append(content, actions);
+  return cell;
+}
+
+function renderVisibleCells() {
+  const container = document.getElementById('container');
+  const currentPage = getCurrentPageData();
+  const totalCells = currentPage.cellsData.length;
+  if (totalCells === 0) {
+    container.innerHTML = '';
+    currentRenderStart = -1;
+    currentRenderEnd = -1;
+    updateAddButtonPosition();
+    return;
   }
-  
-  // 更新加号按钮位置
+
+  // 计算可见范围
+  const containerTop = container.getBoundingClientRect().top + window.scrollY;
+  const scrollTop = window.scrollY;
+  const viewportH = window.innerHeight;
+  let start = Math.max(0, Math.floor((scrollTop - containerTop) / CELL_HEIGHT) - RENDER_BUFFER);
+  let end = Math.min(totalCells, Math.ceil((scrollTop + viewportH - containerTop) / CELL_HEIGHT) + RENDER_BUFFER);
+
+  // 安全兜底：如果滚动位置超出内容范围，回到顶部
+  if (start >= totalCells) {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    start = 0;
+    end = Math.min(totalCells, Math.ceil(viewportH / CELL_HEIGHT) + RENDER_BUFFER * 2);
+  }
+
+  // 范围未变化则跳过
+  if (start === currentRenderStart && end === currentRenderEnd) return;
+  currentRenderStart = start;
+  currentRenderEnd = end;
+
+  container.innerHTML = '';
+
+  // 顶部占位（撑起滚动条）
+  if (start > 0) {
+    const topSpacer = document.createElement('div');
+    topSpacer.style.height = (start * CELL_HEIGHT) + 'px';
+    container.appendChild(topSpacer);
+  }
+
+  // 仅渲染可见单元格
+  for (let i = start; i < end; i++) {
+    container.appendChild(createCellElement(i, currentPage));
+  }
+
+  // 底部占位
+  if (end < totalCells) {
+    const botSpacer = document.createElement('div');
+    botSpacer.style.height = ((totalCells - end) * CELL_HEIGHT) + 'px';
+    container.appendChild(botSpacer);
+  }
+
+  container.style.paddingBottom = '60vh';
   updateAddButtonPosition();
 }
 
+function renderAllCells() {
+  currentRenderStart = -1;
+  currentRenderEnd = -1;
+  renderVisibleCells();
+  if (selectedIndex !== -1) {
+    selectCell(selectedIndex, true);
+  }
+}
+
+let _saveTimer = null;
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(pagesData));
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(pagesData));
+    _saveTimer = null;
+  }, 500);
 }
 
 function loadFromStorage() {
@@ -1603,7 +1726,7 @@ async function generateSummary(cellIndex) {
     return;
   }
 
-  const cell = document.querySelectorAll('.cell')[cellIndex];
+  const cell = getCellElement(cellIndex);
   if (cell) cell.classList.add('summary-loading');
 
   try {
@@ -1659,17 +1782,17 @@ async function generateSummary(cellIndex) {
     save();
     
     // 只更新当前单元格的总结显示，不重新渲染所有单元格（避免影响正在编辑的单元格光标）
-    const cells = document.querySelectorAll('.cell');
-    if (cells[cellIndex]) {
+    const cellEl = getCellElement(cellIndex);
+    if (cellEl) {
       // 移除旧的总结元素
-      const oldSummary = cells[cellIndex].querySelector('.cell-summary');
+      const oldSummary = cellEl.querySelector('.cell-summary');
       if (oldSummary) oldSummary.remove();
       // 添加新的总结元素
       const summaryEl = document.createElement('span');
       summaryEl.className = 'cell-summary';
       summaryEl.textContent = summary;
       summaryEl.title = summary;
-      cells[cellIndex].appendChild(summaryEl);
+      cellEl.appendChild(summaryEl);
     }
     
     show('总结已生成');
