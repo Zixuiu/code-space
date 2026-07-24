@@ -41,6 +41,59 @@ def _fast_move(x, y):
     """极速移动鼠标"""
     _user32.SetCursorPos(x, y)
 
+# ⚡ Win32 虚拟键码映射（用于 keybd_event 极速按键）
+_KEYEVENTF_KEYUP = 0x0002
+_VK_CODES = {
+    'backspace': 0x08, 'tab': 0x09, 'enter': 0x0D, 'return': 0x0D,
+    'shift': 0x10, 'ctrl': 0x11, 'control': 0x11, 'alt': 0x12,
+    'pause': 0x13, 'capslock': 0x14, 'esc': 0x1B, 'escape': 0x1B,
+    'space': 0x20, 'pageup': 0x21, 'pagedown': 0x22, 'end': 0x23,
+    'home': 0x24, 'left': 0x25, 'up': 0x26, 'right': 0x27, 'down': 0x28,
+    'insert': 0x2D, 'delete': 0x2E, 'del': 0x2E,
+    '0': 0x30, '1': 0x31, '2': 0x32, '3': 0x33, '4': 0x34,
+    '5': 0x35, '6': 0x36, '7': 0x37, '8': 0x38, '9': 0x39,
+    'a': 0x41, 'b': 0x42, 'c': 0x43, 'd': 0x44, 'e': 0x45,
+    'f': 0x46, 'g': 0x47, 'h': 0x48, 'i': 0x49, 'j': 0x4A,
+    'k': 0x4B, 'l': 0x4C, 'm': 0x4D, 'n': 0x4E, 'o': 0x4F,
+    'p': 0x50, 'q': 0x51, 'r': 0x52, 's': 0x53, 't': 0x54,
+    'u': 0x55, 'v': 0x56, 'w': 0x57, 'x': 0x58, 'y': 0x59, 'z': 0x5A,
+    'win': 0x5B, 'winleft': 0x5B, 'cmd': 0x5B, 'command': 0x5B,
+    'winright': 0x5C, 'menu': 0x5D, 'apps': 0x5D,
+    'f1': 0x70, 'f2': 0x71, 'f3': 0x72, 'f4': 0x73, 'f5': 0x74,
+    'f6': 0x75, 'f7': 0x76, 'f8': 0x77, 'f9': 0x78, 'f10': 0x79,
+    'f11': 0x7A, 'f12': 0x7B, 'f13': 0x7C, 'f14': 0x7D, 'f15': 0x7E,
+    'numlock': 0x90, 'scrolllock': 0x91,
+    ';': 0xBA, '=': 0xBB, ',': 0xBC, '-': 0xBD, '.': 0xBE, '/': 0xBF,
+    '`': 0xC0, '[': 0xDB, '\\': 0xDC, ']': 0xDD, "'": 0xDE,
+    'printscreen': 0x2C, 'sysrq': 0x2C, 'break': 0x13,
+}
+
+_user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ctypes.c_void_p]
+_user32.keybd_event.restype = None
+
+def _get_vk_code(key_name):
+    """获取按键的虚拟键码"""
+    return _VK_CODES.get(key_name.lower(), 0)
+
+def _fast_key_down(vk_code):
+    """极速按下按键（Win32 API keybd_event）"""
+    if vk_code:
+        _user32.keybd_event(vk_code, 0, 0, None)
+
+def _fast_key_up(vk_code):
+    """极速释放按键（Win32 API keybd_event）"""
+    if vk_code:
+        _user32.keybd_event(vk_code, 0, _KEYEVENTF_KEYUP, None)
+
+def _fast_press(key_name):
+    """极速瞬按按键（按下+立即释放，零延迟，避免系统自动重复）"""
+    vk = _get_vk_code(key_name)
+    if vk:
+        _fast_key_down(vk)
+        _fast_key_up(vk)
+        return True
+    return False
+
 # 尝试导入CUDA加速的OpenCV
 try:
     # 检查OpenCV是否支持CUDA
@@ -217,23 +270,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             debug_print(f"[剪贴板修复] 已恢复为首次粘贴内容({_rlen}字符)")
         return ok
 
-    def _detect_clipboard_change(label=""):
-        """检测剪贴板变化：如果当前内容与锁定值不同，更新锁定值（支持点击复制等非Ctrl+C场景）"""
-        nonlocal _first_paste_clipboard
-        if _first_paste_clipboard is None:
-            return
-        try:
-            import pyperclip
-            cb = pyperclip.paste()
-            if cb and cb != _first_paste_clipboard:
-                _first_paste_clipboard = cb
-                if _clipboard_log_enabled:
-                    _cl = len(cb)
-                    _cp = str(cb)[:50] + ("..." if _cl > 50 else "")
-                    debug_print(f"[剪贴板] {label}检测到变化，更新锁定内容: {_cl}字符 - {_cp}")
-        except Exception:
-            pass
-
     def _log_clipboard(label):
         if not _clipboard_log_enabled:
             return
@@ -249,6 +285,22 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             debug_print(f"[剪贴板] {label}: {cb_str}")
         except Exception as e:
             debug_print(f"[剪贴板] {label}: 读取失败({e})")
+
+    def _detect_clipboard_change(label=""):
+        nonlocal _first_paste_clipboard
+        if _first_paste_clipboard is None:
+            return
+        try:
+            import pyperclip
+            cb = pyperclip.paste()
+            if cb and cb != _first_paste_clipboard:
+                _first_paste_clipboard = cb
+                if _clipboard_log_enabled:
+                    _cl = len(cb)
+                    _cp = str(cb)[:50] + ("..." if _cl > 50 else "")
+                    debug_print(f"[剪贴板] {label}检测到变化，更新锁定内容: {_cl}字符 - {_cp}")
+        except Exception:
+            pass
 
     for i, operation in enumerate(recording_data):
         _step_start = time.time()
@@ -446,12 +498,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             
                             # 转换为小写并检查是否为特殊键
                             key_lower = key.lower()
-                            actual_key = special_keys.get(key_lower, key)
-                            debug_print(f"[回放] 步骤 {step}: 按键 '{key}' (瞬按模式)")
-                            # 极速瞬按：keyDown + 极短延迟 + keyUp，避免因按下时间过长触发系统自动重复
-                            pyautogui.keyDown(actual_key)
-                            time.sleep(0.002)
-                            pyautogui.keyUp(actual_key)
+                            # 优先用 Win32 keybd_event 极速瞬按（零延迟，避免系统自动重复）
+                            actual_key = special_keys.get(key_lower, key) if key_lower in special_keys else key
+                            debug_print(f"[回放] 步骤 {step}: 按键 '{actual_key}' (Win32极速瞬按)")
+                            ok = _fast_press(actual_key)
+                            if not ok:
+                                # 不支持的按键，回退到 pyautogui
+                                pyautogui.press(actual_key)
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
                         except Exception as e:
@@ -459,7 +512,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
-                _detect_clipboard_change(f"步骤{step}后")
 
                 # 操作间隔 - 使用每个操作设置的延迟时间
                 if i < total_operations - 1:  # 不是最后一个操作
@@ -565,7 +617,6 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
-            _detect_clipboard_change(f"步骤{step}后")
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
@@ -650,6 +701,9 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             else:
                 _fast_click('left')
             success_count += 1
+
+            # 每步操作后检测剪贴板变化，更新锁定内容（支持点击复制按钮等非Ctrl+C场景）
+            _detect_clipboard_change(f"步骤{step}后")
 
             # 只有明确指定 delay>0 才等，否则不等
             if i < total_operations - 1:

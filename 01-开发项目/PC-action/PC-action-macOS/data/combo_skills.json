@@ -2,19 +2,20 @@
   {
     "name": "看客户有无招聘",
     "loop_type": "times",
-    "loop_count": 1,
+    "loop_count": 3333,
     "until_image": "",
     "flows": [
       {
         "action": "复制-搜索岗位",
         "condition": "always",
         "condition_image": "",
-        "delay_after": 0.9
+        "delay_after": 2.2
       },
       {
         "action": "添加wps-返回单元格",
         "condition": "image_found",
         "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png",
+        "delay_after": 0.5,
         "else_branch": {
           "action": "跳转_3",
           "condition": "image_not_found",

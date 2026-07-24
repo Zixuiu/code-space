@@ -9731,61 +9731,6 @@ class ComboSkillRunner:
                             break
                         if not _action_ok:
                             self._consecutive_failures += 1
-                            # 主分支动作失败 → 走 else 分支（与条件不满足等效）
-                            if condition_met and else_branch and else_branch.get("action"):
-                                _else_action = else_branch.get("action", "")
-                                try:
-                                    if self._main_app is not None:
-                                        self._main_app.append_log(f" ║  ❌ 主分支动作失败，走 Else 分支: {_else_action}")
-                                except Exception:
-                                    pass
-                                # else 分支是跳转 → 直接跳转
-                                if _else_action.startswith("跳转_"):
-                                    try:
-                                        _target = int(_else_action.split("_")[1])
-                                    except (IndexError, ValueError):
-                                        _target = -1
-                                    if 0 <= _target < len(flows):
-                                        total_jumps += 1
-                                        if total_jumps > max_jumps:
-                                            try:
-                                                if self._main_app is not None:
-                                                    self._main_app.append_log(f" ║  ⛔ 跳转次数超过上限({max_jumps})，停止")
-                                                    self._main_app.append_log(f"╚═{'═'*40}")
-                                            except Exception:
-                                                break
-                                            break
-                                        flow_index = _target
-                                        try:
-                                            if self._main_app is not None:
-                                                self._main_app.append_log(f" ║  🔀 流程{flow_index+1} 失败后跳转: {_else_action} (总跳转: {total_jumps})")
-                                                self._main_app.append_log(f" ║  ➡️ 跳转到流程 {_target+1}")
-                                        except Exception:
-                                            pass
-                                        _else_delay = (else_branch or {}).get("delay_after", 0) or 0
-                                        _else_delay = max(0.0, float(_else_delay))
-                                        if _else_delay > 0 and self.running:
-                                            try:
-                                                if self._main_app is not None:
-                                                    self._main_app.append_log(f" ║  ⏱️ 动作后等待: {_else_delay:.1f}s")
-                                            except Exception:
-                                                pass
-                                            self._wait_interruptible(_else_delay)
-                                        continue
-                                # else 分支是普通动作 → 执行它
-                                else:
-                                    try:
-                                        if self._main_app is not None:
-                                            self._main_app.append_log(f" ║  ▶ 执行 Else 分支动作 '{_else_action}'")
-                                    except Exception:
-                                        break
-                                    _else_result = self._execute_action(_else_action)
-                                    if isinstance(_else_result, tuple):
-                                        _else_ok, _else_img_fail = _else_result
-                                    else:
-                                        _else_ok, _else_img_fail = _else_result, 0
-                                    if _else_ok:
-                                        self._consecutive_failures = 0
                             if self._consecutive_failures >= 3:
                                 try:
                                     if self._main_app is not None:
@@ -9797,7 +9742,7 @@ class ComboSkillRunner:
                         else:
                             self._consecutive_failures = 0
                         # 录制回放中图片匹配失败 → 跳过该流程，继续执行下一个
-                        if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found") and _action_ok:
+                        if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
                             try:
                                 if self._main_app is not None:
                                     self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过此流程继续执行")
