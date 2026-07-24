@@ -6441,6 +6441,14 @@ class AutoRecorderApp(QMainWindow):
             # ★ 释放回放锁，允许后续回放执行
             self._replay_lock_time = None
             self._replay_lock.release()
+            # ★ 强制释放所有可能卡住的修饰键，防止快捷键无法响应 ★
+            try:
+                import pyautogui as _pg_release
+                for _key in ['ctrl', 'shift', 'alt', 'win']:
+                    _pg_release.keyUp(_key)
+                self.debug_print("[回放] 已释放所有修饰键")
+            except Exception:
+                pass
             # ★ 回放结束后恢复全局热键处理器（只需清除标志位）★
             if _hooks_disabled:
                 # ★ 策略变更：不再调用 _reinitialize_all_hotkeys，它可能破坏 keyboard 库状态
@@ -6545,100 +6553,65 @@ class AutoRecorderApp(QMainWindow):
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
 
-            # ★★★ 关键修复：回放后强制重新注册所有热键 ★★★
+            # ★★★ 关键修复：回放后完全重新初始化 keyboard 库 ★★★
             # 根据项目约束：After replay completion, remove all existing hotkeys and re-register all hotkeys
             # 注意:此代码在 finally 块的 if _hooks_disabled 内,无论前面是否有异常都会执行
             try:
                 self.debug_print("=" * 60)
-                self.debug_print("[回放诊断] ★★★ 强制重新注册所有热键 ★★★")
+                self.debug_print("[回放诊断] ★★★ 完全重新初始化 keyboard 库 ★★★")
                 self.debug_print("=" * 60)
 
-                # 1. 移除所有已注册的热键（包括文件夹快捷键、录制热键、停止热键）
+                # 1. 完全停止 keyboard 库的监听系统
                 import keyboard as _kb_rereg
-                _removed_count = 0
+                try:
+                    _kb_rereg.unhook_all()
+                    self.debug_print("[回放诊断] ✅ 已移除所有钩子")
+                except Exception as _uh_e:
+                    self.debug_print(f"[回放诊断] ⚠️ 移除钩子失败: {_uh_e}")
 
-                # 移除文件夹快捷键
-                if hasattr(self, 'shortcut_objects') and self.shortcut_objects:
-                    for hid in self.shortcut_objects:
-                        try:
-                            _kb_rereg.remove_hotkey(hid)
-                            _removed_count += 1
-                        except Exception:
-                            pass
-                    self.shortcut_objects = []
+                # 2. 清除所有热键ID（标记为未注册）
+                self.shortcut_objects = []
+                self.grave_hotkey_id = None
+                self.stop_hotkey_id = None
+                if hasattr(self, '_view_images_grave_hotkey_id'):
+                    self._view_images_grave_hotkey_id = None
 
-                # 移除录制热键 (grave)
-                if hasattr(self, 'grave_hotkey_id') and self.grave_hotkey_id:
-                    try:
-                        _kb_rereg.remove_hotkey(self.grave_hotkey_id)
-                        _removed_count += 1
-                    except Exception:
-                        pass
-                    self.grave_hotkey_id = None
-
-                # 移除停止热键
-                if hasattr(self, 'stop_hotkey_id') and self.stop_hotkey_id:
-                    try:
-                        _kb_rereg.remove_hotkey(self.stop_hotkey_id)
-                        _removed_count += 1
-                    except Exception:
-                        pass
-                    self.stop_hotkey_id = None
-
-                # 移除查看图片grave热键
-                if hasattr(self, '_view_images_grave_hotkey_id') and self._view_images_grave_hotkey_id:
-                    try:
-                        _kb_rereg.remove_hotkey(self._view_images_grave_hotkey_id)
-                        _removed_count += 1
-                    except Exception:
-                        pass
-
-                self.debug_print(f"[回放诊断] 已移除 {_removed_count} 个旧热键")
-
-                # 2. 重新注册所有热键
-                # 重新注册文件夹快捷键
+                # 3. 重新注册所有热键
                 self.update_shortcuts()
 
-                # 重新注册录制热键 (grave)
                 try:
                     self.register_record_hotkey()
                     log_info('[热键] 重新注册录制热键 `')
                 except Exception as e:
                     log_error(f'[热键] 重新注册录制热键失败: {e}')
 
-                # 重新注册停止热键
                 try:
                     self.register_stop_replay_hotkey()
                     log_info('[热键] 重新注册停止热键 F12')
                 except Exception as e:
                     log_error(f'[热键] 重新注册停止热键失败: {e}')
 
-                # 验证重新注册结果
+                # 4. 重新添加全局按键监听器
+                try:
+                    def _key_logger(event):
+                        if event.event_type == 'down':
+                            if event.name in ['alt', 'ctrl', 'shift', 'left alt', 'right alt'] or len(event.name) == 1:
+                                self.debug_print(f"[键盘事件] 捕获按键: {event.name}")
+                    _kb_rereg.hook(_key_logger)
+                    self.debug_print("[回放诊断] ✅ 已重新注册全局按键监听器")
+                except Exception as _kl_e:
+                    self.debug_print(f"[回放诊断] ⚠️ 重新注册按键监听器失败: {_kl_e}")
+
+                # 5. 验证结果
                 _hk_after = getattr(_kb_rereg, '_hotkeys', {})
                 self.debug_print(f"[回放诊断] 重新注册后热键数量: {len(_hk_after)}")
 
-                # ★ 深入诊断：检查重新注册后的 keyboard 库内部状态
                 _listener_after = getattr(_kb_rereg, '_listener', None)
                 if _listener_after:
                     _handlers_after = getattr(_listener_after, 'handlers', [])
-                    _nb_after = getattr(_listener_after, 'nonblocking_hotkeys', {})
-                    self.debug_print(f"[回放诊断] 重新注册后 handlers={len(_handlers_after)} | nonblocking_hotkeys={len(_nb_after)}")
-
-                    # 检查 handlers 中是否有 process_event
-                    _has_process_event = False
-                    for _h in _handlers_after:
-                        _h_name = getattr(_h, '__name__', str(_h))
-                        if 'process_event' in _h_name:
-                            _has_process_event = True
-                            break
-                    self.debug_print(f"[回放诊断] 重新注册后 handlers 中有 process_event: {_has_process_event}")
-
-                    # 打印所有 handlers 的名称用于诊断
-                    _handler_names = []
-                    for _h in _handlers_after:
-                        _h_name = getattr(_h, '__name__', str(_h)[:50])
-                        _handler_names.append(_h_name)
+                    _handler_names = [getattr(_h, '__name__', str(_h)[:50]) for _h in _handlers_after]
                     self.debug_print(f"[回放诊断] handlers 列表: {_handler_names}")
+                    self.debug_print(f"[回放诊断] handlers 中有 process_event: {'process_event' in str(_handler_names)}")
 
                 # 测试 Alt+M 是否在 _hotkeys 中（大小写都测试）
                 for _test_key in ['alt+m', 'Alt+M', 'Alt+m', 'alt+M']:
@@ -9275,9 +9248,11 @@ class AutoRecorderApp(QMainWindow):
         if hasattr(self, 'grave_hotkey_id') and self.grave_hotkey_id is not None:
             try:
                 keyboard.remove_hotkey(self.grave_hotkey_id)
+                self.grave_hotkey_id = None
                 log_info('[热键] 临时禁用 · 键全局快捷键')
             except Exception as e:
                 log_error(f"[热键] 禁用·键快捷键失败: {e}")
+                self.grave_hotkey_id = None
                 pass
 
     def reenable_grave_hotkey(self):
@@ -9286,10 +9261,10 @@ class AutoRecorderApp(QMainWindow):
         try:
             def hotkey_handler():
                 try:
-                    # ★ 检查临时禁用标志
                     if getattr(self, '_hotkeys_temporarily_disabled', False):
                         return
-                    # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
+                    if getattr(self, '_grave_hotkey_temporarily_disabled', False):
+                        return
                     QTimer.singleShot(0, self.toggle_recording)
                 except Exception as _eh:
                     log_error(f'[热键] ·键回调异常(reenable): {_eh}')
@@ -9349,14 +9324,10 @@ class AutoRecorderApp(QMainWindow):
 
         config_path = os.path.join(self.user_data_dir, f'shortcuts_{self.current_user}.json')
         try:
-            # 使用完整路径保存，避免重命名后配置失效
-            # print(f"保存快捷键配置到: {config_path}")  # [日志已禁用]
-            # print(f"快捷键配置内容: {self.shortcuts}")  # [日志已禁用]
+            shortcuts_lower = {path: shortcut.lower() for path, shortcut in self.shortcuts.items()}
             with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.shortcuts, f, indent=2, ensure_ascii=False)
-            # print("快捷键配置保存成功")  # [日志已禁用]
+                json.dump(shortcuts_lower, f, indent=2, ensure_ascii=False)
         except Exception as e:
-            # print(f"保存快捷键配置失败: {e}")  # [日志已禁用]
             pass
 
     def load_shortcut_config(self):
@@ -9366,7 +9337,8 @@ class AutoRecorderApp(QMainWindow):
             if os.path.exists(config_path):
                 with open(config_path, 'r', encoding='utf-8') as f:
                     self.shortcuts = json.load(f)
-                    # print(f"快捷键配置加载成功: {self.shortcuts}")  # [日志已禁用]
+                    # ★ 将快捷键字符串统一转换为小写，确保与keyboard库匹配
+                    self.shortcuts = {path: shortcut.lower() for path, shortcut in self.shortcuts.items()}
             else:
                 self.shortcuts = {}
         except Exception:
@@ -9445,9 +9417,10 @@ class AutoRecorderApp(QMainWindow):
                                     pass
                         return handler
 
-                    hotkey_id = keyboard.add_hotkey(shortcut_str, make_handler())
+                    shortcut_str_lower = shortcut_str.lower()
+                    hotkey_id = keyboard.add_hotkey(shortcut_str_lower, make_handler())
                     self.shortcut_objects.append(hotkey_id)
-                    log_info(f'[热键] 已注册文件夹快捷键 {shortcut_str} -> {folder_paths}，id={hotkey_id}')
+                    log_info(f'[热键] 已注册文件夹快捷键 {shortcut_str} -> {folder_paths}（注册为{shortcut_str_lower}），id={hotkey_id}')
                 except Exception as e:
                     log_error(f"[热键] 注册快捷键失败 {shortcut_str}: {e}")
                     pass

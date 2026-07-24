@@ -136,29 +136,17 @@
         "delay_after": 2.0
       },
       {
-        "action": "点到底",
+        "action": "跳转_8",
         "condition": "image_found",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/点到底/操作1.png",
-        "delay_after": 0.4,
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
+        "delay_after": 0.2,
         "else_branch": {
-          "action": "跳转_2",
+          "action": "跳转_6",
           "condition": "image_not_found",
-          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/点到底/操作1.png",
-          "delay_after": 0.9
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/异常/操作1.png",
+          "delay_after": 0.2
         },
-        "wait_timeout": 90
-      },
-      {
-        "action": "复制联系人内容",
-        "condition": "image_found",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/复制联系人内容/操作1.png",
-        "delay_after": 0.0,
-        "else_branch": {
-          "action": "跳转_1",
-          "condition": "image_not_found",
-          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/复制联系人内容/操作1.png",
-          "delay_after": 0.0
-        }
+        "wait_timeout": 30
       },
       {
         "action": "点击进去具体客户里面",
@@ -168,13 +156,13 @@
       {
         "action": "添加跟进内容来着",
         "condition": "always",
-        "condition_image": "",
-        "delay_after": 0.6
+        "condition_image": ""
       },
       {
         "action": "重置准备开启下一轮",
         "condition": "always",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png"
+        "condition_image": "",
+        "delay_after": 0.2
       },
       {
         "action": "跳转_0",
@@ -186,10 +174,64 @@
           "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后一个了/操作1.png",
           "delay_after": 0.0
         }
+      },
+      {
+        "action": "复制联系人内容",
+        "condition": "always",
+        "condition_image": ""
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "跳转_2"
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "异常",
+        "delay_after": 5.0
+      },
+      {
+        "condition": "always",
+        "condition_image": "",
+        "action": "跳转_1"
       }
     ],
     "stop_shortcut": "Shift+A",
     "note": "发送给豆包后-豆包执行中-CRM待坐标点击\n\n发送给豆包\n等待4s\n找复制按钮\n执行复制+点击CRM\n执行坐标流程\n执行粘贴+录入CRM",
+    "skip_on_fail": false
+  },
+  {
+    "name": "公海客户提取",
+    "loop_type": "times",
+    "loop_count": 7,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "公海客户提取",
+        "condition": "always",
+        "condition_image": ""
+      }
+    ],
+    "stop_shortcut": "Shift+G",
+    "note": "",
+    "skip_on_fail": false
+  },
+  {
+    "name": "那啥，捞公海看客户资质",
+    "loop_type": "times",
+    "loop_count": 1302,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "流程_20260723_191952_887",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 6.0
+      }
+    ],
+    "stop_shortcut": "Alt+L",
+    "note": "",
     "skip_on_fail": false
   }
 ]

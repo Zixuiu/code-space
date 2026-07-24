@@ -151,6 +151,25 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     _clipboard_log_enabled = _debug_mode
 
     _first_paste_clipboard = None
+    try:
+        import pyperclip
+        import time as _t
+        # 初始捕获剪贴板，重试多次确保成功
+        for _i in range(3):
+            try:
+                _first_paste_clipboard = pyperclip.paste()
+                if _first_paste_clipboard is not None and _first_paste_clipboard != "":
+                    break
+                _t.sleep(0.05)
+            except Exception:
+                _t.sleep(0.05)
+        if _clipboard_log_enabled and _first_paste_clipboard:
+            _cl = len(_first_paste_clipboard)
+            _cp = str(_first_paste_clipboard)[:50] + ("..." if _cl > 50 else "")
+            debug_print(f"[剪贴板] 回放开始时已锁定剪贴板: {_cl}字符 - {_cp}")
+    except Exception:
+        pass
+
     def _capture_first_paste():
         nonlocal _first_paste_clipboard
         if _first_paste_clipboard is not None:
@@ -165,25 +184,38 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         except Exception:
             pass
 
+    def _force_clipboard(target_content, label="", max_retry=3, delay=0.3):
+        """强制将目标内容写入剪贴板，带验证和重试，确保写入成功"""
+        import pyperclip
+        import time as _t
+        for attempt in range(max_retry):
+            try:
+                # 先清空剪贴板，避免旧内容干扰
+                pyperclip.copy("")
+                _t.sleep(0.05)
+                pyperclip.copy(target_content)
+                _t.sleep(delay)
+                verify = pyperclip.paste()
+                if verify == target_content:
+                    if _clipboard_log_enabled and label:
+                        debug_print(f"[剪贴板-{label}] 强制写入成功({len(target_content)}字符)")
+                    return True
+                if _clipboard_log_enabled:
+                    debug_print(f"[剪贴板-{label}] 第{attempt+1}次验证失败，重试...")
+            except Exception as _e:
+                if _clipboard_log_enabled:
+                    debug_print(f"[剪贴板-{label}] 第{attempt+1}次写入异常: {_e}")
+        return False
+
     def _restore_first_paste_before_paste():
         nonlocal _first_paste_clipboard
         if _first_paste_clipboard is None:
             return False
-        try:
-            import pyperclip
-            import time as _t
-            current = pyperclip.paste()
-            if current != _first_paste_clipboard:
-                pyperclip.copy(_first_paste_clipboard)
-                _t.sleep(0.05)
-                if _clipboard_log_enabled:
-                    _rlen = len(_first_paste_clipboard) if _first_paste_clipboard else 0
-                    debug_print(f"[剪贴板修复] 已恢复为首次粘贴内容({_rlen}字符)")
-                return True
-        except Exception as _e:
-            if _clipboard_log_enabled:
-                debug_print(f"[剪贴板修复] 恢复失败: {_e}")
-        return False
+        ok = _force_clipboard(_first_paste_clipboard, label="恢复", max_retry=3, delay=0.3)
+        if ok and _clipboard_log_enabled:
+            _rlen = len(_first_paste_clipboard) if _first_paste_clipboard else 0
+            debug_print(f"[剪贴板修复] 已恢复为首次粘贴内容({_rlen}字符)")
+        return ok
 
     def _log_clipboard(label):
         if not _clipboard_log_enabled:
@@ -252,10 +284,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         _interruptible_sleep(0.2, stop_check=stop_check)
                         # 恢复用户原来的剪贴板内容，防止后续 Ctrl+V 粘贴错误内容
                         if saved_clipboard is not None:
-                            try:
-                                pyperclip.copy(saved_clipboard)
-                            except Exception:
-                                pass
+                            _force_clipboard(saved_clipboard, label="恢复", max_retry=3, delay=0.3)
                         success_count += 1
                         debug_print(f"[回放] 步骤 {step}: 文本输入完成")
                     else:
@@ -305,11 +334,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             # 如果是 Ctrl+V 且有保存的剪贴板内容，先恢复剪贴板
                             if 'clipboard' in operation and operation['clipboard']:
                                 import pyperclip
-                                pyperclip.copy(operation['clipboard'])
+                                _force_clipboard(operation['clipboard'], label="粘贴前指定", max_retry=3, delay=0.3)
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
                                 _capture_first_paste()
-                                _restore_first_paste_before_paste()
+                                # 强制确保剪贴板是首次粘贴的内容，带验证重试
+                                if _first_paste_clipboard is not None:
+                                    _force_clipboard(_first_paste_clipboard, label="粘贴前", max_retry=3, delay=0.3)
                             # Ctrl+V 调试: 粘贴前再读一次确认
                             if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
                                 try:
@@ -320,10 +351,31 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                     debug_print(f"[剪贴板诊断] Ctrl+V 即将粘贴: len={_cb_len} 内容={_cb_preview}")
                                 except Exception as _e:
                                     debug_print(f"[剪贴板诊断] Ctrl+V前读取失败: {_e}")
+                            # Ctrl+V 前最终验证：如果内容不对，立刻重写再粘贴
+                            if 'v' == main_key and 'ctrl' in modifiers and _first_paste_clipboard is not None:
+                                import pyperclip as _pyper_final
+                                _final_content = _pyper_final.paste()
+                                if _final_content != _first_paste_clipboard:
+                                    debug_print(f"[剪贴板-最终检查] 内容不对({len(_final_content)}字符)，立即重写...")
+                                    _force_clipboard(_first_paste_clipboard, label="最终修复", max_retry=2, delay=0.2)
                             # 使用pyautogui的hotkey方法处理组合键
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 完成")
+                            # ★ Ctrl+C 后更新锁定的剪贴板内容（用户主动复制了新内容）
+                            if 'c' == main_key and 'ctrl' in modifiers:
+                                try:
+                                    import pyperclip as _pyper_after_c
+                                    import time as _t_after_c
+                                    _t_after_c.sleep(0.1)  # 等待系统完成复制
+                                    _new_cb = _pyper_after_c.paste()
+                                    if _new_cb and _new_cb != _first_paste_clipboard:
+                                        _first_paste_clipboard = _new_cb
+                                        _cl = len(_new_cb)
+                                        _cp = str(_new_cb)[:50] + ("..." if _cl > 50 else "")
+                                        debug_print(f"[剪贴板] Ctrl+C后更新锁定内容: {_cl}字符 - {_cp}")
+                                except Exception:
+                                    pass
                         except Exception as e:
                             # 尝试手动按下和释放
                             try:
@@ -513,6 +565,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     _replay_elapsed = time.time() - _replay_start
     if not skip_cache_clear:
         clear_image_cache()
+    try:
+        for _key in ['ctrl', 'shift', 'alt', 'win']:
+            pyautogui.keyUp(_key)
+        if _clipboard_log_enabled:
+            debug_print("[回放] 已释放所有修饰键")
+    except Exception:
+        pass
     return success_count, total_operations, image_match_fail_count
 
 
@@ -587,6 +646,11 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             import traceback; traceback.print_exc()
             continue
     
+    try:
+        for _key in ['ctrl', 'shift', 'alt', 'win']:
+            pyautogui.keyUp(_key)
+    except Exception:
+        pass
     return success_count, total_operations
 
 
