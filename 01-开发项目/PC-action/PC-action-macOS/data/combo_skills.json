@@ -15,7 +15,7 @@
         "action": "添加wps-返回单元格",
         "condition": "image_found",
         "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png",
-        "delay_after": 0.5,
+        "delay_after": 0.3,
         "else_branch": {
           "action": "跳转_3",
           "condition": "image_not_found",
@@ -31,7 +31,7 @@
         "action": "选择下一个",
         "condition": "always",
         "condition_image": "",
-        "delay_after": 0.1
+        "delay_after": 0.30000000000000004
       },
       {
         "action": "复制-搜索岗位",
