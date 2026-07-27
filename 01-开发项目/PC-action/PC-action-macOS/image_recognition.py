@@ -406,10 +406,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 _force_clipboard(operation['clipboard'], label="粘贴前指定", max_retry=3, delay=0.3)
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
-                                _capture_first_paste()
-                                # 强制确保剪贴板是首次粘贴的内容，带验证重试
-                                if _first_paste_clipboard is not None:
-                                    _force_clipboard(_first_paste_clipboard, label="粘贴前", max_retry=3, delay=0.3)
+                                # 直接使用当前剪贴板内容粘贴，不强制恢复（避免一直粘贴旧内容）
+                                pass
                             # Ctrl+V 调试: 粘贴前再读一次确认
                             if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
                                 try:
@@ -420,13 +418,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                     debug_print(f"[剪贴板诊断] Ctrl+V 即将粘贴: len={_cb_len} 内容={_cb_preview}")
                                 except Exception as _e:
                                     debug_print(f"[剪贴板诊断] Ctrl+V前读取失败: {_e}")
-                            # Ctrl+V 前最终验证：如果内容不对，立刻重写再粘贴
-                            if 'v' == main_key and 'ctrl' in modifiers and _first_paste_clipboard is not None:
-                                import pyperclip as _pyper_final
-                                _final_content = _pyper_final.paste()
-                                if _final_content != _first_paste_clipboard:
-                                    debug_print(f"[剪贴板-最终检查] 内容不对({len(_final_content)}字符)，立即重写...")
-                                    _force_clipboard(_first_paste_clipboard, label="最终修复", max_retry=2, delay=0.2)
+
                             # 使用pyautogui的hotkey方法处理组合键
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1
@@ -498,13 +490,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             
                             # 转换为小写并检查是否为特殊键
                             key_lower = key.lower()
-                            # 优先用 Win32 keybd_event 极速瞬按（零延迟，避免系统自动重复）
                             actual_key = special_keys.get(key_lower, key) if key_lower in special_keys else key
-                            debug_print(f"[回放] 步骤 {step}: 按键 '{actual_key}' (Win32极速瞬按)")
-                            ok = _fast_press(actual_key)
-                            if not ok:
-                                # 不支持的按键，回退到 pyautogui
-                                pyautogui.press(actual_key)
+                            debug_print(f"[回放] 步骤 {step}: 按键 '{actual_key}' (pyautogui)")
+                            pyautogui.press(actual_key)
                             success_count += 1
                             debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
                         except Exception as e:
