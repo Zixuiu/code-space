@@ -406,8 +406,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 _force_clipboard(operation['clipboard'], label="粘贴前指定", max_retry=3, delay=0.3)
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
-                                # 直接使用当前剪贴板内容粘贴，不强制恢复（避免一直粘贴旧内容）
-                                pass
+                                _capture_first_paste()
+                                # 智能恢复：只在剪贴板为空或异常短(<3字符)时才恢复，避免覆盖正常复制
+                                if _first_paste_clipboard is not None:
+                                    try:
+                                        import pyperclip as _pyper_chk
+                                        _current = _pyper_chk.paste()
+                                        _cur_len = len(_current) if _current else 0
+                                        # 只在剪贴板为空或异常短时才恢复
+                                        if _cur_len < 3:
+                                            debug_print(f"[剪贴板保护] 当前剪贴板异常短({_cur_len}字符)，恢复成锁定内容")
+                                            _force_clipboard(_first_paste_clipboard, label="智能恢复", max_retry=2, delay=0.2)
+                                        else:
+                                            debug_print(f"[剪贴板保护] 当前剪贴板正常({_cur_len}字符)，保持不变")
+                                    except Exception:
+                                        pass
                             # Ctrl+V 调试: 粘贴前再读一次确认
                             if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
                                 try:
