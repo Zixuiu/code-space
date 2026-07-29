@@ -2,24 +2,24 @@
   {
     "name": "看客户有无招聘",
     "loop_type": "times",
-    "loop_count": 3333,
+    "loop_count": 1,
     "until_image": "",
     "flows": [
       {
         "action": "复制-搜索岗位",
         "condition": "always",
         "condition_image": "",
-        "delay_after": 2.2
+        "delay_after": 0.8
       },
       {
         "action": "添加wps-返回单元格",
         "condition": "image_found",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/招聘多的/操作1.png",
         "delay_after": 0.3,
         "else_branch": {
           "action": "跳转_3",
           "condition": "image_not_found",
-          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/存在岗位】/操作1.png"
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/招聘多的/操作1.png"
         }
       },
       {
@@ -36,11 +36,11 @@
       {
         "action": "复制-搜索岗位",
         "condition": "image_found",
-        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后的单元格/操作1.png",
         "else_branch": {
           "action": "跳转_0",
           "condition": "image_not_found",
-          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/找到最后一个了/操作1.png"
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/最后的单元格/操作1.png"
         }
       }
     ],
@@ -233,6 +233,39 @@
     ],
     "stop_shortcut": "Alt+L",
     "note": "",
+    "skip_on_fail": false
+  },
+  {
+    "name": "判断公海客户的boss",
+    "loop_type": "times",
+    "loop_count": 1,
+    "until_image": "",
+    "flows": [
+      {
+        "action": "复制到boss搜索",
+        "condition": "always",
+        "condition_image": "",
+        "delay_after": 0.7
+      },
+      {
+        "action": "添加wps-返回单元格",
+        "condition": "image_found",
+        "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/招聘多的/操作1.png",
+        "else_branch": {
+          "action": "选择下一个",
+          "condition": "image_not_found",
+          "condition_image": "D:/codespace/01-开发项目/PC-action/PC-action-macOS/recordings/招聘多的/操作1.png",
+          "delay_after": 0.0
+        }
+      },
+      {
+        "action": "跳转_0",
+        "condition": "always",
+        "condition_image": ""
+      }
+    ],
+    "stop_shortcut": "Alt+P",
+    "note": "boss进行25缩放",
     "skip_on_fail": false
   }
 ]
