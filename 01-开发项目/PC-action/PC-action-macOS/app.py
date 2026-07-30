@@ -1,4 +1,4 @@
-﻿"""
+"""
 文件: app.py
 用途: 应用程序主模块，实现自动录制器的核心功能。
       包含UI界面实现、屏幕录制逻辑、操作管理以及与用户认证系统的集成。
@@ -6565,7 +6565,14 @@ class AutoRecorderApp(QMainWindow):
                 import keyboard as _kb_rereg
                 try:
                     _kb_rereg.unhook_all()
-                    self.debug_print("[回放诊断] ✅ 已移除所有钩子")
+                    # ⚡ 关键修复：unhook_all不清空_hotkeys字典，手动清空防止热键累积泄漏
+                    _hotkeys_dict = getattr(_kb_rereg, '_hotkeys', None)
+                    if _hotkeys_dict is not None:
+                        _before_count = len(_hotkeys_dict)
+                        _hotkeys_dict.clear()
+                        self.debug_print(f"[回放诊断] ✅ 已移除所有钩子，并清空 {_before_count} 个热键缓存")
+                    else:
+                        self.debug_print("[回放诊断] ✅ 已移除所有钩子")
                 except Exception as _uh_e:
                     self.debug_print(f"[回放诊断] ⚠️ 移除钩子失败: {_uh_e}")
 

@@ -825,30 +825,6 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         pass
     return None
 
-def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None):
-    try:
-        arr = get_cached_image(image_path)
-        if arr is None:
-            return None
-        if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
-            return None
-        screenshot = _mss_grab_array()
-        if screenshot is None:
-            return None
-        if consider_color:
-            result = cv2.matchTemplate(screenshot, arr, cv2.TM_CCOEFF_NORMED)
-        else:
-            gray_s = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
-            gray_t = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
-            result = cv2.matchTemplate(gray_s, gray_t, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, max_loc = cv2.minMaxLoc(result)
-        if max_val >= confidence:
-            h, w = arr.shape[:2]
-            return (max_loc[0], max_loc[1], w, h)
-    except:
-        pass
-    return None
-
 def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_color=True, region_center=None, stop_check=None, roi_hint=None, strict=False, skip_small_match=False):
     """
     在屏幕上查找指定图像，支持超时等待，支持可中断停止
