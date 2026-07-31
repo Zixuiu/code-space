@@ -71,3 +71,13 @@ user_data/
 
 # 录制回收站
 recordings/trash/
+# 组合技配置
+data/combo_skills.json
+data/combo_skills.json.bak
+
+# 流程录制文件夹
+recordings/
+
+# 快捷键配置
+data/shortcuts.json
+data/key_bindings.json
