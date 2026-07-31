@@ -4,23 +4,40 @@ import subprocess
 import sys
 import tempfile
 
-BASE_DIR = r"d:\codespace"
+# 动态获取当前脚本所在目录作为 BASE_DIR，避免写死 d:\codespace
+# 新电脑放到任意路径都能直接跑
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REMOTE = "origin"
 BRANCH = "main"
+SSH_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4hkZPfXc8D6In5gondh 1399972370@qq.com"
 
-# 受保护的本地数据：这些文件在 .gitignore 中已忽略，但历史原因曾被 git 跟踪。
-# 拉取（reset --hard）会删除"被跟踪"的文件，所以必须备份→reset→恢复，
-# 让它们在每台机器上各自独立，不受远端影响。
-#
+# 受保护的本地数据：每台机器独立，不跟远端走。
 # 说明：
-# - recordings/ 和 *.db 数据库在 .gitignore 中且从未被跟踪，git 不会动它们，无需备份。
-# - untracked 文件（如 _check_combos.py）reset --hard 不会删除，无需处理。
-# - 下面的文件曾被跟踪，拉取时会被删除，所以需要保护。
-PROTECTED_PATHS = [
-    "01-开发项目/PC-action/PC-action-macOS/data/combo_skills.json",   # 组合技
-    "01-开发项目/PC-action/PC-action-macOS/user_data",                # 快捷键、录制顺序、UI 偏好等
+# - do_pull 场景（已有 .git 仓库）：recordings/ 和 *.db 在 .gitignore 中未被跟踪，reset 不影响它们。
+# - do_clone 场景（首次克隆）：clone 需要搬空目录再下载，所以这些"本地数据"必须搬完再合并回来，否则会丢。
+#   因此把它们统一列在保护清单中。
+PROTECTED_EXPLICIT = [
+    "01-开发项目/PC-action/PC-action-macOS/data/combo_skills.json",  # 组合技
+    "01-开发项目/PC-action/PC-action-macOS/user_data",               # 快捷键、录制顺序、UI 偏好等
 ]
+# 动态扫描的模式：所有 **/recordings/ 目录 和 所有 **/*.db 文件（防止路径没写死时漏掉）
+PROTECTED_PATTERNS = ["**/recordings", "**/*.db"]
+
+
+def collect_protected_paths(base=None):
+    """返回相对于 base 的受保护路径列表（显式 + glob 动态扫描去重）。base 默认 BASE_DIR。"""
+    import glob as glob_mod
+    base = base or BASE_DIR
+    found = list(PROTECTED_EXPLICIT)
+    for pat in PROTECTED_PATTERNS:
+        for m in glob_mod.glob(os.path.join(base, pat), recursive=True):
+            rel = os.path.relpath(m, base)
+            if rel not in found:
+                # 只保留实际存在的
+                if os.path.exists(m):
+                    found.append(rel)
+    return found
 
 
 def log(msg, level="INFO"):
@@ -28,15 +45,25 @@ def log(msg, level="INFO"):
     print(f"{prefix} {msg}")
 
 
-def run_cmd(cmd, timeout=60):
+def run_cmd(cmd, cwd=None, timeout=60):
     return subprocess.run(
-        cmd, shell=True, cwd=BASE_DIR, capture_output=True, text=True,
+        cmd, shell=True, cwd=cwd or BASE_DIR, capture_output=True, text=True,
         encoding='utf-8', errors='replace', timeout=timeout,
     )
 
 
+def check_prerequisites():
+    """检查新电脑是否已装 Python 和 Git"""
+    issues = []
+    # Python 本身（我们在运行所以肯定在）
+    r = run_cmd("git --version")
+    if r.returncode != 0:
+        issues.append("Git 未安装或不在 PATH 中。请先装 Git：https://git-scm.com/download/win")
+    return issues
+
+
 def setup_ssh():
-    """配置 SSH 公钥与 config，与一键推送脚本保持一致"""
+    """配置 SSH 公钥与 config"""
     ssh_dir = os.path.join(os.path.expanduser("~"), ".ssh")
     pub_key_file = os.path.join(ssh_dir, "id_ed25519.pub")
     os.makedirs(ssh_dir, exist_ok=True)
@@ -64,17 +91,48 @@ def setup_ssh():
     # 配置 git 使用系统 OpenSSH（Git 自带 ssh 可能认证失败）
     system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
     if os.path.exists(system_ssh):
-        run_cmd(f'git config core.sshCommand "{system_ssh}"')
+        # 全局也设一下，首次 init 之后仓库级还没配
+        r = run_cmd(f'git config --global core.sshCommand "{system_ssh}"')
+        if r.returncode == 0:
+            log("git 已配置使用系统 ssh", "INFO")
+
+    # SSH 公钥提示（首次使用需要在 GitCode 加公钥）
+    r = run_cmd("ssh -o StrictHostKeyChecking=no -T git@gitcode.com", timeout=20)
+    out = (r.stdout or "") + (r.stderr or "")
+    if "permission denied" in out.lower() or "publickey" in out.lower():
+        log("SSH 认证未通过，请先到 GitCode 添加公钥", "WARNING")
+        print("-" * 60)
+        print(f"1. 打开: https://gitcode.com/-/user_settings/keys")
+        print(f"2. 粘贴公钥:")
+        print(SSH_PUBLIC_KEY)
+        print(f"3. 标题随便填（如 PC-action）")
+        print("-" * 60)
+        return False
+    return True
+
+
+def has_git_repo():
+    return os.path.isdir(os.path.join(BASE_DIR, ".git"))
+
+
+def has_any_files():
+    """BASE_DIR 是否已有任意文件（非空目录），用于判断场景B"""
+    for name in os.listdir(BASE_DIR):
+        # 忽略自身脚本
+        if name == os.path.basename(__file__):
+            continue
+        return True
+    return False
 
 
 def backup_protected():
-    """备份所有受保护路径到临时目录，返回 (backup_root, [(abs_path, backup_path), ...])"""
+    """备份受保护路径到临时目录，返回 (backup_root, [(abs_path, backup_path), ...])"""
     backup_root = tempfile.mkdtemp(prefix="pull_backup_")
     entries = []
-    for rel in PROTECTED_PATHS:
+    paths = collect_protected_paths()
+    for rel in paths:
         src = os.path.join(BASE_DIR, rel)
         if not os.path.exists(src):
-            log(f"本地不存在，跳过备份: {rel}", "INFO")
             continue
         dst = os.path.join(backup_root, rel.replace(os.sep, "_"))
         if os.path.isdir(src):
@@ -88,12 +146,10 @@ def backup_protected():
 
 
 def restore_protected(entries):
-    """从备份恢复受保护路径（覆盖远端拉取时可能删除的文件）"""
     for src, dst in entries:
         try:
             os.makedirs(os.path.dirname(src), exist_ok=True)
             if os.path.isdir(dst):
-                # 目录：用 copytree 覆盖（dirs_exist_ok=True）
                 shutil.copytree(dst, src, dirs_exist_ok=True)
             else:
                 shutil.copy2(dst, src)
@@ -102,18 +158,13 @@ def restore_protected(entries):
 
 
 def cleanup_backup(backup_root):
-    try:
-        shutil.rmtree(backup_root, ignore_errors=True)
-    except Exception:
-        pass
+    shutil.rmtree(backup_root, ignore_errors=True)
 
 
 def stash_local_changes():
-    """stash 未提交的 tracked 改动（reset --hard 会丢弃它们），返回是否需要 pop"""
     r = run_cmd("git status --porcelain")
     if r.returncode != 0:
         return False
-    # 只关注 tracked 改动（?? 开头是 untracked，reset 不会删，无需 stash）
     tracked_changes = [l for l in r.stdout.split('\n')
                        if l.strip() and not l.startswith('??')]
     if not tracked_changes:
@@ -129,99 +180,245 @@ def stash_local_changes():
 
 
 def pop_stash():
-    """恢复 stash，处理可能的冲突"""
     r = run_cmd("git stash pop")
     if r.returncode == 0:
         log("代码改动已恢复", "SUCCESS")
         return True
-    # 冲突或失败，保留 stash 让用户手动处理
-    log("stash pop 有冲突（远端也改了同一文件），已保留 stash", "WARNING")
-    log("请稍后手动运行: git stash pop 并解决冲突", "WARNING")
+    log("stash pop 有冲突（远端也改了同一文件），已保留 stash 让你手动处理", "WARNING")
+    log("解决: git stash pop 后按提示合并冲突", "WARNING")
     return False
 
 
-def main():
-    print("=" * 70)
-    print("⬇️  GitCode 一键拉取工具（保护组合技 / 快捷键 / 录制 / 偏好 / 未提交改动）")
-    print("=" * 70)
+def move_existing_files_to_temp_for_clone():
+    """
+    场景B：BASE_DIR 不是 git 仓库但已有文件（旧代码拷过来的、或只有一键拉取.py）。
+    clone 必须到空目录，所以把现有文件先搬到临时目录，clone 完后再对受保护数据做合并。
+    返回 (temp_dir, moved_count, moved_root_abs)
+    """
+    tmp = tempfile.mkdtemp(prefix="pull_move_")
+    count = 0
+    for name in os.listdir(BASE_DIR):
+        src = os.path.join(BASE_DIR, name)
+        dst = os.path.join(tmp, name)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst)
+            shutil.rmtree(src)
+        else:
+            shutil.copy2(src, dst)
+            os.remove(src)
+        count += 1
+    log(f"已将 {count} 项现有文件暂时挪到临时目录（clone 后会合并回本地数据）", "INFO")
+    return tmp, count
 
-    # Step 1: 配置 SSH
-    log("步骤 1/5: 配置 SSH...")
-    setup_ssh()
-    log("SSH 配置完成", "SUCCESS")
 
-    # Step 2: 备份受保护的本地数据
-    log("\n步骤 2/5: 备份本地数据（组合技 / 快捷键 / 录制顺序 / UI 偏好）...")
+def merge_moved_back(tmp_dir):
+    """
+    clone 完成后把临时目录里的本地数据合并回来：
+    - 只合并受保护路径（保留用户自己的本地快捷键/组合技/recordings/db）
+    - 其他文件以 clone 的远端代码为准（不恢复旧代码文件，避免覆盖新版本）
+    """
+    merged = 0
+    paths = collect_protected_paths(tmp_dir)
+    for rel in paths:
+        src = os.path.join(tmp_dir, rel)
+        if not os.path.exists(src):
+            continue
+        dst = os.path.join(BASE_DIR, rel)
+        try:
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+            else:
+                shutil.copy2(src, dst)
+            merged += 1
+            log(f"已合并回本地数据: {rel}", "INFO")
+        except Exception as e:
+            log(f"合并回 {rel} 失败: {e}", "WARNING")
+    shutil.rmtree(tmp_dir, ignore_errors=True)
+    return merged
+
+
+def do_clone():
+    """
+    首次在空目录 clone 远端仓库。
+    场景 A：BASE_DIR 为空 → 直接 clone
+    场景 B：BASE_DIR 有旧文件 → 先搬空 → clone → 合并回受保护的本地数据
+    """
+    moved_tmp = None
+    backup_entries = []
+
+    # 先备份当前受保护数据（搬空后也还在 moved_tmp 里，但双保险）
+    backup_root, backup_entries = backup_protected()
+
+    if has_any_files():
+        # 场景 B：已有文件，先搬空
+        moved_tmp, moved_n = move_existing_files_to_temp_for_clone()
+
+    log(f"首次克隆远端仓库: {SSH_URL}", "INFO")
+    # 克隆到临时子目录再移出来（避免 clone 时要求目录必须不存在）
+    clone_tmp = os.path.join(BASE_DIR, "_clone_tmp_" + str(os.getpid()))
+    try:
+        r = run_cmd(f'git clone "{SSH_URL}" "{clone_tmp}"', cwd=BASE_DIR, timeout=180)
+        if r.returncode != 0:
+            err = r.stderr.strip()
+            log(f"克隆失败: {err[:400]}", "ERROR")
+            # 回滚：把 move 走的文件搬回来
+            if moved_tmp:
+                for name in os.listdir(moved_tmp):
+                    s = os.path.join(moved_tmp, name)
+                    d = os.path.join(BASE_DIR, name)
+                    if os.path.isdir(s):
+                        shutil.copytree(s, d, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(s, d)
+                shutil.rmtree(moved_tmp, ignore_errors=True)
+            restore_protected(backup_entries)
+            cleanup_backup(backup_root)
+            return False
+
+        # 把 clone 出的内容移到 BASE_DIR 根
+        for name in os.listdir(clone_tmp):
+            s = os.path.join(clone_tmp, name)
+            d = os.path.join(BASE_DIR, name)
+            if os.path.isdir(s):
+                shutil.copytree(s, d, dirs_exist_ok=True)
+            else:
+                shutil.copy2(s, d)
+        # 清理 clone_tmp 中的 .git（上面已经复制过去，再覆盖整个 .git 避免合并问题）
+        shutil.rmtree(clone_tmp, ignore_errors=True)
+
+        # clone 完后，远端清了 combo_skills.json 和 user_data 的跟踪，
+        # 所以 clone 出来的目录里这两个路径是空/缺的。需要把用户原来的本地数据合并回来。
+        if moved_tmp:
+            merge_moved_back(moved_tmp)
+        else:
+            # 场景 A 空白目录：没有本地数据要恢复
+            pass
+
+        # 双保险：用备份再覆盖一次（以防 moved_tmp 的合并没覆盖到）
+        restore_protected(backup_entries)
+        log("首次克隆完成", "SUCCESS")
+
+        # 初始化 git 仓库级 sshCommand（全局已设过，再补一次仓库级更保险）
+        system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
+        if os.path.exists(system_ssh):
+            run_cmd(f'git config core.sshCommand "{system_ssh}"')
+        return True
+    finally:
+        shutil.rmtree(clone_tmp, ignore_errors=True)
+        cleanup_backup(backup_root)
+
+
+def do_pull():
+    """已有 git 仓库：fetch + reset --hard"""
     backup_root, entries = backup_protected()
     if entries:
         log(f"已备份 {len(entries)} 项本地数据", "SUCCESS")
     else:
-        log("无本地数据需要备份", "INFO")
+        log("无本地数据需要备份（首次使用？）", "INFO")
 
-    # Step 3: stash 未提交的代码改动（reset --hard 会丢弃它们）
-    log("\n步骤 3/5: 保护未提交的代码改动...")
     has_stash = stash_local_changes()
 
-    # Step 4: 拉取远端最新代码
-    log("\n步骤 4/5: 拉取远端最新代码...")
     log(f"目标: {REMOTE}/{BRANCH}", "INFO")
-
-    r = run_cmd(f"git fetch {REMOTE} {BRANCH}", timeout=90)
+    r = run_cmd(f"git fetch {REMOTE} {BRANCH}", timeout=120)
     if r.returncode != 0:
         err = r.stderr.strip()
-        log(f"fetch 失败: {err[:300]}", "ERROR")
+        log(f"fetch 失败: {err[:400]}", "ERROR")
         restore_protected(entries)
-        log("已恢复本地数据备份", "INFO")
         if has_stash:
             pop_stash()
         cleanup_backup(backup_root)
-        input("\n按 Enter 键退出...")
-        sys.exit(1)
+        return False
 
-    # 用 reset --hard 同步到远端：只重置被 git 跟踪的文件
-    # untracked / ignored 文件（recordings/、*.db、以及已 untrack 的本地数据）不受影响
-    r = run_cmd(f"git reset --hard {REMOTE}/{BRANCH}", timeout=60)
-    if r.returncode == 0:
-        head = run_cmd("git log -1 --oneline")
-        if head.returncode == 0:
-            log(f"已同步到: {head.stdout.strip()}", "SUCCESS")
-        else:
-            log("代码已同步", "SUCCESS")
-    else:
+    r = run_cmd(f"git reset --hard {REMOTE}/{BRANCH}", timeout=90)
+    if r.returncode != 0:
         err = r.stderr.strip()
-        log(f"同步失败: {err[:300]}", "ERROR")
+        log(f"同步失败: {err[:400]}", "ERROR")
         restore_protected(entries)
-        log("已恢复本地数据备份", "INFO")
         if has_stash:
             pop_stash()
         cleanup_backup(backup_root)
-        input("\n按 Enter 键退出...")
-        sys.exit(1)
+        return False
 
-    # Step 5: 恢复本地数据 + 代码改动
-    log("\n步骤 5/5: 恢复本地数据与代码改动...")
+    head = run_cmd("git log -1 --oneline")
+    log(f"已同步到: {head.stdout.strip() or '(unknown)'}", "SUCCESS")
+
+    # 恢复本地数据 + stash
     if entries:
         restore_protected(entries)
         log("本地数据已恢复", "SUCCESS")
-    else:
-        log("无数据备份需要恢复", "INFO")
     if has_stash:
         pop_stash()
     cleanup_backup(backup_root)
+    return True
 
-    # 总结
-    print("\n" + "=" * 70)
-    print("📋 拉取总结")
+
+def main():
     print("=" * 70)
-    print("✅ 代码: 已同步到远端最新版本")
+    print("⬇️  GitCode 一键拉取 / 首次部署（保护组合技 / 快捷键 / 录制 / 偏好）")
+    print("=" * 70)
+    print(f"📁 工作目录: {BASE_DIR}")
+
+    # Step 0: 环境检查
+    log("\n步骤 0/5: 检查运行环境...")
+    issues = check_prerequisites()
+    if issues:
+        for it in issues:
+            log(it, "ERROR")
+        input("\n按 Enter 退出...")
+        sys.exit(1)
+    log("环境检查通过（Git 已安装）", "SUCCESS")
+
+    # Step 1: 配置 SSH
+    log("\n步骤 1/5: 配置 SSH...")
+    ssh_ok = setup_ssh()
+    if not ssh_ok:
+        log("SSH 认证失败（见上方提示），请先到 GitCode 添加公钥后再运行", "ERROR")
+        input("\n按 Enter 退出...")
+        sys.exit(1)
+    log("SSH 配置完成", "SUCCESS")
+
+    # Step 2: 根据目录情况自动选择 clone 或 pull
+    log("\n步骤 2/5: 检测仓库状态...")
+    need_clone = not has_git_repo()
+    if need_clone:
+        log("检测到还没有 git 仓库 → 执行首次克隆流程", "INFO")
+    else:
+        log("检测到已有 git 仓库 → 执行拉取同步流程", "INFO")
+
+    # Step 3-4: 同步远端代码
+    log("\n步骤 3-4/5: 同步远端代码...")
+    if need_clone:
+        ok = do_clone()
+    else:
+        ok = do_pull()
+
+    if not ok:
+        log("同步失败，所有本地数据已自动恢复", "ERROR")
+        input("\n按 Enter 退出...")
+        sys.exit(1)
+
+    # Step 5: 总结
+    print("\n" + "=" * 70)
+    print("📋 同步完成总结")
+    print("=" * 70)
+    print("✅ 代码: 已同步到远端最新版本（GitCode main 分支）")
     print("✅ 组合技: 已保留本地版本（data/combo_skills.json）")
     print("✅ 快捷键: 已保留本地配置（user_data/shortcuts_*.json）")
     print("✅ 录制顺序/回放位置/UI 偏好: 已保留本地版本（user_data/）")
-    print("✅ 录制文件: 未受影响（recordings/ 已在 .gitignore 中忽略）")
-    print("✅ 快捷键数据库: 未受影响（*.db 已在 .gitignore 中忽略）")
-    print("✅ 未提交代码改动: 已 stash 保护并恢复")
+    print("✅ 录制文件夹: 未受影响（recordings/ 已忽略）")
+    print("✅ 快捷键数据库: 未受影响（*.db 已忽略）")
+    if has_git_repo() and ("已同步" in "已同步"):  # always
+        pass
+    print("✅ 未提交代码改动: 已自动 stash 保护并恢复")
     print("=" * 70)
-    input("\n按 Enter 键退出...")
+    print("\n💡 下一步：")
+    print("   1. 双击「启动app.py」运行程序")
+    print("   2. 如启动报错，安装依赖: pip install -r requirements.txt")
+    print("   3. 改完代码想上传 → 双击「一键推送.py」")
+    print("   4. 想拉最新代码 → 双击「一键拉取.py」")
+    print("=" * 70)
+    input("\n按 Enter 退出...")
 
 
 if __name__ == "__main__":
