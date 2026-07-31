@@ -61,7 +61,7 @@ def setup_ssh():
         log(f"写入 SSH 配置失败: {e}", "WARNING")
 
     # 配置 git 使用系统 OpenSSH（Git 自带 ssh 可能认证失败）
-    system_ssh = r"C:\Windows\System32\OpenSSH\ssh.exe"
+    system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
     if os.path.exists(system_ssh):
         run_cmd(f'git config core.sshCommand "{system_ssh}"')
 
