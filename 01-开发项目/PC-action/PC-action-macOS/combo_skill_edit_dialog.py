@@ -1,4 +1,4 @@
-﻿"""
+"""
 文件: combo_skill_edit_dialog.py
 用途: 组合技编辑对话框 - 完整的流程编辑、条件设置、图片选择等功能
 """
@@ -142,145 +142,64 @@ class ComboSkillEditDialog(QDialog):
         top_layout.addWidget(self.skip_on_fail_check)
 
         # ── 统一步骤间隔设置（录制流程内的每步操作之间等待时间）──
+        self._step_interval_default = True  # 是否使用默认值
         step_interval_label = QLabel("步间:")
         step_interval_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
         top_layout.addWidget(step_interval_label)
 
-        self.step_interval_combo = QComboBox()
-        self.step_interval_combo.setFixedWidth(108)
-        # 先初始化自定义间隔值（先定义避免AttributeError）
-        self._custom_interval_value = None
-        # 选项：None=默认0.1s, 0, 0.1, 0.2, 0.5, 1, custom
-        self._interval_presets = [
-            ("默认 0.1秒", None),
-            ("0秒 (极速)", 0.0),
-            ("0.1秒 (推荐)", 0.1),
-            ("0.2秒", 0.2),
-            ("0.5秒", 0.5),
-            ("1秒", 1.0),
-            ("自定义...", "__custom__"),
-        ]
-        for label, val in self._interval_presets:
-            self.step_interval_combo.addItem(label, val)
-
-        # 读取当前设置
         raw_interval = self.skill_data.get('step_interval', '__default__')
         if raw_interval == '__default__' or raw_interval is None:
-            # 默认0.1秒
-            self.step_interval_combo.setCurrentIndex(0)
-            self._custom_interval_value = None
+            self._step_interval_default = True
+            raw_value = 0.1
         else:
-            # 尝试匹配预设
+            self._step_interval_default = False
             try:
-                f = float(raw_interval)
-                matched = False
-                for i, (_, v) in enumerate(self._interval_presets):
-                    if v is not None and v != '__custom__' and abs(float(v) - f) < 0.001:
-                        self.step_interval_combo.setCurrentIndex(i)
-                        matched = True
-                        self._custom_interval_value = None  # 匹配到预设，自定义值清空
-                        break
-                if not matched:
-                    self.step_interval_combo.setCurrentIndex(len(self._interval_presets) - 1)  # 自定义
-                    self._custom_interval_value = f
+                raw_value = float(raw_interval)
             except (TypeError, ValueError):
-                self.step_interval_combo.setCurrentIndex(0)
-                self._custom_interval_value = None
+                self._step_interval_default = True
+                raw_value = 0.1
 
-        self.step_interval_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: 1px solid {T['border']};
-                border-radius: 7px;
-                padding: 4px 26px 4px 10px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {T['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 22px;
-                subcontrol-position: center right;
-                subcontrol-origin: padding;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {T['text_secondary']};
-                width: 0;
-                height: 0;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: 1px solid {T['border']};
-                border-radius: 8px;
-                padding: 4px;
-                outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 6px 10px;
-                border-radius: 6px;
-                min-height: 22px;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {T['primary']};
-                color: white;
-            }}
-        """)
-        self.step_interval_combo.currentIndexChanged.connect(self._on_step_interval_changed)
-        top_layout.addWidget(self.step_interval_combo)
-
-        # 自定义输入框（默认隐藏）
-        self.step_interval_custom = QDoubleSpinBox()
-        self.step_interval_custom.setRange(0, 999.9)
-        self.step_interval_custom.setDecimals(2)
-        self.step_interval_custom.setSingleStep(0.1)
-        self.step_interval_custom.setSuffix(" 秒")
-        self.step_interval_custom.setValue(self._custom_interval_value if self._custom_interval_value is not None else 0.1)
-        self.step_interval_custom.setFixedWidth(95)
-        self.step_interval_custom.setStyleSheet(f"""
+        self.step_interval_spin = QDoubleSpinBox()
+        self.step_interval_spin.setRange(0, 999.9)
+        self.step_interval_spin.setDecimals(2)
+        self.step_interval_spin.setSingleStep(0.1)
+        self.step_interval_spin.setSuffix(" 秒")
+        self.step_interval_spin.setValue(raw_value)
+        self.step_interval_spin.setFixedWidth(100)
+        self.step_interval_spin.setEnabled(not self._step_interval_default)
+        self.step_interval_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
                 background-color: {T['bg_card']};
-                color: {T['primary']};
-                border: 1px solid {T['primary']};
+                color: {T['text_primary']};
+                border: 1px solid {T['border']};
                 border-radius: 7px;
                 padding: 4px 8px;
                 font-size: 12px;
-                font-weight: 600;
+            }}
+            QDoubleSpinBox:focus {{
+                border-color: {T['primary']};
+            }}
+            QDoubleSpinBox:disabled {{
+                background-color: {T['bg_card']};
+                color: {T['text_secondary']};
+                border: 1px solid {T['border']};
             }}
         """)
-        # 是否显示自定义输入框
-        cur_data = self.step_interval_combo.currentData()
-        self.step_interval_custom.setVisible(cur_data == '__custom__')
-        top_layout.addWidget(self.step_interval_custom)
+        top_layout.addWidget(self.step_interval_spin)
+
+        self.step_interval_default_cb = QCheckBox("默认")
+        self.step_interval_default_cb.setChecked(self._step_interval_default)
+        self.step_interval_default_cb.setToolTip("勾选后使用系统默认值(0.1秒)")
+        self.step_interval_default_cb.setStyleSheet("""
+            QCheckBox { font-size: 11px; color: #888; }
+            QCheckBox::indicator { width: 14px; height: 14px; }
+        """)
+        self.step_interval_default_cb.stateChanged.connect(
+            lambda st: self.step_interval_spin.setEnabled(not st))
+        top_layout.addWidget(self.step_interval_default_cb)
 
         note_btn = QPushButton("📝 备注")
-        note_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: #1C1C1E;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: #E5E5EA;
-                color: #000000;
-            }}
-            QPushButton:pressed {{
-                background-color: #D1D1D6;
-                padding-top: 2px;
-            }}
-        """)
+        note_btn.setStyleSheet(self._bar_btn_style())
         note_btn.clicked.connect(self.show_note_page)
         top_layout.addWidget(note_btn)
 
@@ -297,33 +216,20 @@ class ComboSkillEditDialog(QDialog):
         flow_layout.setSpacing(10)
 
         self.tree_widget = QTreeWidget()
-        self.tree_widget.setHeaderLabels(["执行条件", "条件图片", "执行操作", "等待时间(s)"])
+        self.tree_widget.setHeaderLabels(["执行条件", "条件图片", "执行操作", "等待(s)"])
         self.tree_widget.setStyleSheet(f"""
             QTreeWidget {{
-                background: transparent;
-                border: none;
-                outline: none;
+                background: transparent; border: none; outline: none;
             }}
             QTreeWidget::item {{
-                padding: 8px;
-                border-bottom: none;
-                min-height: 45px;
-                outline: none;
-                border: none;
+                padding: 8px; border-bottom: none; min-height: 45px; outline: none; border: none;
             }}
             QTreeWidget::item:selected {{
-                background: {T['primary']}15;
-                border: none;
-                outline: none;
+                background: {T['primary']}15; border: none; outline: none;
             }}
             QHeaderView::section {{
-                background: transparent;
-                color: #333333;
-                padding: 10px;
-                font-weight: bold;
-                border: none;
-                border-bottom: none;
-                font-size: 13px;
+                background: transparent; color: #666; padding: 10px;
+                font-weight: 600; border: none; border-bottom: none; font-size: 12px;
             }}
         """)
         self.tree_widget.setColumnWidth(0, 250)
@@ -348,102 +254,24 @@ class ComboSkillEditDialog(QDialog):
         btn_layout = QHBoxLayout()
 
         add_btn = QPushButton("+ 添加")
-        add_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {T['primary']};
-                color: white;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: {T['primary_hover']};
-            }}
-            QPushButton:pressed {{
-                background-color: {T['primary']};
-                padding-top: 2px;
-            }}
-        """)
+        add_btn.setStyleSheet(self._bar_btn_style(bg=T['primary'], fg='white', hover_bg=T['primary_hover']))
         add_btn.clicked.connect(self.add_flow)
         btn_layout.addWidget(add_btn)
 
         del_btn = QPushButton("- 删除")
-        del_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {T['danger']};
-                color: white;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: #FF3B30DD;
-            }}
-            QPushButton:pressed {{
-                background-color: #FF3B30BB;
-                padding-top: 2px;
-            }}
-        """)
+        del_btn.setStyleSheet(self._bar_btn_style(bg=T['danger'], fg='white', hover_bg='#FF3B30DD'))
         del_btn.clicked.connect(self.delete_flow)
         btn_layout.addWidget(del_btn)
 
         btn_layout.addStretch()
 
         up_btn = QPushButton("↑ 上移")
-        up_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: #1C1C1E;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: #E5E5EA;
-                color: #000000;
-            }}
-            QPushButton:pressed {{
-                background-color: #D1D1D6;
-                padding-top: 2px;
-            }}
-        """)
+        up_btn.setStyleSheet(self._bar_btn_style())
         up_btn.clicked.connect(self.move_flow_up)
         btn_layout.addWidget(up_btn)
 
         down_btn = QPushButton("↓ 下移")
-        down_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                color: #1C1C1E;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {600};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: #E5E5EA;
-                color: #000000;
-            }}
-            QPushButton:pressed {{
-                background-color: #D1D1D6;
-                padding-top: 2px;
-            }}
-        """)
+        down_btn.setStyleSheet(self._bar_btn_style())
         down_btn.clicked.connect(self.move_flow_down)
         btn_layout.addWidget(down_btn)
 
@@ -463,26 +291,7 @@ class ComboSkillEditDialog(QDialog):
         note_title_layout.addStretch()
 
         back_btn = QPushButton("← 返回")
-        back_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {T['primary']};
-                color: white;
-                border: none;
-                border-radius: {8}px;
-                font-size: {13}px;
-                font-weight: {700};
-                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 18px;
-                min-height: 36px;
-            }}
-            QPushButton:hover {{
-                background-color: {T['primary_hover']};
-            }}
-            QPushButton:pressed {{
-                background-color: {T['primary']};
-                padding-top: 2px;
-            }}
-        """)
+        back_btn.setStyleSheet(self._bar_btn_style(bg=T['primary'], fg='white', hover_bg=T['primary_hover']))
         back_btn.clicked.connect(self.show_flow_page)
         note_title_layout.addWidget(back_btn)
         note_layout.addLayout(note_title_layout)
@@ -604,9 +413,9 @@ class ComboSkillEditDialog(QDialog):
                     else_item.setText(0, "")
                     else_item.setText(1, "")
                     else_item.setText(2, "")
-                    else_item.setBackground(0, QColor("#fff2f0"))
-                    else_item.setBackground(1, QColor("#fff2f0"))
-                    else_item.setBackground(2, QColor("#fff2f0"))
+                    else_item.setBackground(0, QColor("#F5F5F7"))
+                    else_item.setBackground(1, QColor("#F5F5F7"))
+                    else_item.setBackground(2, QColor("#F5F5F7"))
                     else_item.setData(0, Qt.UserRole, {'index': i, 'is_else': True})
                     self.create_flow_item_widgets(else_item, i, else_data, is_else=True)
                     main_item.setExpanded(True)
@@ -688,9 +497,9 @@ class ComboSkillEditDialog(QDialog):
                     else_item.setText(0, "")
                     else_item.setText(1, "")
                     else_item.setText(2, "")
-                    else_item.setBackground(0, QColor("#fff2f0"))
-                    else_item.setBackground(1, QColor("#fff2f0"))
-                    else_item.setBackground(2, QColor("#fff2f0"))
+                    else_item.setBackground(0, QColor("#F5F5F7"))
+                    else_item.setBackground(1, QColor("#F5F5F7"))
+                    else_item.setBackground(2, QColor("#F5F5F7"))
                     else_item.setData(0, Qt.UserRole, {"index": i, "is_else": True})
                     self.create_flow_item_widgets(else_item, i, else_data, is_else=True)
                     main_item.setExpanded(True)
@@ -731,6 +540,53 @@ class ComboSkillEditDialog(QDialog):
 
 
 
+    def _combo_style(self, width=120):
+        """统一的 combo box 样式"""
+        return f"""
+            QComboBox {{
+                background-color: {T['bg_card']}; color: {T['text_primary']};
+                border: none; border-radius: 8px;
+                padding: 6px 12px; font-size: 12px; font-weight: 500;
+            }}
+            QComboBox:hover {{ border-color: {T['primary']}; }}
+            QComboBox::drop-down {{ border: none; width: 24px;
+                subcontrol-position: center right; subcontrol-origin: padding; }}
+            QComboBox::down-arrow {{
+                image: none;
+                border-left: 4px solid transparent; border-right: 4px solid transparent;
+                border-top: 5px solid {T['text_secondary']};
+                width: 0; height: 0;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: {T['bg_card']}; color: {T['text_primary']};
+                border: none; border-radius: 8px; padding: 4px; outline: none;
+            }}
+            QComboBox QAbstractItemView::item {{
+                padding: 6px 10px; border-radius: 6px; min-height: 22px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {T['primary']}; color: white;
+            }}
+        """
+
+    def _btn_style(self, bg=T['primary'], fg='white', font_size=10, padding='4px 8px', radius=8):
+        """统一的小按钮样式"""
+        return f"background: {bg}; color: {fg}; padding: {padding}; font-size: {font_size}px; border: none; border-radius: {radius}px;"
+
+    def _bar_btn_style(self, bg='transparent', fg='#1C1C1E', hover_bg='#E5E5EA'):
+        """底部操作栏按钮样式"""
+        radius = 8
+        return f"""
+            QPushButton {{
+                background-color: {bg}; color: {fg}; border: none;
+                border-radius: {radius}px; font-size: 13px; font-weight: 600;
+                font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+                padding: 0 18px; min-height: 36px;
+            }}
+            QPushButton:hover {{ background-color: {hover_bg}; color: #000000; }}
+            QPushButton:pressed {{ background-color: #D1D1D6; padding-top: 2px; }}
+        """
+
     def create_flow_item_widgets(self, tree_item, index, flow_data, is_else=False):
         condition = flow_data.get('condition', 'always')
 
@@ -758,59 +614,15 @@ class ComboSkillEditDialog(QDialog):
             flow_number_label.setAlignment(Qt.AlignCenter)
             condition_layout.addWidget(flow_number_label)
         else:
-            else_indent = QLabel("  └")
-            else_indent.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px;")
+            else_indent = QLabel("ELSE")
+            else_indent.setStyleSheet(f"color: {T['text_secondary']}; font-size: 10px; font-weight: 600; background: transparent; padding: 0 4px;")
             condition_layout.addWidget(else_indent)
 
         condition_combo = QComboBox()
         condition_combo.blockSignals(True)
         condition_combo.addItems(["总是执行", "找到图片", "找不到图片", "等待图片"])
         condition_combo.setCurrentIndex({"always": 0, "image_found": 1, "image_not_found": 2, "wait_for_image": 3}.get(condition, 0))
-        condition_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {T['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-                subcontrol-position: center right;
-                subcontrol-origin: padding;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {T['text_secondary']};
-                width: 0;
-                height: 0;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 4px;
-                outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 6px 10px;
-                border-radius: 6px;
-                min-height: 22px;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {T['primary']};
-                color: white;
-            }}
-        """)
+        condition_combo.setStyleSheet(self._combo_style(120))
         condition_combo.setFixedWidth(120)
         if is_else:
             condition_combo.currentIndexChanged.connect(lambda idx, i=index: self.on_else_condition_changed(i, idx))
@@ -821,7 +633,7 @@ class ComboSkillEditDialog(QDialog):
 
         if not is_else:
             else_btn = QPushButton("+else")
-            else_btn.setStyleSheet(f"background: {T['primary']}; color: white; padding: 4px 8px; font-size: 10px; border: none; border-radius: {8}px;")
+            else_btn.setStyleSheet(self._btn_style())
             else_btn.setFixedWidth(50)
             else_btn.clicked.connect(lambda checked, i=index: self.add_else_branch(i))
             if flow_data.get('else_branch'):
@@ -832,7 +644,7 @@ class ComboSkillEditDialog(QDialog):
 
         if is_else:
             del_else_btn = QPushButton("✕")
-            del_else_btn.setStyleSheet(f"background: {T['danger']}; color: white; padding: 2px 6px; font-size: 10px; border: none; border-radius: 3px;")
+            del_else_btn.setStyleSheet(self._btn_style(bg=T['danger'], padding='2px 6px', radius=3))
             del_else_btn.setFixedWidth(25)
             del_else_btn.setToolTip("删除else分支")
             del_else_btn.clicked.connect(lambda checked, i=index: self.delete_else_branch(i))
@@ -876,7 +688,7 @@ class ComboSkillEditDialog(QDialog):
         image_layout.addWidget(image_preview)
 
         img_btn = QPushButton("浏览")
-        img_btn.setStyleSheet(f"background: {T['primary']}; color: white; padding: 4px 10px; font-size: 10px; border: none; border-radius: {8}px;")
+        img_btn.setStyleSheet(self._btn_style(padding='4px 10px'))
         img_btn.clicked.connect(lambda checked, i=index, ie=is_else: self.browse_image(i, ie))
         img_btn.setVisible(condition != "always")
         image_layout.addWidget(img_btn)
@@ -893,51 +705,7 @@ class ComboSkillEditDialog(QDialog):
 
         action_type_combo = QComboBox()
         action_type_combo.blockSignals(True)
-        action_type_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {T['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-                subcontrol-position: center right;
-                subcontrol-origin: padding;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {T['text_secondary']};
-                width: 0;
-                height: 0;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 4px;
-                outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 6px 10px;
-                border-radius: 6px;
-                min-height: 22px;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {T['primary']};
-                color: white;
-            }}
-        """)
+        action_type_combo.setStyleSheet(self._combo_style(120))
         action_type_combo.setFixedWidth(120)
         action_type_combo.addItem("⏹ 结束组合技", "end")
         action_type_combo.addItem("↻ 跳转流程", "goto")
@@ -946,51 +714,7 @@ class ComboSkillEditDialog(QDialog):
 
         action_detail_combo = QComboBox()
         action_detail_combo.blockSignals(True)
-        action_detail_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 6px 12px;
-                font-size: 12px;
-                font-weight: 500;
-            }}
-            QComboBox:hover {{
-                border-color: {T['primary']};
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 24px;
-                subcontrol-position: center right;
-                subcontrol-origin: padding;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-top: 5px solid {T['text_secondary']};
-                width: 0;
-                height: 0;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {T['bg_card']};
-                color: {T['text_primary']};
-                border: none;
-                border-radius: 8px;
-                padding: 4px;
-                outline: none;
-            }}
-            QComboBox QAbstractItemView::item {{
-                padding: 6px 10px;
-                border-radius: 6px;
-                min-height: 22px;
-            }}
-            QComboBox QAbstractItemView::item:selected {{
-                background-color: {T['primary']};
-                color: white;
-            }}
-        """)
+        action_detail_combo.setStyleSheet(self._combo_style(150))
         action_detail_combo.setFixedWidth(150)
         action_layout.addWidget(action_detail_combo)
 
@@ -1070,9 +794,10 @@ class ComboSkillEditDialog(QDialog):
             else_item.setText(0, "")
             else_item.setText(1, "")
             else_item.setText(2, "")
-            else_item.setBackground(0, QColor("#fff2f0"))
-            else_item.setBackground(1, QColor("#fff2f0"))
-            else_item.setBackground(2, QColor("#fff2f0"))
+            bg = QColor("#F5F5F7")
+            else_item.setBackground(0, bg)
+            else_item.setBackground(1, bg)
+            else_item.setBackground(2, bg)
             else_item.setData(0, Qt.UserRole, {'index': index, 'is_else': True})
             self.create_flow_item_widgets(else_item, index, else_data, is_else=True)
             main_item.setExpanded(True)
@@ -1270,34 +995,19 @@ class ComboSkillEditDialog(QDialog):
         else:
             self.flows[index]['delay_after'] = value
 
-    def _on_step_interval_changed(self, idx):
-        """统一步骤间隔下拉框选择变化时：显示/隐藏自定义输入框"""
-        data = self.step_interval_combo.currentData()
-        is_custom = (data == '__custom__')
-        self.step_interval_custom.setVisible(is_custom)
-        if is_custom:
-            # 聚焦自定义输入框，方便用户直接输入
-            self.step_interval_custom.setFocus()
-            self.step_interval_custom.selectAll()
-
     def _get_effective_step_interval(self):
         """
         获取最终生效的步骤间隔值（秒）。
         返回 None 表示使用系统默认（0.1秒）。
         """
-        data = self.step_interval_combo.currentData()
-        if data == '__custom__':
-            # 自定义
-            try:
-                return float(self.step_interval_custom.value())
-            except (TypeError, ValueError):
-                return None  # 异常时用默认
-        if data is None:
+        if hasattr(self, 'step_interval_default_cb') and self.step_interval_default_cb.isChecked():
             return None  # 默认
-        try:
-            return float(data)
-        except (TypeError, ValueError):
-            return None
+        if hasattr(self, 'step_interval_spin'):
+            try:
+                return float(self.step_interval_spin.value())
+            except (TypeError, ValueError):
+                return None
+        return None
 
     def load_flows_to_action_combo(self, combo, selected_action, current_flow_index=0):
         recordings_dir = get_recordings_path()
@@ -1982,7 +1692,7 @@ class ComboSkillEditDialog(QDialog):
         loop_count = self.loop_count_spin.value() if hasattr(self, 'loop_count_spin') else self.skill_data.get('loop_count', 1)
         skip_on_fail = self.skip_on_fail_check.isChecked() if hasattr(self, 'skip_on_fail_check') else self.skill_data.get('skip_on_fail', False)
         # step_interval: 录制流程内每个操作步骤之间的统一间隔（秒），None表示用系统默认(0.1秒)
-        step_interval = self._get_effective_step_interval() if hasattr(self, 'step_interval_combo') \
+        step_interval = self._get_effective_step_interval() if hasattr(self, 'step_interval_default_cb') \
             else self.skill_data.get('step_interval', None)
 
         result = {
