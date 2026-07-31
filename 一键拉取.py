@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-
+#mother fucker
 # 修复 Windows PowerShell/cmd 下 emoji/中文乱码
 if sys.platform.startswith("win"):
     try:
