@@ -2416,7 +2416,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 combo_manager = ComboSkillManager(self)
                 if skill:
                     for i, s in enumerate(combo_manager.combo_skills):
-                        if s.get("name") == skill.get("name"):
+                        _oldn = skill.get("name", "")
+                        _newn = skill_data.get("name", "")
+                        _sn = s.get("name", "")
+                        if _sn == _oldn or (_newn and _sn == _newn):
                             combo_manager.combo_skills[i] = skill_data
                             break
                 else:

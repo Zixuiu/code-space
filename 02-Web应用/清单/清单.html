@@ -28,7 +28,7 @@ body {
   -webkit-backdrop-filter: blur(8px);
   padding: 0;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border: 1px solid rgba(226, 232, 240, 0.8);
   position: relative;
@@ -46,6 +46,8 @@ body {
   gap: 8px;
   overflow-y: auto;
   border-radius: 16px 0 0 16px;
+  position: relative;
+  z-index: 200; /* 确保导航栏在水印之上 */
 }
 .sidebar-title {
   font-size: 12px;
@@ -106,6 +108,132 @@ body {
   user-select: none;
   margin-left: 8px;
 }
+/* 页面重命名输入框样式 */
+.page-rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #60a5fa;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  background: white;
+  outline: none;
+  color: #1e293b;
+}
+/* 搜索工具栏样式 */
+.search-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.search-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search-input-wrapper .search-icon {
+  color: #94a3b8;
+  font-size: 14px;
+  pointer-events: none;
+}
+.search-input {
+  flex: 1;
+  padding: 8px 12px 8px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  outline: none;
+  transition: all 0.2s ease;
+  color: #1e293b;
+}
+.search-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.search-count {
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.search-nav-btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  cursor: pointer;
+  font-size: 14px;
+  color: #475569;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.search-nav-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+.search-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.jump-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.jump-input {
+  width: 70px;
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  outline: none;
+  transition: all 0.2s ease;
+  color: #1e293b;
+  text-align: center;
+}
+.jump-input:focus {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+.jump-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* 搜索高亮样式 */
+.cell.search-highlight {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+  border: 1px solid #f59e0b !important;
+  outline: 3px solid rgba(245, 158, 11, 0.3) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15) !important;
+}
+.cell.search-highlight .cell-number {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: white !important;
+}
+.search-match-text {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #78350f;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+}
 .page-tab:hover .page-delete-btn {
   opacity: 1;
 }
@@ -138,29 +266,100 @@ body {
   overflow-y: auto;
   border-radius: 0 16px 16px 0;
   scroll-padding-bottom: 200px;
+  scroll-padding-top: 140px; /* 为悬浮工具栏留出空间 */
+  position: relative;
+}
+/* 水印容器（全局）已经没用了，但保留兼容 */
+.watermark-container {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  border-radius: 0 16px 16px 0;
+}
+/* ====== 单元格内水印（最终方案：每个单元格自己带水印，100%对齐）====== */
+.cell-watermark {
+  position: absolute;
+  left: 52px;           /* 避开左侧序号区（序号在左12px，宽30px，留10px间距 → 52px起始）*/
+  right: 12px;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 19px;
+  color: rgba(0, 0, 0, 0.10);
+  white-space: nowrap;
+  overflow: hidden;
+  letter-spacing: 2px;
+  user-select: none;
+  z-index: 0;
+}
+/* ======== 层级最简方案（按钮点不了的终极修复）========
+   原则：越少 z-index 越好，只给真正需要的元素加定位
+   - 水印层(cell-watermark) z-index:0 + pointer-events:none
+   - 内容层（文字/图片）不单独设置 position/z-index，自然堆叠在水印之上
+   - .content 绝对不能 position:relative！因为它 padding-right:350px，会覆盖按钮区域
+   - 按钮层(.actions) z-index:99999 强制最高
+   ======================================================= */
+.cell > .cell-summary,
+.cell > .image-placeholder {
+  position: relative;
+}
+.cell > .content > .text-input {
+  position: relative;
+}
+/* 右侧操作4个按钮：查/文/图/删  -  强制最高层级，确保可点 */
+.cell > .actions {
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
+.cell > .actions > .action-btn {
+  position: relative !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
 }
 .toolbar {
   display: none;
 }
+/* 悬浮工具栏容器 */
+.floating-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 4px 0 12px 0;
+  margin-bottom: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.92) 70%, rgba(255,255,255,0) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.floating-toolbar, .toolbar, #container, .cell {
+  position: relative;
+  z-index: 2;
+}
 .import-export-toolbar {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #e2e8f0;
+  flex-wrap: wrap;
 }
 .btn {
-  padding: 8px 16px;
-  border-radius: 10px;
+  padding: 7px 14px;
+  border-radius: 9px;
   border: none;
   background: #fff;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
@@ -212,19 +411,21 @@ body {
 }
 
 .cell {
-  background: linear-gradient(135deg, #ffffff 0%, #fefefe 100%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.78) 0%, rgba(254,254,254,0.70) 100%);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   border-radius: 10px;
   padding: 12px 12px 12px 52px;
   margin-bottom: 20px;
   box-shadow:
     0 2px 6px rgba(0,0,0,0.05),
-    inset 0 1px 0 rgba(255,255,255,1);
+    inset 0 1px 0 rgba(255,255,255,0.7);
   position: relative;
   transition: all 0.1s ease;
   min-height: 48px;
   display: flex;
   align-items: flex-start;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 .cell-number {
   position: absolute;
@@ -666,14 +867,37 @@ body {
   
   <!-- 主内容区域 -->
   <div class="main-content">
-    <!-- 导入导出工具栏 -->
-    <div class="import-export-toolbar">
-      <button class="btn" onclick="exportData()">📤 导出</button>
-      <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
-      <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
-      <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
-      <button class="btn" id="copyTitleBtn" onclick="toggleCopyTitle()" style="background:#e2e8f0;color:#64748b;">📋 标题</button>
-      <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
+    <!-- 水印容器（不阻挡操作） -->
+    <div class="watermark-container" id="watermarkContainer"></div>
+
+    <!-- 悬浮工具栏容器 -->
+    <div class="floating-toolbar">
+      <!-- 导入导出工具栏 -->
+      <div class="import-export-toolbar">
+        <button class="btn" onclick="exportData()">📤 导出</button>
+        <button class="btn" onclick="document.getElementById('importFile').click()">📥 导入</button>
+        <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
+        <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
+        <button class="btn" id="copyTitleBtn" onclick="toggleCopyTitle()" style="background:#e2e8f0;color:#64748b;">📋 标题</button>
+        <button class="btn" onclick="confirmClearCurrentPage()" title="清空当前页面所有内容（保留空行）" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);color:#b91c1c;border:1px solid #fecaca;">🗑️ 清空页面</button>
+        <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
+      </div>
+
+      <!-- 搜索和跳转工具栏 -->
+      <div class="search-toolbar">
+        <div class="search-input-wrapper">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" class="search-input" placeholder="搜索内容 (Ctrl+F / ⌘+F)" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">
+          <span class="search-count" id="searchCount">0 / 0</span>
+          <button class="search-nav-btn" id="prevMatchBtn" onclick="prevMatch()" title="上一个匹配 (Shift+Enter)">▲</button>
+          <button class="search-nav-btn" id="nextMatchBtn" onclick="nextMatch()" title="下一个匹配 (Enter)">▼</button>
+        </div>
+        <div class="jump-input-wrapper">
+          <span class="jump-label">跳至行:</span>
+          <input type="number" id="jumpInput" class="jump-input" min="1" placeholder="#" onkeydown="onJumpKeydown(event)" title="输入行号回车跳转">
+          <button class="btn" style="padding:8px 12px;" onclick="jumpToLine()">GO</button>
+        </div>
+      </div>
     </div>
 
     <div class="toolbar"></div>
@@ -725,6 +949,10 @@ let selectedIndex = -1;
 let isRenaming = false; // 是否正在重命名状态
 let aiApiKey = ''; // AI API密钥（请自行填入）
 let copyWithPageTitle = true; // 复制时是否带页面标题
+
+// 搜索相关变量
+let searchMatches = []; // 匹配的单元格索引列表
+let currentSearchIndex = -1; // 当前匹配的索引（在searchMatches中的位置）
 
 // 连续回车检测变量
 let lastEnterTime = 0;
@@ -842,15 +1070,23 @@ function handleTabClick(index) {
   // 切换到其他页面
   currentPageIndex = index;
   selectedIndex = -1; // 切换页面后重置选中的单元格
+  // 切换页面时清除搜索状态
+  searchMatches = [];
+  currentSearchIndex = -1;
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+  updateSearchCount();
+  
   renderPageTabs(); // 更新标签样式
   window.scrollTo({ top: 0, behavior: 'instant' }); // 切换页面时回到顶部
   renderAllCells(); // 渲染新页面的单元格
-  // 默认选中最后一个单元格并聚焦
+  // 默认选中**第一个**单元格并聚焦
   const totalCells = getCurrentPageData().cellsData.length;
   if (totalCells > 0) {
-    selectCell(totalCells - 1, true);
+    selectCell(0, true);
   }
   show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
+  setTimeout(updateWatermark, 30);
 }
 
 // 进入重命名模式
@@ -895,6 +1131,9 @@ function confirmRename(index, newName) {
   save();
   renderPageTabs();
   show(`页面已重命名为：${newName.trim()}`);
+  if (index === currentPageIndex) {
+    setTimeout(updateWatermark, 30);
+  }
 }
 
 // 取消重命名
@@ -929,11 +1168,19 @@ function handleDeletePage(index, e) {
     currentPageIndex--; // 调整后续页面索引
   }
   
+  // 删除页面时清除搜索状态
+  searchMatches = [];
+  currentSearchIndex = -1;
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+  updateSearchCount();
+  
   save();
   renderPageTabs();
   window.scrollTo({ top: 0, behavior: 'instant' });
   renderAllCells();
   show('页面已删除');
+  setTimeout(updateWatermark, 30);
 }
 
 // 添加新页面
@@ -956,39 +1203,224 @@ function addNewPage() {
   show(`已创建${newPageName}`);
 }
 
+function confirmClearCurrentPage() {
+  const currentPage = getCurrentPageData();
+  const pageName = currentPage.name || `页面${currentPageIndex + 1}`;
+  const totalCells = currentPage.cellsData ? currentPage.cellsData.length : 0;
+  const hasImages = currentPage.cellImages && Object.keys(currentPage.cellImages).length > 0;
+
+  let infoMsg = `确定要清空【${pageName}】吗？\n\n共 ${totalCells} 条记录`;
+  if (hasImages) infoMsg += `，${Object.keys(currentPage.cellImages).length} 张图片`;
+  infoMsg += '。\n\n清空后仅保留1行空白，内容不可恢复！';
+
+  if (confirm(infoMsg)) {
+    doClearCurrentPage();
+  }
+}
+
+function doClearCurrentPage() {
+  const currentPage = getCurrentPageData();
+  const pageName = currentPage.name || `页面${currentPageIndex + 1}`;
+  const originalCount = currentPage.cellsData ? currentPage.cellsData.length : 0;
+
+  // 重置：保留一行空白，清除图片和摘要
+  currentPage.cellsData = [''];
+  currentPage.cellImages = {};
+  if (currentPage.cellSummaries) currentPage.cellSummaries = {};
+
+  // 重置选中和搜索状态
+  selectedIndex = 0;
+  searchMatches = [];
+  currentSearchIndex = -1;
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+  updateSearchCount();
+
+  // 保存并重新渲染
+  save();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  renderAllCells();
+  selectCell(0, true);
+
+  show(`✅ 【${pageName}】已清空（原 ${originalCount} 条已清除）`);
+}
+
 // 切换页面（内部调用）
 function switchPage(index) {
   if (index < 0 || index >= pagesData.length) return;
   
   currentPageIndex = index;
   selectedIndex = -1; // 切换页面后重置选中的单元格
+  // 切换页面时清除搜索状态
+  searchMatches = [];
+  currentSearchIndex = -1;
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) searchInput.value = '';
+  updateSearchCount();
+  
   renderPageTabs(); // 更新标签样式
+  window.scrollTo({ top: 0, behavior: 'instant' });
   renderAllCells(); // 渲染新页面的单元格
-  // 默认选中最后一个单元格并聚焦
+  // 默认选中**第一个**单元格并聚焦
   const totalCells = getCurrentPageData().cellsData.length;
   if (totalCells > 0) {
-    selectCell(totalCells - 1, true);
+    selectCell(0, true);
   }
   show(`已切换到${pagesData[index].name || `页面${index + 1}`}`);
+  setTimeout(updateWatermark, 30);
 }
 
 function addKeyboardNavigation() {
   document.addEventListener('keydown', (e) => {
-    if (selectedIndex !== -1 && e.key === 'ArrowDown') {
+    // Ctrl+F / Cmd+F 聚焦搜索框
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
-      const nextIndex = selectedIndex + 1;
-      const totalCells = getCurrentPageData().cellsData.length;
-      if (nextIndex < totalCells) {
-        // 虚拟滚动下用固定估算高度计算滚动距离
-        selectCell(nextIndex, true);
-      } else if (selectedIndex === totalCells - 1) {
-        const lastCell = getCellElement(selectedIndex);
-        if (lastCell) {
-          lastCell.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.focus();
+        searchInput.select();
+      }
+      return;
+    }
+
+    // Esc
+    if (e.key === 'Escape') {
+      const activeElement = document.activeElement;
+
+      // 情况1：正在编辑单元格（contentEditable）→ 退出焦点，保持选中（方便后续左右切页）
+      if (activeElement && activeElement.isContentEditable) {
+        e.preventDefault();
+        // 移除焦点到 cell 本身，保持选中状态但不进入编辑
+        activeElement.blur();
+        const cell = activeElement.closest('.cell');
+        if (cell && typeof cell.focus === 'function') {
+          cell.focus({ preventScroll: true });
+        }
+        return;
+      }
+
+      // 情况2：搜索框 / 跳转框
+      if (activeElement && (activeElement.id === 'searchInput' || activeElement.id === 'jumpInput')) {
+        // 优先清空搜索高亮
+        const hadHighlight = clearSearchHighlight();
+        const searchInput = document.getElementById('searchInput');
+        if (hadHighlight && searchInput) {
+          searchInput.value = '';
+          updateSearchCount();
+        }
+        // 回到选中的单元格（不进入编辑）
+        e.preventDefault();
+        activeElement.blur();
+        if (selectedIndex !== -1) {
+          const cell = getCellElement(selectedIndex);
+          if (cell) cell.focus({ preventScroll: true });
+        }
+        return;
+      }
+
+      // 情况3：其他普通情况 → 清除搜索高亮
+      if (clearSearchHighlight()) {
+        e.preventDefault();
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) searchInput.value = '';
+        updateSearchCount();
+      }
+      return;
+    }
+
+    // ========== 左右键 切页 ==========
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (isRenaming) return;
+      const activeElement = document.activeElement;
+      const dir = (e.key === 'ArrowLeft') ? -1 : 1;
+
+      // --- 优先级最高的强制切页：Ctrl/⌘/Alt/Shift + 方向键（任何状态下都能切） ---
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        switchPageByDirection(dir);
+        return;
+      }
+
+      // --- 纯方向键的情况 ---
+
+      // 情况A：在搜索框 / 跳转框（INPUT类型）
+      const isInSearchOrJump = activeElement && (activeElement.id === 'searchInput' || activeElement.id === 'jumpInput');
+      const isInFormInput = activeElement && (
+        activeElement.tagName === 'INPUT' ||
+        activeElement.tagName === 'TEXTAREA' ||
+        activeElement.classList.contains('page-rename-input')
+      );
+      if (isInFormInput) {
+        if (isInSearchOrJump && !activeElement.value) {
+          // 搜索框/跳转框为空 → 纯方向键切页
+          e.preventDefault();
+          switchPageByDirection(dir);
+          return;
+        }
+        return; // 其他表单情况 → 正常移动光标
+      }
+
+      // 情况B：在单元格 contentEditable 编辑状态中
+      // 用户习惯：光标位置用鼠标点击，键盘左右键只用于切页面 → 直接切页不移动光标
+      const isInCellEdit = activeElement && activeElement.isContentEditable;
+      if (isInCellEdit) {
+        e.preventDefault();
+        switchPageByDirection(dir);
+        return;
+      }
+
+      // 情况C：不在任何编辑焦点（选中状态、空白、BODY等）→ 直接切页
+      e.preventDefault();
+      switchPageByDirection(dir);
+      return;
+    }
+
+    // 上下键单元格导航
+    if (selectedIndex !== -1 && e.key === 'ArrowDown') {
+      const activeElement = document.activeElement;
+      const isInEditable = activeElement && activeElement.isContentEditable;
+      if (isInEditable || !activeElement || activeElement.tagName === 'BODY') {
+        e.preventDefault();
+        const nextIndex = selectedIndex + 1;
+        const totalCells = getCurrentPageData().cellsData.length;
+        if (nextIndex < totalCells) {
+          selectCell(nextIndex, true);
+        } else if (selectedIndex === totalCells - 1) {
+          const lastCell = getCellElement(selectedIndex);
+          if (lastCell) {
+            lastCell.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          }
+        }
+      }
+    }
+    if (selectedIndex !== -1 && e.key === 'ArrowUp') {
+      const activeElement = document.activeElement;
+      const isInEditable = activeElement && activeElement.isContentEditable;
+      if (isInEditable || !activeElement || activeElement.tagName === 'BODY') {
+        e.preventDefault();
+        const prevIndex = selectedIndex - 1;
+        if (prevIndex >= 0) {
+          selectCell(prevIndex, true);
+        } else if (selectedIndex === 0) {
+          const firstCell = getCellElement(0);
+          if (firstCell) {
+            firstCell.scrollIntoView({ behavior: 'instant', block: 'nearest' });
+          }
         }
       }
     }
   });
+}
+
+// 按方向切换页面（-1左，1右）
+function switchPageByDirection(direction) {
+  const totalPages = pagesData.length;
+  if (totalPages <= 1) return;
+  let newIndex = currentPageIndex + direction;
+  if (newIndex < 0) newIndex = totalPages - 1; // 循环到最后一页
+  if (newIndex >= totalPages) newIndex = 0; // 循环到第一页
+  switchPage(newIndex);
 }
 
 // 获取当前页面的数据
@@ -1291,6 +1723,14 @@ function createCellElement(i, currentPage) {
   cellNumber.className = 'cell-number';
   cellNumber.textContent = i + 1;
   cell.appendChild(cellNumber);
+
+  // ====== 单元格内部水印（100%对齐，不会跑出去）======
+  const wm = document.createElement('div');
+  wm.className = 'cell-watermark';
+  // 先给默认文字，updateWatermark() 时会统一刷新成页面名
+  const curPage = getCurrentPageData();
+  wm.textContent = (curPage.name || `页面${currentPageIndex + 1}`).trim();
+  cell.appendChild(wm);
 
   if (currentPage.cellSummaries && currentPage.cellSummaries[i]) {
     const summary = document.createElement('span');
@@ -1842,6 +2282,298 @@ async function generateAllSummaries() {
   show('所有总结已生成');
 }
 
+// ========== 搜索功能相关函数 ==========
+
+function onSearchInput() {
+  doSearch();
+}
+
+function onSearchKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) {
+      prevMatch();
+    } else {
+      nextMatch();
+    }
+  }
+}
+
+function doSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const keyword = searchInput ? searchInput.value.trim().toLowerCase() : '';
+  const currentPage = getCurrentPageData();
+  searchMatches = [];
+  currentSearchIndex = -1;
+  clearSearchHighlight();
+
+  if (!keyword) {
+    updateSearchCount();
+    renderVisibleCells();
+    return;
+  }
+
+  // 在所有单元格中搜索
+  currentPage.cellsData.forEach((cellText, index) => {
+    const text = (cellText || '').toLowerCase();
+    if (text.includes(keyword)) {
+      searchMatches.push(index);
+    }
+  });
+
+  updateSearchCount();
+
+  if (searchMatches.length > 0) {
+    // 如果当前选中的单元格匹配，则从当前位置开始
+    if (selectedIndex !== -1 && searchMatches.includes(selectedIndex)) {
+      currentSearchIndex = searchMatches.indexOf(selectedIndex);
+    } else {
+      currentSearchIndex = 0;
+    }
+    gotoMatch(currentSearchIndex);
+  } else {
+    renderVisibleCells();
+  }
+}
+
+function updateSearchCount() {
+  const countEl = document.getElementById('searchCount');
+  const prevBtn = document.getElementById('prevMatchBtn');
+  const nextBtn = document.getElementById('nextMatchBtn');
+  if (!countEl) return;
+
+  const total = searchMatches.length;
+  const current = (currentSearchIndex >= 0 && currentSearchIndex < total) ? currentSearchIndex + 1 : 0;
+  countEl.textContent = `${current} / ${total}`;
+
+  if (prevBtn) prevBtn.disabled = total === 0;
+  if (nextBtn) nextBtn.disabled = total === 0;
+}
+
+function nextMatch() {
+  if (searchMatches.length === 0) return;
+  currentSearchIndex = (currentSearchIndex + 1) % searchMatches.length;
+  gotoMatch(currentSearchIndex);
+}
+
+function prevMatch() {
+  if (searchMatches.length === 0) return;
+  currentSearchIndex = (currentSearchIndex - 1 + searchMatches.length) % searchMatches.length;
+  gotoMatch(currentSearchIndex);
+}
+
+function gotoMatch(idx) {
+  if (idx < 0 || idx >= searchMatches.length) return;
+  const cellIndex = searchMatches[idx];
+  currentSearchIndex = idx;
+  updateSearchCount();
+  selectCell(cellIndex, false);
+  renderVisibleCells();
+  // 滚动到该位置后再应用高亮
+  requestAnimationFrame(() => {
+    clearSearchHighlight(false);
+    applySearchHighlightToCell(cellIndex);
+    const cell = getCellElement(cellIndex);
+    if (cell) {
+      cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  });
+}
+
+function clearSearchHighlight(rerender = true) {
+  let hadHighlight = false;
+  document.querySelectorAll('.cell.search-highlight').forEach(el => {
+    el.classList.remove('search-highlight');
+    hadHighlight = true;
+  });
+  // 清除文本高亮标记
+  document.querySelectorAll('.search-match-text').forEach(el => {
+    const parent = el.parentNode;
+    if (parent) {
+      const text = document.createTextNode(el.textContent);
+      parent.replaceChild(text, el);
+      parent.normalize();
+    }
+    hadHighlight = true;
+  });
+  if (rerender && hadHighlight) {
+    // renderVisibleCells();
+  }
+  return hadHighlight;
+}
+
+function applySearchHighlightToCell(cellIndex) {
+  const cell = getCellElement(cellIndex);
+  if (!cell) return;
+  cell.classList.add('search-highlight');
+
+  // 高亮匹配文本
+  const searchInput = document.getElementById('searchInput');
+  const keyword = searchInput ? searchInput.value.trim() : '';
+  if (!keyword) return;
+
+  const textInput = cell.querySelector('.text-input');
+  if (!textInput) return;
+
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  highlightTextInElement(textInput, regex);
+}
+
+function highlightTextInElement(element, regex) {
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+  const textNodes = [];
+  let node;
+  while (node = walker.nextNode()) {
+    textNodes.push(node);
+  }
+
+  textNodes.forEach(textNode => {
+    const text = textNode.textContent;
+    if (!regex.test(text)) return;
+    regex.lastIndex = 0;
+
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+      }
+      const span = document.createElement('span');
+      span.className = 'search-match-text';
+      span.textContent = match[0];
+      fragment.appendChild(span);
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    textNode.parentNode.replaceChild(fragment, textNode);
+  });
+}
+
+// 在单元格渲染后应用高亮
+function applySearchHighlightsToVisibleCells() {
+  if (searchMatches.length === 0) return;
+  searchMatches.forEach(idx => {
+    const cell = getCellElement(idx);
+    if (cell) {
+      if (idx === searchMatches[currentSearchIndex]) {
+        cell.classList.add('search-highlight');
+      }
+      // 文本高亮
+      const searchInput = document.getElementById('searchInput');
+      const keyword = searchInput ? searchInput.value.trim() : '';
+      if (keyword) {
+        const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        const textInput = cell.querySelector('.text-input');
+        if (textInput) {
+          highlightTextInElement(textInput, regex);
+        }
+      }
+    }
+  });
+}
+
+// ========== 跳转到指定行功能 ==========
+
+function onJumpKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    jumpToLine();
+  }
+}
+
+function jumpToLine() {
+  const jumpInput = document.getElementById('jumpInput');
+  if (!jumpInput) return;
+  const lineNum = parseInt(jumpInput.value, 10);
+  const totalCells = getCurrentPageData().cellsData.length;
+
+  if (isNaN(lineNum) || lineNum < 1) {
+    show('请输入有效的行号');
+    return;
+  }
+  if (lineNum > totalCells) {
+    show(`当前页面只有 ${totalCells} 行`);
+    return;
+  }
+
+  const cellIndex = lineNum - 1;
+  selectCell(cellIndex, true);
+  show(`已跳转到第 ${lineNum} 行`);
+  jumpInput.value = '';
+  // 跳转时清除搜索高亮但保留搜索框内容
+  clearSearchHighlight(false);
+}
+
+// ========== 页面水印功能 ==========
+
+// ========== 最简单最稳的水印：每个单元格内部带水印，100%对齐 ==========
+function updateWatermark() {
+  // 拿到当前页面的标题
+  const currentPage = getCurrentPageData();
+  const text = (currentPage.name || `页面${currentPageIndex + 1}`).trim();
+
+  // 兼容：全局水印容器清掉（之前的方案残留）
+  const container = document.getElementById('watermarkContainer');
+  if (container) {
+    container.innerHTML = '';
+    container.style.backgroundImage = 'none';
+  }
+
+  if (!text) return;
+
+  // 找所有已渲染的单元格，把里面 .cell-watermark 的文字改成当前页面名
+  const cells = document.querySelectorAll('.cell');
+  cells.forEach(cell => {
+    let wm = cell.querySelector(':scope > .cell-watermark');
+    if (!wm) {
+      // 老的单元格（之前渲染的）没有水印，补上
+      wm = document.createElement('div');
+      wm.className = 'cell-watermark';
+      // 插入到 cell-number 之后，其他内容之前
+      const numberEl = cell.querySelector(':scope > .cell-number');
+      if (numberEl && numberEl.nextSibling) {
+        cell.insertBefore(wm, numberEl.nextSibling);
+      } else {
+        cell.appendChild(wm);
+      }
+    }
+    wm.textContent = text;
+  });
+}
+
+// 简化监听（现在方案基本不需要了，保留兼容）
+function initWatermarkResizeObserver() {}
+
+// 修改renderVisibleCells，在渲染后应用搜索高亮（通过包装原函数）
+const originalRenderVisibleCells = renderVisibleCells;
+renderVisibleCells = function() {
+  originalRenderVisibleCells();
+  requestAnimationFrame(() => {
+    applySearchHighlightsToVisibleCells();
+  });
+};
+
+// ===== 包装 renderAllCells：每次渲染完单元格 → 重新对齐水印位置 =====
+let _origRenderAllCells = null;
+(function wrapRenderAllCells() {
+  function tryWrap() {
+    if (typeof renderAllCells !== 'function' || _origRenderAllCells) return;
+    _origRenderAllCells = renderAllCells;
+    renderAllCells = function () {
+      _origRenderAllCells();
+      // 下一帧等DOM插入后重新计算水印偏移，确保第一行水印对齐第一行单元格
+      requestAnimationFrame(updateWatermark);
+    };
+  }
+  tryWrap();
+  // 防止renderAllCells在后面才定义
+  setTimeout(tryWrap, 0);
+  setTimeout(tryWrap, 50);
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
   const savedKey = localStorage.getItem('cell_editor_api_key');
   if (savedKey) {
@@ -1853,7 +2585,281 @@ document.addEventListener('DOMContentLoaded', () => {
     copyWithPageTitle = savedCopyTitle === 'true';
   }
   updateCopyTitleBtn();
+
+  // 初始化水印（Canvas平铺方案，生成一次即可，无需滚动/resize重画）
+  setTimeout(() => {
+    updateWatermark();
+  }, 100);
 });
+
+/* =========================================================
+   【强制补丁 3合1】v2
+   ① 上下键边界跨页跳转（最后一页循环）
+   ② 选中即编辑（直接打字不用再点一下）
+   ③ 切页后焦点修复（落在容器 div 也能按上下键切单元格）
+   ========================================================= */
+(function installCrossPagePatch_FORCE_v2() {
+  function doPatch() {
+    if (typeof pagesData === 'undefined' ||
+        typeof currentPageIndex === 'undefined' ||
+        typeof selectedIndex === 'undefined' ||
+        typeof switchPage !== 'function' ||
+        typeof selectCell !== 'function' ||
+        typeof getCurrentPageData !== 'function' ||
+        typeof save !== 'function' ||
+        typeof show !== 'function') {
+      setTimeout(doPatch, 200);
+      return;
+    }
+
+    /* ---------- 工具函数 ---------- */
+    function $cell(idx) {
+      const list = document.querySelectorAll('.cell-content');
+      return list && list[idx] ? list[idx] : null;
+    }
+
+    function enterEditMode(el) {
+      if (!el) return;
+      el.setAttribute('contenteditable', 'true');
+      el.focus({ preventScroll: false });
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (err) {
+        el.focus();
+      }
+    }
+
+    function switchAndSelect(targetPageIdx, targetCellIdx, label) {
+      switchPage(targetPageIdx);
+      const tryFocus = function (delay) {
+        setTimeout(function () {
+          selectCell(targetCellIdx, false);
+          const el = $cell(targetCellIdx);
+          if (el) enterEditMode(el);
+        }, delay);
+      };
+      tryFocus(0);
+      tryFocus(50);
+      if (label) setTimeout(function () { show(label); }, 60);
+    }
+
+    /* ---------- 判断当前焦点是否落在"禁止导航"的输入框上 ---------- */
+    function isFocusInRestrictedInput() {
+      const ae = document.activeElement;
+      if (!ae) return false;
+      // 侧边栏导航里也不导航单元格
+      const inSidebar = ae.closest && ae.closest('.sidebar');
+      if (inSidebar) return true;
+      // 重命名页面中
+      if (typeof isRenaming !== 'undefined' && isRenaming) return true;
+      // input / textarea 表单控件
+      if (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA') return true;
+      // 搜索 / 跳转 / 重命名输入框（通过 class 识别）
+      const cl = ae.classList || {};
+      if (cl.contains && (cl.contains('search-input') || cl.contains('goto-input') ||
+          cl.contains('tab-name-input') || cl.contains('input') || cl.contains('form-input'))) {
+        return true;
+      }
+      return false;
+    }
+
+    /* =============== 全局 keydown：捕获阶段 =============== */
+    window.addEventListener('keydown', function (e) {
+      if (isFocusInRestrictedInput()) return; // 搜索框/跳转框里 → 全部放行，不接管
+
+      /* ======== 1) 左右键：切页（任何焦点状态都能切，除了受限输入框） ======== */
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // 组合键直接切
+        if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          const dir = e.key === 'ArrowLeft' ? -1 : 1;
+          const n = pagesData.length;
+          if (n > 1) {
+            let np = currentPageIndex + dir;
+            if (np < 0) np = n - 1;
+            if (np >= n) np = 0;
+            switchAndSelect(np, 0, (dir < 0 ? '← 上一页' : '→ 下一页') + '：【' + (pagesData[np].name || ('页面' + (np + 1))) + '】第 1 行');
+          }
+          return false;
+        }
+
+        // 如果在单元格编辑里 → 直接切页（用户之前定的规则：左右键不移动光标，只切页）
+        const ae = document.activeElement;
+        const inCellEdit = ae && ae.isContentEditable && ae.classList && ae.classList.contains('cell-content');
+        const inSelectedCellArea = !ae || ae.tagName === 'BODY' || (ae.classList && (ae.classList.contains('cell') || ae.classList.contains('text-input')));
+        if (inCellEdit || inSelectedCellArea || selectedIndex !== -1) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          const dir = e.key === 'ArrowLeft' ? -1 : 1;
+          const n = pagesData.length;
+          if (n > 1) {
+            let np = currentPageIndex + dir;
+            if (np < 0) np = n - 1;
+            if (np >= n) np = 0;
+            switchAndSelect(np, 0, (dir < 0 ? '← 上一页' : '→ 下一页') + '：【' + (pagesData[np].name || ('页面' + (np + 1))) + '】第 1 行');
+          } else {
+            // 只有一页，确保当前单元格 focus（避免焦点丢了）
+            if (selectedIndex !== -1) {
+              const el = $cell(selectedIndex);
+              if (el) enterEditMode(el);
+            }
+          }
+          return false;
+        }
+        return;
+      }
+
+      /* ======== 2) 上下键：边界跨页 + 非边界兜底导航 ======== */
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (selectedIndex === -1) {
+          // 没有选中单元格 → 选第 0 个，并阻止传播避免双重
+          const page = getCurrentPageData();
+          if (page && page.cellsData && page.cellsData.length > 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            selectCell(0, true);
+            setTimeout(function () {
+              const el = $cell(0);
+              if (el) enterEditMode(el);
+            }, 0);
+          }
+          return false;
+        }
+
+        const page = getCurrentPageData();
+        const total = page.cellsData.length;
+        const nPages = pagesData.length;
+
+        // --- 边界：跨页 ---
+        if (nPages > 1) {
+          if (e.key === 'ArrowDown' && selectedIndex === total - 1) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            let np = currentPageIndex + 1;
+            if (np >= nPages) np = 0;
+            switchAndSelect(np, 0, '↓ 下一页：【' + (pagesData[np].name || ('页面' + (np + 1))) + '】第 1 行');
+            return false;
+          }
+          if (e.key === 'ArrowUp' && selectedIndex === 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            let pp = currentPageIndex - 1;
+            if (pp < 0) pp = nPages - 1;
+            const nt = pagesData[pp].cellsData.length;
+            const tc = Math.max(0, nt - 1);
+            switchAndSelect(pp, tc, '↑ 上一页：【' + (pagesData[pp].name || ('页面' + (pp + 1))) + '】第 ' + nt + ' 行');
+            return false;
+          }
+        }
+
+        // --- 非边界：在当前页上下切换单元格（完整接管，阻止原代码再执行一次！） ---
+        // 关键修复：stopImmediatePropagation() 防止补丁和 addKeyboardNavigation 双重执行 → 跳2格
+        const ae = document.activeElement;
+        const canHandleHere = (
+          !ae || ae.tagName === 'BODY' ||
+          (ae.classList && (ae.classList.contains('cell') || ae.classList.contains('text-input'))) ||
+          (ae.isContentEditable && ae.classList && ae.classList.contains('cell-content')) ||
+          (ae.getAttribute && ae.getAttribute('role') === 'gridcell') ||
+          (ae.closest && ae.closest('.cell')) // 点击到单元格内部元素
+        );
+
+        if (canHandleHere) {
+          e.preventDefault();
+          e.stopImmediatePropagation(); // ← 关键：掐断原 addKeyboardNavigation，避免双重执行跳2格
+          const dir = e.key === 'ArrowDown' ? 1 : -1;
+          const nextIdx = selectedIndex + dir;
+          if (nextIdx >= 0 && nextIdx < total) {
+            selectCell(nextIdx, true);
+            // 自动进入编辑模式（光标在末尾，能直接打字）
+            setTimeout(function () {
+              const el = $cell(nextIdx);
+              if (el) enterEditMode(el);
+            }, 0);
+          }
+          return false;
+        }
+        return;
+      }
+
+      /* ======== 3) 可打印字符 / Enter / 退格 → 选中单元格直接打字 ======== */
+      if (selectedIndex === -1) return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key.length !== 1 && !['Enter', 'Backspace', 'Delete'].includes(e.key)) return;
+
+      const ae = document.activeElement;
+      const alreadyEditing = ae && ae.isContentEditable;
+      if (alreadyEditing) return; // 已经在编辑就不管
+
+      const el = $cell(selectedIndex);
+      if (!el) return;
+
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        enterEditMode(el);
+        return false;
+      }
+
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        enterEditMode(el);
+        try { document.execCommand('selectAll', false, null); } catch (err) {}
+        document.execCommand('delete', false, null);
+        pagesData[currentPageIndex].cellsData[selectedIndex] = el.textContent || '';
+        save();
+        return false;
+      }
+
+      // 可打印字符
+      e.preventDefault();
+      enterEditMode(el);
+      try {
+        document.execCommand('insertText', false, e.key);
+      } catch (err) {
+        el.textContent = (el.textContent || '') + e.key;
+        const r = document.createRange();
+        r.selectNodeContents(el);
+        r.collapse(false);
+        const s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+      }
+      pagesData[currentPageIndex].cellsData[selectedIndex] = el.textContent || '';
+      save();
+      return false;
+    }, true);
+
+    /* =============== 点击单元格 → 自动进入编辑 =============== */
+    document.addEventListener('click', function (e) {
+      if (typeof isRenaming !== 'undefined' && isRenaming) return;
+      let el = e.target;
+      while (el && el.classList && !el.classList.contains('cell-content')) {
+        el = el.parentElement;
+      }
+      if (!el || !el.classList || !el.classList.contains('cell-content')) return;
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) return; // 用户自己拖了选区就别动
+      setTimeout(function () {
+        const ae2 = document.activeElement;
+        if (ae2 && ae2 !== el && ae2.isContentEditable) return;
+        enterEditMode(el);
+      }, 0);
+    }, true);
+
+    console.log('[补丁 v3-3合1] ✅ 加载成功：①上下跨页 ②选中即打字 ③切页后焦点修复下键可用');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', doPatch);
+  } else {
+    doPatch();
+  }
+})();
 </script>
 </body>
 </html>

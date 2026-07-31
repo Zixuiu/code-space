@@ -167,7 +167,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -241,13 +241,22 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         """强制将目标内容写入剪贴板，带验证和重试，确保写入成功"""
         import pyperclip
         import time as _t
+        # turbo_match 极速模式：减少重试次数和等待时间
+        if turbo_match:
+            max_retry = min(max_retry, 1)
+            delay = 0.02
+            _clear_sleep = 0.005
+        else:
+            _clear_sleep = 0.05
         for attempt in range(max_retry):
             try:
                 # 先清空剪贴板，避免旧内容干扰
                 pyperclip.copy("")
-                _t.sleep(0.05)
+                if _clear_sleep > 0:
+                    _t.sleep(_clear_sleep)
                 pyperclip.copy(target_content)
-                _t.sleep(delay)
+                if delay > 0:
+                    _t.sleep(delay)
                 verify = pyperclip.paste()
                 if verify == target_content:
                     if _clipboard_log_enabled and label:
@@ -286,19 +295,31 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         except Exception as e:
             debug_print(f"[剪贴板] {label}: 读取失败({e})")
 
-    def _detect_clipboard_change(label=""):
+    def _detect_clipboard_change(label="", wait_after=0.05, max_checks=2, check_interval=0.05):
         nonlocal _first_paste_clipboard
         if _first_paste_clipboard is None:
             return
+        # turbo_match 极速模式：关闭剪贴板变化检测的长等待（只检查1次，不等待）
+        if turbo_match:
+            wait_after = 0.05
+            max_checks = 1
+            check_interval = 0.0
         try:
             import pyperclip
-            cb = pyperclip.paste()
-            if cb and cb != _first_paste_clipboard:
-                _first_paste_clipboard = cb
-                if _clipboard_log_enabled:
-                    _cl = len(cb)
-                    _cp = str(cb)[:50] + ("..." if _cl > 50 else "")
-                    debug_print(f"[剪贴板] {label}检测到变化，更新锁定内容: {_cl}字符 - {_cp}")
+            import time as _t
+            if wait_after > 0:
+                _t.sleep(wait_after)
+            for _chk in range(max_checks):
+                cb = pyperclip.paste()
+                if cb and cb != _first_paste_clipboard:
+                    _first_paste_clipboard = cb
+                    if _clipboard_log_enabled:
+                        _cl = len(cb)
+                        _cp = str(cb)[:50] + ("..." if _cl > 50 else "")
+                        debug_print(f"[剪贴板] {label}检测到变化，更新锁定内容: {_cl}字符 - {_cp}")
+                    return
+                if _chk < max_checks - 1 and check_interval > 0:
+                    _t.sleep(check_interval)
         except Exception:
             pass
 
@@ -326,6 +347,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         debug_print(f"[回放] 步骤 {step}: 文本输入 '{preview}' (共 {len(text)} 字符)")
                         # 使用剪贴板方式支持中文输入
                         import pyperclip
+                        # turbo_match 极速模式：剪贴板等待压到最小，关闭额外验证
+                        if turbo_match:
+                            _clip_stable = 0.03      # 剪贴板稳定：原来0.3s → 30ms
+                            _clip_retry_sleep = 0.02 # 不匹配重试：原来0.2s → 20ms
+                            _paste_wait = 0.03       # 粘贴完成等待：原来0.2s → 30ms
+                            _restore_max_retry = 1
+                            _restore_delay = 0.02
+                            _do_verify = False       # 极速模式跳过剪贴板验证（省一次pyperclip读）
+                        else:
+                            _clip_stable = 0.3
+                            _clip_retry_sleep = 0.2
+                            _paste_wait = 0.2
+                            _restore_max_retry = 3
+                            _restore_delay = 0.3
+                            _do_verify = True
                         # 先保存用户当前剪贴板内容，避免文本输入污染剪贴板
                         saved_clipboard = None
                         try:
@@ -334,26 +370,29 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             pass
                         # 将文本复制到剪贴板
                         pyperclip.copy(text)
-                        # 等待剪贴板稳定（从0.15s增加到0.3s，确保系统剪贴板完成更新）
-                        if _interruptible_sleep(0.3, stop_check=stop_check):
+                        # 等待剪贴板稳定
+                        if _clip_stable > 0 and _interruptible_sleep(_clip_stable, stop_check=stop_check):
                             break
-                        # 诊断：验证剪贴板内容是否正确
-                        try:
-                            verify = pyperclip.paste()
-                            if verify != text:
-                                debug_print(f"[回放] ⚠️ 步骤 {step}: 剪贴板验证不匹配！预期={len(text)}字符，实际={len(verify) if verify else 0}字符，重试复制...")
-                                pyperclip.copy(text)
-                                _interruptible_sleep(0.2, stop_check=stop_check)
-                            else:
-                                debug_print(f"[回放] 步骤 {step}: 剪贴板验证通过 ({len(verify)}字符)")
-                        except Exception:
-                            pass
+                        # 诊断：验证剪贴板内容是否正确（极速模式跳过）
+                        if _do_verify:
+                            try:
+                                verify = pyperclip.paste()
+                                if verify != text:
+                                    debug_print(f"[回放] ⚠️ 步骤 {step}: 剪贴板验证不匹配！预期={len(text)}字符，实际={len(verify) if verify else 0}字符，重试复制...")
+                                    pyperclip.copy(text)
+                                    if _clip_retry_sleep > 0:
+                                        _interruptible_sleep(_clip_retry_sleep, stop_check=stop_check)
+                                else:
+                                    debug_print(f"[回放] 步骤 {step}: 剪贴板验证通过 ({len(verify)}字符)")
+                            except Exception:
+                                pass
                         pyautogui.hotkey('ctrl', 'v')
-                        # 等待粘贴完成（新增：确保目标应用处理完粘贴事件）
-                        _interruptible_sleep(0.2, stop_check=stop_check)
+                        # 等待粘贴完成（确保目标应用处理完粘贴事件）
+                        if _paste_wait > 0:
+                            _interruptible_sleep(_paste_wait, stop_check=stop_check)
                         # 恢复用户原来的剪贴板内容，防止后续 Ctrl+V 粘贴错误内容
                         if saved_clipboard is not None:
-                            _force_clipboard(saved_clipboard, label="恢复", max_retry=3, delay=0.3)
+                            _force_clipboard(saved_clipboard, label="恢复", max_retry=_restore_max_retry, delay=_restore_delay)
                         success_count += 1
                         debug_print(f"[回放] 步骤 {step}: 文本输入完成")
                     else:
@@ -441,7 +480,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 try:
                                     import pyperclip as _pyper_after_c
                                     import time as _t_after_c
-                                    _t_after_c.sleep(0.1)  # 等待系统完成复制
+                                    # turbo_match 极速模式：Ctrl+C后等待从0.1s压到0.01s
+                                    _after_c_sleep = 0.01 if turbo_match else 0.1
+                                    if _after_c_sleep > 0:
+                                        _t_after_c.sleep(_after_c_sleep)
                                     _new_cb = _pyper_after_c.paste()
                                     if _new_cb and _new_cb != _first_paste_clipboard:
                                         _first_paste_clipboard = _new_cb
@@ -513,20 +555,23 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
-                _detect_clipboard_change(f"步骤{step}后")
+                # 只有点击操作才检测剪贴板变化（键盘操作不会改变剪贴板）
+                if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
+                    _detect_clipboard_change(f"步骤{step}后")
 
-                # 操作间隔 - 使用每个操作设置的延迟时间
+                # 操作间隔 - 优先用每个操作单独的delay，否则用统一的 replay_interval（由调用方传入，含图片操作也生效）
                 if i < total_operations - 1:  # 不是最后一个操作
-                    # 如果设置了延迟时间，使用设置的延迟；否则使用默认间隔
-                    if delay > 0:
+                    if delay and delay > 0:
+                        # 操作有单独设置延迟 → 用单独的
                         if _interruptible_sleep(delay, stop_check=stop_check):
                             break
-                    elif not image_name:  # 没有图像识别且没有设置延迟，使用默认间隔
+                    elif replay_interval and replay_interval > 0:
+                        # 无单独delay → 用组合技统一设置的步间间隔（图片操作也生效，之前是跳过的）
                         if _interruptible_sleep(replay_interval, stop_check=stop_check):
                             break
                 else:
-                    # 最后一个操作，如果有延迟则等待
-                    if delay > 0:
+                    # 最后一个操作，如果有单独delay则等待
+                    if delay and delay > 0:
                         if _interruptible_sleep(delay, stop_check=stop_check):
                             break
                 # 如果不是图片操作，跳过直接继续下一轮循环
@@ -569,16 +614,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 except Exception:
                     pass
                 # 根据 match_timeout 自适应分配匹配时间
-                # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
-                single_attempt_timeout = match_timeout * 0.5
+                # turbo_match=True(极速) → 直接闪匹配 0.005s，不做任何轮询重试
                 _match_t0 = time.time()
                 _roi_hint = None
                 if 'x' in operation and 'y' in operation:
                     _roi_hint = (operation['x'], operation['y'])
-                if single_attempt_timeout <= 0.03:
-                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.001, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
+                if turbo_match:
+                    # 极速模式：一次闪匹配，不重试（速度最快，但要求屏幕上该时刻确实有图）
+                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                 else:
-                    location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
+                    # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
+                    single_attempt_timeout = match_timeout * 0.5
+                    if single_attempt_timeout <= 0.03:
+                        location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.001, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
+                    else:
+                        location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
 
                 if not location:
@@ -619,15 +669,17 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
-            _detect_clipboard_change(f"步骤{step}后")
+            # 只有点击操作才检测剪贴板变化（键盘操作不会改变剪贴板）
+            if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
+                _detect_clipboard_change(f"步骤{step}后")
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
                 if _interruptible_sleep(delay, stop_check=stop_check):
                     break
 
-            # 极小延迟（1ms+stop_check），几乎不等待
-            if _interruptible_sleep(0.001, stop_check=stop_check):
+            # 极小延迟（1ms+stop_check）— 极速模式下完全跳过（turbo_match 本来就要求响应快）
+            if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check):
                 break
         except Exception:
             import traceback; traceback.print_exc()
@@ -705,15 +757,12 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 _fast_click('left')
             success_count += 1
 
-            # 每步操作后检测剪贴板变化，更新锁定内容（支持点击复制按钮等非Ctrl+C场景）
-            _detect_clipboard_change(f"步骤{step}后")
-
-            # 只有明确指定 delay>0 才等，否则不等
+            # 步骤间间隔：优先用操作的 delay，否则用 replay_interval（无强制最低，由调用方决定）
             if i < total_operations - 1:
                 delay = operation.get('delay', 0)
-                if delay > 0:
+                if delay and delay > 0:
                     time.sleep(delay)
-                elif replay_interval > 0:
+                elif replay_interval and replay_interval > 0:
                     time.sleep(replay_interval)
                     
         except Exception:

@@ -30,26 +30,48 @@ SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4
 # - do_pull 场景（已有 .git 仓库）：recordings/ 和 *.db 在 .gitignore 中未被跟踪，reset 不影响它们。
 # - do_clone 场景（首次克隆）：clone 需要搬空目录再下载，所以这些"本地数据"必须搬完再合并回来，否则会丢。
 #   因此把它们统一列在保护清单中。
+# 重要：扫描范围严格限制在 APP_DIR（PC-action-macOS 应用目录）下，避免误备份
+#       其他项目（如 go-music-dl/webview 的浏览器数据库）或测试副本目录的数据。
+APP_DIR = "01-开发项目/PC-action/PC-action-macOS"
 PROTECTED_EXPLICIT = [
-    "01-开发项目/PC-action/PC-action-macOS/data/combo_skills.json",  # 组合技
-    "01-开发项目/PC-action/PC-action-macOS/user_data",               # 快捷键、录制顺序、UI 偏好等
+    f"{APP_DIR}/data/combo_skills.json",  # 组合技
+    f"{APP_DIR}/user_data",               # 快捷键、录制顺序、UI 偏好等
+    f"{APP_DIR}/recordings",              # 录制文件夹
 ]
-# 动态扫描的模式：所有 **/recordings/ 目录 和 所有 **/*.db 文件（防止路径没写死时漏掉）
-PROTECTED_PATTERNS = ["**/recordings", "**/*.db"]
+# 只在 APP_DIR 下扫描 *.db（避免误备份其他项目的数据库）
+PROTECTED_PATTERNS = [f"{APP_DIR}/*.db"]
+# 排除规则：路径中包含这些关键词的视为测试副本/临时目录，不备份
+EXCLUDE_KEYWORDS = ("_backup", "backup_", "_test", "test_", "temp_", "_temp",
+                    "_copy", "copy_", "_old", "old_", "_bak", "bak_")
+
+
+def _is_excluded_path(rel_path):
+    """路径中包含测试副本/临时目录关键词时返回 True（不备份）"""
+    norm = rel_path.replace("\\", "/").lower()
+    return any(kw in norm for kw in EXCLUDE_KEYWORDS)
 
 
 def collect_protected_paths(base=None):
-    """返回相对于 base 的受保护路径列表（显式 + glob 动态扫描去重）。base 默认 BASE_DIR。"""
+    """返回相对于 base 的受保护路径列表。
+    只在 APP_DIR 下扫描 *.db，避免误备份其他项目（go-music-dl 等）的数据；
+    同时排除明显是测试副本/临时目录的路径。
+    """
     import glob as glob_mod
     base = base or BASE_DIR
-    found = list(PROTECTED_EXPLICIT)
+    found = []
+    for rel in PROTECTED_EXPLICIT:
+        if _is_excluded_path(rel):
+            continue
+        found.append(rel)
     for pat in PROTECTED_PATTERNS:
-        for m in glob_mod.glob(os.path.join(base, pat), recursive=True):
+        # 路径分隔符在 Windows 上要替换
+        pat_full = os.path.join(base, pat.replace("/", os.sep))
+        for m in glob_mod.glob(pat_full):
             rel = os.path.relpath(m, base)
-            if rel not in found:
-                # 只保留实际存在的
-                if os.path.exists(m):
-                    found.append(rel)
+            if _is_excluded_path(rel):
+                continue
+            if rel not in found and os.path.exists(m):
+                found.append(rel)
     return found
 
 
@@ -207,34 +229,6 @@ def cleanup_backup(backup_root):
     shutil.rmtree(backup_root, ignore_errors=True)
 
 
-def stash_local_changes():
-    r = run_cmd("git status --porcelain")
-    if r.returncode != 0:
-        return False
-    tracked_changes = [l for l in r.stdout.split('\n')
-                       if l.strip() and not l.startswith('??')]
-    if not tracked_changes:
-        log("无未提交的代码改动", "INFO")
-        return False
-    log(f"检测到 {len(tracked_changes)} 个未提交改动，自动 stash 保护", "INFO")
-    r = run_cmd('git stash push -m "pull-script-auto-stash"')
-    if r.returncode == 0:
-        log("代码改动已 stash 保护", "SUCCESS")
-        return True
-    log(f"stash 失败: {r.stderr.strip()}", "WARNING")
-    return False
-
-
-def pop_stash():
-    r = run_cmd("git stash pop")
-    if r.returncode == 0:
-        log("代码改动已恢复", "SUCCESS")
-        return True
-    log("stash pop 有冲突（远端也改了同一文件），已保留 stash 让你手动处理", "WARNING")
-    log("解决: git stash pop 后按提示合并冲突", "WARNING")
-    return False
-
-
 def move_existing_files_to_temp_for_clone():
     """
     场景B：BASE_DIR 不是 git 仓库但已有文件（旧代码拷过来的、或只有一键拉取.py）。
@@ -356,14 +350,12 @@ def do_clone():
 
 
 def do_pull():
-    """已有 git 仓库：fetch + reset --hard"""
+    """已有 git 仓库：fetch + reset --hard，覆盖本地所有改动，仅保留受保护数据"""
     backup_root, entries = backup_protected()
     if entries:
         log(f"已备份 {len(entries)} 项本地数据", "SUCCESS")
     else:
         log("无本地数据需要备份（首次使用？）", "INFO")
-
-    has_stash = stash_local_changes()
 
     log(f"目标: {REMOTE}/{BRANCH}", "INFO")
     r = run_cmd(f"git fetch {REMOTE} {BRANCH}", timeout=120)
@@ -371,30 +363,25 @@ def do_pull():
         err = r.stderr.strip()
         log(f"fetch 失败: {err[:400]}", "ERROR")
         restore_protected(entries)
-        if has_stash:
-            pop_stash()
         cleanup_backup(backup_root)
         return False
 
+    # reset --hard 丢弃所有本地改动，完全对齐远端（保护数据已备份，之后恢复）
     r = run_cmd(f"git reset --hard {REMOTE}/{BRANCH}", timeout=90)
     if r.returncode != 0:
         err = r.stderr.strip()
         log(f"同步失败: {err[:400]}", "ERROR")
         restore_protected(entries)
-        if has_stash:
-            pop_stash()
         cleanup_backup(backup_root)
         return False
 
     head = run_cmd("git log -1 --oneline")
     log(f"已同步到: {head.stdout.strip() or '(unknown)'}", "SUCCESS")
 
-    # 恢复本地数据 + stash
+    # 恢复本地受保护数据
     if entries:
         restore_protected(entries)
         log("本地数据已恢复", "SUCCESS")
-    if has_stash:
-        pop_stash()
     cleanup_backup(backup_root)
     return True
 
@@ -454,9 +441,6 @@ def main():
     print("✅ 录制顺序/回放位置/UI 偏好: 已保留本地版本（user_data/）")
     print("✅ 录制文件夹: 未受影响（recordings/ 已忽略）")
     print("✅ 快捷键数据库: 未受影响（*.db 已忽略）")
-    if has_git_repo() and ("已同步" in "已同步"):  # always
-        pass
-    print("✅ 未提交代码改动: 已自动 stash 保护并恢复")
     print("=" * 70)
     print("\n💡 下一步：")
     print("   1. 双击「启动app.py」运行程序")

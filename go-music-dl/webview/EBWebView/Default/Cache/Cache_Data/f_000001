@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="referrer" content="no-referrer">
+    <title>music-dl - 聚合搜索与解析</title>
+    <link rel="icon" href="/music/icon.png" type="image/png">
+    
+    <link rel="stylesheet" href="/music/style.css">
+    <link rel="stylesheet" href="/music/videogen.css">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sakana-widget@2.7.1/lib/sakana.min.css"/>
+</head>
+<body>
+
+
+<div id="download-panel" class="download-panel" style="display:none;">
+    <div class="download-panel-header">
+        <span><i class="fa-solid fa-download"></i> 下载中</span>
+        <span class="download-panel-close" onclick="closeDownloadPanel()">&times;</span>
+    </div>
+    <div class="download-panel-body" id="download-panel-body"></div>
+    <div class="download-panel-footer" id="download-panel-footer"></div>
+</div>
+
+
+<div class="right-toolbar">
+    
+    <div class="rt-btn" onclick="openSystemConfig()" title="系统配置"><i class="fa-solid fa-gear"></i></div>
+    <form id="auth-float-form" class="rt-form" action="/music/logout" method="post" title="登录">
+        <button id="auth-float-button" type="submit"><i id="auth-float-icon" class="fa-solid fa-right-to-bracket"></i></button>
+    </form>
+    <div class="rt-btn" onclick="openLocalMusicPage()" title="本地音乐"><i class="fa-solid fa-folder-plus"></i></div>
+    <div class="rt-btn" onclick="openDownloadRecordsModal()" title="下载记录"><i class="fa-solid fa-clock-rotate-left"></i></div>
+    <div class="rt-btn" onclick="openPlaybackHistoryModal()" title="播放历史"><i class="fa-solid fa-clock"></i></div>
+
+    
+
+    <div class="rt-separator"></div>
+
+    
+    <div class="rt-btn" onclick="scrollToTop()" title="回到顶部"><i class="fa-solid fa-arrow-up"></i></div>
+    <div class="rt-btn" onclick="scrollToBottom()" title="回到底部"><i class="fa-solid fa-arrow-down"></i></div>
+</div>
+
+<div class="container">
+    
+<div class="search-box">
+    <h1>🎵 <a href="https://github.com/guohuiyuan/go-music-dl" target="_blank" style="color: inherit; text-decoration: none;">music-dl</a></h1>
+    <form action="/music/search" method="get" id="search-form">
+        <input type="hidden" name="page" value="1">
+        <input type="hidden" name="page_size" id="page-size-hidden" value="200">
+        <div class="search-type-switch">
+            <label class="type-option">
+                <input type="radio" name="type" value="song"
+                    checked
+                    onchange="toggleSearchType(this.value)">
+                <span>单曲搜索</span>
+            </label>
+            <label class="type-option">
+                <input type="radio" name="type" value="playlist"
+                    
+                    onchange="toggleSearchType(this.value)">
+                <span>歌单搜索</span>
+            </label>
+            <label class="type-option">
+                <input type="radio" name="type" value="album"
+                    
+                    onchange="toggleSearchType(this.value)">
+                <span>专辑搜索</span>
+            </label>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="search-keyword" name="q" value="" placeholder="搜索歌曲、歌手，或直接粘贴分享链接" required autocomplete="off">
+            <button type="submit" class="search-btn"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+
+        <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap;">
+            <button type="button" class="btn-pill btn-pill-primary" onclick="goToRecommend()"
+                style="background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); border: none; box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4); justify-content:center;">
+                <i class="fa-solid fa-fire"></i> 每日推荐歌单
+            </button>
+            <button type="button" class="btn-pill btn-pill-fav" onclick="openCollectionManager()">
+                <i class="fa-solid fa-folder-open"></i> 本地歌单
+            </button>
+            <button type="button" class="btn-pill btn-pill-fav" onclick="openLocalMusicPage()">
+                <i class="fa-solid fa-music"></i> 本地音乐
+            </button>
+            <button type="button" class="btn-pill btn-pill-category" onclick="goToPlaylistCategories()">
+                <i class="fa-solid fa-table-cells-large"></i> 歌单分类
+            </button>
+            <button type="button" class="btn-pill btn-pill-mine" onclick="goToUserPlaylists()">
+                <i class="fa-solid fa-heart"></i> 我的歌单
+            </button>
+        </div>
+
+        
+
+        <div class="source-selector" id="source-selector">
+            <div class="source-header">
+                <button type="button" class="source-collapse-btn" onclick="toggleSourceSelector()" aria-expanded="true" aria-controls="source-grid">
+                    <span class="source-title">搜索源设置</span>
+                    <i class="fa-solid fa-chevron-up source-collapse-icon" aria-hidden="true"></i>
+                </button>
+                <div class="source-actions">
+                    <button type="button" class="ctrl-btn" id="btn-all">全选</button>
+                    <button type="button" class="ctrl-btn" id="btn-none">清空</button>
+                </div>
+            </div>
+
+            <div class="source-grid" id="source-grid">
+                
+                <label>
+                    <input type="checkbox" name="sources" value="netease" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="true"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">netease</div>
+                        <div class="source-desc">网易云音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="qq" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="true"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">qq</div>
+                        <div class="source-desc">QQ音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="kugou" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="true"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">kugou</div>
+                        <div class="source-desc">酷狗音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="kuwo" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="false"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">kuwo</div>
+                        <div class="source-desc">酷我音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="migu" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="false"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">migu</div>
+                        <div class="source-desc">咪咕音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="fivesing" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="false"
+                        data-category-supported="false"
+                        data-user-playlist-supported="false"
+                        
+                            
+                        >
+                    <div class="source-card">
+                        <div class="source-name">fivesing</div>
+                        <div class="source-desc">5sing</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="jamendo" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="false"
+                        data-user-playlist-supported="false"
+                        
+                            
+                        >
+                    <div class="source-card">
+                        <div class="source-name">jamendo</div>
+                        <div class="source-desc">Jamendo (CC)</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="joox" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="false"
+                        
+                            
+                        >
+                    <div class="source-card">
+                        <div class="source-name">joox</div>
+                        <div class="source-desc">JOOX</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="qianqian" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="false"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">qianqian</div>
+                        <div class="source-desc">千千音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="soda" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="false"
+                        data-user-playlist-supported="true"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">soda</div>
+                        <div class="source-desc">汽水音乐</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="bilibili" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="false"
+                        data-category-supported="false"
+                        data-user-playlist-supported="false"
+                        
+                            
+                        >
+                    <div class="source-card">
+                        <div class="source-name">bilibili</div>
+                        <div class="source-desc">Bilibili</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="apple" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="true"
+                        data-category-supported="true"
+                        data-user-playlist-supported="false"
+                        
+                            checked
+                        >
+                    <div class="source-card">
+                        <div class="source-name">apple</div>
+                        <div class="source-desc">Apple Music</div>
+                    </div>
+                </label>
+                
+                <label>
+                    <input type="checkbox" name="sources" value="local" class="source-checkbox"
+                        data-playlist-supported="true"
+                        data-album-supported="false"
+                        data-category-supported="false"
+                        data-user-playlist-supported="false"
+                        
+                            
+                        >
+                    <div class="source-card">
+                        <div class="source-name">local</div>
+                        <div class="source-desc">本地音乐</div>
+                    </div>
+                </label>
+                
+            </div>
+        </div>
+    </form>
+</div>
+
+
+    
+
+
+
+
+
+    
+
+
+
+
+    
+
+
+
+
+
+    
+
+
+</div>
+
+
+<div id="cookieModal" class="modal-overlay" style="z-index: 1001;">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>设置 Cookies</h3>
+            <div class="modal-close" onclick="document.getElementById('cookieModal').style.display='none'"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <div class="cookie-list">
+                
+                <div class="cookie-item">
+                    <label>netease</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-netease" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        <button type="button" class="cookie-qr-btn" onclick="startQRLogin('netease')"><i class="fa-solid fa-qrcode"></i> 扫码</button>
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>qq</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-qq" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        <button type="button" class="cookie-qr-btn" onclick="startQRLogin('qq')"><i class="fa-brands fa-qq"></i> QQ扫码</button>
+                        
+                        
+                        <button type="button" class="cookie-qr-btn cookie-qr-btn-wx" onclick="startQRLogin('qq_wx')"><i class="fa-brands fa-weixin"></i> 微信扫码</button>
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>kugou</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-kugou" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        <button type="button" class="cookie-qr-btn" onclick="startQRLogin('kugou')"><i class="fa-solid fa-qrcode"></i> 扫码</button>
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>kuwo</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-kuwo" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>migu</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-migu" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>fivesing</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-fivesing" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>jamendo</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-jamendo" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>joox</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-joox" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>qianqian</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-qianqian" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>soda</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-soda" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>bilibili</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-bilibili" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        <button type="button" class="cookie-qr-btn" onclick="startQRLogin('bilibili')"><i class="fa-solid fa-qrcode"></i> 扫码</button>
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>apple</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-apple" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+                <div class="cookie-item">
+                    <label>local</label>
+                    <div class="cookie-input-row">
+                        <input type="text" id="cookie-local" placeholder="在此粘贴 Cookie...">
+                        
+                        
+                        
+                    </div>
+                </div>
+                
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-embed-download">
+                    <input type="checkbox" id="setting-embed-download">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">下载时内嵌元数据（封面、歌词）</span>
+                </label>
+                <p class="setting-hint">影响"保存到本地目录"和"浏览器下载"两种方式；播放始终使用流式下载，不内嵌元数据。</p>
+            </div>
+            <div class="cookie-item">
+                <label for="setting-download-dir">本地下载目录</label>
+                <div class="download-dir-control">
+                    <select id="setting-download-dir-preset" aria-label="本地下载目录预设" aria-describedby="setting-download-dir-hint">
+                        <option value="data/downloads">PC 默认：data/downloads</option>
+                        <option value="downloads">PC 简洁：downloads</option>
+                        <option value="D:/Music/Downloads">PC 示例：D:/Music/Downloads</option>
+                        <option value="/sdcard/Music">Android 默认：/sdcard/Music</option>
+                        <option value="/storage/emulated/0/Music">Android 兼容：/storage/emulated/0/Music</option>
+                        <option value="/sdcard/Download">Android 下载：/sdcard/Download</option>
+                        <option value="__custom__">自定义目录...</option>
+                    </select>
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        <input type="text" id="setting-download-dir" aria-describedby="setting-download-dir-hint" placeholder="例如: data/downloads、D:/Music/Downloads 或 /sdcard/Music" style="flex:1;">
+                        <button type="button" class="btn-pill" onclick="pickDownloadFolder()" title="选择文件夹" style="white-space:nowrap;font-size:12px;padding:4px 10px;">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </button>
+                    </div>
+                </div>
+                <p id="setting-download-dir-hint" class="setting-hint" style="margin-left: 0;">选择预设会自动填入路径，也可以手填相对目录或绝对目录。Android 建议使用 <code>/sdcard/Music</code>，便于系统音乐应用识别。</p>
+            </div>
+            <div class="cookie-item">
+                <label for="setting-download-filename-template">音乐文件名模板</label>
+                <input type="text" id="setting-download-filename-template" placeholder="{artist} - {name}">
+                <p class="setting-hint" style="margin-left: 0;">支持 <code>{name}</code>、<code>{artist}</code>、<code>{album}</code>、<code>{source}</code>、<code>{id}</code>、<code>{ext}</code>。未写 <code>{ext}</code> 时会自动追加扩展名；可用 <code>/</code> 或 <code>\</code> 创建相对子目录，例如 <code>{artist}/{album}/{name} - {artist}.{ext}</code>。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-auto-cache-on-play">
+                    <input type="checkbox" id="setting-auto-cache-on-play">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">播放时自动缓存本地音乐</span>
+                </label>
+                <p class="setting-hint">在线歌曲开始播放后会后台保存到本地下载目录；下次播放匹配成功时优先使用本地文件，默认开启。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-floating-lyrics">
+                    <input type="checkbox" id="setting-floating-lyrics">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">播放音乐时显示悬浮歌词</span>
+                </label>
+                <p class="setting-hint">关闭后，播放音乐时不显示底部悬浮歌词。</p>
+            </div>
+            <div class="cookie-item">
+                <label for="setting-web-page-size">Web 每页条数</label>
+                <select id="setting-web-page-size" aria-label="Web 每页条数">
+                    <option value="30">30 条/页</option>
+                    <option value="100">100 条/页</option>
+                    <option value="200" selected>200 条/页（默认）</option>
+                    <option value="300">300 条/页</option>
+                    <option value="400">400 条/页</option>
+                    <option value="500">500 条/页</option>
+                </select>
+                <p class="setting-hint" style="margin-left: 0;">搜索结果列表每页显示的歌曲数量，默认 200。</p>
+            </div>
+            <div class="cookie-item">
+                <label for="setting-cli-page-size">CLI 每页条数</label>
+                <input type="number" id="setting-cli-page-size" min="1" max="200" step="1" placeholder="默认 20">
+                <p class="setting-hint" style="margin-left: 0;">用于 TUI 分页显示，默认 20。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-auto-switch-invalid-sources">
+                    <input type="checkbox" id="setting-auto-switch-invalid-sources">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">自动选择无效音源并批量换源</span>
+                </label>
+                <p class="setting-hint">音乐列表检测完成后，会自动选中当前列表全部无效歌曲并执行批量换源，默认开启。</p>
+            </div>
+            <button type="button" class="cookie-item setting-item setting-link-row" onclick="openAboutAppModal()">
+                <span class="setting-link-icon"><i class="fa-solid fa-circle-info"></i></span>
+                <span class="setting-link-body">
+                    <span class="setting-link-title">关于 go-music-dl</span>
+                    <span class="setting-link-desc">查看当前版本并检查 GitHub 是否有新版</span>
+                </span>
+                <i class="fa-solid fa-chevron-right setting-link-chevron" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="cookie-item setting-item setting-link-row" onclick="openDownloadRecordsModal()">
+                <span class="setting-link-icon"><i class="fa-solid fa-clock-rotate-left"></i></span>
+                <span class="setting-link-body">
+                    <span class="setting-link-title">下载记录</span>
+                    <span class="setting-link-desc">查看下载任务历史（成功 / 跳过 / 失败）</span>
+                </span>
+                <i class="fa-solid fa-chevron-right setting-link-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-vg-change-cover">
+                    <input type="checkbox" id="setting-vg-change-cover">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">显示“更换封面/背景”按钮</span>
+                </label>
+                <p class="setting-hint">控制视频生成弹窗中的本地封面/背景替换入口，默认隐藏。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-vg-change-audio">
+                    <input type="checkbox" id="setting-vg-change-audio">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">显示“更换音频”按钮</span>
+                </label>
+                <p class="setting-hint">控制视频生成弹窗中的本地音频替换入口，默认隐藏。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-vg-change-lyric">
+                    <input type="checkbox" id="setting-vg-change-lyric">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">显示“更换歌词”按钮</span>
+                </label>
+                <p class="setting-hint">控制视频生成弹窗中的本地歌词替换入口，默认隐藏。</p>
+            </div>
+            <div class="cookie-item setting-item">
+                <label class="setting-toggle" for="setting-vg-export-video">
+                    <input type="checkbox" id="setting-vg-export-video">
+                    <span class="setting-switch" aria-hidden="true"></span>
+                    <span class="setting-toggle-text">显示“导出视频”按钮</span>
+                </label>
+                <p class="setting-hint">控制视频生成弹窗中的导出视频入口，默认隐藏。</p>
+            </div>
+            <button class="btn-save" onclick="saveCookies()">保存设置</button>
+        </div>
+    </div>
+</div>
+
+<div id="appUpdateModal" class="modal-overlay" style="z-index: 1008;">
+    <div class="modal app-update-modal">
+        <div class="modal-header">
+            <div>
+                <h3 id="appUpdateTitle">检查更新</h3>
+                <p id="appUpdateSummary" class="app-update-summary">正在读取 GitHub 版本信息</p>
+            </div>
+            <div class="modal-close" onclick="closeUpdateModal()"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <span id="updateCheckStatus" class="setting-inline-status"></span>
+            <div class="update-modal-actions">
+                <button type="button" class="btn-pill btn-pill-dl" onclick="closeUpdateModal()">关闭</button>
+                <button type="button" id="appUpdateOpenRepoBtn" class="btn-pill btn-pill-primary" onclick="openLatestUpdatePage('release')"><i class="fa-solid fa-arrow-up-right-from-square"></i> 打开发布页</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="qrLoginModal" class="modal-overlay" style="z-index: 1007;">
+    <div class="modal qr-login-modal">
+        <div class="modal-header">
+            <h3 id="qrLoginTitle">扫码登录</h3>
+            <div class="modal-close" onclick="closeQRLoginModal()"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <div class="qr-login-card">
+                <div class="qr-login-frame">
+                    <canvas id="qrLoginCanvas" width="260" height="260"></canvas>
+                    <img id="qrLoginImage" class="qr-login-image" alt="扫码登录二维码">
+                    <div id="qrLoginLoading" class="qr-login-loading">正在生成二维码...</div>
+                </div>
+                <div id="qrLoginStatus" class="qr-login-status">请稍候</div>
+                <div id="qrLoginSMSPanel" class="qr-login-sms" style="display: none;">
+                    <div class="qr-login-sms-row">
+                        <input id="qrLoginSMSCode" class="qr-login-sms-input" type="text" inputmode="numeric" maxlength="8" placeholder="输入验证码">
+                        <button id="qrLoginSendSMSBtn" type="button" class="btn-pill btn-pill-primary" onclick="sendSodaSMSCode()">发送验证码</button>
+                    </div>
+                    <button id="qrLoginValidateSMSBtn" type="button" class="btn-pill btn-pill-dl qr-login-sms-submit" onclick="validateSodaSMSCode()">确认登录</button>
+                </div>
+                <div class="qr-login-actions">
+                    <button type="button" class="btn-pill btn-pill-primary" onclick="restartQRLogin()"><i class="fa-solid fa-rotate-right"></i> 刷新二维码</button>
+                    <button type="button" class="btn-pill btn-pill-dl" onclick="closeQRLoginModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="editCollectionModal" class="modal-overlay" style="z-index: 1005;">
+    <div class="modal" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3 id="editColTitle">新建歌单</h3>
+            <div class="modal-close" onclick="document.getElementById('editCollectionModal').style.display='none'"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editColId">
+            <div class="cookie-item">
+                <label>歌单名称 <span style="color:#e53e3e;">*</span></label>
+                <input type="text" id="editColName" placeholder="例如: 睡前听的歌" maxlength="30">
+            </div>
+            <div class="cookie-item">
+                <label>描述</label>
+                <input type="text" id="editColDesc" placeholder="简单描述一下...">
+            </div>
+            <div class="cookie-item">
+                <label>封面图片 (URL)</label>
+                <input type="text" id="editColCover" placeholder="留空则自动生成随机封面">
+            </div>
+            <button type="button" class="btn-save" onclick="saveCollection()">保存歌单</button>
+        </div>
+    </div>
+</div>
+
+<div id="addToCollectionModal" class="modal-overlay" style="z-index: 1004;">
+    <div class="modal" style="max-width: 400px;">
+        <div class="modal-header">
+            <h3>收藏到我的歌单</h3>
+            <div class="modal-close" onclick="document.getElementById('addToCollectionModal').style.display='none'"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 14px; color: var(--text-sub);">选择或管理歌单</span>
+                <button class="btn-pill btn-pill-primary" style="padding: 6px 12px; font-size: 12px;" onclick="showEditCollectionModal()">
+                    <i class="fa-solid fa-plus"></i> 新建
+                </button>
+            </div>
+            <div id="addColList"></div>
+        </div>
+    </div>
+</div>
+
+<div id="downloadRecordsModal" class="modal-overlay utility-modal-overlay">
+    <div class="modal utility-modal download-records-modal">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-clock-rotate-left"></i> 下载记录</h3>
+                <p class="download-records-subtitle">最近的下载、跳过和失败记录</p>
+            </div>
+            <div class="modal-close" onclick="closeDownloadRecordsModal()"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <div class="utility-modal-toolbar download-records-toolbar">
+                <span id="download-records-count" class="utility-modal-count download-records-count">加载中...</span>
+                <div class="utility-modal-actions download-records-actions">
+                    <button type="button" class="btn-pill" onclick="openLocalMusicPage()">
+                        <i class="fa-solid fa-folder-plus"></i> 本地音乐
+                    </button>
+                    <button type="button" class="btn-pill btn-pill-danger" onclick="clearDownloadRecords()">
+                        <i class="fa-solid fa-trash-can"></i> 清空记录
+                    </button>
+                </div>
+            </div>
+            <div id="download-records-list" class="utility-modal-list download-records-list"></div>
+            <nav id="download-records-pagination" class="utility-modal-pagination" aria-label="下载记录分页"></nav>
+            <div class="utility-modal-footer download-records-footer">
+                <button type="button" class="btn-pill" onclick="closeDownloadRecordsModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div id="playbackHistoryModal" class="modal-overlay utility-modal-overlay">
+    <div class="modal utility-modal playback-history-modal">
+        <div class="modal-header">
+            <div>
+                <h3><i class="fa-solid fa-clock"></i> 播放历史</h3>
+                <p class="utility-modal-subtitle">此设备最近播放过的歌曲</p>
+            </div>
+            <div class="modal-close" onclick="closePlaybackHistoryModal()"><i class="fa-solid fa-xmark"></i></div>
+        </div>
+        <div class="modal-body">
+            <div class="utility-modal-toolbar">
+                <span id="playback-history-count" class="utility-modal-count">暂无播放记录</span>
+                <div class="utility-modal-actions">
+                    <button type="button" class="btn-pill btn-pill-danger" onclick="clearPlaybackHistory()">
+                        <i class="fa-solid fa-trash-can"></i> 清空历史
+                    </button>
+                </div>
+            </div>
+            <div id="playback-history-list" class="utility-modal-list playback-history-list"></div>
+            <nav id="playback-history-pagination" class="utility-modal-pagination" aria-label="播放历史分页"></nav>
+            <div class="utility-modal-footer">
+                <button type="button" class="btn-pill" onclick="closePlaybackHistoryModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div id="aplayer"></div>
+<script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"></script>
+
+<script>
+    window.API_ROOT = "\/music";
+    window.sakanaInstance = null;
+
+    function initSakanaWidget() {
+        if (window.innerWidth > 768) {
+            window.sakanaInstance = new SakanaWidget().mount('#sakana-widget');
+        }
+    }
+</script>
+
+<script src="/music/app.js"></script>
+
+<div id="vg-modal" class="vg-overlay">
+    <div id="vg-bg" class="vg-bg-layer">
+        <img id="vg-bg-img" class="vg-bg-content is-image" src="">
+        <video id="vg-bg-video" class="vg-bg-content" autoplay loop muted style="display:none;"></video>
+    </div>
+
+    <div class="vg-close" onclick="VideoGen.close()"><i class="fa-solid fa-xmark"></i></div>
+
+    <div class="vg-container" id="vg-ui-container">
+        <div class="vg-left">
+            <div class="vg-disc-container" id="vg-disc-container">
+                <div class="vg-visualizer" id="vg-visualizer"></div>
+                <div class="vg-disc-wrap">
+                    <div class="vg-cover-container" id="vg-cover-container">
+                        <img id="vg-cover-img" class="vg-cover-content" src="">
+                        <video id="vg-cover-video" class="vg-cover-content" autoplay loop muted style="display:none;"></video>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vg-info">
+                <div id="vg-title" class="vg-title"></div>
+                <div id="vg-artist" class="vg-artist"></div>
+                <div class="vg-progress-wrapper">
+                    <span id="vg-time-current">00:00</span>
+                    <input type="range" id="vg-seek-bar" class="vg-seek-bar" value="0" step="0.1" min="0" max="100">
+                    <span id="vg-time-total">00:00</span>
+                </div>
+                <div class="vg-playback-row">
+                    <div class="vg-ctrl-icon" onclick="VideoGen.playPrev()" title="上一首"><i class="fa-solid fa-backward-step"></i></div>
+                    <div class="vg-ctrl-icon vg-play-center" onclick="VideoGen.togglePlay()" title="播放/暂停">
+                        <i id="vg-play-toggle-icon" class="fa-solid fa-play"></i>
+                    </div>
+                    <div class="vg-ctrl-icon" onclick="VideoGen.playNext()" title="下一首"><i class="fa-solid fa-forward-step"></i></div>
+
+                    <div class="vg-vol-group">
+                        <i class="fa-solid fa-volume-high vg-ctrl-icon" id="vg-vol-icon" onclick="VideoGen.toggleMute()" title="静音/恢复" style="width: auto; height: auto;"></i>
+                        <input type="range" id="vg-volume-bar" class="vg-seek-bar" value="70" step="1" min="0" max="100">
+                        <span id="vg-vol-text" class="vg-vol-text">70%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="vg-controls" id="vg-controls">
+                <div id="vg-feature-change-cover" data-vg-setting="vgChangeCover" style="display:none;">
+                    <input type="file" id="vg-file-input" accept="image/*,video/mp4" style="display:none;" onchange="VideoGen.handleFileSelect(this)">
+                    <button class="vg-btn-icon" onclick="document.getElementById('vg-file-input').click()" title="更换封面/背景">
+                        <i class="fa-regular fa-image"></i>
+                    </button>
+                </div>
+
+                <div id="vg-feature-change-audio" data-vg-setting="vgChangeAudio" style="display:none;">
+                    <input type="file" id="vg-audio-input" accept="audio/*" style="display:none;" onchange="VideoGen.handleAudioSelect(this)">
+                    <button class="vg-btn-icon" onclick="document.getElementById('vg-audio-input').click()" title="更换本地音频 (仅限网页预览)">
+                        <i class="fa-solid fa-music"></i>
+                    </button>
+                </div>
+
+                <div id="vg-feature-change-lyric" data-vg-setting="vgChangeLyric" style="display:none;">
+                    <input type="file" id="vg-lyric-input" accept=".lrc,.txt" style="display:none;" onchange="VideoGen.handleLyricSelect(this)">
+                    <button class="vg-btn-icon" onclick="document.getElementById('vg-lyric-input').click()" title="更换本地歌词 (.lrc)">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </button>
+                </div>
+
+                <div id="vg-feature-export-video" data-vg-setting="vgExportVideo" style="display:none;">
+                    <button class="vg-btn-gen" onclick="VideoGen.startRendering()">
+                        <i class="fa-solid fa-clapperboard"></i> 导出视频
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="vg-right">
+            <div class="vg-lyrics-header">LYRICS PREVIEW</div>
+            <div id="vg-lyrics" class="vg-lyrics-box"></div>
+        </div>
+    </div>
+
+    <div id="vg-status-loading" class="vg-status">
+        <div style="font-size:30px; margin-bottom:10px;"><i class="fa-solid fa-compact-disc fa-spin"></i></div>
+        <h3 id="vg-status-text">正在分析音频...</h3>
+        <div class="vg-progress-bar"><div id="vg-progress-fill" class="vg-progress-fill"></div></div>
+        <p id="vg-status-sub" style="opacity:0.7; font-size:12px; margin-top:10px;">渲染期间不会影响当前音乐播放</p>
+    </div>
+
+    <div id="vg-status-success" class="vg-status">
+        <div style="font-size: 60px; color: #48bb78; margin-bottom: 20px;"><i class="fa-solid fa-circle-check"></i></div>
+        <h3>生成成功！</h3>
+        <div style="display:flex; gap:15px; margin-top:30px;">
+            <a id="vg-dl-link" href="#" target="_blank" class="vg-btn-gen" download>
+                <i class="fa-solid fa-download"></i> 点击下载
+            </a>
+            <button onclick="VideoGen.reset()" class="vg-btn-gen">返回</button>
+        </div>
+    </div>
+</div>
+
+<script src="/music/videogen.js"></script>
+
+<div id="sakana-container" class="sakana-container">
+    <div id="sakana-widget"></div>
+</div>
+
+<script async onload="initSakanaWidget()" src="https://cdn.jsdelivr.net/npm/sakana-widget@2.7.1/lib/sakana.min.js"></script>
+
+</body>
+</html>

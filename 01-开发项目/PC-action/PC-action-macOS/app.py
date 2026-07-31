@@ -9459,15 +9459,16 @@ class ComboSkillRunner:
     """组合技执行器 - 在独立线程中运行组合技的各个流程（纯Python回调）"""
 
     def __init__(self, skill_data, parent=None):
-        self.skill_data = skill_data
+        # 必须深拷贝！否则运行时引用原始字典对象，任何修改都会污染保存的数据
+        self.skill_data = copy.deepcopy(skill_data) if skill_data else {}
         self.skill_id = ""
         self.running = False
         self.monitor_mode = False
         self.monitor_target_runner = None
         self._exec_thread = None
         self._current_flow_index = 0
-        self._total_flows = len(skill_data.get("flows", []))
-        self._loop_count = skill_data.get("loop_count", 1)
+        self._total_flows = len(self.skill_data.get("flows", []))
+        self._loop_count = self.skill_data.get("loop_count", 1)
         self._current_loop = 1
         self._main_app = parent
         self.interrupt_event = threading.Event()  # 用于唤醒 _wait_interruptible 的中断事件
@@ -9501,12 +9502,42 @@ class ComboSkillRunner:
             flows = self.skill_data.get("flows", [])
             self.skip_on_fail = self.skill_data.get("skip_on_fail", False)
             total_loops = max(1, self._loop_count)
+
+            # ── 有效强制间隔（流程/跳转之间的默认等待，用户设0就真的0）──
+            # 规则：用户 step_interval=0 时，_flow_gap=0（真·极速，不做任何强制等待）
+            #       否则 _flow_gap = step_interval（未配置时默认 0.1 秒，与录制回放的步间间隔一致）
+            _raw_si = self.skill_data.get('step_interval', None)
+            try:
+                if _raw_si is None:
+                    _flow_gap = 0.1  # 默认 0.1 秒
+                else:
+                    _f = float(_raw_si)
+                    if abs(_f - 0.0) < 0.0001:
+                        _flow_gap = 0.0  # 用户明确设0 → 真0，不强制
+                    else:
+                        _flow_gap = max(0.0, _f)
+            except (TypeError, ValueError):
+                _flow_gap = 0.1
+            self._flow_gap = _flow_gap
+            # 「极速模式」开关：用户明确设为0秒(极速)时启用
+            #   启用后：条件判断 / 录制回放的图片匹配 → 只做一次快速闪匹配（不做轮询重试）
+            self._turbo_mode = (abs(self._flow_gap - 0.0) < 0.0001)
+            # 「速度比例因子」：根据 step_interval 自动缩放图片匹配超时
+            #   step_interval=0.1 → scale=1.0（标准，匹配超时保持原值）
+            #   step_interval=0.05 → scale=0.5（快速，匹配超时减半）
+            #   step_interval=0.0 → scale=0.0（极速，匹配超时压到最低）
+            if self._turbo_mode:
+                self._speed_scale = 0.0
+            else:
+                self._speed_scale = max(0.0, min(1.0, _flow_gap / 0.1))
+
             _t0 = _time.time()
             from image_recognition import find_image_with_timeout
             _t1 = _time.time()
             try:
                 if self._main_app is not None:
                     self._main_app.append_log(f" ║  ⏳ find_image_with_timeout 导入: {_t1-_t0:.3f}s")
+                    self._main_app.append_log(f" ║  ⚙️  步间间隔(录制内): {self._flow_gap:.3f}s | 流程间强制等待: {'关闭(极速)' if _flow_gap <= 0 else str(round(_flow_gap,3))+'s'} | 速度比例: {'极速' if self._turbo_mode else f'{self._speed_scale:.2f}x'} | 图片匹配: {'⚡闪匹配(极速)' if self._turbo_mode else '智能缩放' if self._speed_scale < 0.8 else '标准(带重试)'}")
                     if flows:
                         self._main_app.append_log(f" ║  📋 流程0数据: {str(flows[0])[:200]}")
             except Exception:
@@ -9516,6 +9547,8 @@ class ComboSkillRunner:
                 if not self.running:
                     break
                 self._current_loop = loop
+                # 每轮循环开始重置连续失败计数（不同轮次的失败不应跨轮累加）
+                self._consecutive_failures = 0
                 _loop_start = _time.time()
 
                 flow_index = 0
@@ -9556,12 +9589,15 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.15, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                            # 速度比例缩放：step_interval=0.1→0.15s, 0.05→0.075s, 0→0.005s(极速)
+                            _t = 0.005 if self._turbo_mode else max(0.01, 0.15 * self._speed_scale)
+                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
                             try:
                                 if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  🔍 流程{flow_index+1} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
+                                    _mode_tag = ' (⚡极速)' if self._turbo_mode else f' (x{self._speed_scale:.1f})'
+                                    self._main_app.append_log(f" ║  🔍 流程{flow_index+1} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}{_mode_tag}")
                             except Exception:
                                 break
                     elif condition == "image_not_found":
@@ -9573,6 +9609,7 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
+                            # image_not_found 本来就是 timeout=0.01 快速检测，极速模式不变
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                             condition_met = loc is None
                             _cond_elapsed = _time.time() - _cond_start
@@ -9599,14 +9636,17 @@ class ComboSkillRunner:
                                     wait_timeout = 30.0
                             except (TypeError, ValueError):
                                 wait_timeout = 30.0
-                            _wf_log(f"⏳ 开始等待出现，timeout={wait_timeout}s")
+                            _wf_log(f"⏳ 开始等待出现，timeout={wait_timeout}s{' (⚡极速模式)' if self._turbo_mode else ''}")
                             condition_met = False
                             _wait_deadline = _time.time() + wait_timeout
                             _poll_cnt = 0
                             _disappeared = False
-                            # wait_for_image 使用更高置信度(0.9)和短超时(0.2s)以减少CPU占用和误报
+                            # 速度比例缩放：step_interval=0.1→标准值, 0.05→减半, 0→极速值
                             _wf_confidence = 0.9
-                            _wf_timeout = 0.2
+                            _wf_timeout = 0.08 if self._turbo_mode else max(0.04, 0.2 * self._speed_scale)
+                            _wf_poll = 0.02 if self._turbo_mode else max(0.01, 0.1 * self._speed_scale)
+                            _wf_confirm_count = 0 if self._turbo_mode else (0 if self._speed_scale < 0.6 else 1)
+                            _wf_confirm_sleep = 0.02 if self._turbo_mode else max(0.01, 0.08 * self._speed_scale)
                             while self.running and _time.time() < _wait_deadline:
                                 _poll_cnt += 1
                                 loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
@@ -9617,25 +9657,26 @@ class ComboSkillRunner:
                                     else:
                                         if _poll_cnt % 10 == 0:
                                             _wf_log(f"⏳ 等待图片消失中(已轮询{_poll_cnt}次)")
-                                    _time.sleep(0.1)
+                                    _time.sleep(_wf_poll)
                                     continue
                                 if loc is not None:
-                                    # 连续确认：再检测1次，命中2次就算真正出现（避免单帧闪烁误报）
+                                    # 极速模式：不做重复确认，1次命中即成立（避免两次间的0.08秒延迟）
                                     _confirm = 1
-                                    for _ci in range(1):
-                                        _time.sleep(0.08)
+                                    for _ci in range(_wf_confirm_count):
+                                        _time.sleep(_wf_confirm_sleep)
                                         _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
                                         if _cloc is not None:
                                             _confirm += 1
-                                    if _confirm >= 2:
+                                    _need = _wf_confirm_count + 1
+                                    if _confirm >= _need:
                                         condition_met = True
-                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测(2中{_confirm})")
+                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测({_need}中{_confirm})")
                                         break
                                     else:
-                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/2确认失败)，继续等待")
+                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/{_need}确认失败)，继续等待")
                                 if _poll_cnt % 10 == 0:
                                     _wf_log(f"⏳ 等待图片出现中(已轮询{_poll_cnt}次，剩余{max(0,_wait_deadline-_time.time()):.1f}s)")
-                                _time.sleep(0.1)
+                                _time.sleep(_wf_poll)
                             _cond_elapsed = _time.time() - _cond_start
                             if not _disappeared:
                                 _wf_log(f"⚠ 图片始终存在(未消失)，超时{_cond_elapsed:.1f}s 结果=不满足")
@@ -9693,6 +9734,8 @@ class ComboSkillRunner:
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
                                     break
+                                # 设置 running=False 确保停止整个组合技（而非仅跳出内层 while）
+                                self.running = False
                                 break
                             flow_index = target
                             try:
@@ -9700,15 +9743,15 @@ class ComboSkillRunner:
                                     self._main_app.append_log(f" ║  ➡️ 跳转到流程 {target+1}")
                             except Exception:
                                 break
-                            if delay_after > 0:
+                            # 跳转后的等待：delay_after > 0 时优先用单独设置；否则用统一的 _flow_gap（用户设0就真0）
+                            _wait = delay_after if (delay_after and delay_after > 0) else (self._flow_gap if hasattr(self, '_flow_gap') else 0.01)
+                            if _wait and _wait > 0:
                                 try:
                                     if self._main_app is not None:
-                                        self._main_app.append_log(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
+                                        self._main_app.append_log(f" ║  ⏱️ 跳转后等待: {_wait:.2f}s{' (统一间隔)' if not (delay_after and delay_after>0) else ''}")
                                 except Exception:
                                     pass
-                                self._wait_interruptible(delay_after)
-                            else:
-                                self._wait_interruptible(0.01)
+                                self._wait_interruptible(_wait)
                             continue
                         else:
                             flow_index += 1
@@ -9736,7 +9779,8 @@ class ComboSkillRunner:
                                 self._main_app.append_log(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
                         except Exception:
                             break
-                        if not _action_ok:
+                        # skip_on_fail 开启时，即使全部步骤失败也不计入连续失败（避免很快停止）
+                        if not _action_ok and not self.skip_on_fail:
                             self._consecutive_failures += 1
                             if self._consecutive_failures >= 3:
                                 try:
@@ -9745,6 +9789,8 @@ class ComboSkillRunner:
                                         self._main_app.append_log(f"╚═{'═'*40}")
                                 except Exception:
                                     break
+                                # 设置running=False，确保停止整个组合技（不只跳出内层while）
+                                self.running = False
                                 break
                         else:
                             self._consecutive_failures = 0
@@ -9762,15 +9808,24 @@ class ComboSkillRunner:
                     except Exception:
                         pass
 
-                    if delay_after > 0 and self.running:
+                    # 流程结束后的等待：delay_after>0时用单独设置；否则用统一的 _flow_gap（用户设0就真0，不再强制死值）
+                    if delay_after and delay_after > 0 and self.running:
                         try:
                             if self._main_app is not None:
                                 self._main_app.append_log(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
                         except Exception:
                             pass
                         self._wait_interruptible(delay_after)
-                    elif self.running:
-                        self._wait_interruptible(0.05)
+                    else:
+                        _gap = self._flow_gap if hasattr(self, '_flow_gap') else 0.05
+                        if _gap and _gap > 0 and self.running:
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⏱️ 流程间等待(统一间隔): {_gap:.2f}s")
+                            except Exception:
+                                pass
+                            self._wait_interruptible(_gap)
+                        # _gap == 0 → 用户明确设了0秒(极速) → 完全不等待
                     flow_index += 1
 
                 _loop_elapsed = _time.time() - _loop_start
@@ -9852,15 +9907,32 @@ class ComboSkillRunner:
 
             from image_recognition import replay_coordinate_operations, replay_coordinates_only
 
+            # ── 统一步骤间隔（组合技级配置）──
+            # 优先级：1. skill_data.step_interval 配置  2. 默认 0.1 秒
+            _raw_interval = self.skill_data.get('step_interval', None)
+            try:
+                if _raw_interval is None:
+                    step_interval = 0.1  # 默认 0.1 秒（之前无图是 0.2s）
+                else:
+                    step_interval = float(_raw_interval)
+                    if step_interval < 0:
+                        step_interval = 0.0
+            except (TypeError, ValueError):
+                step_interval = 0.1
+
             if has_images:
                 _t_replay0 = _time.time()
+                # 录制回放内每张图的匹配超时：极速模式压到0.2s/次，只做1次闪匹配
+                # 速度比例缩放：step_interval=0.1→1.5s, 0.05→0.75s, 0→0.2s(极速)
+                _match_timeout = 0.2 if self._turbo_mode else max(0.2, 1.5 * self._speed_scale)
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
-                    replay_interval=0.0, consider_color=False,
-                    match_timeout=1.5,
+                    replay_interval=step_interval, consider_color=False,
+                    match_timeout=_match_timeout,
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True,
-                    skip_on_fail=self.skip_on_fail
+                    skip_on_fail=self.skip_on_fail,
+                    turbo_match=self._turbo_mode or self._speed_scale < 0.3  # 极速/快速模式：一次即止不重试
                 )
                 # 兼容新旧返回值
                 if len(replay_result) == 3:
@@ -9871,20 +9943,26 @@ class ComboSkillRunner:
                 _t_replay1 = _time.time()
                 try:
                     if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ▶ replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total} 图片匹配失败={img_fail_count}")
+                        self._main_app.append_log(
+                            f" ║  ▶ replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s "
+                            f"成功={ok}/{total} 图片匹配失败={img_fail_count} | 步间间隔={step_interval:.2f}s"
+                        )
                 except Exception:
                     pass
             else:
                 _t_replay0 = _time.time()
                 ok, total = replay_coordinates_only(
-                    recording_data, replay_interval=0.2,
+                    recording_data, replay_interval=step_interval,
                     stop_check=lambda: not self.running
                 )
                 img_fail_count = 0
                 _t_replay1 = _time.time()
                 try:
                     if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ▶ replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s 成功={ok}/{total}")
+                        self._main_app.append_log(
+                            f" ║  ▶ replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s "
+                            f"成功={ok}/{total} | 步间间隔={step_interval:.2f}s"
+                        )
                 except Exception:
                     pass
 
