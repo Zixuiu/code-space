@@ -4,6 +4,19 @@ import subprocess
 import sys
 import tempfile
 
+# 修复 Windows PowerShell/cmd 下 emoji/中文乱码
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        try:
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+            ctypes.windll.kernel32.SetConsoleCP(65001)
+        except Exception:
+            pass
+
 # 动态获取当前脚本所在目录作为 BASE_DIR，避免写死 d:\codespace
 # 新电脑放到任意路径都能直接跑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,9 +76,16 @@ def check_prerequisites():
 
 
 def setup_ssh():
-    """配置 SSH 公钥与 config"""
+    """
+    配置 SSH：
+    - 私钥 id_ed25519 **绝不能硬编码在脚本里**（安全），必须由用户从已配置的电脑手动拷过来。
+    - 公钥 id_ed25519.pub 脚本里有，写入即可。
+    - SSH config / git sshCommand 正常写入。
+    认证失败时，先判断缺私钥还是缺公钥，给出对应指引。
+    """
     ssh_dir = os.path.join(os.path.expanduser("~"), ".ssh")
     pub_key_file = os.path.join(ssh_dir, "id_ed25519.pub")
+    prv_key_file = os.path.join(ssh_dir, "id_ed25519")
     os.makedirs(ssh_dir, exist_ok=True)
 
     try:
@@ -91,22 +111,48 @@ def setup_ssh():
     # 配置 git 使用系统 OpenSSH（Git 自带 ssh 可能认证失败）
     system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
     if os.path.exists(system_ssh):
-        # 全局也设一下，首次 init 之后仓库级还没配
         r = run_cmd(f'git config --global core.sshCommand "{system_ssh}"')
         if r.returncode == 0:
             log("git 已配置使用系统 ssh", "INFO")
 
-    # SSH 公钥提示（首次使用需要在 GitCode 加公钥）
+    # 先检查私钥是否存在——没私钥 100% 认证失败
+    if not os.path.exists(prv_key_file):
+        log("SSH 私钥缺失（~/.ssh/id_ed25519 不存在）", "ERROR")
+        print("=" * 60)
+        print("操作方法（把能正常推送代码那台电脑的私钥拷过来）：")
+        print("-" * 60)
+        print(f"1. 在【电脑A】（能正常 git push 的那台）上找到文件:")
+        print(f"   C:\\Users\\你的用户名\\.ssh\\id_ed25519")
+        print(f"   （例：C:\\Users\\INK\\.ssh\\id_ed25519）")
+        print()
+        print(f"2. 把这个文件用 U盘/微信 复制到【电脑B】的:")
+        print(f"   {prv_key_file}")
+        print(f"   （~ 就是 C:\\Users\\你的用户名）")
+        print()
+        print(f"3. 复制完成后，重新双击运行本脚本即可。")
+        print("-" * 60)
+        print("注意：只需要复制 id_ed25519，不要复制 id_ed25519.pub（脚本会自动写）。")
+        print("私钥是敏感文件，不要发到公共渠道或上传到任何地方。")
+        print("=" * 60)
+        return False
+
+    # 有私钥才去做真正的 SSH 认证测试
     r = run_cmd("ssh -o StrictHostKeyChecking=no -T git@gitcode.com", timeout=20)
     out = (r.stdout or "") + (r.stderr or "")
     if "permission denied" in out.lower() or "publickey" in out.lower():
-        log("SSH 认证未通过，请先到 GitCode 添加公钥", "WARNING")
+        log("SSH 认证失败：GitCode 上还没添加公钥，或私钥与公钥不匹配", "ERROR")
+        print("=" * 60)
+        print("两种情况分别处理：")
         print("-" * 60)
-        print(f"1. 打开: https://gitcode.com/-/user_settings/keys")
-        print(f"2. 粘贴公钥:")
+        print("A) 如果 GitCode 上从没加过这把公钥：")
+        print(f"  1) 打开: https://gitcode.com/-/user_settings/keys")
+        print(f"  2) 粘贴这把公钥:")
         print(SSH_PUBLIC_KEY)
-        print(f"3. 标题随便填（如 PC-action）")
-        print("-" * 60)
+        print(f"  3) 标题随便填（如 PC-action），保存后重跑脚本。")
+        print()
+        print("B) 如果 GitCode 上已经加过公钥，仍失败：")
+        print("  → 说明电脑B这把私钥和公钥不配对，重新从电脑A拷 id_ed25519 覆盖即可。")
+        print("=" * 60)
         return False
     return True
 
