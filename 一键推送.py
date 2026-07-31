@@ -60,6 +60,12 @@ try:
 except Exception as e:
     log(f"写入配置失败: {e}", "ERROR")
 
+# 配置 git 使用系统 OpenSSH（Git 自带 ssh 可能认证失败）
+system_ssh = r"C:\Windows\System32\OpenSSH\ssh.exe"
+if os.path.exists(system_ssh):
+    run_cmd(f'git config core.sshCommand "{system_ssh}"')
+    log("git 已配置使用系统 ssh", "INFO")
+
 # Step 3: 检查 Git 状态
 log("\n步骤 3/5: 检查 Git 状态...")
 

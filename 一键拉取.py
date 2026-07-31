@@ -60,6 +60,11 @@ def setup_ssh():
     except Exception as e:
         log(f"写入 SSH 配置失败: {e}", "WARNING")
 
+    # 配置 git 使用系统 OpenSSH（Git 自带 ssh 可能认证失败）
+    system_ssh = r"C:\Windows\System32\OpenSSH\ssh.exe"
+    if os.path.exists(system_ssh):
+        run_cmd(f'git config core.sshCommand "{system_ssh}"')
+
 
 def backup_protected():
     """备份所有受保护路径到临时目录，返回 (backup_root, [(abs_path, backup_path), ...])"""
