@@ -15,6 +15,7 @@ SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4
 #
 # 说明：
 # - recordings/ 和 *.db 数据库在 .gitignore 中且从未被跟踪，git 不会动它们，无需备份。
+# - untracked 文件（如 _check_combos.py）reset --hard 不会删除，无需处理。
 # - 下面的文件曾被跟踪，拉取时会被删除，所以需要保护。
 PROTECTED_PATHS = [
     "01-开发项目/PC-action/PC-action-macOS/data/combo_skills.json",   # 组合技
@@ -107,26 +108,62 @@ def cleanup_backup(backup_root):
         pass
 
 
+def stash_local_changes():
+    """stash 未提交的 tracked 改动（reset --hard 会丢弃它们），返回是否需要 pop"""
+    r = run_cmd("git status --porcelain")
+    if r.returncode != 0:
+        return False
+    # 只关注 tracked 改动（?? 开头是 untracked，reset 不会删，无需 stash）
+    tracked_changes = [l for l in r.stdout.split('\n')
+                       if l.strip() and not l.startswith('??')]
+    if not tracked_changes:
+        log("无未提交的代码改动", "INFO")
+        return False
+    log(f"检测到 {len(tracked_changes)} 个未提交改动，自动 stash 保护", "INFO")
+    r = run_cmd('git stash push -m "pull-script-auto-stash"')
+    if r.returncode == 0:
+        log("代码改动已 stash 保护", "SUCCESS")
+        return True
+    log(f"stash 失败: {r.stderr.strip()}", "WARNING")
+    return False
+
+
+def pop_stash():
+    """恢复 stash，处理可能的冲突"""
+    r = run_cmd("git stash pop")
+    if r.returncode == 0:
+        log("代码改动已恢复", "SUCCESS")
+        return True
+    # 冲突或失败，保留 stash 让用户手动处理
+    log("stash pop 有冲突（远端也改了同一文件），已保留 stash", "WARNING")
+    log("请稍后手动运行: git stash pop 并解决冲突", "WARNING")
+    return False
+
+
 def main():
     print("=" * 70)
-    print("⬇️  GitCode 一键拉取工具（保护组合技 / 快捷键 / 录制 / 偏好）")
+    print("⬇️  GitCode 一键拉取工具（保护组合技 / 快捷键 / 录制 / 偏好 / 未提交改动）")
     print("=" * 70)
 
     # Step 1: 配置 SSH
-    log("步骤 1/4: 配置 SSH...")
+    log("步骤 1/5: 配置 SSH...")
     setup_ssh()
     log("SSH 配置完成", "SUCCESS")
 
     # Step 2: 备份受保护的本地数据
-    log("\n步骤 2/4: 备份本地数据（组合技 / 快捷键 / 录制顺序 / UI 偏好）...")
+    log("\n步骤 2/5: 备份本地数据（组合技 / 快捷键 / 录制顺序 / UI 偏好）...")
     backup_root, entries = backup_protected()
     if entries:
         log(f"已备份 {len(entries)} 项本地数据", "SUCCESS")
     else:
         log("无本地数据需要备份", "INFO")
 
-    # Step 3: 拉取远端最新代码
-    log("\n步骤 3/4: 拉取远端最新代码...")
+    # Step 3: stash 未提交的代码改动（reset --hard 会丢弃它们）
+    log("\n步骤 3/5: 保护未提交的代码改动...")
+    has_stash = stash_local_changes()
+
+    # Step 4: 拉取远端最新代码
+    log("\n步骤 4/5: 拉取远端最新代码...")
     log(f"目标: {REMOTE}/{BRANCH}", "INFO")
 
     r = run_cmd(f"git fetch {REMOTE} {BRANCH}", timeout=90)
@@ -135,6 +172,8 @@ def main():
         log(f"fetch 失败: {err[:300]}", "ERROR")
         restore_protected(entries)
         log("已恢复本地数据备份", "INFO")
+        if has_stash:
+            pop_stash()
         cleanup_backup(backup_root)
         input("\n按 Enter 键退出...")
         sys.exit(1)
@@ -153,17 +192,21 @@ def main():
         log(f"同步失败: {err[:300]}", "ERROR")
         restore_protected(entries)
         log("已恢复本地数据备份", "INFO")
+        if has_stash:
+            pop_stash()
         cleanup_backup(backup_root)
         input("\n按 Enter 键退出...")
         sys.exit(1)
 
-    # Step 4: 恢复本地数据
-    log("\n步骤 4/4: 恢复本地数据...")
+    # Step 5: 恢复本地数据 + 代码改动
+    log("\n步骤 5/5: 恢复本地数据与代码改动...")
     if entries:
         restore_protected(entries)
         log("本地数据已恢复", "SUCCESS")
     else:
-        log("无备份需要恢复", "INFO")
+        log("无数据备份需要恢复", "INFO")
+    if has_stash:
+        pop_stash()
     cleanup_backup(backup_root)
 
     # 总结
@@ -176,6 +219,7 @@ def main():
     print("✅ 录制顺序/回放位置/UI 偏好: 已保留本地版本（user_data/）")
     print("✅ 录制文件: 未受影响（recordings/ 已在 .gitignore 中忽略）")
     print("✅ 快捷键数据库: 未受影响（*.db 已在 .gitignore 中忽略）")
+    print("✅ 未提交代码改动: 已 stash 保护并恢复")
     print("=" * 70)
     input("\n按 Enter 键退出...")
 
