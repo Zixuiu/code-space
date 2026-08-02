@@ -23,7 +23,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView, QShortcut, QDialog, QGraphicsDropShadowEffect, QStyle
 )
 from PyQt5.QtCore import (
-    Qt, QTimer, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve,
+    Qt, QTimer, QEventLoop, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve,
     QPoint, QSize, QRect, QRectF
 )
 from PyQt5.QtGui import (
@@ -3042,6 +3042,7 @@ class CoordinateRecorder(QWidget):
         self.records = []
         self.step_counter = 0
         self._focus_timer = None
+        self._processing_click = False  # 点击事件去重锁：True 期间忽略所有鼠标事件，防二次计数
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
@@ -3057,15 +3058,21 @@ class CoordinateRecorder(QWidget):
 
     def showEvent(self, event):
         super().showEvent(event)
+        # 延迟启动焦点定时器 + 置顶，确保窗口已经完全显示
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(50, self._delayed_show)
+        QTimer.singleShot(200, self._delayed_show)  # 二次保险
 
     def _delayed_show(self):
         self.raise_()
         self.activateWindow()
         self.setFocus(Qt.ActiveWindowFocusReason)
         QApplication.processEvents()
-        self._focus_timer = QTimer()
-        self._focus_timer.timeout.connect(self._ensure_focus)
-        self._focus_timer.start(200)
+        # 只创建一次定时器，防止重复连接
+        if self._focus_timer is None:
+            self._focus_timer = QTimer()
+            self._focus_timer.timeout.connect(self._ensure_focus)
+            self._focus_timer.start(200)
 
     def _ensure_focus(self):
         if not self.hasFocus():
@@ -3131,58 +3138,105 @@ class CoordinateRecorder(QWidget):
         move_inp.u = INPUT_UNION()
         move_inp.u.mi = MOUSEINPUT(norm_x, norm_y, 0, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, 0, 0)
         ctypes.windll.user32.SendInput(1, ctypes.byref(move_inp), ctypes.sizeof(move_inp))
-        # 再发送 按下+释放（同样带绝对坐标，确保在同一输入批次）
+        # 再发送 按下+释放（去掉 MOUSEEVENTF_MOVE，避免 MOVE+UP 组合被Windows Shell 对右键拆分成两次检测）
         for flag in (down_flag, up_flag):
             inp = INPUT()
             inp.type = 0
             inp.u = INPUT_UNION()
-            inp.u.mi = MOUSEINPUT(norm_x, norm_y, 0, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE | flag, 0, 0)
+            inp.u.mi = MOUSEINPUT(norm_x, norm_y, 0, MOUSEEVENTF_ABSOLUTE | flag, 0, 0)
             ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
 
     def mousePressEvent(self, event):
+        event.accept()  # 消费按下事件
+        # 去重锁：正在处理一次点击（hide→SendInput→show）期间，丢弃所有后续鼠标事件
+        if self._processing_click:
+            return
         if event.button() == Qt.LeftButton:
-            self.step_counter += 1
-            screen = QApplication.primaryScreen()
-            dpr = screen.devicePixelRatio() if screen else 1.0
-            global_logical = self.mapToGlobal(event.pos())
-            px = int(global_logical.x() * dpr)
-            py = int(global_logical.y() * dpr)
-            rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
-            self.records.append(rec)
-            if self.parent and hasattr(self.parent, 'coordinate_records'):
-                self.parent.coordinate_records = self.records
+            self._processing_click = True
+            try:
+                self.step_counter += 1
+                screen = QApplication.primaryScreen()
+                dpr = screen.devicePixelRatio() if screen else 1.0
+                global_logical = self.mapToGlobal(event.pos())
+                px = int(global_logical.x() * dpr)
+                py = int(global_logical.y() * dpr)
+                rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
+                self.records.append(rec)
+                if self.parent and hasattr(self.parent, 'coordinate_records'):
+                    self.parent.coordinate_records = self.records
 
-            # hide -> PostMessage -> show (零残余事件)
-            self.hide()
-            QApplication.processEvents()
-            self._send_click_to_target(px, py, is_right=False)
-            self.show()
-            self.raise_()
-            self.activateWindow()
-            self.setFocus(Qt.ActiveWindowFocusReason)
-            QApplication.processEvents()
-            self.update()
+                # hide → 排除用户输入事件的方式处理 hide → SendInput → show
+                self.hide()
+                # 只处理非输入事件，防止鼠标释放事件穿透到目标窗口
+                QApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
+                self._send_click_to_target(px, py, is_right=False)
+                # 等待 SendInput 完成后再显示，防止残留合成事件被窗口捕获
+                QApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(30, self._unlock_and_reshow)
+            except Exception:
+                self._processing_click = False
+                raise
         elif event.button() == Qt.RightButton:
-            self.step_counter += 1
-            screen = QApplication.primaryScreen()
-            dpr = screen.devicePixelRatio() if screen else 1.0
-            global_logical = self.mapToGlobal(event.pos())
-            px = int(global_logical.x() * dpr)
-            py = int(global_logical.y() * dpr)
-            rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
-            self.records.append(rec)
-            if self.parent and hasattr(self.parent, 'coordinate_records'):
-                self.parent.coordinate_records = self.records
+            self._processing_click = True
+            try:
+                self.step_counter += 1
+                screen = QApplication.primaryScreen()
+                dpr = screen.devicePixelRatio() if screen else 1.0
+                global_logical = self.mapToGlobal(event.pos())
+                px = int(global_logical.x() * dpr)
+                py = int(global_logical.y() * dpr)
+                rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
+                self.records.append(rec)
+                if self.parent and hasattr(self.parent, 'coordinate_records'):
+                    self.parent.coordinate_records = self.records
 
-            self.hide()
-            QApplication.processEvents()
-            self._send_click_to_target(px, py, is_right=True)
+                self.hide()
+                # 只处理非输入事件，防止鼠标释放事件穿透到目标窗口
+                QApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
+                self._send_click_to_target(px, py, is_right=True)
+                # 等待 SendInput 完成后再显示，防止残留合成事件被窗口捕获
+                QApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
+                from PyQt5.QtCore import QTimer
+                QTimer.singleShot(50, self._unlock_and_reshow)  # 右键给更长冷却：系统右键检测有延迟
+            except Exception:
+                self._processing_click = False
+                raise
+
+    def _unlock_and_reshow(self):
+        """延迟去锁 + 重显示：确保 SendInput 的合成事件已经被下层应用消费"""
+        try:
             self.show()
             self.raise_()
             self.activateWindow()
             self.setFocus(Qt.ActiveWindowFocusReason)
             QApplication.processEvents()
             self.update()
+        finally:
+            self._processing_click = False
+
+    def mouseReleaseEvent(self, event):
+        """消费鼠标释放事件，防止穿透到目标窗口；去重锁期间一律丢弃"""
+        event.accept()
+        # 去重锁激活时，忽略鼠标释放（物理按键的 release 会在 hide→show 后迟到，必须挡住）
+
+    def mouseMoveEvent(self, event):
+        """去重锁期间忽略移动事件，但始终 accept() 防止穿透到下层"""
+        # 始终 accept，防止事件透过透明窗口到下层应用
+        event.accept()
+
+    def event(self, event):
+        """全局事件拦截：去重锁激活时丢弃所有类型的鼠标事件（含 ContextMenu/DblClick），彻底防重"""
+        if self._processing_click:
+            et = event.type()
+            if et in (
+                QEvent.MouseButtonPress, QEvent.MouseButtonRelease,
+                QEvent.MouseButtonDblClick, QEvent.MouseMove,
+                QEvent.ContextMenu,  # 关键！Windows 右键弹起后会发 ContextMenu 事件，被 Qt 转成二次点击
+            ):
+                event.accept()
+                return True
+        return super().event(event)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Escape:
