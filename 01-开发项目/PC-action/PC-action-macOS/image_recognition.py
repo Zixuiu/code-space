@@ -567,28 +567,61 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             break
                 # 如果不是图片操作，跳过直接继续下一轮循环
                 if not image_name:
+                    # ⚠️ 但如果是需要图像的操作类型（点击/拖拽）却没有image字段，必须警告，不能静默跳过
+                    if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
+                        _log_clipboard(f"步骤{step}后({action_type})")
+                        if skip_on_fail:
+                            debug_print(f"[回放] ⚠️ 步骤 {step}: 操作类型是 {action_type}（需要图像定位），但 recording 中 image 字段为空，跳过此步骤继续执行")
+                            if i < total_operations - 1:
+                                if delay and delay > 0:
+                                    if _interruptible_sleep(delay, stop_check=stop_check): break
+                                elif replay_interval and replay_interval > 0:
+                                    if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                            continue
+                        else:
+                            debug_print(f"[回放] ❌ 步骤 {step}: 操作类型是 {action_type}（需要图像定位），但 recording 中 image 字段为空，立即停止回放")
+                            break
+                    # 键盘/滚动/文本输入 → 正常不需要图像，放行 continue
                     continue
             
             # 对于需要图像的操作，检查图像文件
             if image_name:
                 # 构建图像完整路径
                 image_path = os.path.join(folder_path, image_name)
-                
+
                 # 检查图像文件是否存在
                 if not os.path.exists(image_path):
                     # 尝试用操作编号查找对应的图片文件
                     # 查找操作编号对应的图片文件
-                    for f in os.listdir(folder_path):
-                        if f.lower().endswith('.png'):
-                            match = re.search(r'操作(\d+)\.png', f)
-                            if match and int(match.group(1)) == step:
-                                image_path = os.path.join(folder_path, f)
-                                break
-                    
-                    # 如果还是找不到，跳过此步骤
+                    try:
+                        for f in os.listdir(folder_path):
+                            if f.lower().endswith('.png'):
+                                match = re.search(r'操作(\d+)\.png', f)
+                                if match and int(match.group(1)) == step:
+                                    image_path = os.path.join(folder_path, f)
+                                    image_name = f  # 同步更新实际找到的文件名，日志更准确
+                                    break
+                    except Exception:
+                        pass
+
+                    # ⚠️ 如果还是找不到，不静默跳过！打印警告 + 计数失败 + 遵循 skip_on_fail
                     if not os.path.exists(image_path):
-                        continue
-                
+                        image_match_fail_count += 1
+                        # 补上「步骤N后」的剪贴板日志，保证前后对称（调试时少踩坑）
+                        _log_clipboard(f"步骤{step}后({action_type})")
+                        if skip_on_fail:
+                            debug_print(f"[回放] ⚠️ 步骤 {step}: 图片文件不存在 '{image_name}'（文件夹内没找到 操作{step}.png），跳过此步骤继续执行")
+                            # 步间间隔不能漏，否则下一步立即跑会比预期快
+                            if i < total_operations - 1:
+                                if delay and delay > 0:
+                                    if _interruptible_sleep(delay, stop_check=stop_check): break
+                                elif replay_interval and replay_interval > 0:
+                                    if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                            continue
+                        else:
+                            debug_print(f"[回放] ❌ 步骤 {step}: 图片文件不存在 '{image_name}'（文件夹内也找不到 操作{step}.png），立即停止回放")
+                            break
+
                 # 使用图像匹配查找位置
                 debug_print(f"[回放] 步骤 {step}: 开始匹配图片 {image_name}")
                 # 直接使用缓存的图像数组获取尺寸，避免重复打开文件
@@ -637,8 +670,20 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     center_y = y + height // 2
                     
             else:
-                # 如果没有图像文件，跳过此步骤（不再使用坐标作为备用方案）
-                continue
+                # 如果没有图像文件（action_type 需要图像但 image_name 为空），不静默跳过
+                # 补上「步骤N后」的剪贴板日志，保证前后对称
+                _log_clipboard(f"步骤{step}后({action_type})")
+                if skip_on_fail:
+                    debug_print(f"[回放] ⚠️ 步骤 {step}: 该操作是 {action_type}，但 recording 中 image 字段为空，跳过此步骤继续执行")
+                    if i < total_operations - 1:
+                        if delay and delay > 0:
+                            if _interruptible_sleep(delay, stop_check=stop_check): break
+                        elif replay_interval and replay_interval > 0:
+                            if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                    continue
+                else:
+                    debug_print(f"[回放] ❌ 步骤 {step}: 该操作是 {action_type}，但 recording 中 image 字段为空，立即停止回放（需要图像匹配定位坐标）")
+                    break
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
             _fast_move(center_x, center_y)
