@@ -3091,23 +3091,53 @@ class CoordinateRecorder(QWidget):
         painter.drawText(self.rect(), Qt.AlignCenter, text)
 
     def _send_click_to_target(self, px, py, is_right=False):
-        # PostMessage 直接发送点击到目标窗口，零残余事件
+        # 使用 SendInput API 模拟真实硬件输入
+        # 将 dx/dy 归一化到 [0, 65535] 范围，与 MOUSEEVENTF_ABSOLUTE 配合使用
         from ctypes import wintypes
-        pt = wintypes.POINT(px, py)
-        target_hwnd = ctypes.windll.user32.WindowFromPoint(pt)
-        if not target_hwnd:
-            return
-        rect = wintypes.RECT()
-        ctypes.windll.user32.GetWindowRect(target_hwnd, ctypes.byref(rect))
-        cx = px - rect.left
-        cy = py - rect.top
-        lparam = (cy << 16) | (cx & 0xFFFF)
-        if is_right:
-            ctypes.windll.user32.PostMessageW(target_hwnd, 0x204, 2, lparam)  # WM_RBUTTONDOWN
-            ctypes.windll.user32.PostMessageW(target_hwnd, 0x205, 0, lparam)  # WM_RBUTTONUP
-        else:
-            ctypes.windll.user32.PostMessageW(target_hwnd, 0x201, 1, lparam)  # WM_LBUTTONDOWN
-            ctypes.windll.user32.PostMessageW(target_hwnd, 0x202, 0, lparam)  # WM_LBUTTONUP
+        MOUSEEVENTF_ABSOLUTE = 0x8000
+        MOUSEEVENTF_MOVE     = 0x0001
+        MOUSEEVENTF_LEFTDOWN = 0x0002
+        MOUSEEVENTF_LEFTUP   = 0x0004
+        MOUSEEVENTF_RIGHTDOWN = 0x0008
+        MOUSEEVENTF_RIGHTUP  = 0x0010
+        # 获取屏幕物理尺寸（用于坐标归一化）
+        sw = ctypes.windll.user32.GetSystemMetrics(0)
+        sh = ctypes.windll.user32.GetSystemMetrics(1)
+        norm_x = int(px * 65535 // sw)
+        norm_y = int(py * 65535 // sh)
+        class MOUSEINPUT(ctypes.Structure):
+            _fields_ = [
+                ('dx', wintypes.LONG),
+                ('dy', wintypes.LONG),
+                ('mouseData', wintypes.DWORD),
+                ('dwFlags', wintypes.DWORD),
+                ('time', wintypes.DWORD),
+                ('dwExtraInfo', ctypes.c_void_p),  # ULONG_PTR → void* 而非指针
+            ]
+        class INPUT_UNION(ctypes.Union):
+            _fields_ = [
+                ('mi', MOUSEINPUT),
+            ]
+        class INPUT(ctypes.Structure):
+            _fields_ = [
+                ('type', wintypes.DWORD),
+                ('u', INPUT_UNION),
+            ]
+        down_flag = MOUSEEVENTF_RIGHTDOWN if is_right else MOUSEEVENTF_LEFTDOWN
+        up_flag   = MOUSEEVENTF_RIGHTUP   if is_right else MOUSEEVENTF_LEFTUP
+        # 先移动鼠标到目标位置（含绝对坐标）
+        move_inp = INPUT()
+        move_inp.type = 0  # INPUT_MOUSE
+        move_inp.u = INPUT_UNION()
+        move_inp.u.mi = MOUSEINPUT(norm_x, norm_y, 0, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE, 0, 0)
+        ctypes.windll.user32.SendInput(1, ctypes.byref(move_inp), ctypes.sizeof(move_inp))
+        # 再发送 按下+释放（同样带绝对坐标，确保在同一输入批次）
+        for flag in (down_flag, up_flag):
+            inp = INPUT()
+            inp.type = 0
+            inp.u = INPUT_UNION()
+            inp.u.mi = MOUSEINPUT(norm_x, norm_y, 0, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_MOVE | flag, 0, 0)
+            ctypes.windll.user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:

@@ -1905,8 +1905,24 @@ class FolderManager(QDialog):
             self._show_key_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _rebuild_all)
 
         def _swap_rows(idx_a, idx_b):
-            """交换两行顺序"""
+            """交换两行顺序（同步重命名图片文件）"""
             if 0 <= idx_a < len(recording_data) and 0 <= idx_b < len(recording_data):
+                # 交换图片文件名（保持步骤号与文件名一致）
+                step_a = recording_data[idx_a].get('step', idx_a + 1)
+                step_b = recording_data[idx_b].get('step', idx_b + 1)
+                img_a = image_map.get(step_a)
+                img_b = image_map.get(step_b)
+                if img_a and img_b:
+                    path_a = os.path.join(folder_path, img_a)
+                    path_b = os.path.join(folder_path, img_b)
+                    # 三步交换法：a → tmp, b → a, tmp → b
+                    tmp_name = f"_swap_tmp_{img_a}"
+                    tmp_path = os.path.join(folder_path, tmp_name)
+                    if os.path.exists(path_a) and os.path.exists(path_b):
+                        os.rename(path_a, tmp_path)
+                        os.rename(path_b, path_a)
+                        os.rename(tmp_path, path_b)
+                # 无图片的步骤只需要交换数据
                 recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
                 for _i, _o in enumerate(recording_data):
                     _o['step'] = _i + 1
