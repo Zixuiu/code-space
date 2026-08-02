@@ -1,0 +1,6 @@
+Return Code: 0
+--- STDOUT ---
+branch 'master' set up to track 'origin/master'.
+
+--- STDERR ---
+Everything up-to-date

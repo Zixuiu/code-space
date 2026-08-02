@@ -50,9 +50,10 @@ class ComboSkillEditDialog(QDialog):
             if 'else_branch' not in flow:
                 flow['else_branch'] = None
         self._execute_options_cache = None
-        self._async_build_batch_size = 8
+        self._async_build_batch_size = 20
         self._async_build_index = 0
         self._loading_overlay = None
+        self._pending_image_loads = []
         self.initUI()
 
     def initUI(self):
@@ -508,7 +509,6 @@ class ComboSkillEditDialog(QDialog):
             self.tree_widget.setUpdatesEnabled(True)
         self._async_build_index = end
         self._update_loading_progress(end)
-        QApplication.processEvents()
         QTimer.singleShot(1, self._load_next_batch)
 
     def _update_loading_progress(self, loaded):
@@ -530,6 +530,13 @@ class ComboSkillEditDialog(QDialog):
             pass
 
     def _finish_async_build(self):
+        # 【性能优化】构建完成后，加载所有延迟的图片缩略图
+        if self._pending_image_loads:
+            for preview in self._pending_image_loads:
+                path = getattr(preview, 'image_path', '')
+                if path and os.path.exists(path):
+                    self.load_image_to_preview(preview, path)
+            self._pending_image_loads = []
         try:
             if self._loading_overlay is not None:
                 self._loading_overlay.setParent(None)
@@ -681,9 +688,11 @@ class ComboSkillEditDialog(QDialog):
         image_preview.setVisible(condition != "always")
 
         image_path = flow_data.get('condition_image', '')
-        if image_path and os.path.exists(image_path):
-            self.load_image_to_preview(image_preview, image_path)
+        # 【性能优化】初始构建跳过图片加载，将加载任务加入队列，等构建完成后再批量加载
         image_preview.image_path = image_path
+        if image_path:
+            image_preview.setText("")
+            self._pending_image_loads.append(image_preview)
         image_preview.mousePressEvent = lambda event, path=image_path: self.view_condition_image_path(path) if path else None
         image_layout.addWidget(image_preview)
 
@@ -721,15 +730,17 @@ class ComboSkillEditDialog(QDialog):
         current_action = flow_data.get('action', '')
         self.setup_action_combos(action_type_combo, action_detail_combo, current_action, index)
 
+        # 先解阻塞，再连接信号。这样初始化时 setCurrentIndex 的变化不会触发信号，
+        # 只有用户实际交互才会触发，避免初始化时意外覆盖 flow 的 action 值
+        action_type_combo.blockSignals(False)
+        action_detail_combo.blockSignals(False)
+
         action_type_combo.currentIndexChanged.connect(
             lambda idx, i=index, atc=action_type_combo, adc=action_detail_combo, ie=is_else: self.on_action_type_changed(i, atc, adc, ie)
         )
         action_detail_combo.currentIndexChanged.connect(
             lambda idx, i=index, atc=action_type_combo, adc=action_detail_combo, ie=is_else: self.on_action_detail_changed(i, atc, adc, ie)
         )
-
-        action_type_combo.blockSignals(False)
-        action_detail_combo.blockSignals(False)
 
         action_layout.addStretch()
         self.tree_widget.setItemWidget(tree_item, 2, action_widget)
@@ -1041,11 +1052,17 @@ class ComboSkillEditDialog(QDialog):
 
     def setup_action_combos(self, type_combo, detail_combo, current_action, index):
         if not current_action:
-            # action 为空时显示"请选择动作"占位，不假装选中第0项，避免 UI 看着选了实际没存
+            # action 为空时，自动加载执行选项并选中第一项，让用户能看到可用流程
             type_combo.setCurrentIndex(2)
             detail_combo.setEnabled(True)
-            detail_combo.clear()
-            detail_combo.addItem("⚠ 请选择动作", "")
+            # 【性能优化】缓存已存在时，直接取第一项，避免循环 addItem
+            if self._execute_options_cache is not None and self._execute_options_cache:
+                detail_combo.addItem(f"执行: {self._execute_options_cache[0]}", self._execute_options_cache[0])
+                self.flows[index]['action'] = self._execute_options_cache[0]
+            else:
+                self.load_execute_options(detail_combo)
+                if detail_combo.count() > 0:
+                    self.flows[index]['action'] = detail_combo.itemData(0)
         elif current_action == 'end':
             type_combo.setCurrentIndex(0)
             detail_combo.clear()
@@ -1064,16 +1081,23 @@ class ComboSkillEditDialog(QDialog):
                 detail_combo.setCurrentIndex(detail_combo.count() - 1)
         else:
             type_combo.setCurrentIndex(2)
-            self.load_execute_options(detail_combo)
-            found_match = False
-            for i in range(detail_combo.count()):
-                if detail_combo.itemData(i) == current_action:
-                    detail_combo.setCurrentIndex(i)
-                    found_match = True
-                    break
-            if not found_match:
-                detail_combo.addItem(f'⚠ {current_action}', current_action)
-                detail_combo.setCurrentIndex(detail_combo.count() - 1)
+            # 【性能优化】缓存已存在时，直接从缓存查找，避免循环 addItem
+            if self._execute_options_cache is not None:
+                if current_action in self._execute_options_cache:
+                    detail_combo.addItem(f"执行: {current_action}", current_action)
+                else:
+                    detail_combo.addItem(f'⚠ {current_action}', current_action)
+            else:
+                self.load_execute_options(detail_combo)
+                found_match = False
+                for i in range(detail_combo.count()):
+                    if detail_combo.itemData(i) == current_action:
+                        detail_combo.setCurrentIndex(i)
+                        found_match = True
+                        break
+                if not found_match:
+                    detail_combo.addItem(f'⚠ {current_action}', current_action)
+                    detail_combo.setCurrentIndex(detail_combo.count() - 1)
 
     def on_action_type_changed(self, index, type_combo, detail_combo, is_else):
         action_type = type_combo.currentData()

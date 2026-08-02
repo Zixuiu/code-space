@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import sys
 import time
@@ -1441,7 +1441,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 name_item.setData(Qt.UserRole, path)
                 table_widget.setItem(row, 1, name_item)
                 shortcut = self.get_folder_shortcut(path)
-                shortcut_item = QTableWidgetItem(shortcut if shortcut else "未设置")
+                shortcut_display = shortcut.lower() if shortcut else "未设置"
+                shortcut_item = QTableWidgetItem(shortcut_display)
                 shortcut_item.setData(Qt.UserRole, ("shortcut", path))
                 shortcut_item.setForeground(QColor(MacOSColors.ACCENT) if shortcut else QColor(MacOSColors.TEXT_SECONDARY))
                 table_widget.setItem(row, 2, shortcut_item)
@@ -1616,7 +1617,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 normalized_path = os.path.normpath(str(folder_path))
                 # 检查快捷键是否已被其他流程使用（跳过不存在的文件夹）
                 for path, existing in self.shortcuts.items():
-                    if existing == shortcut_str and os.path.normpath(str(path)).lower() != normalized_path.lower():
+                    if existing.lower() == shortcut_str.lower() and os.path.normpath(str(path)).lower() != normalized_path.lower():
                         if not os.path.exists(os.path.normpath(str(path))):
                             continue
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被其他流程使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
@@ -1625,11 +1626,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 # 检查是否与组合技停止快捷键冲突
                 _combo_mgr = ComboSkillManager(self)
                 for _s in _combo_mgr.combo_skills:
-                    if _s.get('stop_shortcut') == shortcut_str:
+                    if _s.get('stop_shortcut', '').lower() == shortcut_str.lower():
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{shortcut_str}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
-                self.shortcuts[normalized_path] = shortcut_str
+                self.shortcuts[normalized_path] = shortcut_str.lower()
                 self.save_shortcut_config()
                 self.update_shortcuts()
             else:
@@ -2504,23 +2505,25 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         result = dialog.exec_()
         if result == QDialog.Accepted:
             new_shortcut = current_keys[-1] if current_keys else ''
+            # 统一转小写，避免大小写不一致导致重复检测失败
+            new_shortcut_lower = new_shortcut.lower()
             # 检查是否与流程运行快捷键冲突
             if new_shortcut:
                 for _path, _existing in getattr(self, 'shortcuts', {}).items():
-                    if _existing == new_shortcut:
+                    if _existing.lower() == new_shortcut_lower:
                         _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被其他流程的运行快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                         _d.exec_()
                         return
             # 检查是否与其他组合技的停止快捷键冲突
             combo_manager = ComboSkillManager(self)
             for _s in combo_manager.combo_skills:
-                if _s.get('name') != skill_name and _s.get('stop_shortcut') == new_shortcut:
+                if _s.get('name') != skill_name and _s.get('stop_shortcut', '').lower() == new_shortcut_lower:
                     _d = StyledMessageDialog(dialog, title="快捷键冲突", text=f"快捷键「{new_shortcut}」已被组合技「{_s.get('name')}」的停止快捷键使用！\n请换一个快捷键。", msg_type="warning", buttons="ok")
                     _d.exec_()
                     return
             for i, s in enumerate(combo_manager.combo_skills):
                 if s.get('name') == skill_name:
-                    combo_manager.combo_skills[i]['stop_shortcut'] = new_shortcut
+                    combo_manager.combo_skills[i]['stop_shortcut'] = new_shortcut_lower
                     break
             combo_manager.save_combo_skills()
             self.load_combo_skills_to_table(combo_table)
@@ -3006,8 +3009,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         """启动坐标录制模式（macOS版本）"""
         try:
             recordings_dir = get_recordings_path()
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            self.current_recording_dir = os.path.join(recordings_dir, f"坐标录制_{timestamp}")
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            self.current_recording_dir = os.path.join(recordings_dir, f"流程_{timestamp}")
             os.makedirs(self.current_recording_dir, exist_ok=True)
             self.operation_count = 0
             self.coordinate_records = []
@@ -3081,13 +3084,13 @@ class CoordinateRecorder(QWidget):
         painter.setPen(QColor("#FFFFFF"))
 
         if self.step_counter == 0:
-            text = "🖱️ 点击屏幕任意位置（记录并执行点击）\n按 Esc 或 右键 结束录制"
+            text = "🖱️ 左键点击记录位置\n🖱️ 右键点击记录右键\n按 Esc 结束录制"
         else:
-            text = f"✅ 已执行 {self.step_counter} 次点击\n🖱️ 请在当前界面选择下一个点击位置\n按 Esc 或 右键 结束录制"
+            text = f"✅ 已执行 {self.step_counter} 次点击\n🖱️ 继续点击或按 Esc 结束"
 
         painter.drawText(self.rect(), Qt.AlignCenter, text)
 
-    def _send_click_to_target(self, px, py):
+    def _send_click_to_target(self, px, py, is_right=False):
         # PostMessage 直接发送点击到目标窗口，零残余事件
         from ctypes import wintypes
         pt = wintypes.POINT(px, py)
@@ -3099,13 +3102,14 @@ class CoordinateRecorder(QWidget):
         cx = px - rect.left
         cy = py - rect.top
         lparam = (cy << 16) | (cx & 0xFFFF)
-        ctypes.windll.user32.PostMessageW(target_hwnd, 0x201, 1, lparam)
-        ctypes.windll.user32.PostMessageW(target_hwnd, 0x202, 0, lparam)
+        if is_right:
+            ctypes.windll.user32.PostMessageW(target_hwnd, 0x204, 2, lparam)  # WM_RBUTTONDOWN
+            ctypes.windll.user32.PostMessageW(target_hwnd, 0x205, 0, lparam)  # WM_RBUTTONUP
+        else:
+            ctypes.windll.user32.PostMessageW(target_hwnd, 0x201, 1, lparam)  # WM_LBUTTONDOWN
+            ctypes.windll.user32.PostMessageW(target_hwnd, 0x202, 0, lparam)  # WM_LBUTTONUP
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.RightButton:
-            self._finish_recording()
-            return
         if event.button() == Qt.LeftButton:
             self.step_counter += 1
             screen = QApplication.primaryScreen()
@@ -3113,7 +3117,7 @@ class CoordinateRecorder(QWidget):
             global_logical = self.mapToGlobal(event.pos())
             px = int(global_logical.x() * dpr)
             py = int(global_logical.y() * dpr)
-            rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.3}
+            rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
             self.records.append(rec)
             if self.parent and hasattr(self.parent, 'coordinate_records'):
                 self.parent.coordinate_records = self.records
@@ -3121,7 +3125,28 @@ class CoordinateRecorder(QWidget):
             # hide -> PostMessage -> show (零残余事件)
             self.hide()
             QApplication.processEvents()
-            self._send_click_to_target(px, py)
+            self._send_click_to_target(px, py, is_right=False)
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            self.setFocus(Qt.ActiveWindowFocusReason)
+            QApplication.processEvents()
+            self.update()
+        elif event.button() == Qt.RightButton:
+            self.step_counter += 1
+            screen = QApplication.primaryScreen()
+            dpr = screen.devicePixelRatio() if screen else 1.0
+            global_logical = self.mapToGlobal(event.pos())
+            px = int(global_logical.x() * dpr)
+            py = int(global_logical.y() * dpr)
+            rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
+            self.records.append(rec)
+            if self.parent and hasattr(self.parent, 'coordinate_records'):
+                self.parent.coordinate_records = self.records
+
+            self.hide()
+            QApplication.processEvents()
+            self._send_click_to_target(px, py, is_right=True)
             self.show()
             self.raise_()
             self.activateWindow()

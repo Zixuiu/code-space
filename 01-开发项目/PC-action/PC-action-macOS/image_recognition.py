@@ -446,20 +446,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
                                 _capture_first_paste()
-                                # 智能恢复：只在剪贴板为空或异常短(<3字符)时才恢复，避免覆盖正常复制
+                                # 始终恢复锁定的剪贴板内容，防止应用自动复制单元格内容覆盖用户意图
                                 if _first_paste_clipboard is not None:
-                                    try:
-                                        import pyperclip as _pyper_chk
-                                        _current = _pyper_chk.paste()
-                                        _cur_len = len(_current) if _current else 0
-                                        # 只在剪贴板为空或异常短时才恢复
-                                        if _cur_len < 3:
-                                            debug_print(f"[剪贴板保护] 当前剪贴板异常短({_cur_len}字符)，恢复成锁定内容")
-                                            _force_clipboard(_first_paste_clipboard, label="智能恢复", max_retry=2, delay=0.2)
-                                        else:
-                                            debug_print(f"[剪贴板保护] 当前剪贴板正常({_cur_len}字符)，保持不变")
-                                    except Exception:
-                                        pass
+                                    _force_clipboard(_first_paste_clipboard, label="Ctrl+V前恢复", max_retry=2, delay=0.2)
+                                    if _clipboard_log_enabled:
+                                        _cl = len(_first_paste_clipboard)
+                                        _cp = str(_first_paste_clipboard)[:50] + ("..." if _cl > 50 else "")
+                                        debug_print(f"[剪贴板保护] 已恢复锁定内容: {_cl}字符 - {_cp}")
                             # Ctrl+V 调试: 粘贴前再读一次确认
                             if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
                                 try:
@@ -555,9 +548,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
-                # 只有点击操作才检测剪贴板变化（键盘操作不会改变剪贴板）
-                if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
-                    _detect_clipboard_change(f"步骤{step}后")
+                # 剪贴板锁定只应在 Ctrl+C 后更新，点击操作不更新锁定内容
 
                 # 操作间隔 - 优先用每个操作单独的delay，否则用统一的 replay_interval（由调用方传入，含图片操作也生效）
                 if i < total_operations - 1:  # 不是最后一个操作
@@ -669,9 +660,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
-            # 只有点击操作才检测剪贴板变化（键盘操作不会改变剪贴板）
-            if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
-                _detect_clipboard_change(f"步骤{step}后")
+            # 剪贴板锁定只应在 Ctrl+C 后更新，点击操作不更新锁定内容
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:

@@ -1333,18 +1333,50 @@ class FolderManager(QDialog):
         recording_json_path = os.path.join(folder_path, 'recording.json')
         has_recording_json = os.path.exists(recording_json_path)
         
-        # 如果没有图片文件，但有recording.json，显示坐标录制数据
-        if not image_files:
-            if has_recording_json:
-                # 显示坐标录制数据
-                self.show_coordinate_data(dialog, folder_path, recording_json_path)
-                return
-            else:
-                self.parent.show_beautiful_message('information', "提示", "该文件夹中没有图片文件！", parent=dialog)
-                return
+        # 如果没有图片文件也没有recording.json，提示错误
+        if not image_files and not has_recording_json:
+            self.parent.show_beautiful_message('information', "提示", "该文件夹中没有图片文件！", parent=dialog)
+            return
         
-        # 从recording.json加载操作方式
-        self._populate_image_rows(dialog, folder_path, list_layout)
+        # 统一融合视图：按 recording.json 步骤顺序显示所有操作
+        if has_recording_json:
+            self._populate_unified_rows(dialog, folder_path, list_layout)
+        elif image_files:
+            # 没有 recording.json 但有图片时，降级显示纯图片列表
+            def _preview_img(fp):
+                _d = QDialog(dialog)
+                _d.setWindowTitle("图片预览")
+                _d.resize(600, 500)
+                _l = QVBoxLayout(_d)
+                _s = QScrollArea()
+                _s.setWidgetResizable(True)
+                _s.setStyleSheet("QScrollArea{border:none;background:#1C1C1E;}")
+                _lb = QLabel()
+                _lb.setAlignment(Qt.AlignCenter)
+                _p = load_qpixmap(fp)
+                if _p: _lb.setPixmap(_p.scaled(560, 460, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                _lb.setStyleSheet("background:#1C1C1E;padding:10px;")
+                _s.setWidget(_lb)
+                _l.addWidget(_s)
+                _d.exec_()
+            _fallback_label = QLabel(f"📁 共 {len(image_files)} 张图片（无操作步骤数据）")
+            _fallback_label.setStyleSheet("font-size:12px; color:#86868B; padding:8px 0; background:transparent; border:none;")
+            list_layout.addWidget(_fallback_label)
+            for _i, _f in enumerate(image_files):
+                _img_path = os.path.join(folder_path, _f)
+                _thumb = QLabel()
+                _pix = load_qpixmap(_img_path)
+                if _pix:
+                    _pix = _pix.scaled(60, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    _thumb.setPixmap(_pix)
+                _thumb.setFixedSize(64, 64)
+                _thumb.setStyleSheet("QLabel{background:#F5F5F7;border-radius:6px;padding:2px;}")
+                _thumb.setAlignment(Qt.AlignCenter)
+                _thumb.setCursor(Qt.PointingHandCursor)
+                _thumb.mousePressEvent = lambda e, fp=_img_path: _preview_img(fp)
+                list_layout.addWidget(_thumb, 0, Qt.AlignTop)
+            list_layout.addStretch()
+        
         scroll_area.setWidget(scroll_root)
         _cl.addWidget(scroll_area)
         layout.addWidget(_outer)
@@ -1352,30 +1384,52 @@ class FolderManager(QDialog):
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(16, 8, 16, 12)
         
-        # 继续添加操作按钮
-        add_btn = QPushButton("➕ 继续添加操作")
-        add_btn.setFixedSize(180, 42)
-        add_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #0A84FF;
-                color: white;
-                border-radius: 21px;
-                font-weight: 600;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #006AE0;
-            }
-            QPushButton:pressed {
-                background-color: #004DB3;
-            }
-        """)
-        add_btn.clicked.connect(lambda: self.add_more_operations(dialog, folder_path))
-        button_layout.addWidget(add_btn)
-        
-
+        # 继续添加操作按钮（有图片或 recording.json 时显示）
+        if image_files or has_recording_json:
+            add_btn = QPushButton("➕ 继续添加操作")
+            add_btn.setFixedSize(180, 42)
+            add_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #0A84FF;
+                    color: white;
+                    border-radius: 21px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #006AE0;
+                }
+                QPushButton:pressed {
+                    background-color: #004DB3;
+                }
+            """)
+            add_btn.clicked.connect(lambda: self.add_more_operations(dialog, folder_path))
+            button_layout.addWidget(add_btn)
+            
+            # 纯坐标录制按钮
+            coord_btn = QPushButton("🖱️ 添加坐标操作")
+            coord_btn.setFixedSize(180, 42)
+            coord_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #34C759;
+                    color: white;
+                    border-radius: 21px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    font-family: 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei UI', sans-serif;
+                    text-align: center;
+                }
+                QPushButton:hover {
+                    background-color: #28A745;
+                }
+                QPushButton:pressed {
+                    background-color: #1E7E34;
+                }
+            """)
+            coord_btn.clicked.connect(lambda: self.add_more_operations_coord(dialog, folder_path))
+            button_layout.addWidget(coord_btn)
         
         _cl.addLayout(button_layout)
         self.parent._view_images_dialog = dialog
@@ -1526,487 +1580,458 @@ class FolderManager(QDialog):
         except Exception as e:
             self.parent.show_beautiful_message('critical', "错误", f"交换步骤失败: {str(e)}")
 
-    def _populate_image_rows(self, dialog, folder_path, list_layout):
-        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
-        image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
-        if not image_files:
-            return
+    def _populate_unified_rows(self, dialog, folder_path, list_layout):
+        """统一融合视图：按 recording.json 步骤顺序显示所有操作（图片/坐标/按键/文本/滚动等）"""
         recording_json_path = os.path.join(folder_path, 'recording.json')
         has_recording_json = os.path.exists(recording_json_path)
-        self.image_actions = []
-        self.image_step_map = {}  # 记录视觉索引(index) → 实际步骤号(step)的映射
-        if has_recording_json:
-            recording_data = load_json_data(recording_json_path)
-            if isinstance(recording_data, list):
-                action_type_map = {'left_click':'Click', 'right_click':'右击', 'double_click':'双击', 'middle_click':'中键点击'}
-                # 构建步骤号→操作文本的映射，避免因键盘操作无图片导致的错位
-                step_action_map = {}
-                for step in recording_data:
-                    step_num = step.get('step', 0)
-                    action_type = step.get('action_type', 'left_click')
-                    if action_type in ['keyboard', 'keyboard_direct']:
-                        key_text = step.get('key', '')
-                        step_action_map[step_num] = f"按键: {key_text}"
-                    elif action_type == 'text_input':
-                        text_content = step.get('text', '')
-                        display_text = text_content if len(text_content) <= 10 else text_content[:10] + "..."
-                        step_action_map[step_num] = f"文本: {display_text}"
-                    elif action_type == 'scroll':
-                        scroll_amount = step.get('scroll_amount', 3)
-                        direction = "上" if scroll_amount > 0 else "下"
-                        step_action_map[step_num] = f"滚动: {direction}{abs(scroll_amount)}"
-                    elif action_type == 'condition':
-                        step_action_map[step_num] = "条件分支"
-                    else:
-                        step_action_map[step_num] = action_type_map.get(action_type, 'Click')
-                # 根据image_files的顺序构建image_actions，确保两者完全对齐
-                for idx, img_file in enumerate(image_files):
-                    match = re.search(r'操作(\d+)', img_file)
-                    if match:
-                        step_num = int(match.group(1))
-                        self.image_actions.append(step_action_map.get(step_num, 'Click'))
-                        self.image_step_map[idx] = step_num  # 记录索引→步骤号的映射
-                    else:
-                        self.image_actions.append('Click')
-                        self.image_step_map[idx] = idx + 1  # 降级：使用索引+1
-        # 如果没有JSON数据，使用默认值
-        if not self.image_actions:
-            self.image_actions = ["Click"] * len(image_files)
-            self.image_step_map = {i: i + 1 for i in range(len(image_files))}
-        
+        if not has_recording_json:
+            return
+        recording_data = load_json_data(recording_json_path)
+        if not isinstance(recording_data, list) or not recording_data:
+            return
 
+        # 获取所有图片文件，按步骤号索引
+        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+        image_map = {}
+        for f in image_files:
+            m = re.search(r'操作(\d+)', f)
+            if m:
+                image_map[int(m.group(1))] = f
 
-        def delete_image(img_file):
-            """删除指定图片"""
-            # 重新加载当前图片列表，确保索引正确
-            current_image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
-            current_image_files.sort(key=lambda x: int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0)
-            
-            if img_file not in current_image_files:
+        # 操作类型标签配置
+        _at_cfg = {
+            'left_click':    ('👆 Click',     '#34C759', 'rgba(52,199,89,0.15)'),
+            'right_click':   ('👉 右击',      '#34C759', 'rgba(52,199,89,0.15)'),
+            'double_click':  ('👆👆 双击',    '#34C759', 'rgba(52,199,89,0.15)'),
+            'middle_click':  ('🖱️ 中击',     '#34C759', 'rgba(52,199,89,0.15)'),
+            'text_input':    ('📝 文本',      '#FF9500', 'rgba(255,149,0,0.15)'),
+            'keyboard':      ('⌨️ 按键',      '#0A84FF', 'rgba(10,132,255,0.15)'),
+            'keyboard_direct': ('⌨️ 按键',    '#0A84FF', 'rgba(10,132,255,0.15)'),
+            'scroll':        ('🔄 滚动',      '#6E6E73', 'rgba(142,142,147,0.2)'),
+            'condition':     ('🔀 条件分支',   '#AF52DE', 'rgba(175,82,222,0.15)'),
+        }
+        _menu_items = [
+            ("👆 Click", "left_click"), ("👉 右击", "right_click"),
+            ("👆👆 双击", "double_click"), ("🖱️ 中击", "middle_click"),
+            ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
+            ("🔄 滚动", "scroll")
+        ]
+
+        control_height = 24
+        action_font_size = 11
+
+        def _rebuild_all():
+            """清空并重建所有行"""
+            while list_layout.count():
+                item = list_layout.takeAt(0)
+                w = item.widget()
+                if w:
+                    w.deleteLater()
+            _build_rows()
+
+        def _build_rows():
+            """根据 recording_data 构建所有行"""
+            for i, record in enumerate(recording_data):
+                step_num = record.get('step', i + 1)
+                action_type = record.get('action_type', 'left_click')
+                img_file = image_map.get(step_num)
+
+                # ── 每行 = macOS 卡片风格 ──
+                row_widget = QWidget()
+                row_widget.setFixedHeight(48)
+                row_widget.setMaximumHeight(48)
+                row_widget.setContentsMargins(0, 0, 0, 0)
+                row_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                row_widget.setStyleSheet("""
+                    QWidget#listRow {
+                        background: rgba(245, 245, 247, 0.8);
+                        border-radius: 0px;
+                        border: none;
+                        height: 48px;
+                        max-height: 48px;
+                        min-height: 48px;
+                    }
+                """)
+                row_widget.setObjectName("listRow")
+                row_layout = QHBoxLayout(row_widget)
+                row_layout.setContentsMargins(8, 0, 8, 0)
+                row_layout.setSpacing(6)
+
+                # ── ① 编号徽章 ──
+                step_label = QLabel(str(step_num))
+                step_label.setFixedSize(26, 26)
+                step_label.setAlignment(Qt.AlignCenter)
+                step_label.setStyleSheet("""
+                    QLabel {
+                        background-color: transparent;
+                        color: #0A84FF;
+                        border-radius: 13px;
+                        font-size: 11px;
+                        font-weight: 700;
+                        font-family: 'Helvetica Neue', 'PingFang SC', sans-serif;
+                    }
+                """)
+                row_layout.addWidget(step_label, 0, Qt.AlignTop)
+
+                # ── ② 缩略图 / 操作类型图标 ──
+                if img_file:
+                    # 有图片 → 显示缩略图
+                    img_path = os.path.join(folder_path, img_file)
+                    thumb_w = QPushButton()
+                    thumb_w.setFixedSize(48, 48)
+                    thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius: 8px; }")
+                    del_btn = _create_hover_close_button(
+                        thumb_w,
+                        on_click=lambda checked=False, fn=img_file: _delete_step(i, fn),
+                        size=20
+                    )
+                    del_btn.move(26, 0)
+                    pixmap = load_qpixmap(img_path)
+                    if pixmap:
+                        tl = QLabel(thumb_w)
+                        tp = pixmap.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                        from PyQt5.QtGui import QPixmap as _QPx, QPainter as _QPa, QPainterPath as _QPP
+                        _rp = _QPx(44, 44)
+                        _rp.fill(Qt.transparent)
+                        _pp = _QPa(_rp)
+                        _pp.setRenderHint(_QPa.Antialiasing)
+                        _path = _QPP()
+                        _path.addRoundedRect(0, 0, 44, 44, 8, 8)
+                        _pp.setClipPath(_path)
+                        _pp.drawPixmap(0, 0, tp)
+                        _pp.end()
+                        tl.setPixmap(_rp)
+                        tl.setGeometry(2, 2, 44, 44)
+                        tl.setStyleSheet("QLabel { background: transparent; border: none; }")
+                        tl.lower()
+                    del_btn.raise_()
+                    thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
+                    row_layout.addWidget(thumb_w, 0, Qt.AlignTop)
+                else:
+                    # 无图片 → 显示操作类型小色块，带上删除按钮
+                    _dot_color = _at_cfg.get(action_type, ('', '#8E8E93', ''))[1]
+                    _iw = QPushButton()
+                    _iw.setFixedSize(48, 48)
+                    _iw.setStyleSheet(f"QPushButton{{background:{_at_cfg.get(action_type, ('','#8E8E93',''))[2]};border-radius:8px;border:none;}}")
+                    del_btn = _create_hover_close_button(
+                        _iw,
+                        on_click=lambda checked=False, idx=i: _delete_step(idx, None),
+                        size=20
+                    )
+                    del_btn.move(26, 0)
+                    icon_w = QLabel(_iw)
+                    icon_w.setFixedSize(12, 12)
+                    icon_w.setAlignment(Qt.AlignCenter)
+                    icon_w.setStyleSheet(f"QLabel{{background:{_dot_color};border-radius:6px;border:none;}}")
+                    icon_w.move(18, 18)
+                    icon_w.lower()
+                    del_btn.raise_()
+                    row_layout.addWidget(_iw, 0, Qt.AlignTop)
+
+                # ── ③ 操作类型按钮（带下拉菜单） ──
+                _cfg = _at_cfg.get(action_type, (action_type, '#8E8E93', 'rgba(142,142,147,0.2)'))
+                # 按键和文本类型显示具体内容
+                if action_type in ('keyboard', 'keyboard_direct'):
+                    _k = record.get('key', '')
+                    _btn_label = f"⌨ {_k}" if _k else "⌨ 按键"
+                elif action_type == 'text_input':
+                    _txt = record.get('text', '')
+                    _disp = _txt[:6] + "…" if len(_txt) > 6 else (_txt if _txt else "📝 文本")
+                    _btn_label = _disp
+                else:
+                    _btn_label = _cfg[0]
+                type_btn = QPushButton(_btn_label)
+                type_btn.setFixedSize(90, control_height)
+                type_btn.setCursor(Qt.PointingHandCursor)
+                type_btn.setStyleSheet(f"QPushButton{{background:{_cfg[2]};color:{_cfg[1]};border:none;border-radius:12px;font-weight:600;font-size:10px;padding:0;text-align:center;}}QPushButton:hover{{background:rgba(200,200,210,0.4);}}QPushButton::menu-indicator{{width:0;}}")
+                _m = QMenu()
+                for _lbl, _val in _menu_items:
+                    _a = _m.addAction(_lbl)
+                    _a.triggered.connect(lambda checked, v=_val, idx=i: (
+                        _update_step_type(idx, v)
+                    ))
+                type_btn.setMenu(_m)
+                _tw = QWidget()
+                _tw.setFixedWidth(90)
+                _tl = QHBoxLayout(_tw)
+                _tl.setContentsMargins(0, 0, 0, 0)
+                _tl.addWidget(type_btn, 0, Qt.AlignCenter)
+                row_layout.addWidget(_tw, 0, Qt.AlignTop)
+
+                # ── ④ 参数显示（点击可编辑） ──
+                _pw = QWidget()
+                _pw.setFixedWidth(90)
+                _pl = QHBoxLayout(_pw)
+                _pl.setContentsMargins(0, 0, 0, 0)
+                _pl.setAlignment(Qt.AlignCenter)
+                if action_type == 'text_input':
+                    _txt = record.get('text', '')
+                    _disp = _txt[:10] + "..." if len(_txt) > 10 else (_txt if _txt else "(空)")
+                    _lb = QLabel(f"📝 {_disp}")
+                    _lb.setStyleSheet("QLabel{color:#FF9500;font-size:10px;padding:2px 4px;background:rgba(255,149,0,0.1);border-radius:6px;}")
+                    _lb.setCursor(Qt.PointingHandCursor)
+                    _lb.mousePressEvent = lambda e, idx=i: _show_text_dialog(idx)
+                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                elif action_type in ('keyboard', 'keyboard_direct'):
+                    _k = record.get('key', '')
+                    _lb = QLabel(f"⌨ {_k}" if _k else "(空)")
+                    _lb.setStyleSheet("QLabel{color:#0A84FF;font-size:10px;padding:2px 4px;background:rgba(10,132,255,0.1);border-radius:6px;}")
+                    _lb.setCursor(Qt.PointingHandCursor)
+                    _lb.mousePressEvent = lambda e, idx=i: _show_key_dialog(idx)
+                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                elif action_type == 'scroll':
+                    _amt = record.get('scroll_amount', 3)
+                    _dir = "上" if _amt > 0 else "下"
+                    _lb = QLabel(f"{_dir}{abs(_amt)}")
+                    _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:10px;padding:2px 4px;background:rgba(142,142,147,0.15);border-radius:6px;}")
+                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                elif action_type == 'condition':
+                    _lb = QLabel("条件分支")
+                    _lb.setStyleSheet("QLabel{color:#AF52DE;font-size:10px;padding:2px 4px;background:rgba(175,82,222,0.1);border-radius:6px;}")
+                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                else:
+                    _px = record.get('x', 0); _py = record.get('y', 0)
+                    _lb = QLabel(f"({_px},{_py})")
+                    _lb.setStyleSheet("QLabel{color:#8E8E93;font-size:10px;}")
+                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                row_layout.addWidget(_pw, 0, Qt.AlignTop)
+
+                # ── ⑤ 延迟 ⏱ ──
+                delay_w = QWidget()
+                delay_w.setFixedWidth(72)
+                dl = QHBoxLayout(delay_w)
+                dl.setContentsMargins(0, 0, 0, 0)
+                dl.setSpacing(2)
+                dl2 = QLabel("⏱")
+                dl2.setStyleSheet("QLabel { color: #999; font-size: 12px; }")
+                dl.addWidget(dl2)
+                ds = QDoubleSpinBox()
+                ds.setSingleStep(0.1); ds.setDecimals(1)
+                ds.setValue(record.get('delay', 0.1))
+                ds.valueChanged.connect(lambda v, idx=i: _update_delay(idx, v))
+                ds.setFixedSize(40, control_height)
+                ds.setStyleSheet("QDoubleSpinBox { background: #FFFFFF; border: 1px solid rgba(0,0,0,0.06); border-radius: 8px; font-size: 11px; color: black; padding: 0; } QDoubleSpinBox:focus { border-color: #0A84FF; }")
+                dl.addWidget(ds)
+                du = QLabel("s")
+                du.setStyleSheet("QLabel { color: #999; font-size: 10px; }")
+                dl.addWidget(du)
+                row_layout.addWidget(delay_w, 0, Qt.AlignTop)
+
+                # ── ⑥ 排序按钮 ──
+                move_w = QWidget()
+                move_w.setFixedWidth(52)
+                ml = QHBoxLayout(move_w)
+                ml.setContentsMargins(0, 0, 0, 0)
+                ml.setSpacing(2)
+                btn_up = QPushButton("▲")
+                btn_up.setFixedSize(24, 24)
+                btn_up.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:rgba(10,132,255,0.15);color:#0A84FF;}")
+                btn_up.setEnabled(i > 0)
+                btn_down = QPushButton("▼")
+                btn_down.setFixedSize(24, 24)
+                btn_down.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:rgba(10,132,255,0.15);color:#0A84FF;}")
+                btn_down.setEnabled(i < len(recording_data) - 1)
+                ml.addWidget(btn_up, 0, Qt.AlignTop)
+                ml.addWidget(btn_down, 0, Qt.AlignTop)
+                row_layout.addWidget(move_w, 0, Qt.AlignTop)
+
+                btn_up.clicked.connect(lambda checked, idx=i: _swap_rows(idx, idx - 1))
+                btn_down.clicked.connect(lambda checked, idx=i: _swap_rows(idx, idx + 1))
+
+                # ── ⑦ 拖拽排序 ──
+                row_widget._idx = i
+                def _bd(w):
+                    def _mpe(s, e):
+                        if e.button() == 1: s._drag_start_pos = e.pos()
+                        QWidget.mousePressEvent(s, e)
+                    w.mousePressEvent = _mpe.__get__(w, QWidget)
+                    def _mme(s, e):
+                        if not (e.buttons() & 1): return
+                        if s._drag_start_pos is None: return
+                        if (e.pos() - s._drag_start_pos).manhattanLength() < QApplication.startDragDistance(): return
+                        d = QDrag(s)
+                        m = QMimeData()
+                        m.setText(f"{s._idx},{folder_path}")
+                        d.setMimeData(m)
+                        d.setPixmap(s.grab().scaled(300, 72, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                        d.setHotSpot(QPoint(30, 36))
+                        d.exec_(2)
+                    w.mouseMoveEvent = _mme.__get__(w, QWidget)
+                _bd(row_widget)
+
+                list_layout.addWidget(row_widget, 0, Qt.AlignTop)
+
+        # 内部辅助函数
+        def _update_step_type(idx, new_type):
+            """更新步骤的操作类型"""
+            if idx < len(recording_data):
+                old_type = recording_data[idx].get('action_type', 'left_click')
+                recording_data[idx]['action_type'] = new_type
+                if new_type in ('left_click', 'right_click', 'double_click', 'middle_click'):
+                    recording_data[idx].pop('text', None)
+                    recording_data[idx].pop('key', None)
+                    recording_data[idx].pop('scroll_amount', None)
+                    if 'x' not in recording_data[idx] or 'y' not in recording_data[idx]:
+                        recording_data[idx]['x'] = 0
+                        recording_data[idx]['y'] = 0
+                elif new_type == 'text_input':
+                    if 'text' not in recording_data[idx] or not recording_data[idx]['text']:
+                        recording_data[idx]['text'] = ''
+                    recording_data[idx].pop('scroll_amount', None)
+                elif new_type == 'keyboard':
+                    if 'key' not in recording_data[idx] or not recording_data[idx]['key']:
+                        recording_data[idx]['key'] = ''
+                    recording_data[idx].pop('text', None)
+                    recording_data[idx].pop('scroll_amount', None)
+                elif new_type == 'scroll':
+                    if 'scroll_amount' not in recording_data[idx]:
+                        recording_data[idx]['scroll_amount'] = 3
+                    recording_data[idx].pop('text', None)
+                    recording_data[idx].pop('key', None)
+                save_json_data(recording_json_path, recording_data)
+                _rebuild_all()
+
+        def _update_delay(idx, value):
+            if idx < len(recording_data):
+                recording_data[idx]['delay'] = value
+                save_json_data(recording_json_path, recording_data)
+
+        def _show_text_dialog(idx):
+            """显示文本编辑对话框"""
+            self._show_text_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _rebuild_all)
+
+        def _show_key_dialog(idx):
+            """显示按键编辑对话框"""
+            self._show_key_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _rebuild_all)
+
+        def _swap_rows(idx_a, idx_b):
+            """交换两行顺序"""
+            if 0 <= idx_a < len(recording_data) and 0 <= idx_b < len(recording_data):
+                recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+                for _i, _o in enumerate(recording_data):
+                    _o['step'] = _i + 1
+                save_json_data(recording_json_path, recording_data)
+                _rebuild_all()
+
+        def _delete_step(idx, img_file=None):
+            """删除指定步骤"""
+            if idx < 0 or idx >= len(recording_data):
                 return
-                
-            img_path = os.path.join(folder_path, img_file)
-            
             confirm_dialog = QDialog(dialog)
             confirm_dialog.setWindowTitle("确认删除")
             confirm_dialog.setFixedSize(300, 120)
-            layout = QVBoxLayout(confirm_dialog)
-            layout.setSpacing(10)
-            layout.setContentsMargins(15, 15, 15, 15)
-            
-            label = QLabel(f"确定要删除 '{img_file}' 吗？\n这将重新排序后续图片。")
-            layout.addWidget(label)
-            
-            button_layout = QHBoxLayout()
-            button_layout.setSpacing(8)
-            
-            ok_btn = QPushButton("确定")
-            ok_btn.setMinimumSize(60, 28)
-            ok_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #0A84FF;
-                    color: white;
-                    border-radius: 4px;
-                    font-size: 14px;
-                }
-                QPushButton:hover {
-                background-color: #006AE0;
-                }
-            """)
-            button_layout.addWidget(ok_btn)
-
-            cancel_btn = QPushButton("取消")
-            cancel_btn.setMinimumSize(60, 28)
-            cancel_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #8E8E93;
-                    color: white;
-                    border-radius: 4px;
-                    font-size: 14px;
-                }
-                QPushButton:hover {
-                    background-color: #0A84FF;
-                }
-            """)
-            button_layout.addWidget(cancel_btn)
-            
-            layout.addLayout(button_layout)
-            
-            ok_btn.clicked.connect(confirm_dialog.accept)
-            cancel_btn.clicked.connect(confirm_dialog.reject)
-            
+            _layout = QVBoxLayout(confirm_dialog)
+            _layout.setSpacing(10)
+            _layout.setContentsMargins(15, 15, 15, 15)
+            _label = QLabel(f"确定要删除步骤 {recording_data[idx].get('step', idx+1)} 吗？")
+            _layout.addWidget(_label)
+            _btn_layout = QHBoxLayout()
+            _ok_btn = QPushButton("确定")
+            _ok_btn.setMinimumSize(60, 28)
+            _ok_btn.setStyleSheet("QPushButton{background-color:#0A84FF;color:white;border-radius:4px;font-size:14px;}")
+            _ok_btn.clicked.connect(confirm_dialog.accept)
+            _btn_layout.addWidget(_ok_btn)
+            _cancel_btn = QPushButton("取消")
+            _cancel_btn.setMinimumSize(60, 28)
+            _cancel_btn.setStyleSheet("QPushButton{background-color:#8E8E93;color:white;border-radius:4px;font-size:14px;}")
+            _cancel_btn.clicked.connect(confirm_dialog.reject)
+            _btn_layout.addWidget(_cancel_btn)
+            _layout.addLayout(_btn_layout)
             if confirm_dialog.exec_() != QDialog.Accepted:
                 return
-            
-            try:
-                # 删除图片文件
+
+            # 删除图片文件
+            if img_file:
+                img_path = os.path.join(folder_path, img_file)
                 if os.path.exists(img_path):
                     os.remove(img_path)
-                
-                # 删除对应的recording.json中的记录
-                recording_json_path = os.path.join(folder_path, 'recording.json')
-                recording_data = []
-                if os.path.exists(recording_json_path):
-                    recording_data = load_json_data(recording_json_path)
-                    recording_data.sort(key=lambda x: x.get('step', 0))
-                
-                # 根据图片文件名中的操作编号找到对应的记录
-                step_match = re.search(r'操作(\d+)\.png', img_file)
-                if step_match:
-                    deleted_step = int(step_match.group(1))
-                    # 找到对应step的记录并删除
-                    for i, step in enumerate(recording_data):
-                        if step.get('step', 0) == deleted_step:
-                            del recording_data[i]
-                            break
-                    
-                    # 重命名后续图片文件（两步法：先改临时名，再改回正式名，避免冲突）
-                    other_files = [
-                        f for f in os.listdir(folder_path)
-                        if f.lower().endswith('.png') and f != img_file
-                        and re.search(r'操作(\d+)\.png', f)
-                    ]
-                    # 第一步：将所有需要重命名的文件先改为临时文件名
-                    for other_file in other_files:
-                        other_match = re.search(r'操作(\d+)\.png', other_file)
-                        if other_match:
-                            other_step = int(other_match.group(1))
-                            if other_step > deleted_step:
-                                old_path = os.path.join(folder_path, other_file)
-                                temp_name = f"操作{other_step}_tmp.png"
-                                temp_path = os.path.join(folder_path, temp_name)
-                                if os.path.exists(old_path):
-                                    os.rename(old_path, temp_path)
-                    # 第二步：将临时文件名改为最终的新编号
-                    for other_file in other_files:
-                        other_match = re.search(r'操作(\d+)\.png', other_file)
-                        if other_match:
-                            other_step = int(other_match.group(1))
-                            if other_step > deleted_step:
-                                new_step = other_step - 1
-                                temp_name = f"操作{other_step}_tmp.png"
-                                new_name = f"操作{new_step}.png"
-                                temp_path = os.path.join(folder_path, temp_name)
-                                new_path = os.path.join(folder_path, new_name)
-                                if os.path.exists(temp_path):
-                                    os.rename(temp_path, new_path)
-                    
-                    # 重新排序步骤，并同步更新image字段
-                    for i, step in enumerate(recording_data):
-                        step['step'] = i + 1
-                        # 如果记录中有image字段，同步更新文件名以匹配新的序号
-                        if 'image' in step:
-                            old_image_name = step['image']
-                            image_match = re.search(r'操作(\d+)\.png', old_image_name)
-                            if image_match:
-                                old_image_step = int(image_match.group(1))
-                                # 只更新那些在被删除步骤之后的记录的image字段
-                                if old_image_step > deleted_step:
-                                    new_image_step = old_image_step - 1
-                                    step['image'] = f"操作{new_image_step}.png"
-                    
-                    save_json_data(recording_json_path, recording_data)
-                
-                # 删除成功，不再弹出提示窗口
-                self.refresh_view_images(folder_path)
-                
-            except Exception as e:
-                self.parent.show_beautiful_message('critical', "错误", f"删除失败: {str(e)}", parent=dialog)
+            # 从 recording_data 中移除
+            recording_data.pop(idx)
+            # 重排序号
+            for _i, _o in enumerate(recording_data):
+                _o['step'] = _i + 1
+            # 重命名后续图片文件
+            deleted_step = idx + 1
+            other_imgs = [f for f in os.listdir(folder_path) if f.lower().endswith('.png') and re.search(r'操作(\d+)\.png', f)]
+            # 两步法重命名
+            for other_f in other_imgs:
+                m = re.search(r'操作(\d+)\.png', other_f)
+                if m and int(m.group(1)) > deleted_step:
+                    old_p = os.path.join(folder_path, other_f)
+                    tmp_n = f"操作{int(m.group(1))}_tmp.png"
+                    tmp_p = os.path.join(folder_path, tmp_n)
+                    if os.path.exists(old_p):
+                        os.rename(old_p, tmp_p)
+            for other_f in other_imgs:
+                m = re.search(r'操作(\d+)\.png', other_f)
+                if m and int(m.group(1)) > deleted_step:
+                    new_n = f"操作{int(m.group(1)) - 1}.png"
+                    tmp_n = f"操作{int(m.group(1))}_tmp.png"
+                    tmp_p = os.path.join(folder_path, tmp_n)
+                    new_p = os.path.join(folder_path, new_n)
+                    if os.path.exists(tmp_p):
+                        os.rename(tmp_p, new_p)
+            save_json_data(recording_json_path, recording_data)
+            _rebuild_all()
 
         def _show_large_preview(img_path):
-            """弹出大图预览窗口"""
+            """弹出大图预览"""
             from PyQt5.QtWidgets import QDialog, QVBoxLayout, QScrollArea
+            from PyQt5.QtWidgets import QDesktopWidget
             preview = QDialog(dialog)
             preview.setWindowTitle("图片预览")
             preview.setWindowFlags(preview.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-            # 获取屏幕尺寸
-            from PyQt5.QtWidgets import QDesktopWidget
             desktop = QDesktopWidget()
             sw = desktop.screenGeometry().width()
             sh = desktop.screenGeometry().height()
             max_w = int(sw * 0.7)
             max_h = int(sh * 0.7)
             preview.resize(max_w, max_h)
-
-            layout = QVBoxLayout(preview)
-            layout.setContentsMargins(0, 0, 0, 0)
-
+            _layout = QVBoxLayout(preview)
+            _layout.setContentsMargins(0, 0, 0, 0)
             scroll = QScrollArea(preview)
             scroll.setWidgetResizable(True)
             scroll.setStyleSheet("QScrollArea { border: none; background: #1C1C1E; }")
-
             img_label = QLabel()
             img_label.setAlignment(Qt.AlignCenter)
             fp = load_qpixmap(img_path)
             if fp:
-                # 等比例缩放
                 fp = fp.scaled(max_w - 20, max_h - 20, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                 img_label.setPixmap(fp)
             img_label.setStyleSheet("background: #1C1C1E; padding: 10px;")
             scroll.setWidget(img_label)
-            layout.addWidget(scroll)
+            _layout.addWidget(scroll)
             preview.exec_()
 
-        control_height = 24
-        action_font_size = 11
+        # 构建所有行
+        _build_rows()
 
-        for i, img_file in enumerate(image_files):
-            img_path = os.path.join(folder_path, img_file)
-            step_num = i + 1
-
-            # 每行 = macOS 卡片风格
-            row_widget = QWidget()
-            row_widget.setFixedHeight(48)
-            row_widget.setMaximumHeight(48)
-            row_widget.setContentsMargins(0, 0, 0, 0)
-            row_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-
-            row_widget.setStyleSheet("""
-                QWidget#listRow {
-                    background: rgba(245, 245, 247, 0.8);
-                    border-radius: 0px;
-                    border: none;
-                    height: 48px;
-                    max-height: 48px;
-                    min-height: 48px;
-                }
-
-            """)
-            row_widget.setObjectName("listRow")
-
-            row_layout = QHBoxLayout(row_widget)
-            row_layout.setContentsMargins(8, 0, 8, 0)
-            row_layout.setSpacing(6)
-
-            # ── ① 编号徽章 (macOS badge 风格) ──
-            step_label = QLabel(str(step_num))
-            step_label.setFixedSize(26, 26)
-            step_label.setAlignment(Qt.AlignCenter)
-            step_label.setStyleSheet("""
-                QLabel {
-                    background-color: transparent;
-                    color: #0A84FF;
-                    border-radius: 13px;
-                    font-size: 11px;
-                    font-weight: 700;
-                    font-family: 'Helvetica Neue', 'PingFang SC', sans-serif;
-                }
-            """)
-            row_layout.addWidget(step_label,0,Qt.AlignTop)
-
-            # ── ② 圆角缩略图 ──
-            thumb_w = QPushButton()
-            thumb_w.setFixedSize(48, 48)
-            thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius: 8px; }")
-            del_btn = _create_hover_close_button(
-                thumb_w,
-                on_click=lambda checked=False, fn=img_file: delete_image(fn),
-                size=20
-            )
-            del_btn.move(26, 0)
-            pixmap = load_qpixmap(img_path)
-            if pixmap is None:
-                self.parent.show_beautiful_message('warning', "警告", f"无法加载图片: {img_file}", parent=dialog)
-                continue
-            tl = QLabel(thumb_w)
-            tp = pixmap.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            from PyQt5.QtGui import QPixmap as _QPx, QPainter as _QPa, QPainterPath as _QPP
-            _rp = _QPx(44, 44)
-            _rp.fill(Qt.transparent)
-            _pp = _QPa(_rp)
-            _pp.setRenderHint(_QPa.Antialiasing)
-            _path = _QPP()
-            _path.addRoundedRect(0, 0, 44, 44, 8, 8)
-            _pp.setClipPath(_path)
-            _pp.drawPixmap(0, 0, tp)
-            _pp.end()
-            tl.setPixmap(_rp)
-            tl.setGeometry(2, 2, 44, 44)
-            tl.setStyleSheet("QLabel { background: transparent; border: none; }")
-            tl.lower()
-            del_btn.raise_()
-            pixmap = None
-            row_layout.addWidget(thumb_w,0,Qt.AlignTop)
-
-            # 点击缩略图查看大图
-            thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
-
-            # ── ③ 操作控件（统一 90px 宽） ──
-            ACT_W = 90
-            if i < len(self.image_actions):
-                at = self.image_actions[i]
-
-                if at.startswith("按键:"):
-                    kw = QLabel(f"⌨️ {at.replace('按键: ','')}")
-                    kw.setFixedSize(ACT_W, control_height)
-                    kw.setStyleSheet(f"QLabel {{ background: rgba(10,132,255,0.15); color: #0A84FF; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
-                    kw.setCursor(Qt.PointingHandCursor)
-                    kw.setAlignment(Qt.AlignCenter)
-                    kw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_key_input_dialog(idx, fp)
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(kw);row_layout.addWidget(_aw)
-                elif at.startswith("滚动:"):
-                    sw = QLabel(f"🔄 {at.replace('滚动: ','')}")
-                    sw.setFixedSize(ACT_W, control_height)
-                    sw.setStyleSheet(f"QLabel {{ background: rgba(142,142,147,0.2); color: #6E6E73; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
-                    sw.setCursor(Qt.PointingHandCursor)
-                    sw.setAlignment(Qt.AlignCenter)
-                    sw.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_scroll_input_dialog(idx, fp)
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(sw);row_layout.addWidget(_aw)
-                elif at.startswith("文本:"):
-                    tw_w = QLabel("📝 文本")
-                    tw_w.setFixedSize(ACT_W, control_height)
-                    tw_w.setStyleSheet(f"QLabel {{ background: rgba(255,149,0,0.15); color: #FF9500; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
-                    tw_w.setCursor(Qt.PointingHandCursor)
-                    tw_w.setAlignment(Qt.AlignCenter)
-                    tw_w.mousePressEvent = lambda e, idx=i, fp=folder_path: self.show_text_input_dialog(idx, fp)
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(tw_w);row_layout.addWidget(_aw)
-                elif at == "条件分支":
-                    cw = QLabel("🔀 条件分支")
-                    cw.setFixedSize(ACT_W, control_height)
-                    cw.setStyleSheet(f"QLabel {{ background: rgba(175,82,222,0.15); color: #AF52DE; padding: 0 6px; border-radius: 12px; font-weight: bold; font-size: {action_font_size}px; }}")
-                    cw.setAlignment(Qt.AlignCenter)
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cw);row_layout.addWidget(_aw)
-                elif at in ["Click", "右击", "双击", "中击"]:
-                    ci = {"Click": "👆", "右击": "👉", "双击": "👆👆", "中击": "🖱️"}
-                    cc = {"Click": "#8E8E93", "右击": "#8E8E93", "双击": "#8E8E93", "中击": "#8E8E93"}
-                    cb = QPushButton(f"{ci.get(at, '👆')} {at}")
-                    cb.setFixedSize(ACT_W, control_height)
-                    cb.setCursor(Qt.PointingHandCursor)
-                    _menu = QMenu()
-                    for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
-                        _a = _menu.addAction(_t)
-                        _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
-                    cb.setMenu(_menu)
-                    c = cc.get(at, "#8E8E93")
-                    cb.setStyleSheet(f"""
-                        QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                        QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
-                        QPushButton::menu-indicator {{ width: 0; }}
-                    """)
-                    
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
-                else:
-                    cb = QPushButton(f"{ci.get(at, '👆')} {at}")
-                    cb.setFixedSize(ACT_W, control_height)
-                    cb.setCursor(Qt.PointingHandCursor)
-                    _menu = QMenu()
-                    for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
-                        _a = _menu.addAction(_t)
-                        _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
-                    cb.setMenu(_menu)
-                    cb.setStyleSheet(f"""
-                        QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                        QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
-                        QPushButton::menu-indicator {{ width: 0; }}
-                    """)
-                    
-                    _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
-            else:
-                cb = QPushButton(f"{ci['Click']} Click")
-                cb.setFixedSize(ACT_W, control_height)
-                cb.setCursor(Qt.PointingHandCursor)
-                _menu = QMenu()
-                for _t in [f"{ci['Click']} Click", f"{ci['右击']} 右击", f"{ci['双击']} 双击", f"{ci['中击']} 中击"]:
-                    _a = _menu.addAction(_t)
-                    _a.triggered.connect(lambda checked, txt=_t, btn=cb, ii=i, fp=folder_path: (btn.setText(txt), self.update_action(ii, txt.split(' ', 1)[1] if ' ' in txt else txt, fp)))
-                cb.setMenu(_menu)
-                cb.setStyleSheet(f"""
-                    QPushButton {{ background: rgba(52,199,89,0.15); color: #34C759; border: none; border-radius: 12px; font-weight: 600; font-size: 10px; padding: 0; text-align: center; }}
-                    QPushButton:hover {{ background: rgba(200,200,210,0.4); }}
-                    QPushButton::menu-indicator {{ width: 0; }}
-                """)
-                
-                _aw=QWidget();_aw.setFixedWidth(ACT_W);_al=QHBoxLayout(_aw);_al.setContentsMargins(0,0,0,0);_al.addWidget(cb,0,Qt.AlignCenter);row_layout.addWidget(_aw,0,Qt.AlignTop)
-
-            # ── ④ 延迟 ⏱0.5s ──
-            delay_w = QWidget()
-            delay_w.setFixedWidth(72)
-            dl = QHBoxLayout(delay_w)
-            dl.setContentsMargins(0, 0, 0, 0)
-            dl.setSpacing(2)
-            dl2 = QLabel("⏱")
-            dl2.setStyleSheet("QLabel { color: #999; font-size: 12px; }")
-            dl.addWidget(dl2)
-            ds = QDoubleSpinBox()
-            ds.setSingleStep(0.1); ds.setDecimals(1)
-            ds.setValue(self.get_delay_for_step(folder_path, i))
-            ds.valueChanged.connect(lambda v, ii=i, fp=folder_path: self.update_delay(ii, v, fp))
-            ds.setFixedSize(40, control_height)
-            ds.setStyleSheet("QDoubleSpinBox { background: #FFFFFF; border: 1px solid rgba(0,0,0,0.06); border-radius: 8px; font-size: 11px; color: black; padding: 0; } QDoubleSpinBox:focus { border-color: #0A84FF; }")
-            dl.addWidget(ds)
-            du = QLabel("s")
-            du.setStyleSheet("QLabel { color: #999; font-size: 10px; }")
-            dl.addWidget(du)
-            row_layout.addWidget(delay_w,0,Qt.AlignTop)
-
-            # ── ⑤ 排序按钮 ──
-            move_w = QWidget()
-            move_w.setFixedWidth(52)
-            ml = QHBoxLayout(move_w)
-            ml.setContentsMargins(0, 0, 0, 0)
-            ml.setSpacing(2)
-            btn_up = QPushButton("▲")
-            btn_up.setFixedSize(24, 24)
-            btn_up.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:rgba(10,132,255,0.15);color:#0A84FF;}")
-            btn_up.setEnabled(i > 0)
-            btn_down = QPushButton("▼")
-            btn_down.setFixedSize(24, 24)
-            btn_down.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;font-size:12px;font-weight:bold;}QPushButton:hover{background:rgba(10,132,255,0.15);color:#0A84FF;}")
-            btn_down.setEnabled(i < len(image_files) - 1)
-            ml.addWidget(btn_up, 0, Qt.AlignTop)
-            ml.addWidget(btn_down, 0, Qt.AlignTop)
-            row_layout.addWidget(move_w, 0, Qt.AlignTop)
-
-            btn_up.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx - 1, fp))
-            btn_down.clicked.connect(lambda checked, idx=i, fp=folder_path: self._swap_steps(idx, idx + 1, fp))
-
-            # ── ⑥ 拖拽排序（按住卡片拖动，放置由父容器统一处理） ──
-            row_widget._idx = i
-            row_widget._fp = folder_path
-            row_widget._drag_start_pos = None
-            def _bd(w):
-                def _mpe(s,e):
-                    if e.button()==1: s._drag_start_pos=e.pos()
-                    QWidget.mousePressEvent(s,e)
-                w.mousePressEvent=_mpe.__get__(w,QWidget)
-                def _mme(s,e):
-                    if not(e.buttons()&1): return
-                    if s._drag_start_pos is None: return
-                    if (e.pos()-s._drag_start_pos).manhattanLength()<QApplication.startDragDistance(): return
-                    d=QDrag(s); m=QMimeData(); m.setText(f"{s._idx},{s._fp}"); d.setMimeData(m)
-                    d.setPixmap(s.grab().scaled(300,72,Qt.KeepAspectRatio,Qt.SmoothTransformation))
-                    d.setHotSpot(QPoint(30,36)); d.exec_(2)
-                w.mouseMoveEvent=_mme.__get__(w,QWidget)
-            _bd(row_widget)
-
-            list_layout.addWidget(row_widget, 0, Qt.AlignTop)
-
+        # 列表级放置处理（拖拽排序）
         list_layout.activate()
         list_layout.parentWidget().adjustSize()
-
-        # ── 列表级放置处理（拖到任意子控件上也生效） ──
         _lw = list_layout.parentWidget()
         _lw.setAcceptDrops(True)
-        _swap_fn = self._swap_steps
-        def _l_dee(s,e):
+        def _l_dee(s, e):
             if e.mimeData().hasText(): e.acceptProposedAction()
-        _lw.dragEnterEvent=_l_dee.__get__(_lw,QWidget)
-        def _l_dme(s,e):
+        _lw.dragEnterEvent = _l_dee.__get__(_lw, QWidget)
+        def _l_dme(s, e):
             if e.mimeData().hasText(): e.acceptProposedAction()
-        _lw.dragMoveEvent=_l_dme.__get__(_lw,QWidget)
-        def _l_de(s,e):
+        _lw.dragMoveEvent = _l_dme.__get__(_lw, QWidget)
+        def _l_de(s, e):
             if e.mimeData().hasText():
                 try:
-                    a,b=e.mimeData().text().split(","); a=int(a)
-                    dy=e.pos().y()
+                    a, _ = e.mimeData().text().split(",")
+                    a = int(a)
+                    dy = e.pos().y()
                     for ri in range(list_layout.count()):
-                        rw=list_layout.itemAt(ri).widget()
-                        if rw and rw.y()<=dy<=rw.y()+rw.height() and ri!=a:
-                            _swap_fn(a,ri,b)
+                        rw = list_layout.itemAt(ri).widget()
+                        if rw and rw.y() <= dy <= rw.y() + rw.height() and ri != a:
+                            _swap_rows(a, ri)
                             break
                     e.acceptProposedAction()
-                except: pass
-        _lw.dropEvent=_l_de.__get__(_lw,QWidget)
+                except:
+                    pass
+        _lw.dropEvent = _l_de.__get__(_lw, QWidget)
 
     def refresh_view_images(self, folder_path):
         if not hasattr(self.parent, '_view_images_dialog') or not self.parent._view_images_dialog:
@@ -2020,7 +2045,7 @@ class FolderManager(QDialog):
             w = item.widget()
             if w:
                 w.deleteLater()
-        self._populate_image_rows(dialog, folder_path, list_layout)
+        self._populate_unified_rows(dialog, folder_path, list_layout)
     def add_more_operations(self, parent_dialog, folder_path):
         """继续添加新的操作到现有文件夹"""
         # print("===== add_more_operations 被调用 =====")  # [日志已禁用]
@@ -2146,6 +2171,188 @@ class FolderManager(QDialog):
             self.parent.show_beautiful_message('critical', "错误", f"继续添加操作失败: {str(e)}", parent=parent_dialog)
             parent_dialog.close()
 
+    def add_more_operations_coord(self, parent_dialog, folder_path):
+        """继续添加纯坐标操作（不截图，只记录鼠标点击位置）"""
+        try:
+            # 读取现有 recording.json 获取最大 step
+            import json
+            max_step = 0
+            recording_json_path = os.path.join(folder_path, 'recording.json')
+            if os.path.exists(recording_json_path):
+                with open(recording_json_path, 'r', encoding='utf-8') as f:
+                    ops = json.load(f)
+                    if isinstance(ops, list):
+                        max_step = max(op.get('step', 0) for op in ops)
+
+            # 隐藏父对话框
+            if parent_dialog and parent_dialog.isVisible():
+                parent_dialog.hide()
+            if self.isVisible():
+                self.hide()
+            if self.parent and self.parent.isVisible():
+                self.parent.showMinimized()
+
+            from PyQt5.QtCore import QThread
+            QThread.msleep(200)
+
+            # 创建坐标录制覆盖层
+            from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
+            from PyQt5.QtGui import QPainter, QColor, QFont, QGuiApplication
+            from PyQt5.QtCore import Qt, QRect, QTimer
+
+            class _CoordRecorder(QWidget):
+                closed = __import__('PyQt5.QtCore', fromlist=['pyqtSignal']).pyqtSignal()
+                def __init__(self, parent_w, folder, base_step):
+                    super().__init__()
+                    self.parent_w = parent_w
+                    self.folder = folder
+                    self.base_step = base_step
+                    self.step_counter = 0
+                    self.new_records = []
+                    self._focus_timer = None
+                    self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+                    self.setAttribute(Qt.WA_TranslucentBackground)
+                    self.setMouseTracking(True)
+                    total_geo = QRect()
+                    for s in __import__('PyQt5.QtWidgets', fromlist=['QApplication']).QApplication.screens():
+                        total_geo = total_geo.united(s.geometry())
+                    self.setGeometry(total_geo if total_geo.isValid() else QRect(0, 0, 1920, 1080))
+
+                def showEvent(self, event):
+                    super().showEvent(event)
+                    QTimer.singleShot(100, self._delayed_show)
+
+                def _delayed_show(self):
+                    self.raise_(); self.activateWindow(); self.setFocus(Qt.ActiveWindowFocusReason)
+                    __import__('PyQt5.QtWidgets', fromlist=['QApplication']).QApplication.processEvents()
+                    self._focus_timer = QTimer()
+                    self._focus_timer.timeout.connect(self._ensure_focus)
+                    self._focus_timer.start(200)
+
+                def _ensure_focus(self):
+                    if not self.hasFocus():
+                        self.raise_(); self.activateWindow(); self.setFocus(Qt.ActiveWindowFocusReason)
+
+                def paintEvent(self, event):
+                    p = QPainter(self)
+                    p.setRenderHint(QPainter.Antialiasing)
+                    p.fillRect(self.rect(), QColor(0, 0, 0, 100))
+                    font = QFont("PingFang SC, SimHei", 17)
+                    p.setFont(font)
+                    p.setPen(QColor("#FFFFFF"))
+                    if self.step_counter == 0:
+                        text = "🖱️ 左键点击记录位置\n🖱️ 右键点击记录右键\n按 Esc 结束录制"
+                    else:
+                        text = f"✅ 已记录 {self.step_counter} 个坐标\n🖱️ 继续点击或按 Esc 结束"
+                    p.drawText(self.rect(), Qt.AlignCenter, text)
+
+                def mousePressEvent(self, event):
+                    if event.button() == Qt.LeftButton:
+                        self.step_counter += 1
+                        global_logical = self.mapToGlobal(event.pos())
+                        # 记录坐标，不截图
+                        rec = {
+                            "step": self.base_step + self.step_counter,
+                            "action_type": "left_click",
+                            "x": global_logical.x(),
+                            "y": global_logical.y(),
+                            "delay": 0.1
+                        }
+                        self.new_records.append(rec)
+                        self.update()
+                    elif event.button() == Qt.RightButton:
+                        self.step_counter += 1
+                        global_logical = self.mapToGlobal(event.pos())
+                        rec = {
+                            "step": self.base_step + self.step_counter,
+                            "action_type": "right_click",
+                            "x": global_logical.x(),
+                            "y": global_logical.y(),
+                            "delay": 0.1
+                        }
+                        self.new_records.append(rec)
+                        self.update()
+
+                def keyPressEvent(self, event):
+                    if event.key() == Qt.Key_Escape:
+                        self._finish()
+                    super().keyPressEvent(event)
+
+                def _finish(self):
+                    if self._focus_timer:
+                        self._focus_timer.stop()
+                    # 保存到 recording.json
+                    try:
+                        import json
+                        rp = os.path.join(self.folder, 'recording.json')
+                        all_ops = []
+                        if os.path.exists(rp):
+                            with open(rp, 'r', encoding='utf-8') as f:
+                                all_ops = json.load(f)
+                        if not isinstance(all_ops, list):
+                            all_ops = []
+                        all_ops.extend(self.new_records)
+                        with open(rp, 'w', encoding='utf-8') as f:
+                            json.dump(all_ops, f, indent=2, ensure_ascii=False)
+                    except Exception:
+                        import traceback
+                        traceback.print_exc()
+                    self.closed.emit()
+                    self.close()
+
+            self._coord_recorder = _CoordRecorder(self, folder_path, max_step)
+            self._coord_recorder.closed.connect(self._on_coord_recording_done)
+            self._coord_recorder.show()
+            self._coord_recorder.raise_()
+            self._coord_recorder.activateWindow()
+            self._coord_recorder.setFocus(Qt.ActiveWindowFocusReason)
+
+            self._need_remove_grave_hotkey = True
+            parent_dialog.close()
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            try:
+                self.parent.is_recording = False
+                self.parent.record_btn.setEnabled(True)
+                self.parent.record_btn.setText('录\n制')
+                self.parent.showNormal()
+            except:
+                pass
+            self.parent.show_beautiful_message('critical', "错误", f"添加坐标操作失败: {str(e)}", parent=parent_dialog)
+            parent_dialog.close()
+
+    def _on_coord_recording_done(self):
+        """坐标录制完成后的清理"""
+        try:
+            self.parent._set_recording_state(False)
+            self.parent.record_btn.setEnabled(True)
+            self.parent.record_btn.setText('录\n制')
+            if hasattr(self.parent, 'manage_recordings_btn'):
+                self.parent.manage_recordings_btn.setEnabled(True)
+            if hasattr(self.parent, 'record_action'):
+                self.parent.record_action.setEnabled(True)
+                self.parent.record_action.setText('开始录制')
+            self.parent.showNormal()
+            self.parent.raise_()
+            self.parent.activateWindow()
+        except:
+            pass
+        # 刷新视图
+        if hasattr(self, '_coord_recorder'):
+            try:
+                self._coord_recorder.deleteLater()
+            except:
+                pass
+            self._coord_recorder = None
+        self.refresh_view_images(str(self._current_view_folder_path)) if hasattr(self, '_current_view_folder_path') else None
+        if hasattr(self.parent, 'folder_manager') and self.parent.folder_manager:
+            try:
+                self.parent.folder_manager.load_folders()
+            except:
+                pass
+
     def update_action(self, index, action, folder_path=None):
         try:
             self.image_actions[index] = action
@@ -2186,16 +2393,300 @@ class FolderManager(QDialog):
             # print(f"更新操作类型失败: {e}")  # [日志已禁用]
             pass
     
+    def _build_coord_table_panel(self, parent_window, folder_path, recording_json_path):
+        """
+        构建坐标数据表格面板（可嵌入任意对话框）
+        返回: QWidget 包含表格和操作按钮，或 None（数据为空时）
+        """
+        recording_data = load_json_data(recording_json_path)
+        if not isinstance(recording_data, list) or not recording_data:
+            return None
+
+        container = QWidget()
+        container.setStyleSheet("QWidget{background:transparent;}")
+        _cl = QVBoxLayout(container)
+        _cl.setContentsMargins(0, 0, 0, 0)
+        _cl.setSpacing(6)
+
+        # 标题栏（macOS 风格分段标题）
+        _header = QFrame()
+        _header.setStyleSheet("QFrame{background:rgba(245,245,247,0.9);border-radius:8px;}")
+        _hl = QHBoxLayout(_header)
+        _hl.setContentsMargins(12, 6, 12, 6)
+        _title = QLabel("📋 操作步骤详情")
+        _title.setStyleSheet("font-size:13px; font-weight:600; color:#1C1C1E; background:transparent; border:none;")
+        _hl.addWidget(_title)
+        _hl.addStretch()
+        _count = QLabel(f"{len(recording_data)} 步")
+        _count.setStyleSheet("font-size:11px; color:#86868B; background:transparent; border:none;")
+        _hl.addWidget(_count)
+        _cl.addWidget(_header)
+
+        # 创建表格
+        table = QTableWidget()
+        table.setColumnCount(4)
+        table.setHorizontalHeaderLabels(["步骤", "操作类型", "参数", "操作"])
+        table.setRowCount(len(recording_data))
+
+        table.setStyleSheet(
+            "QTableWidget{background:#FFFFFF;border:1px solid #E5E5EA;border-radius:8px;gridline-color:transparent;outline:none;}"
+            "QTableWidget::item{padding:4px 6px;border:none;color:#1D1D1F;}"
+            "QTableWidget::item:hover{background:#F0F0F2;}"
+            "QTableWidget::item:selected{background:#E8F0FE;color:#1D1D1F;}"
+            "QHeaderView{border:none;}"
+            "QHeaderView::section{background:#F5F5F7;color:#86868B;padding:6px 10px;border-bottom:1px solid #E5E5EA;border-right:none;font-weight:600;font-size:12px;}"
+            "QTableCornerButton::section{background:#F5F5F7;border:none;}"
+        )
+        table.verticalHeader().setDefaultSectionSize(60)
+        table.horizontalHeader().setStretchLastSection(False)
+
+        # 操作类型显示配置
+        _at_cfg = {
+            'left_click':    ('👆 Click',     '#34C759', 'rgba(52,199,89,0.15)'),
+            'right_click':   ('👉 右击',      '#34C759', 'rgba(52,199,89,0.15)'),
+            'double_click':  ('👆👆 双击',    '#34C759', 'rgba(52,199,89,0.15)'),
+            'middle_click':  ('🖱️ 中击',     '#34C759', 'rgba(52,199,89,0.15)'),
+            'text_input':    ('📝 文本',      '#FF9500', 'rgba(255,149,0,0.15)'),
+            'keyboard':      ('⌨️ 按键',      '#0A84FF', 'rgba(10,132,255,0.15)'),
+            'keyboard_direct': ('⌨️ 按键',    '#0A84FF', 'rgba(10,132,255,0.15)'),
+            'scroll':        ('🔄 滚动',      '#6E6E73', 'rgba(142,142,147,0.2)'),
+            'condition':     ('🔀 条件分支',   '#AF52DE', 'rgba(175,82,222,0.15)'),
+        }
+        _menu_items = [
+            ("👆 Click", "left_click"), ("👉 右击", "right_click"),
+            ("👆👆 双击", "double_click"), ("🖱️ 中击", "middle_click"),
+            ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
+            ("🔄 滚动", "scroll")
+        ]
+
+        def _make_type_btn(row_idx, current_type):
+            _cfg = _at_cfg.get(current_type, (current_type, '#8E8E93', 'rgba(142,142,147,0.2)'))
+            _btn = QPushButton(_cfg[0])
+            _btn.setFixedHeight(28)
+            _btn.setCursor(Qt.PointingHandCursor)
+            _btn.setStyleSheet(f"QPushButton{{background:{_cfg[2]};color:{_cfg[1]};border:none;border-radius:12px;font-weight:600;font-size:10px;padding:0 8px;}}QPushButton:hover{{background:rgba(200,200,210,0.4);}}QPushButton::menu-indicator{{width:0;}}")
+            _m = QMenu()
+            for _lbl, _val in _menu_items:
+                _a = _m.addAction(_lbl)
+                _a.triggered.connect(lambda checked, v=_val, idx=row_idx: (
+                    self._update_coord_action_type(recording_data, recording_json_path, idx, v, _refresh_table)
+                ))
+            _btn.setMenu(_m)
+            return _btn
+
+        def _make_param_widget(row_idx, record):
+            _at = record.get('action_type', 'left_click')
+            _w = QWidget()
+            _w.setStyleSheet("QWidget{background:transparent;}")
+            _l = QHBoxLayout(_w)
+            _l.setContentsMargins(4,0,4,0)
+            _l.setAlignment(Qt.AlignCenter)
+            if _at == 'text_input':
+                _txt = record.get('text', '')
+                _disp = _txt[:15] + "..." if len(_txt) > 15 else _txt
+                _lb = QLabel(_disp if _disp else "(空)")
+                _lb.setStyleSheet("QLabel{color:#FF9500;font-size:11px;padding:2px 6px;background:rgba(255,149,0,0.1);border-radius:6px;}")
+                _lb.setCursor(Qt.PointingHandCursor)
+                _lb.mousePressEvent = lambda e, idx=row_idx: self._show_text_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _refresh_table)
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
+            elif _at in ('keyboard', 'keyboard_direct'):
+                _k = record.get('key', '')
+                _lb = QLabel(f"⌨ {_k}" if _k else "(空)")
+                _lb.setStyleSheet("QLabel{color:#0A84FF;font-size:11px;padding:2px 6px;background:rgba(10,132,255,0.1);border-radius:6px;}")
+                _lb.setCursor(Qt.PointingHandCursor)
+                _lb.mousePressEvent = lambda e, idx=row_idx: self._show_key_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _refresh_table)
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
+            elif _at == 'scroll':
+                _amt = record.get('scroll_amount', 3)
+                _dir = "上" if _amt > 0 else "下"
+                _lb = QLabel(f"{_dir}{abs(_amt)}")
+                _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:11px;padding:2px 6px;background:rgba(142,142,147,0.15);border-radius:6px;}")
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
+            elif _at == 'condition':
+                _lb = QLabel("条件分支")
+                _lb.setStyleSheet("QLabel{color:#AF52DE;font-size:11px;padding:2px 6px;background:rgba(175,82,222,0.1);border-radius:6px;}")
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
+            else:
+                _px = record.get('x', 0); _py = record.get('y', 0)
+                _lb = QLabel(f"({_px}, {_py})")
+                _lb.setStyleSheet("QLabel{color:#8E8E93;font-size:11px;}")
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
+            return _w
+
+        def _make_del_widget(row_idx):
+            _w = QWidget()
+            _w.setStyleSheet("QWidget{background:transparent;}")
+            _l = QHBoxLayout(_w)
+            _l.setContentsMargins(4,0,4,0)
+            _l.setAlignment(Qt.AlignCenter)
+            _b = QPushButton("删除")
+            _b.setFixedHeight(28)
+            _b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            _b.setStyleSheet("QPushButton{background:transparent;color:#FF3B30;border:1px solid #FF3B30;border-radius:6px;padding:2px 8px;font-size:12px;}QPushButton:hover{background:#FF3B30;color:white;}")
+            _b.setCursor(Qt.PointingHandCursor)
+            _b.clicked.connect(lambda checked=False, idx=row_idx: (
+                recording_data.pop(idx),
+                [None for _ii,_oo in enumerate(recording_data,1) for _ in (_oo.__setitem__("step",_ii),)],
+                save_json_data(recording_json_path, recording_data),
+                _refresh_table()
+            ))
+            _l.addWidget(_b, 0, Qt.AlignVCenter | Qt.AlignHCenter)
+            return _w
+
+        # 填充数据
+        for i, record in enumerate(recording_data):
+            step = record.get('step', i + 1)
+            action_type = record.get('action_type', 'left_click')
+            step_item = QTableWidgetItem(str(step))
+            step_item.setTextAlignment(Qt.AlignCenter)
+            table.setItem(i, 0, step_item)
+            _ab = _make_type_btn(i, action_type)
+            _aw = QWidget(); _aw.setStyleSheet("QWidget{background:transparent;}")
+            _al = QHBoxLayout(_aw); _al.setContentsMargins(4,0,4,0); _al.setAlignment(Qt.AlignCenter)
+            _al.addWidget(_ab, 0, Qt.AlignVCenter | Qt.AlignHCenter)
+            table.setCellWidget(i, 1, _aw)
+            table.setCellWidget(i, 2, _make_param_widget(i, record))
+            table.setCellWidget(i, 3, _make_del_widget(i))
+            table.setRowHeight(i, 60)
+
+        # 表格刷新函数
+        def _refresh_table():
+            table.setRowCount(len(recording_data))
+            for _i,_o in enumerate(recording_data):
+                _at = _o.get('action_type', 'left_click')
+                table.setItem(_i,0,QTableWidgetItem(str(_o.get("step",_i+1)))); table.item(_i,0).setTextAlignment(Qt.AlignCenter)
+                _ab2 = _make_type_btn(_i, _at)
+                _aw2 = QWidget(); _aw2.setStyleSheet("QWidget{background:transparent;}")
+                _al2 = QHBoxLayout(_aw2); _al2.setContentsMargins(4,0,4,0); _al2.setAlignment(Qt.AlignCenter)
+                _al2.addWidget(_ab2, 0, Qt.AlignVCenter | Qt.AlignHCenter)
+                table.setCellWidget(_i, 1, _aw2)
+                table.setCellWidget(_i, 2, _make_param_widget(_i, _o))
+                table.setCellWidget(_i, 3, _make_del_widget(_i))
+                table.setRowHeight(_i, 60)
+
+        # 设置列宽
+        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        table.setColumnWidth(3, 70)
+
+        _cl.addWidget(table, 1)  # stretch=1 让表格占满空间
+
+        # 底部按钮
+        btn_layout = QHBoxLayout()
+        add_btn = QPushButton("+ 添加操作 ▼")
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #34C759;
+                color: white;
+                border-radius: 6px;
+                padding: 8px 16px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #28A745;
+            }
+            QPushButton::menu-indicator { width: 0; }
+        """)
+        add_menu = QMenu()
+        add_menu.addAction("👆 点击坐标").triggered.connect(lambda: _add_coord_op())
+        add_menu.addAction("📝 文本输入").triggered.connect(lambda: _add_text_op())
+        add_menu.addAction("⌨️ 按键输入").triggered.connect(lambda: _add_key_op())
+        add_menu.addAction("🔄 滚动").triggered.connect(lambda: _add_scroll_op())
+        add_btn.setMenu(add_menu)
+
+        def _add_coord_op():
+            """添加坐标点击操作"""
+            from PyQt5.QtGui import QPainter as _QP, QFont as _QFt, QColor as _QC
+            from PyQt5.QtCore import QTimer as _QT
+            if self.parent and self.parent.isVisible():
+                self.parent.showMinimized()
+            parent_window.showMinimized()
+            _ov = QDialog(parent_window)
+            _ov.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+            _ov.setAttribute(Qt.WA_TranslucentBackground)
+            _ov.setMouseTracking(True)
+            _tg = QRect()
+            for _s in QApplication.screens():
+                _tg = _tg.united(_s.geometry())
+            _ov.setGeometry(_tg)
+            def _mp(ev):
+                if ev.button() == Qt.LeftButton:
+                    _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
+                    _x = int(ev.globalX() * _dpr); _y = int(ev.globalY() * _dpr)
+                    recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
+                    for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+                    save_json_data(recording_json_path, recording_data)
+                    _refresh_table()
+                    _ov.accept()
+                elif ev.button() == Qt.RightButton:
+                    _ov.reject()
+            _ov.mousePressEvent = _mp
+            def _pe(ev):
+                _p = _QP(_ov)
+                _p.setRenderHint(_p.Antialiasing)
+                _p.fillRect(_ov.rect(), _QC(0,0,0,100))
+                _f = _QFt("PingFang SC,SimHei",16)
+                _p.setFont(_f)
+                _p.setPen(_QC("#FFFFFF"))
+                _p.drawText(_ov.rect(), Qt.AlignCenter, "🖱️ 点击目标位置添加左键操作\n右键/Esc 取消")
+                _p.end()
+            _ov.paintEvent = _pe
+            def _kp(ev):
+                if ev.key() == Qt.Key_Escape:
+                    _ov.reject()
+                elif ev.key() in (Qt.Key_Return, Qt.Key_Enter):
+                    _cursor = QCursor.pos()
+                    _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
+                    _x = int(_cursor.x() * _dpr); _y = int(_cursor.y() * _dpr)
+                    recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
+                    for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+                    save_json_data(recording_json_path, recording_data)
+                    _refresh_table()
+                    _ov.accept()
+            _ov.keyPressEvent = _kp
+            def _focus():
+                _ov.raise_(); _ov.activateWindow(); _ov.setFocus()
+            _QT.singleShot(100, _focus)
+            _QT.singleShot(300, _focus)
+            _ov.exec_()
+
+        def _add_text_op():
+            recording_data.append({"step":len(recording_data)+1,"action_type":"text_input","text":"","delay":0})
+            for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+            save_json_data(recording_json_path, recording_data)
+            _refresh_table()
+            self._show_text_input_dialog_coord(len(recording_data)-1, folder_path, recording_data, recording_json_path, _refresh_table)
+
+        def _add_key_op():
+            recording_data.append({"step":len(recording_data)+1,"action_type":"keyboard","key":"","delay":0})
+            for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+            save_json_data(recording_json_path, recording_data)
+            _refresh_table()
+            self._show_key_input_dialog_coord(len(recording_data)-1, folder_path, recording_data, recording_json_path, _refresh_table)
+
+        def _add_scroll_op():
+            recording_data.append({"step":len(recording_data)+1,"action_type":"scroll","scroll_amount":3,"delay":0})
+            for _i,_o in enumerate(recording_data,1): _o["step"]=_i
+            save_json_data(recording_json_path, recording_data)
+            _refresh_table()
+
+        btn_layout.addWidget(add_btn)
+        btn_layout.addStretch()
+        _cl.addLayout(btn_layout)
+
+        return container
+
     def show_coordinate_data(self, parent_dialog, folder_path, recording_json_path):
-        """显示坐标录制数据"""
+        """显示坐标录制数据（独立对话框，供外部调用）"""
         try:
-            # 加载坐标数据
             recording_data = load_json_data(recording_json_path)
             if not isinstance(recording_data, list) or not recording_data:
                 self.parent.show_beautiful_message('information', "提示", "该文件夹中没有坐标数据！", parent=parent_dialog)
                 return
-            
-            # 创建坐标数据显示窗口
+
             coord_dialog = QDialog(parent_dialog)
             coord_dialog.setWindowTitle(f"坐标录制数据 - {os.path.basename(str(folder_path))}")
             screen_width, screen_height = get_screen_size()
@@ -2203,8 +2694,7 @@ class FolderManager(QDialog):
             coord_dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
             coord_dialog.setAttribute(Qt.WA_TranslucentBackground)
             center_window(coord_dialog)
-            
-            # macOS 毛玻璃容器（唯一有边框）
+
             _dlg_layout = QVBoxLayout(coord_dialog)
             _dlg_layout.setContentsMargins(0, 0, 0, 0)
             _dlg_layout.setSpacing(0)
@@ -2216,12 +2706,12 @@ class FolderManager(QDialog):
                     border: 2px solid #E5E5EA;
                 }
             """)
-            layout = QVBoxLayout(_outer)
-            layout.setContentsMargins(16, 12, 16, 16)
-            layout.setSpacing(8)
+            _inner = QVBoxLayout(_outer)
+            _inner.setContentsMargins(16, 12, 16, 16)
+            _inner.setSpacing(8)
             _dlg_layout.addWidget(_outer)
-            
-            # 关闭红色圆点（右上角）
+
+            # 关闭红色圆点
             _dh = QHBoxLayout()
             _dh.setContentsMargins(0, 0, 0, 0)
             _dh.addStretch()
@@ -2233,15 +2723,14 @@ class FolderManager(QDialog):
                 if ev.button()==Qt.LeftButton: coord_dialog.close()
             _dot.mousePressEvent = _closeD
             _dh.addWidget(_dot)
-            layout.addLayout(_dh)
-            
-            # 标题标签
+            _inner.addLayout(_dh)
+
             title_label = QLabel("📍 坐标录制数据")
             title_label.setStyleSheet("font-size:16px; font-weight:bold; color:#1C1C1E; padding:4px 0; background:transparent; border:none;")
             title_label.setAlignment(Qt.AlignCenter)
-            layout.addWidget(title_label)
+            _inner.addWidget(title_label)
 
-            # 对话框级别拖动
+            # 对话框拖动
             coord_dialog._drag_pos = None
             def _dialog_press(ev):
                 if ev.button() == Qt.LeftButton:
@@ -2253,204 +2742,161 @@ class FolderManager(QDialog):
             coord_dialog.mouseMoveEvent = _dialog_move
             coord_dialog.setMouseTracking(True)
 
-            # 创建表格显示坐标数据
-            table = QTableWidget()
-            table.setColumnCount(4)
-            table.setHorizontalHeaderLabels(["步骤", "操作类型", "坐标位置", "操作"])
-            table.setRowCount(len(recording_data))
+            # 嵌入可复用的表格面板
+            panel = self._build_coord_table_panel(coord_dialog, folder_path, recording_json_path)
+            if panel:
+                _inner.addWidget(panel, 1)
 
-            # configure_table 被 setStyleSheet 覆盖，已移除
-            # 彻底清除表格所有边框（系统默认边框也不保留）
-            table.setStyleSheet(
-                "QTableWidget{background:#FFFFFF;border:none;border-radius:8px;gridline-color:transparent;outline:none;}"
-                "QTableWidget::item{padding:4px 6px;border:none;color:#1D1D1F;}"
-                "QTableWidget::item:hover{background:#F0F0F2;}"
-                "QTableWidget::item:selected{background:#E8F0FE;color:#1D1D1F;}"
-                "QTableWidget:focus{border:none;outline:none;}"
-                "QHeaderView{border:none;}"
-                "QHeaderView::section{background:#FFFFFF;color:#86868B;padding:6px 10px;border:none;font-weight:600;font-size:12px;}"
-                "QTableCornerButton::section{background:#FFFFFF;border:none;}"
-            )
-            table.setColumnWidth(3, 70)
-            table.verticalHeader().setDefaultSectionSize(60)
-            table.horizontalHeader().setStretchLastSection(False)
-            
-            # 填充数据
-            for i, record in enumerate(recording_data):
-                step = record.get('step', i + 1)
-                action_type = record.get('action_type', 'left_click')
-                x = record.get('x', 0)
-                y = record.get('y', 0)
-                
-                # 步骤
-                step_item = QTableWidgetItem(str(step))
-                step_item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(i, 0, step_item)
-                
-                # 操作类型
-                action_map = {
-                    'left_click': 'click',
-                    'right_click': 'right click',
-                    'double_click': 'double click',
-                    'middle_click': 'middle click'
-                }
-                action_text = action_map.get(action_type, action_type)
-                action_item = QTableWidgetItem(action_text)
-                action_item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(i, 1, action_item)
-                
-                # 坐标
-                coord_item = QTableWidgetItem(f"({x}, {y})")
-                coord_item.setTextAlignment(Qt.AlignCenter)
-                table.setItem(i, 2, coord_item)
-                # 删除按钮（第3列）
-                _del_w = QWidget()
-                _del_w.setStyleSheet("QWidget{background:transparent;}")
-                _del_l = QHBoxLayout(_del_w)
-                _del_l.setContentsMargins(4,0,4,0)
-                _del_l.setAlignment(Qt.AlignCenter)
-                _del_b = QPushButton("删除")
-                _del_b.setFixedHeight(28)
-                _del_b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-                _del_b.setStyleSheet("QPushButton{background:transparent;color:#FF3B30;border:1px solid #FF3B30;border-radius:6px;padding:2px 8px;font-size:12px;}QPushButton:hover{background:#FF3B30;color:white;}")
-                _del_b.setCursor(Qt.PointingHandCursor)
-                _row_idx = i
-                def _del_row_cb(checked=False, idx=_row_idx):
-                    del recording_data[idx]
-                    for _ii,_oo in enumerate(recording_data,1): _oo["step"]=_ii
-                    save_json_data(recording_json_path, recording_data)
-                    _refresh_table()
-                _del_b.clicked.connect(_del_row_cb)
-                _del_l.addWidget(_del_b, 0, Qt.AlignVCenter | Qt.AlignHCenter)
-                table.setCellWidget(i, 3, _del_w)
-                table.setRowHeight(i, 60)
-
-            # 表格刷新函数（删除后调用）
-            def _refresh_table():
-                table.setRowCount(len(recording_data))
-                for _i,_o in enumerate(recording_data):
-                    _tm = {"left_click":"click","right_click":"right click","double_click":"double click","middle_click":"middle click"}
-                    table.setItem(_i,0,QTableWidgetItem(str(_o.get("step",_i+1)))); table.item(_i,0).setTextAlignment(Qt.AlignCenter)
-                    table.setItem(_i,1,QTableWidgetItem(_tm.get(_o.get("action_type"),_o.get("action_type")))); table.item(_i,1).setTextAlignment(Qt.AlignCenter)
-                    table.setItem(_i,2,QTableWidgetItem("("+str(_o.get("x",0))+", "+str(_o.get("y",0))+")")); table.item(_i,2).setTextAlignment(Qt.AlignCenter)
-                    # 重新添加删除按钮
-                    _dww = QWidget()
-                    _dww.setStyleSheet("QWidget{background:transparent;}")
-                    _dww.setStyleSheet("QWidget{background:transparent;}")
-                    _dll = QHBoxLayout(_dww)
-                    _dll.setContentsMargins(4,0,4,0)
-                    _dll.setAlignment(Qt.AlignCenter)
-                    _dbb = QPushButton("删除")
-                    _dbb.setFixedHeight(28)
-                    _dbb.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-                    _dbb.setStyleSheet("QPushButton{background:transparent;color:#FF3B30;border:1px solid #FF3B30;border-radius:6px;padding:2px 8px;font-size:12px;}QPushButton:hover{background:#FF3B30;color:white;}")
-                    _dbb.setCursor(Qt.PointingHandCursor)
-                    _rii = _i
-                    def _drr(checked=False, idx2=_rii):
-                        del recording_data[idx2]
-                        for _ii2,_oo2 in enumerate(recording_data,1): _oo2["step"]=_ii2
-                        save_json_data(recording_json_path, recording_data)
-                        _refresh_table()
-                    _dbb.clicked.connect(_drr)
-                    _dll.addWidget(_dbb, 0, Qt.AlignVCenter | Qt.AlignHCenter)
-                    table.setCellWidget(_i, 3, _dww)
-                    table.setRowHeight(_i, 60)
-
-            # 设置列宽
-            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-            table.setColumnWidth(3, 70)
-
-            layout.addWidget(table)
-
-            btn_layout = QHBoxLayout()
-            add_btn = QPushButton("+ 添加操作")
-            add_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #34C759;
-                    color: white;
-                    border-radius: 6px;
-                    padding: 10px 20px;
-                    font-size: 13px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #28A745;
-                }
-            """)
-            def _add_op():
-                from PyQt5.QtGui import QPainter as _QP, QFont as _QFt, QColor as _QC
-                from PyQt5.QtCore import QTimer as _QT
-                # 最小化主窗口
-                if self.parent and self.parent.isVisible():
-                    self.parent.showMinimized()
-                # 最小化坐标对话框
-                coord_dialog.showMinimized()
-                _ov = QDialog(coord_dialog)
-                _ov.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-                _ov.setAttribute(Qt.WA_TranslucentBackground)
-                _ov.setMouseTracking(True)
-                _tg = QRect()
-                for _s in QApplication.screens():
-                    _tg = _tg.united(_s.geometry())
-                _ov.setGeometry(_tg)
-                def _mp(ev):
-                    if ev.button() == Qt.LeftButton:
-                        _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0; _x = int(ev.globalX() * _dpr); _y = int(ev.globalY() * _dpr)
-                        recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.3})
-                        for _i,_o in enumerate(recording_data,1): _o["step"]=_i
-                        save_json_data(recording_json_path, recording_data)
-                        _refresh_table()
-                        _ov.accept()
-                    elif ev.button() == Qt.RightButton:
-                        _ov.reject()
-                _ov.mousePressEvent = _mp
-                def _pe(ev):
-                    _p = _QP(_ov)
-                    _p.setRenderHint(_p.Antialiasing)
-                    _p.fillRect(_ov.rect(), _QC(0,0,0,100))
-                    _f = _QFt("PingFang SC,SimHei",16)
-                    _p.setFont(_f)
-                    _p.setPen(_QC("#FFFFFF"))
-                    _p.drawText(_ov.rect(), Qt.AlignCenter, "🖱️ 点击目标位置添加左键操作\n右键/Esc 取消")
-                    _p.end()
-                _ov.paintEvent = _pe
-                def _kp(ev):
-                    if ev.key() == Qt.Key_Escape:
-                        _ov.reject()
-                    elif ev.key() in (Qt.Key_Return, Qt.Key_Enter):
-                        # 回车键：用鼠标当前位置作为坐标
-                        _cursor = QCursor.pos()
-                        _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
-                        _x = int(_cursor.x() * _dpr); _y = int(_cursor.y() * _dpr)
-                        recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.3})
-                        for _i,_o in enumerate(recording_data,1): _o["step"]=_i
-                        save_json_data(recording_json_path, recording_data)
-                        _refresh_table()
-                        _ov.accept()
-                _ov.keyPressEvent = _kp
-                def _focus():
-                    _ov.raise_(); _ov.activateWindow(); _ov.setFocus()
-                _QT.singleShot(100, _focus)
-                _QT.singleShot(300, _focus)
-                _ov.exec_()
-            add_btn.clicked.connect(_add_op)
-            btn_layout.addWidget(add_btn)
-            btn_layout.addStretch()
+            # 添加关闭按钮
+            _btn_bar = QHBoxLayout()
+            _btn_bar.addStretch()
             close_btn = QPushButton("关闭")
             close_btn.setStyleSheet("""QPushButton{background-color:#0A84FF;color:white;border:none;border-radius:6px;padding:10px 24px;font-size:13px;font-weight:bold;}QPushButton:hover{background-color:#006AE0;}""")
             close_btn.clicked.connect(coord_dialog.close)
-            btn_layout.addWidget(close_btn)
-            layout.addLayout(btn_layout)
+            _btn_bar.addWidget(close_btn)
+            _inner.addLayout(_btn_bar)
+
             parent_dialog.close()
             coord_dialog.exec_()
-            
         except Exception as e:
-            # print(f"显示坐标数据失败: {e}")  # [日志已禁用]
             traceback.print_exc()
             StyledMessageDialog(self, title='错误', text=f"显示坐标数据失败: {e}", msg_type='critical', buttons='ok').exec_()
+    
+    def _update_coord_action_type(self, recording_data, recording_json_path, index, new_type, refresh_cb, btn=None):
+        """更新坐标录制数据中指定步骤的操作类型"""
+        if index < len(recording_data):
+            record = recording_data[index]
+            old_type = record.get('action_type', 'left_click')
+            record['action_type'] = new_type
+            # 切换操作类型时，清理不相关的字段
+            if new_type in ('left_click', 'right_click', 'double_click', 'middle_click'):
+                # 保留坐标，移除文本/按键相关字段
+                record.pop('text', None)
+                record.pop('key', None)
+                record.pop('scroll_amount', None)
+                if 'x' not in record or 'y' not in record:
+                    record['x'] = 0
+                    record['y'] = 0
+            elif new_type == 'text_input':
+                if 'text' not in record or not record['text']:
+                    record['text'] = ''
+                record.pop('scroll_amount', None)
+            elif new_type == 'keyboard':
+                if 'key' not in record or not record['key']:
+                    record['key'] = ''
+                record.pop('text', None)
+                record.pop('scroll_amount', None)
+            elif new_type == 'scroll':
+                if 'scroll_amount' not in record:
+                    record['scroll_amount'] = 3
+                record.pop('text', None)
+                record.pop('key', None)
+            save_json_data(recording_json_path, recording_data)
+            refresh_cb()
+    
+    def _show_text_input_dialog_coord(self, index, folder_path, recording_data, recording_json_path, refresh_cb):
+        """坐标数据表格用的文本输入对话框（直接操作 recording_data）"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
+        from PyQt5.QtCore import Qt
+        current_text = ""
+        if index < len(recording_data):
+            current_text = recording_data[index].get('text', '')
+        dialog = QDialog(self.parent)
+        dialog.setWindowTitle("修改文本")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        apply_dialog_style(dialog, 0.35, 0.2)
+        layout = QVBoxLayout()
+        label = QLabel("请输入新的文本内容:")
+        layout.addWidget(label)
+        text_edit = QLineEdit(current_text)
+        text_edit.setClearButtonEnabled(True)
+        text_edit.selectAll()
+        layout.addWidget(text_edit)
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        ok_btn.setFocusPolicy(Qt.StrongFocus)
+        ok_btn.setDefault(True)
+        ok_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(ok_btn)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setFocusPolicy(Qt.StrongFocus)
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+        if dialog.exec_() == QDialog.Accepted:
+            new_text = text_edit.text()
+            if index < len(recording_data):
+                recording_data[index]['text'] = new_text
+                recording_data[index]['action_type'] = 'text_input'
+                save_json_data(recording_json_path, recording_data)
+                refresh_cb()
+
+    def _show_key_input_dialog_coord(self, index, folder_path, recording_data, recording_json_path, refresh_cb):
+        """坐标数据表格用的按键输入对话框（直接操作 recording_data）"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
+        from PyQt5.QtCore import Qt
+        current_key = ""
+        if index < len(recording_data):
+            current_key = recording_data[index].get('key', '')
+        dialog = QDialog(self.parent)
+        dialog.setWindowTitle("修改按键")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        apply_dialog_style(dialog, 0.3, 0.2)
+        layout = QVBoxLayout()
+        label = QLabel("请按下要修改的按键(支持组合键):")
+        layout.addWidget(label)
+        line_edit = QLineEdit()
+        line_edit.setClearButtonEnabled(True)
+        line_edit.setReadOnly(True)
+        if current_key:
+            line_edit.setText(current_key)
+        layout.addWidget(line_edit)
+        def on_key(event):
+            key = event.key()
+            if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+                return
+            modifiers = []
+            if event.modifiers() & Qt.ControlModifier: modifiers.append("ctrl")
+            if event.modifiers() & Qt.ShiftModifier: modifiers.append("shift")
+            if event.modifiers() & Qt.AltModifier: modifiers.append("alt")
+            if event.modifiers() & Qt.MetaModifier: modifiers.append("meta")
+            key_map = {
+                Qt.Key_F1:"f1",Qt.Key_F2:"f2",Qt.Key_F3:"f3",Qt.Key_F4:"f4",
+                Qt.Key_F5:"f5",Qt.Key_F6:"f6",Qt.Key_F7:"f7",Qt.Key_F8:"f8",
+                Qt.Key_F9:"f9",Qt.Key_F10:"f10",Qt.Key_F11:"f11",Qt.Key_F12:"f12",
+                Qt.Key_Space:"space",Qt.Key_Return:"return",Qt.Key_Tab:"tab",
+                Qt.Key_Escape:"esc",Qt.Key_Backspace:"backspace",Qt.Key_Delete:"delete",
+                Qt.Key_Home:"home",Qt.Key_End:"end",Qt.Key_PageUp:"pageup",Qt.Key_PageDown:"pagedown",
+                Qt.Key_Up:"up",Qt.Key_Down:"down",Qt.Key_Left:"left",Qt.Key_Right:"right",
+                Qt.Key_Insert:"insert",
+            }
+            key_name = key_map.get(key, (chr(key).lower() if key < 128 else ""))
+            if key_name:
+                parts = modifiers + [key_name]
+                line_edit.setText("+".join(parts))
+        dialog.keyPressEvent = on_key
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        ok_btn.setFocusPolicy(Qt.StrongFocus)
+        ok_btn.setDefault(True)
+        ok_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(ok_btn)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setFocusPolicy(Qt.StrongFocus)
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+        if dialog.exec_() == QDialog.Accepted:
+            new_key = line_edit.text()
+            if index < len(recording_data):
+                recording_data[index]['key'] = new_key
+                recording_data[index]['action_type'] = 'keyboard'
+                save_json_data(recording_json_path, recording_data)
+                refresh_cb()
     
     def show_key_input_dialog(self, index, folder_path):
         """显示按键输入对话框，用于修改按键"""
@@ -5052,7 +5498,7 @@ class AutoRecorderApp(QMainWindow):
                 w = item.widget()
                 if w:
                     w.deleteLater()
-            self.folder_manager._populate_image_rows(dialog, folder_path, list_layout)
+            self.folder_manager._populate_unified_rows(dialog, folder_path, list_layout)
     def delete_image_from_grid(self, img_path, folder_path):
         """从图片网格中删除指定图片"""
         if not os.path.exists(img_path):
