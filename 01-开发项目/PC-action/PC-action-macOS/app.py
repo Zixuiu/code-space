@@ -1590,13 +1590,91 @@ class FolderManager(QDialog):
         if not isinstance(recording_data, list) or not recording_data:
             return
 
-        # 获取所有图片文件，按步骤号索引
-        image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
-        image_map = {}
-        for f in image_files:
-            m = re.search(r'操作(\d+)', f)
-            if m:
-                image_map[int(m.group(1))] = f
+        # ======================================================================
+        # ★★★ 历史数据自修复（解决：删除/交换纯坐标步骤后，image文件名与磁盘物理文件错乱 ★★★
+        # 检查：磁盘上的操作*.png数量 是否等于 JSON中image字段非空的条目数，且每个image字段都真实存在
+        # 如果不一致 → 按"磁盘图片顺序"重新给 JSON中的image条目分配 操作1,操作2,... 文件名
+        # 这样之前被bug搞坏的数据，用户只要打开"查看步骤"一次就自动修复了！
+        # ======================================================================
+        try:
+            import os as _os
+            import re as _re
+            _disk_imgs = [_f for _f in _os.listdir(folder_path) if _f.lower().endswith('.png') and _re.search(r'操作(\d+)\.png', _f)]
+            def _dn(_f):
+                _mm = _re.search(r'操作(\d+)\.png', _f)
+                return int(_mm.group(1)) if _mm else 999999
+            _disk_imgs_sorted = sorted(_disk_imgs, key=_dn)
+            _disk_count = len(_disk_imgs_sorted)
+            _json_image_entries = [(i, d) for i, d in enumerate(recording_data) if d.get('image')]
+            _json_img_count = len(_json_image_entries)
+            # 判定是否需要修复：(数量对不上) OR (有任意image字段指向的文件不存在) OR (image编号和第几次出现不匹配)
+            _need_fix = False
+            if _disk_count != _json_img_count:
+                _need_fix = True
+            else:
+                _c = 0
+                for _, _d in _json_image_entries:
+                    _c += 1
+                    _expected = f"操作{_c}.png"
+                    if _d.get('image') != _expected or not _os.path.exists(_os.path.join(folder_path, _expected)):
+                        _need_fix = True
+                        break
+            if _need_fix:
+                # ★★★ 核心修复：rename 磁盘文件必须跟着 JSON 里的有image条目走！
+                # （而不是磁盘和JSON各自排序 → 会导致"图片内容"与"JSON里的x/y坐标"错位！）
+                # 逻辑：遍历JSON，按顺序遇到每一条有image的条目 → 把这个条目当前引用的磁盘图片
+                #       rename成 "操作N.png"（N=这是第几张图），保证图片内容和JSON的x/y永远绑定！
+                import uuid as _uuid
+                import os as _os
+                # 第一阶段：先把所有 "有image条目对应的磁盘文件" 改成临时名（避免重名冲突）
+                _tmp_rename_map = []  # [(旧磁盘路径, 临时磁盘路径, 最终应该叫的新名)]
+                _used_tmp = set()
+                _img_counter = 0
+                for _i, _d in enumerate(recording_data):
+                    if 'image' in _d and _d.get('image'):
+                        _img_counter += 1
+                        _old_name = _d['image']
+                        _oldp = _os.path.join(folder_path, _old_name)
+                        _final_name = f"操作{_img_counter}.png"
+                        if _os.path.exists(_oldp) and _old_name != _final_name:
+                            while True:
+                                _tmp_name = f"_fix_tmp_{_uuid.uuid4().hex[:10]}_{_old_name}"
+                                _tmpp = _os.path.join(folder_path, _tmp_name)
+                                if not _os.path.exists(_tmpp) and _tmp_name not in _used_tmp:
+                                    _used_tmp.add(_tmp_name)
+                                    break
+                            try:
+                                _os.rename(_oldp, _tmpp)
+                                _tmp_rename_map.append((_oldp, _tmpp, _final_name))
+                            except Exception:
+                                pass
+                # 第二阶段：所有临时文件 → 改成最终的新编号名
+                for _oldp, _tmpp, _final_name in _tmp_rename_map:
+                    try:
+                        if _os.path.exists(_tmpp):
+                            _finalp = _os.path.join(folder_path, _final_name)
+                            if _os.path.exists(_finalp):
+                                try: _os.replace(_tmpp, _finalp)
+                                except Exception: _os.rename(_tmpp, _finalp)
+                            else:
+                                _os.rename(_tmpp, _finalp)
+                    except Exception:
+                        pass
+                # 修复JSON：按"image条目出现顺序"重新对齐 image 字段 + step也严格1..N
+                _img_counter = 0
+                for _i, _d in enumerate(recording_data):
+                    _d['step'] = _i + 1
+                    if 'image' in _d and _d.get('image'):
+                        _img_counter += 1
+                        if _img_counter <= _disk_count:
+                            _d['image'] = f"操作{_img_counter}.png"
+                        else:
+                            # 异常：image条目比磁盘图片多 → 清掉变成纯坐标步骤
+                            _d.pop('image', None)
+                # 保存修复后的数据
+                save_json_data(recording_json_path, recording_data)
+        except Exception:
+            pass
 
         # 操作类型标签配置
         _at_cfg = {
@@ -1620,6 +1698,16 @@ class FolderManager(QDialog):
         control_height = 24
         action_font_size = 11
 
+        def _refresh_image_map():
+            """重新从磁盘获取最新的图片文件映射（每次重命名/删除/交换后必须调用）"""
+            _image_files = [f for f in os.listdir(folder_path) if f.lower().endswith('.png')]
+            _map = {}
+            for _f in _image_files:
+                _m = re.search(r'操作(\d+)', _f)
+                if _m:
+                    _map[int(_m.group(1))] = _f
+            return _map
+
         def _rebuild_all():
             """清空并重建所有行"""
             while list_layout.count():
@@ -1631,10 +1719,15 @@ class FolderManager(QDialog):
 
         def _build_rows():
             """根据 recording_data 构建所有行"""
+            image_map = _refresh_image_map()
             for i, record in enumerate(recording_data):
                 step_num = record.get('step', i + 1)
                 action_type = record.get('action_type', 'left_click')
-                img_file = image_map.get(step_num)
+                # ★★★ 核心修复：直接用 JSON 里的 image 字段，不再用 step_num 查 image_map
+                # 有非图片步骤（按键/坐标/文本）时，step编号 ≠ 图片文件名编号，误判为无图显示绿点
+                img_file = record.get('image')
+                if img_file and not os.path.exists(os.path.join(folder_path, img_file)):
+                    img_file = None
 
                 # ── 每行 = macOS 卡片风格 ──
                 row_widget = QWidget()
@@ -1840,15 +1933,20 @@ class FolderManager(QDialog):
 
                 # ── ⑦ 拖拽排序 ──
                 row_widget._idx = i
+                row_widget._drag_start_pos = None  # ★★★ 修复：提前初始化，避免 AttributeError
                 def _bd(w):
                     def _mpe(s, e):
                         if e.button() == 1: s._drag_start_pos = e.pos()
                         QWidget.mousePressEvent(s, e)
+                    if not hasattr(w, '_drag_start_pos'):
+                        w._drag_start_pos = None
                     w.mousePressEvent = _mpe.__get__(w, QWidget)
                     def _mme(s, e):
                         if not (e.buttons() & 1): return
-                        if s._drag_start_pos is None: return
-                        if (e.pos() - s._drag_start_pos).manhattanLength() < QApplication.startDragDistance(): return
+                        # ★★★ 修复：用 hasattr + getattr 双保险，避免 _drag_start_pos 不存在导致崩溃
+                        _dsp = getattr(s, '_drag_start_pos', None)
+                        if _dsp is None: return
+                        if (e.pos() - _dsp).manhattanLength() < QApplication.startDragDistance(): return
                         d = QDrag(s)
                         m = QMimeData()
                         m.setText(f"{s._idx},{folder_path}")
@@ -1907,11 +2005,17 @@ class FolderManager(QDialog):
         def _swap_rows(idx_a, idx_b):
             """交换两行顺序（同步重命名图片文件）"""
             if 0 <= idx_a < len(recording_data) and 0 <= idx_b < len(recording_data):
+                # 交换前先刷新图片映射，确保使用最新的磁盘文件状态
+                image_map = _refresh_image_map()
                 # 交换图片文件名（保持步骤号与文件名一致）
                 step_a = recording_data[idx_a].get('step', idx_a + 1)
                 step_b = recording_data[idx_b].get('step', idx_b + 1)
-                img_a = image_map.get(step_a)
-                img_b = image_map.get(step_b)
+                img_a = recording_data[idx_a].get('image')
+                img_b = recording_data[idx_b].get('image')
+                if img_a and not os.path.exists(os.path.join(folder_path, img_a)):
+                    img_a = None
+                if img_b and not os.path.exists(os.path.join(folder_path, img_b)):
+                    img_b = None
                 if img_a and img_b:
                     path_a = os.path.join(folder_path, img_a)
                     path_b = os.path.join(folder_path, img_b)
@@ -1924,8 +2028,45 @@ class FolderManager(QDialog):
                         os.rename(tmp_path, path_b)
                 # 无图片的步骤只需要交换数据
                 recording_data[idx_a], recording_data[idx_b] = recording_data[idx_b], recording_data[idx_a]
+                # ★ 重新编号 step + 按出现顺序重新分配 image（磁盘物理顺序已经是1..N）
+                _img_counter = 0
                 for _i, _o in enumerate(recording_data):
                     _o['step'] = _i + 1
+                    if 'image' in _o and _o['image']:
+                        _img_counter += 1
+                        _o['image'] = f"操作{_img_counter}.png"
+                # ★ 同步重命名磁盘图片文件为 操作1,2,3... 顺序
+                # 先收集磁盘上的图片，按编号排序，再两步法重命名避免冲突
+                _disk_imgs = [f for f in os.listdir(folder_path) if f.lower().endswith('.png') and re.search(r'操作(\d+)\.png', f)]
+                def _dnum(f):
+                    mm = re.search(r'操作(\d+)\.png', f)
+                    return int(mm.group(1)) if mm else 999999
+                _disk_imgs_sorted = sorted(_disk_imgs, key=_dnum)
+                import uuid as _uuid
+                _tmps = {}
+                for _ni, _oldf in enumerate(_disk_imgs_sorted):
+                    _newname = f"操作{_ni + 1}.png"
+                    if _oldf == _newname:
+                        continue
+                    _oldp = os.path.join(folder_path, _oldf)
+                    _tmpp = os.path.join(folder_path, f"_sw_tmp_{_uuid.uuid4().hex[:8]}_{_oldf}")
+                    if os.path.exists(_oldp):
+                        try:
+                            os.rename(_oldp, _tmpp)
+                            _tmps[_oldf] = (_tmpp, _newname)
+                        except Exception:
+                            pass
+                for _oldf, (_tmpp, _newname) in _tmps.items():
+                    _newp = os.path.join(folder_path, _newname)
+                    try:
+                        if os.path.exists(_tmpp):
+                            if os.path.exists(_newp):
+                                try: os.replace(_tmpp, _newp)
+                                except Exception: os.rename(_tmpp, _newp)
+                            else:
+                                os.rename(_tmpp, _newp)
+                    except Exception:
+                        pass
                 save_json_data(recording_json_path, recording_data)
                 _rebuild_all()
 
@@ -1960,33 +2101,62 @@ class FolderManager(QDialog):
             if img_file:
                 img_path = os.path.join(folder_path, img_file)
                 if os.path.exists(img_path):
-                    os.remove(img_path)
+                    try: os.remove(img_path)
+                    except: pass
             # 从 recording_data 中移除
             recording_data.pop(idx)
-            # 重排序号
+            # 重排序号 + ★ 同步更新每个步骤的 image 字段
+            # ★★ 关键修复：不能用全局索引 _i 分配图片号！要用"有image的条目出现的顺序"计数
+            #    否则纯坐标步骤（无image）会占一个编号，导致图片步骤和磁盘上的物理文件错开！
+            _img_counter = 0
             for _i, _o in enumerate(recording_data):
                 _o['step'] = _i + 1
-            # 重命名后续图片文件
-            deleted_step = idx + 1
-            other_imgs = [f for f in os.listdir(folder_path) if f.lower().endswith('.png') and re.search(r'操作(\d+)\.png', f)]
-            # 两步法重命名
-            for other_f in other_imgs:
-                m = re.search(r'操作(\d+)\.png', other_f)
-                if m and int(m.group(1)) > deleted_step:
-                    old_p = os.path.join(folder_path, other_f)
-                    tmp_n = f"操作{int(m.group(1))}_tmp.png"
-                    tmp_p = os.path.join(folder_path, tmp_n)
-                    if os.path.exists(old_p):
+                if 'image' in _o and _o['image']:
+                    _img_counter += 1
+                    _o['image'] = f"操作{_img_counter}.png"
+            # ★ 重命名磁盘上的所有图片，严格匹配 recording_data 的 image 字段
+            #  不再依赖 deleted_step 推导，避免键盘步骤占位错位；并且清理历史残留 tmp 文件防 183 错
+            # 0) 先清理残留的 _tmp 临时文件（上次崩溃遗留的）
+            for _leftover in os.listdir(folder_path):
+                if _leftover.lower().endswith('.png') and ('_tmp' in _leftover or '_r_tmp' in _leftover or _leftover.startswith('_tmp_')):
+                    try: os.remove(os.path.join(folder_path, _leftover))
+                    except: pass
+            # 1) 收集磁盘上的操作*.png，按编号排序；操作1.png,操作2.png,操作3.png...
+            disk_imgs = [f for f in os.listdir(folder_path) if f.lower().endswith('.png') and re.search(r'操作(\d+)\.png', f)]
+            def _num(f):
+                m = re.search(r'操作(\d+)\.png', f)
+                return int(m.group(1)) if m else 999999
+            disk_imgs_sorted = sorted(disk_imgs, key=_num)
+            # 2) 按新编号给图片改名：操作1.png保留，操作3.png→操作2.png，...统一对齐1,2,3...
+            #    用uuid保证tmp名唯一，永远不会 FileExistsError(183)
+            tmp_map = {}  # {旧文件名: (临时文件路径, 新文件名)}
+            import uuid as _uuid
+            for new_idx, old_f in enumerate(disk_imgs_sorted):
+                new_name = f"操作{new_idx + 1}.png"
+                old_p = os.path.join(folder_path, old_f)
+                if old_f == new_name:
+                    continue  # 名字一致跳过
+                tmp_name = f"_del_tmp_{_uuid.uuid4().hex[:10]}_{old_f}"
+                tmp_p = os.path.join(folder_path, tmp_name)
+                if os.path.exists(old_p):
+                    try:
                         os.rename(old_p, tmp_p)
-            for other_f in other_imgs:
-                m = re.search(r'操作(\d+)\.png', other_f)
-                if m and int(m.group(1)) > deleted_step:
-                    new_n = f"操作{int(m.group(1)) - 1}.png"
-                    tmp_n = f"操作{int(m.group(1))}_tmp.png"
-                    tmp_p = os.path.join(folder_path, tmp_n)
-                    new_p = os.path.join(folder_path, new_n)
+                        tmp_map[old_f] = (tmp_p, new_name)
+                    except Exception as _e:
+                        print(f"[warn] 重命名图片失败(第一步) {old_f}: {_e}")
+            # 3) 全部 tmp -> 最终名
+            for old_f, (tmp_p, new_name) in tmp_map.items():
+                new_p = os.path.join(folder_path, new_name)
+                try:
                     if os.path.exists(tmp_p):
-                        os.rename(tmp_p, new_p)
+                        if os.path.exists(new_p):
+                            # 极端情况下新文件已存在：用 os.replace(Windows上安全覆盖)
+                            try: os.replace(tmp_p, new_p)
+                            except Exception: os.rename(tmp_p, new_p)
+                        else:
+                            os.rename(tmp_p, new_p)
+                except Exception as _e:
+                    print(f"[warn] 重命名图片失败(第二步) {old_f}->{new_name}: {_e}")
             save_json_data(recording_json_path, recording_data)
             _rebuild_all()
 
@@ -5434,9 +5604,32 @@ class AutoRecorderApp(QMainWindow):
         btn_box = QHBoxLayout()
         btn_box.addWidget(QPushButton("关闭", clicked=dialog.close))
         layout.addLayout(btn_box)
-        
+
+        # ★ 保存引用，给删除图片后的 refresh_view_images 用（防止闪退！）
+        self._view_images_dialog = dialog
+        self._view_images_grid_layout = grid
+        # 兼容 folder_manager 上的访问（两套refresh都要用）
+        if hasattr(self, 'folder_manager') and self.folder_manager:
+            self.folder_manager._view_images_dialog = dialog
+            self.folder_manager._view_images_grid_layout = grid
+
         # 对话框关闭时清理资源
-        dialog.finished.connect(lambda: self._cleanup_view_dialog(dialog, grid))
+        def _on_cleanup(*a, _dlg=dialog, _g=grid):
+            try: self._cleanup_view_dialog(_dlg, _g)
+            except: pass
+            # 清理引用
+            if getattr(self, '_view_images_dialog', None) is _dlg:
+                self._view_images_dialog = None
+            if getattr(self, '_view_images_grid_layout', None) is _g:
+                self._view_images_grid_layout = None
+            try:
+                fm = getattr(self, 'folder_manager', None)
+                if fm and getattr(fm, '_view_images_dialog', None) is _dlg:
+                    fm._view_images_dialog = None
+                if fm and getattr(fm, '_view_images_grid_layout', None) is _g:
+                    fm._view_images_grid_layout = None
+            except: pass
+        dialog.finished.connect(_on_cleanup)
         
         dialog.show()
     
@@ -5589,41 +5782,122 @@ class AutoRecorderApp(QMainWindow):
                 self.show_beautiful_message('critical', "错误", "无法从文件名中提取步骤号", parent=self)
                 return
             del_step = int(m.group(1))
-            os.remove(img_path)
             json_path = os.path.join(folder_path, 'recording.json')
             data = load_json_data(json_path, []) if os.path.exists(json_path) else []
             if not isinstance(data, list):
                 data = []
-            data = [d for d in data if d.get('step') != del_step]
-            
-            # ★ 修复：先重命名磁盘文件（从大到小，避免重名冲突）
-            for f in sorted(os.listdir(folder_path), key=lambda x: -int(re.search(r'操作(\d+)', x).group(1)) if re.search(r'操作(\d+)', x) else 0):
-                if f.lower().endswith('.png') and f != fname:
-                    m2 = re.search(r'操作(\d+)', f)
-                    if m2 and int(m2.group(1)) > del_step:
-                        new_step = int(m2.group(1)) - 1
-                        new_name = re.sub(r'操作\d+', f'操作{new_step}', f)
-                        old = os.path.join(folder_path, f)
-                        new = os.path.join(folder_path, new_name)
-                        if os.path.exists(old) and not os.path.exists(new):
-                            os.rename(old, new)
-            
-            # ★ 修复：同步更新 JSON 中的 step 和 image 字段，使其与重命名后的文件一致
+
+            # --- 策略：找到该图片对应的步骤条目 ---
+            # 先定位 data 中【正好使用了这张图片】的步骤索引（不是step==del_step，因为键盘无图步骤的step和图片编号会错开）
+            target_data_idx = None
+            for idx, d in enumerate(data):
+                if d.get('image') == fname:
+                    target_data_idx = idx
+                    break
+            # 没找到匹配image字段的，兜底：按step找（老版本/异常情况）
+            if target_data_idx is None:
+                for idx, d in enumerate(data):
+                    if d.get('step') == del_step:
+                        target_data_idx = idx
+                        break
+
+            # 1) 先删磁盘文件
+            if os.path.exists(img_path):
+                os.remove(img_path)
+
+            # 2) 处理 JSON：两种情况
+            if target_data_idx is not None:
+                target_entry = data[target_data_idx]
+                # 如果该条目是【纯图片点击】（没有键盘key等且action_type是click）→ 整个条目删除
+                # 如果该条目还有键盘等其他信息 → 仅移除image字段，保留坐标/键盘动作
+                is_pure_image_click = (
+                    'image' in target_entry
+                    and target_entry.get('action_type') in ('left_click', 'right_click', 'double_click', 'middle_click', 'drag')
+                    and 'key' not in target_entry
+                )
+                if is_pure_image_click:
+                    data.pop(target_data_idx)
+                else:
+                    # 混合条目（键盘步骤配了图等）→ 只清掉图片引用，保留动作本身
+                    target_entry.pop('image', None)
+
+            # 3) 【核心】统一编号：先重命名磁盘图片文件 → 再重新分配JSON步骤编号和image字段
+            # Step 0: 清理历史残留的 tmp 临时文件，避免 183 冲突
+            for _leftover in os.listdir(folder_path):
+                if _leftover.lower().endswith('.png') and ('_tmp' in _leftover or '_r_tmp' in _leftover or _leftover.startswith('_tmp_') or _leftover.startswith('_del_tmp_')):
+                    try: os.remove(os.path.join(folder_path, _leftover))
+                    except Exception: pass
+            # Step A: 收集磁盘上所有操作*.png，按编号排序，按顺序重新命名为 操作1.png,操作2.png,...
+            disk_imgs = [f for f in os.listdir(folder_path) if f.lower().endswith('.png') and re.search(r'操作(\d+)\.png', f)]
+            def _img_num(f):
+                mm = re.search(r'操作(\d+)\.png', f)
+                return int(mm.group(1)) if mm else 999999
+            disk_imgs_sorted = sorted(disk_imgs, key=_img_num)
+            # 两步法重命名：先全改成tmp避免冲突
+            import uuid as _uuid
+            tmp_mapping = {}  # 旧名 -> 新名
+            for new_idx, old_f in enumerate(disk_imgs_sorted):
+                new_name = f"操作{new_idx + 1}.png"
+                tmp_mapping[old_f] = new_name
+            # 第一遍：全部 -> tmp_xxx
+            for old_f in disk_imgs_sorted:
+                old_p = os.path.join(folder_path, old_f)
+                tmp_p = os.path.join(folder_path, f"_tmp_{_uuid.uuid4().hex[:8]}_{old_f}")
+                if os.path.exists(old_p):
+                    os.rename(old_p, tmp_p)
+                    tmp_mapping[old_f] = (tmp_p, tmp_mapping[old_f])
+            # 第二遍：tmp_xxx -> 新名
+            final_name_map = {}  # 用于后面JSON更新：图片原名(不含路径) -> 新名
+            for old_f in disk_imgs_sorted:
+                tmp_info = tmp_mapping[old_f]
+                if isinstance(tmp_info, tuple):
+                    tmp_p, new_name = tmp_info
+                    new_p = os.path.join(folder_path, new_name)
+                    if os.path.exists(tmp_p) and not os.path.exists(new_p):
+                        os.rename(tmp_p, new_p)
+                    final_name_map[old_f] = new_name
+
+            # Step B: 重新分配 JSON step编号 + 重新对齐 image 字段
+            # ★ 关键修复：磁盘图片已按"物理顺序"被强制重命名为 操作1, 操作2, ..., 操作N（N=磁盘上的图片数）
+            #   所以 JSON 中有 image 字段的条目，必须按它们【在 data 中的出现顺序】依次对应到
+            #   操作1.png, 操作2.png, ...（这样无论增删了多少纯坐标/键盘步骤，都不会错位）
+            #   这比靠"旧文件名映射"可靠得多！
+            img_counter = 1
+            max_disk_img = len(disk_imgs_sorted)  # 磁盘上实际有多少张图片（就是最终有几张 操作N.png）
             for i, d in enumerate(data):
                 d['step'] = i + 1
-                if 'image' in d:
-                    old_image_name = d['image']
-                    image_match = re.search(r'操作(\d+)\.png', old_image_name)
-                    if image_match:
-                        old_image_step = int(image_match.group(1))
-                        if old_image_step > del_step:
-                            new_image_step = old_image_step - 1
-                            d['image'] = f"操作{new_image_step}.png"
-            
+                if 'image' in d and d['image']:
+                    # 按出现顺序分配新的图片文件名（和磁盘物理顺序严格对齐）
+                    if img_counter <= max_disk_img:
+                        d['image'] = f"操作{img_counter}.png"
+                        img_counter += 1
+                    else:
+                        # 异常：有image字段的条目数 > 磁盘图片数（不可能，安全兜底清掉）
+                        d.pop('image', None)
+
             save_json_data(json_path, data)
             self.show_beautiful_message('information', '成功', '图片删除成功！')
+            # ★ 防闪退关键：先关闭旧的"查看图片"对话框（如果有），然后用QTimer延迟开新的
+            #   绝对不能在当前按钮的回调栈里直接view_folder_images开新dialog，会导致控件交叉销毁崩溃
+            from PyQt5.QtCore import QTimer
+            old_dialog = getattr(self, '_view_images_dialog', None)
+            if old_dialog is None and hasattr(self, 'folder_manager') and self.folder_manager:
+                old_dialog = getattr(self.folder_manager, '_view_images_dialog', None)
+            _row = None
             if hasattr(self, 'table') and self.table.currentRow() >= 0:
-                self.view_folder_images(self.table.currentRow(), folder_path)
+                _row = self.table.currentRow()
+            if old_dialog is not None:
+                try:
+                    old_dialog.close()
+                    old_dialog.deleteLater()
+                except Exception:
+                    pass
+                self._view_images_dialog = None
+                if hasattr(self, 'folder_manager') and self.folder_manager:
+                    self.folder_manager._view_images_dialog = None
+            # 延迟 80ms 重新打开（等旧dialog销毁完成、当前回调栈退出）
+            if _row is not None:
+                QTimer.singleShot(80, lambda _r=_row, _fp=folder_path: self.view_folder_images(_r, _fp))
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"删除失败: {e}", parent=self)
 
@@ -5675,20 +5949,45 @@ class AutoRecorderApp(QMainWindow):
             insert_idx -= 1
         data.insert(insert_idx, item)
 
-        # ★ 重新编号所有操作，并同步更新 image 字段
+        # ★ 重新编号所有操作 + 同步更新 image 字段（两步法移动磁盘文件防冲突）
+        # Step 1: 先记录所有【旧名->新名】的映射
+        # ★★ 关键修复：新图片编号不能用全局索引 i！必须按"有image条目的出现顺序"递增，
+        #    否则纯坐标步骤（无image）会占编号，导致JSON image字段与磁盘物理文件名错开！
+        rename_plan = {}  # {old_img_name: new_img_name}
+        _img_counter = 0
         for i, d in enumerate(data):
             d['step'] = i + 1
-            if 'image' in d:
-                old_image = d.get('image', '')
-                new_image = f'操作{i + 1}.png'
-                if old_image and old_image != new_image:
-                    old_path = os.path.join(folder_path, old_image)
-                    new_path = os.path.join(folder_path, new_image)
-                    if os.path.exists(old_path) and not os.path.exists(new_path):
-                        temp_path = os.path.join(folder_path, f'temp_{uuid.uuid4().hex[:8]}_{new_image}')
-                        shutil.move(old_path, temp_path)
-                        shutil.move(temp_path, new_path)
+            if 'image' in d and d.get('image'):
+                _img_counter += 1
+                old_image = d['image']
+                new_image = f'操作{_img_counter}.png'
+                if old_image != new_image:
+                    rename_plan[old_image] = new_image
                 d['image'] = new_image
+        # Step 2: 两步法移动磁盘文件
+        #  先全部重命名为 tmp，避免覆盖
+        tmp_paths = {}  # old: tmp_xxx.png
+        for old_name, new_name in rename_plan.items():
+            old_p = os.path.join(folder_path, old_name)
+            if os.path.exists(old_p):
+                tmp_n = f"_r_tmp_{uuid.uuid4().hex[:8]}_{old_name}"
+                tmp_p = os.path.join(folder_path, tmp_n)
+                shutil.move(old_p, tmp_p)
+                tmp_paths[old_name] = tmp_p
+        # 再从 tmp -> 新名字
+        for old_name, new_name in rename_plan.items():
+            old_p = tmp_paths.get(old_name)
+            if not old_p or not os.path.exists(old_p):
+                continue
+            new_p = os.path.join(folder_path, new_name)
+            if not os.path.exists(new_p):
+                shutil.move(old_p, new_p)
+            else:
+                # 新路径存在（极端情况），用更稳妥的不丢失覆盖
+                try:
+                    os.replace(old_p, new_p)
+                except:
+                    shutil.move(old_p, new_p)
 
         save_json_data(json_path, data)
 
@@ -10359,6 +10658,47 @@ class ComboSkillRunner:
                 except Exception:
                     pass
                 return False, 0
+
+            # ======================================================================
+            # ★★★ 回放前自修复：如果 recording.json 的image字段 与 磁盘图片文件顺序错位
+            #        （由之前删除纯坐标步骤的bug引起），直接在内存中修复对齐（不写盘）
+            # ======================================================================
+            try:
+                import re as _re_exec
+                _disk_imgs_exec = [_f for _f in os.listdir(folder_path)
+                                   if _f.lower().endswith('.png') and _re_exec.search(r'操作(\d+)\.png', _f)]
+                def _dn_exec(_f):
+                    _mm = _re_exec.search(r'操作(\d+)\.png', _f)
+                    return int(_mm.group(1)) if _mm else 999999
+                _disk_imgs_exec_sorted = sorted(_disk_imgs_exec, key=_dn_exec)
+                _disk_cnt = len(_disk_imgs_exec_sorted)
+                _json_imgs_idx = [i for i, d in enumerate(recording_data) if d.get('image')]
+                _json_cnt = len(_json_imgs_idx)
+                # 检查是否错位：有任意image条目不对应"第几次出现就该是操作N.png"→修复
+                _need_fix_exec = False
+                if _disk_cnt != _json_cnt:
+                    _need_fix_exec = True
+                else:
+                    _c_exec = 0
+                    for i, d in enumerate(recording_data):
+                        if d.get('image'):
+                            _c_exec += 1
+                            _expected_exec = f"操作{_c_exec}.png"
+                            if d.get('image') != _expected_exec or not os.path.exists(os.path.join(folder_path, _expected_exec)):
+                                _need_fix_exec = True
+                                break
+                if _need_fix_exec:
+                    _img_cnt_exec = 0
+                    for i, d in enumerate(recording_data):
+                        d['step'] = i + 1
+                        if 'image' in d and d.get('image'):
+                            _img_cnt_exec += 1
+                            if _img_cnt_exec <= _disk_cnt:
+                                d['image'] = f"操作{_img_cnt_exec}.png"
+                            else:
+                                d.pop('image', None)
+            except Exception:
+                pass
 
             has_images = any(op.get("image", "") for op in recording_data)
             try:

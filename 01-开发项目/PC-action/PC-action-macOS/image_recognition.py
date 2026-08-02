@@ -567,22 +567,49 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             break
                 # 如果不是图片操作，跳过直接继续下一轮循环
                 if not image_name:
-                    # ⚠️ 但如果是需要图像的操作类型（点击/拖拽）却没有image字段，必须警告，不能静默跳过
+                    # 点击/拖拽操作但没有image → 检查是否有x,y坐标（纯坐标步骤，绿色圆点那种）
                     if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
-                        _log_clipboard(f"步骤{step}后({action_type})")
-                        if skip_on_fail:
-                            debug_print(f"[回放] ⚠️ 步骤 {step}: 操作类型是 {action_type}（需要图像定位），但 recording 中 image 字段为空，跳过此步骤继续执行")
-                            if i < total_operations - 1:
-                                if delay and delay > 0:
-                                    if _interruptible_sleep(delay, stop_check=stop_check): break
-                                elif replay_interval and replay_interval > 0:
-                                    if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                        has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
+                        if has_xy:
+                            # ✅ 有x,y坐标 → 纯坐标步骤，直接按坐标点击并完成此步骤
+                            debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({operation['x']}, {operation['y']})")
+                            cx, cy = operation['x'], operation['y']
+                            _fast_move(cx, cy)
+                            if action_type == 'left_click':
+                                _fast_click('left')
+                            elif action_type == 'right_click':
+                                _fast_click('right')
+                            elif action_type == 'double_click':
+                                _fast_click('left'); _fast_click('left')
+                            elif action_type == 'drag':
+                                _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                                _user32.mouse_event(0x0001, 50, 0, 0, 0)
+                                _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                            else:
+                                _fast_click('left')
+                            success_count += 1
+                            _log_clipboard(f"步骤{step}后({action_type})")
+                            if delay > 0:
+                                if _interruptible_sleep(delay, stop_check=stop_check): break
+                            if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check): break
                             continue
                         else:
-                            debug_print(f"[回放] ❌ 步骤 {step}: 操作类型是 {action_type}（需要图像定位），但 recording 中 image 字段为空，立即停止回放")
-                            break
-                    # 键盘/滚动/文本输入 → 正常不需要图像，放行 continue
-                    continue
+                            # ❌ 既没有image也没有x,y → 无法执行，报错
+                            _log_clipboard(f"步骤{step}后({action_type})")
+                            if skip_on_fail:
+                                debug_print(f"[回放] ⚠️ 步骤 {step}: 操作类型是 {action_type}，但无 image 也无 x,y 坐标，跳过此步骤")
+                                if i < total_operations - 1:
+                                    if delay and delay > 0:
+                                        if _interruptible_sleep(delay, stop_check=stop_check): break
+                                    elif replay_interval and replay_interval > 0:
+                                        if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                                continue
+                            else:
+                                debug_print(f"[回放] ❌ 步骤 {step}: 操作类型是 {action_type}，但无 image 也无 x,y 坐标，立即停止回放")
+                                break
+                    else:
+                        # 键盘/滚动/文本输入 → 正常不需要图像，放行 continue
+                        continue
             
             # 对于需要图像的操作，检查图像文件
             if image_name:
@@ -604,24 +631,53 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     except Exception:
                         pass
 
-                    # ⚠️ 如果还是找不到，不静默跳过！打印警告 + 计数失败 + 遵循 skip_on_fail
+                    # ⚠️ 如果还是找不到图片文件
                     if not os.path.exists(image_path):
-                        image_match_fail_count += 1
-                        # 补上「步骤N后」的剪贴板日志，保证前后对称（调试时少踩坑）
-                        _log_clipboard(f"步骤{step}后({action_type})")
-                        if skip_on_fail:
-                            debug_print(f"[回放] ⚠️ 步骤 {step}: 图片文件不存在 '{image_name}'（文件夹内没找到 操作{step}.png），跳过此步骤继续执行")
-                            # 步间间隔不能漏，否则下一步立即跑会比预期快
-                            if i < total_operations - 1:
-                                if delay and delay > 0:
-                                    if _interruptible_sleep(delay, stop_check=stop_check): break
-                                elif replay_interval and replay_interval > 0:
-                                    if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                        # ✅ 优先回退：有x,y坐标就直接按坐标点击（容错）
+                        has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
+                        if has_xy:
+                            # ★★★ 安全保护：图片文件找不到（数据损坏/删了）→ 只有坐标点靠近屏幕中央合理位置才允许点击
+                            # 防止把"完全错乱的数据"点到奇怪位置（如(0,0)左上角）
+                            _sx, _sy = int(operation['x']), int(operation['y'])
+                            _unreasonable = (_sx < 20 and _sy < 20)
+                            if _unreasonable and not skip_on_fail:
+                                debug_print(f"[回放] ❌ 步骤 {step}: 图片不存在且坐标({_sx},{_sy})明显异常，停止回放（防乱点）")
+                                break
+                            debug_print(f"[回放] ⚠️ 步骤 {step}: 图片 '{image_name}' 不存在，回退使用 x,y 坐标点击 ({operation['x']}, {operation['y']})")
+                            image_match_fail_count += 1
+                            cx, cy = operation['x'], operation['y']
+                            _fast_move(cx, cy)
+                            if action_type == 'left_click': _fast_click('left')
+                            elif action_type == 'right_click': _fast_click('right')
+                            elif action_type == 'double_click': _fast_click('left'); _fast_click('left')
+                            elif action_type == 'drag':
+                                _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                                _user32.mouse_event(0x0001, 50, 0, 0, 0)
+                                _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                            else: _fast_click('left')
+                            success_count += 1
+                            _log_clipboard(f"步骤{step}后({action_type})")
+                            if delay > 0:
+                                if _interruptible_sleep(delay, stop_check=stop_check): break
+                            if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check): break
                             continue
                         else:
-                            debug_print(f"[回放] ❌ 步骤 {step}: 图片文件不存在 '{image_name}'（文件夹内也找不到 操作{step}.png），立即停止回放")
-                            break
+                            # ❌ 没图片也没坐标 → 无法执行
+                            image_match_fail_count += 1
+                            _log_clipboard(f"步骤{step}后({action_type})")
+                            if skip_on_fail:
+                                debug_print(f"[回放] ⚠️ 步骤 {step}: 图片不存在 '{image_name}' 且无 x,y 坐标，跳过此步骤")
+                                if i < total_operations - 1:
+                                    if delay and delay > 0:
+                                        if _interruptible_sleep(delay, stop_check=stop_check): break
+                                    elif replay_interval and replay_interval > 0:
+                                        if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                                continue
+                            else:
+                                debug_print(f"[回放] ❌ 步骤 {step}: 图片不存在 '{image_name}' 且无 x,y 坐标，立即停止回放")
+                                break
 
+                # ============= 到这里说明图片文件确实存在，开始执行图像匹配 =============
                 # 使用图像匹配查找位置
                 debug_print(f"[回放] 步骤 {step}: 开始匹配图片 {image_name}")
                 # 直接使用缓存的图像数组获取尺寸，避免重复打开文件
@@ -656,34 +712,106 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _match_t1 = time.time()
 
                 if not location:
+                    # ✅ 图片匹配失败但有x,y坐标 → 回退用坐标点击（容错，让流程尽可能跑通）
+                    has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
                     image_match_fail_count += 1
-                    if skip_on_fail:
+
+                    # ★★★ 核心安全修复：拿到「这次匹配的最佳分数」，只有分数接近阈值才允许用坐标回退！
+                    #   - score > 0.55：说明图片确实在屏幕上，只是稍微差一点没到阈值（被遮挡/DPI偏），用录制坐标点附近OK
+                    #   - 大图模板（≥70%屏幕尺寸）：全屏/半屏截图当模板本来就不可能匹配上（像素随时在变），
+                    #     这种模板本质上只是"记录坐标点的载体"，直接允许坐标回退
+                    #   - score < 0.5 且是小图：说明屏幕上根本没这张图 → 绝对不能乱用录制的x,y坐标乱点！
+                    _best_score = 0.0
+                    try:
+                        _best_score = get_last_match_best_score()
+                    except Exception:
+                        _best_score = 0.0
+                    # "允许回退的阈值"：分数 ≥ 配置阈值的 70%（默认0.8*0.7=0.56）
+                    _safe_fallback_threshold = dynamic_confidence * 0.70
+
+                    # ★★★ 判断是不是全屏大图模板：宽或高 ≥ 屏幕70%，或者尺寸>=1000像素
+                    _is_large_template = False
+                    try:
+                        from image_recognition import get_cached_image
+                        _cached = get_cached_image(image_path)
+                        if _cached is not None:
+                            _ih, _iw = _cached.shape[:2]
+                            if _iw >= 1000 or _ih >= 1000 or _iw >= 1920 * 0.7 or _ih >= 1080 * 0.7:
+                                _is_large_template = True
+                    except Exception:
+                        pass
+                    # 大图模板：大幅降低安全阈值（因为本来就不可能匹配上），允许坐标回退
+                    if _is_large_template:
+                        _safe_fallback_threshold = 0.20
+                        if _clipboard_log_enabled:
+                            debug_print(f"[回放] 🖼️ 步骤 {step}: 大图模板({_cached.shape[:2]}已检测)，安全阈值放宽到0.20")
+
+                    _fallback_reason = None
+                    if _best_score >= _safe_fallback_threshold:
+                        _fallback_reason = f"score接近阈值({_best_score:.3f}≥{_safe_fallback_threshold:.2f})"
+                    elif _best_score >= 0.55:
+                        _fallback_reason = f"score较高({_best_score:.3f}≥0.55)"
+                    # ★★★ 修复：大图模板也必须有分数 >= 放宽后的阈值！不能无条件通过！
+                    # （之前是 or _is_large_template 无条件通过，导致 score=0.000 也去点左上角 (24,11)）
+                    if has_xy and _fallback_reason is not None:
+                        debug_print(f"[回放] ⚠️ 步骤 {step}: 图片匹配失败({_fallback_reason})，回退用坐标点击 ({operation['x']}, {operation['y']})")
+                        cx, cy = operation['x'], operation['y']
+                        _fast_move(cx, cy)
+                        if action_type == 'left_click': _fast_click('left')
+                        elif action_type == 'right_click': _fast_click('right')
+                        elif action_type == 'double_click': _fast_click('left'); _fast_click('left')
+                        elif action_type == 'drag':
+                            _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+                            _user32.mouse_event(0x0001, 50, 0, 0, 0)
+                            _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+                        else: _fast_click('left')
+                        success_count += 1
+                        _log_clipboard(f"步骤{step}后({action_type})")
+                        # 大图模板点击后也要检测剪贴板变化（和普通点击一样）
+                        if action_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'drag'):
+                            try:
+                                import pyperclip as _pcb2
+                                import time as _tcb2
+                                _wait_click2 = 0.02 if turbo_match else 0.08
+                                if _wait_click2 > 0:
+                                    _tcb2.sleep(_wait_click2)
+                                _cb_after_click2 = _pcb2.paste()
+                                if _cb_after_click2 and _cb_after_click2 != _first_paste_clipboard:
+                                    _first_paste_clipboard = _cb_after_click2
+                                    if _clipboard_log_enabled:
+                                        _lcl2 = len(_cb_after_click2)
+                                        _lcp2 = str(_cb_after_click2)[:50] + ("..." if _lcl2 > 50 else "")
+                                        debug_print(f"[剪贴板] 步骤{step}坐标点击后检测到剪贴板变化，更新锁定内容: {_lcl2}字符 - {_lcp2}")
+                            except Exception:
+                                pass
+                        if delay > 0:
+                            if _interruptible_sleep(delay, stop_check=stop_check): break
+                        if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check): break
+                        continue
+                    elif has_xy:
+                        # 有坐标但分数太低（<0.5 屏幕上根本没这张小图）→ 跳过本步骤，但！不中断整个动作！
+                        # （之前错误逻辑：直接 break 整个动作 → 导致步骤6、7完全没机会执行！）
+                        debug_print(f"[回放] 🛡️ 步骤 {step}: 图片匹配分数太低(score={_best_score:.3f}<{_safe_fallback_threshold:.2f})，禁止回退坐标乱点！跳过此步骤")
+                        if skip_on_fail:
+                            debug_print(f"[回放] ⏭ 步骤 {step}: 分数太低+skip_on_fail，继续下一步（避免乱点）")
+                            continue
+                        else:
+                            # ★★★ 关键修复：单个步骤失败不要中断整个动作！继续后面的步骤！
+                            # （之前是 break，导致 5 失败后 6、7 根本跑不到；改成 continue 让后续步骤继续）
+                            debug_print(f"[回放] ⏭ 步骤 {step}: 分数太低，跳过此步骤继续后续流程（单步失败不终止全动作）")
+                            continue
+                    elif skip_on_fail:
                         debug_print(f"[回放] ⏭ 步骤 {step}: 图片匹配失败，跳过此步骤继续执行（图片: {image_name}）")
                         continue
                     else:
-                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败，立即停止回放（图片: {image_name}）")
-                        break
+                        # ★★★ 同上：没有坐标也跳过本步骤，继续后面步骤（不要 break 终止）
+                        debug_print(f"[回放] ⏭ 步骤 {step}: 图片匹配失败，跳过此步骤继续后续流程（无坐标可用）")
+                        continue
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
                     x, y, width, height = location
                     center_x = x + width // 2
                     center_y = y + height // 2
-                    
-            else:
-                # 如果没有图像文件（action_type 需要图像但 image_name 为空），不静默跳过
-                # 补上「步骤N后」的剪贴板日志，保证前后对称
-                _log_clipboard(f"步骤{step}后({action_type})")
-                if skip_on_fail:
-                    debug_print(f"[回放] ⚠️ 步骤 {step}: 该操作是 {action_type}，但 recording 中 image 字段为空，跳过此步骤继续执行")
-                    if i < total_operations - 1:
-                        if delay and delay > 0:
-                            if _interruptible_sleep(delay, stop_check=stop_check): break
-                        elif replay_interval and replay_interval > 0:
-                            if _interruptible_sleep(replay_interval, stop_check=stop_check): break
-                    continue
-                else:
-                    debug_print(f"[回放] ❌ 步骤 {step}: 该操作是 {action_type}，但 recording 中 image 字段为空，立即停止回放（需要图像匹配定位坐标）")
-                    break
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
             _fast_move(center_x, center_y)
@@ -705,7 +833,29 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             success_count += 1
 
             _log_clipboard(f"步骤{step}后({action_type})")
-            # 剪贴板锁定只应在 Ctrl+C 后更新，点击操作不更新锁定内容
+
+            # ★★★ 关键修复：点击操作（left_click/right_click/double_click等）完成后，如果剪贴板发生了变化，
+            #               说明是用户主动点了某个"复制按钮"或"WPS单元格复制"等非Ctrl+C触发的复制，
+            #               这时必须更新锁定的剪贴板值！否则Ctrl+V会被旧的锁定值强制覆盖回去！
+            # （旧逻辑："剪贴板锁定只应在Ctrl+C后更新" → 反而把新复制的公司名又覆盖成旧值了！）
+            if action_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'drag'):
+                try:
+                    import pyperclip as _pcb
+                    import time as _tcb
+                    # 点击后等一下（让 WPS/Excel/浏览器 完成内部复制）再读取
+                    _wait_click = 0.02 if turbo_match else 0.08
+                    if _wait_click > 0:
+                        _tcb.sleep(_wait_click)
+                    _cb_after_click = _pcb.paste()
+                    if _cb_after_click and _cb_after_click != _first_paste_clipboard:
+                        # 剪贴板变化了（非空）→ 认为是"点击触发的复制"更新锁定值
+                        _first_paste_clipboard = _cb_after_click
+                        if _clipboard_log_enabled:
+                            _lcl = len(_cb_after_click)
+                            _lcp = str(_cb_after_click)[:50] + ("..." if _lcl > 50 else "")
+                            debug_print(f"[剪贴板] 步骤{step}点击后检测到剪贴板变化，更新锁定内容: {_lcl}字符 - {_lcp}")
+                except Exception:
+                    pass
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
@@ -925,10 +1075,14 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     """
     import numpy as np
     import cv2
-    
+
+    # ★ 重置上一次的最佳匹配分（避免上一步残留污染判断）
+    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = 0.0
+    _LAST_MATCH_BEST_SCORE_GLOBAL[1] = None
+
     def _basename(p):
         return p.replace('\\', '/').split('/')[-1] if p else ''
-    
+
     if timeout <= 0.01:
         return _find_image_flash(image_path, confidence, consider_color, stop_check)
 
@@ -1232,6 +1386,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         _early_threshold = max(confidence * 0.45, 0.20)
         if _best_score < _early_threshold:
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
+            # ★★★ 修复：跳过轮询前也必须保存最佳分数到全局！否则后面取到的是 0.0！
+            try:
+                _bl_save = None
+                for _k, _v in sorted(scale_best_scores.items(), key=lambda x: x[1][0], reverse=True):
+                    _bl_save = _v[1]
+                    break
+                _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_best_score) if _best_score else 0.0
+                _LAST_MATCH_BEST_SCORE_GLOBAL[1] = _bl_save
+            except Exception:
+                pass
             return None
 
     # 优化:轮询间隔设为 15ms，更快响应
@@ -1242,6 +1406,18 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     _max_poll_iters = 40  # 可轮询最多40次
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
+            # ★★★ 修复：停止前也保存当前最佳分数
+            try:
+                if scale_best_scores:
+                    _bs_stop = max(v[0] for v in scale_best_scores.values())
+                    _bl_stop = None
+                    for _k, _v in sorted(scale_best_scores.items(), key=lambda x: x[1][0], reverse=True):
+                        _bl_stop = _v[1]
+                        break
+                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_bs_stop) if _bs_stop else 0.0
+                    _LAST_MATCH_BEST_SCORE_GLOBAL[1] = _bl_stop
+            except Exception:
+                pass
             return None
         _loop_iter += 1
         try:
@@ -1344,7 +1520,23 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         except Exception as _e:
             debug_print(f"[匹配失败诊断] 保存截图失败: {_e}")
 
+    if scale_best_scores:
+        try:
+            _bs = max(v[0] for v in scale_best_scores.values())
+            _bl = None
+            for _k, _v in sorted(scale_best_scores.items(), key=lambda x: x[1][0], reverse=True):
+                _bl = _v[1]
+                break
+            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_bs) if _bs else 0.0
+            _LAST_MATCH_BEST_SCORE_GLOBAL[1] = _bl
+        except Exception:
+            pass
     return None
+
+
+_LAST_MATCH_BEST_SCORE_GLOBAL = [0.0, None]
+def get_last_match_best_score():
+    return float(_LAST_MATCH_BEST_SCORE_GLOBAL[0])
 
 
 # 全局缓存
