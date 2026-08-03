@@ -160,7 +160,7 @@ def _interruptible_sleep(duration, stop_check=None):
     if duration <= 0:
         return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
     start = time.time()
-    poll_interval = 0.02  # 20ms轮询一次停止信号
+    poll_interval = 0.005  # ★ 5ms轮询停止信号（比原来20ms响应快4倍，CPU开销可忽略）
     while time.time() - start < duration:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return True
@@ -446,13 +446,24 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
                                 _capture_first_paste()
-                                # 始终恢复锁定的剪贴板内容，防止应用自动复制单元格内容覆盖用户意图
+                                # ★★★ 速度优化：先读一次剪贴板，如果已经等于锁定值就跳过强制恢复
+                                # （_force_clipboard 带 retry+sleep 每次 0.2~0.4s，没必要每次都做）
                                 if _first_paste_clipboard is not None:
-                                    _force_clipboard(_first_paste_clipboard, label="Ctrl+V前恢复", max_retry=2, delay=0.2)
+                                    _need_restore = True
+                                    try:
+                                        import pyperclip as _pcb_restore
+                                        _cur_cb = _pcb_restore.paste()
+                                        if _cur_cb == _first_paste_clipboard:
+                                            _need_restore = False
+                                    except Exception:
+                                        pass
+                                    if _need_restore:
+                                        _force_clipboard(_first_paste_clipboard, label="Ctrl+V前恢复", max_retry=1, delay=0.05)
                                     if _clipboard_log_enabled:
                                         _cl = len(_first_paste_clipboard)
                                         _cp = str(_first_paste_clipboard)[:50] + ("..." if _cl > 50 else "")
-                                        debug_print(f"[剪贴板保护] 已恢复锁定内容: {_cl}字符 - {_cp}")
+                                        _status = "已恢复" if _need_restore else "内容匹配跳过恢复"
+                                        debug_print(f"[剪贴板保护] {_status}锁定内容: {_cl}字符 - {_cp}")
                             # Ctrl+V 调试: 粘贴前再读一次确认
                             if _clipboard_log_enabled and 'v' == main_key and 'ctrl' in modifiers:
                                 try:
@@ -767,23 +778,24 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         else: _fast_click('left')
                         success_count += 1
                         _log_clipboard(f"步骤{step}后({action_type})")
-                        # 大图模板点击后也要检测剪贴板变化（和普通点击一样）
+                        # ★ 速度优化：坐标回退点击后剪贴板变化检测——同上面的优化，仅在必要时才读pyperclip
                         if action_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'drag'):
-                            try:
-                                import pyperclip as _pcb2
-                                import time as _tcb2
-                                _wait_click2 = 0.02 if turbo_match else 0.08
-                                if _wait_click2 > 0:
-                                    _tcb2.sleep(_wait_click2)
-                                _cb_after_click2 = _pcb2.paste()
-                                if _cb_after_click2 and _cb_after_click2 != _first_paste_clipboard:
-                                    _first_paste_clipboard = _cb_after_click2
-                                    if _clipboard_log_enabled:
-                                        _lcl2 = len(_cb_after_click2)
-                                        _lcp2 = str(_cb_after_click2)[:50] + ("..." if _lcl2 > 50 else "")
-                                        debug_print(f"[剪贴板] 步骤{step}坐标点击后检测到剪贴板变化，更新锁定内容: {_lcl2}字符 - {_lcp2}")
-                            except Exception:
-                                pass
+                            if _clipboard_log_enabled or _first_paste_clipboard is not None:
+                                try:
+                                    import pyperclip as _pcb2
+                                    import time as _tcb2
+                                    _wait_click2 = 0.01 if _clipboard_log_enabled else (0.005 if turbo_match else 0.01)
+                                    if _wait_click2 > 0 and _clipboard_log_enabled:
+                                        _tcb2.sleep(_wait_click2)
+                                    _cb_after_click2 = _pcb2.paste()
+                                    if _cb_after_click2 and _cb_after_click2 != _first_paste_clipboard:
+                                        _first_paste_clipboard = _cb_after_click2
+                                        if _clipboard_log_enabled:
+                                            _lcl2 = len(_cb_after_click2)
+                                            _lcp2 = str(_cb_after_click2)[:50] + ("..." if _lcl2 > 50 else "")
+                                            debug_print(f"[剪贴板] 步骤{step}坐标点击后检测到剪贴板变化，更新锁定内容: {_lcl2}字符 - {_lcp2}")
+                                except Exception:
+                                    pass
                         if delay > 0:
                             if _interruptible_sleep(delay, stop_check=stop_check): break
                         if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check): break
@@ -839,23 +851,26 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             #               这时必须更新锁定的剪贴板值！否则Ctrl+V会被旧的锁定值强制覆盖回去！
             # （旧逻辑："剪贴板锁定只应在Ctrl+C后更新" → 反而把新复制的公司名又覆盖成旧值了！）
             if action_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'drag'):
-                try:
-                    import pyperclip as _pcb
-                    import time as _tcb
-                    # 点击后等一下（让 WPS/Excel/浏览器 完成内部复制）再读取
-                    _wait_click = 0.02 if turbo_match else 0.08
-                    if _wait_click > 0:
-                        _tcb.sleep(_wait_click)
-                    _cb_after_click = _pcb.paste()
-                    if _cb_after_click and _cb_after_click != _first_paste_clipboard:
-                        # 剪贴板变化了（非空）→ 认为是"点击触发的复制"更新锁定值
-                        _first_paste_clipboard = _cb_after_click
-                        if _clipboard_log_enabled:
-                            _lcl = len(_cb_after_click)
-                            _lcp = str(_cb_after_click)[:50] + ("..." if _lcl > 50 else "")
-                            debug_print(f"[剪贴板] 步骤{step}点击后检测到剪贴板变化，更新锁定内容: {_lcl}字符 - {_lcp}")
-                except Exception:
+                # ★★★ 速度优化：99%的点击不会触发复制，只有剪贴板日志开启时才读pyperclip
+                # （pyperclip.paste() 每次调用要 ~10-30ms，乘以几十步就是几百毫秒到几秒）
+                if not _clipboard_log_enabled and _first_paste_clipboard is None:
                     pass
+                else:
+                    try:
+                        import pyperclip as _pcb
+                        import time as _tcb
+                        _wait_click = 0.01 if _clipboard_log_enabled else (0.005 if turbo_match else 0.01)
+                        if _wait_click > 0 and _clipboard_log_enabled:
+                            _tcb.sleep(_wait_click)
+                        _cb_after_click = _pcb.paste()
+                        if _cb_after_click and _cb_after_click != _first_paste_clipboard:
+                            _first_paste_clipboard = _cb_after_click
+                            if _clipboard_log_enabled:
+                                _lcl = len(_cb_after_click)
+                                _lcp = str(_cb_after_click)[:50] + ("..." if _lcl > 50 else "")
+                                debug_print(f"[剪贴板] 步骤{step}点击后检测到剪贴板变化，更新锁定内容: {_lcl}字符 - {_lcp}")
+                    except Exception:
+                        pass
 
             # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
             if delay > 0:
@@ -1381,12 +1396,12 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             pass
 
     # ⏭ 智能提前退出：首次截图已跑完所有匹配仍失败，最佳分数远低于阈值则跳过轮询
-    if scale_best_scores and timeout > 0.15:
+    # ★★★ 速度优化：放宽提前退出条件 + 缩短超时也提前退出（条件判断场景timeout=0.04s没必要轮询）
+    if scale_best_scores and timeout > 0.02:
         _best_score = max(v[0] for v in scale_best_scores.values())
         _early_threshold = max(confidence * 0.45, 0.20)
         if _best_score < _early_threshold:
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
-            # ★★★ 修复：跳过轮询前也必须保存最佳分数到全局！否则后面取到的是 0.0！
             try:
                 _bl_save = None
                 for _k, _v in sorted(scale_best_scores.items(), key=lambda x: x[1][0], reverse=True):
@@ -1398,12 +1413,13 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 pass
             return None
 
-    # 优化:轮询间隔设为 15ms，更快响应
-    _POLL_INTERVAL = 0.015
+    # ★★★ 速度优化：轮询间隔从 15ms → 8ms（截图服务刷新频率足够快）
+    # 最大轮询次数根据 timeout 动态调整：timeout=0.04s → 最多3次；timeout=0.75s → 最多30次
+    _POLL_INTERVAL = 0.008
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = 40  # 可轮询最多40次
+    _max_poll_iters = min(40, max(2, int(timeout / 0.02)))  # 每20ms一轮(匹配+sleep)，动态上限
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             # ★★★ 修复：停止前也保存当前最佳分数

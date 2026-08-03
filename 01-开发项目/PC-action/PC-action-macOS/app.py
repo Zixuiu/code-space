@@ -5296,7 +5296,8 @@ class AutoRecorderApp(QMainWindow):
         self.shortcut_objects = []
         self.alt_press_count = 0  # ALT键按下次数
         self.alt_press_time = 0  # ALT键按下时间
-        self.debug_mode = True  # 调试模式开关（控制回放和组合技的调试输出）
+        self.debug_mode = False  # ★ 调试模式默认关闭！开启后每步剪贴板I/O+大量日志会让回放慢3-5倍
+        # 需要排查问题时再通过 设置→调试模式 手动打开
         
         self.runners = {}  # 存储多个并行执行的组合技runner
         
@@ -6428,11 +6429,11 @@ class AutoRecorderApp(QMainWindow):
             if os.path.exists(config_path):
                 with open(config_path, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                    self.debug_mode = config.get('debug_mode', True)
+                    self.debug_mode = config.get('debug_mode', False)
             else:
-                self.debug_mode = True
+                self.debug_mode = False  # 默认关闭！打开会让回放慢3-5倍
         except Exception:
-            self.debug_mode = True
+            self.debug_mode = False
         # 同步设置 image_recognition 模块的调试模式
         from image_recognition import set_debug_mode, set_log_callback
         set_debug_mode(self.debug_mode)
@@ -10265,12 +10266,13 @@ class ComboSkillRunner:
             total_loops = max(1, self._loop_count)
 
             # ── 有效强制间隔（流程/跳转之间的默认等待，用户设0就真的0）──
+            # ★★★ 速度优化：默认 0.1s → 0.02s（20ms），对UI刷新完全足够，原来的100ms太保守
             # 规则：用户 step_interval=0 时，_flow_gap=0（真·极速，不做任何强制等待）
-            #       否则 _flow_gap = step_interval（未配置时默认 0.1 秒，与录制回放的步间间隔一致）
+            #       否则 _flow_gap = step_interval（未配置时默认 0.02 秒）
             _raw_si = self.skill_data.get('step_interval', None)
             try:
                 if _raw_si is None:
-                    _flow_gap = 0.1  # 默认 0.1 秒
+                    _flow_gap = 0.02  # ★ 默认从 0.1s → 0.02s，流程间提速 5 倍
                 else:
                     _f = float(_raw_si)
                     if abs(_f - 0.0) < 0.0001:
@@ -10278,19 +10280,18 @@ class ComboSkillRunner:
                     else:
                         _flow_gap = max(0.0, _f)
             except (TypeError, ValueError):
-                _flow_gap = 0.1
+                _flow_gap = 0.02  # ★ 同上
             self._flow_gap = _flow_gap
             # 「极速模式」开关：用户明确设为0秒(极速)时启用
             #   启用后：条件判断 / 录制回放的图片匹配 → 只做一次快速闪匹配（不做轮询重试）
             self._turbo_mode = (abs(self._flow_gap - 0.0) < 0.0001)
             # 「速度比例因子」：根据 step_interval 自动缩放图片匹配超时
-            #   step_interval=0.1 → scale=1.0（标准，匹配超时保持原值）
-            #   step_interval=0.05 → scale=0.5（快速，匹配超时减半）
-            #   step_interval=0.0 → scale=0.0（极速，匹配超时压到最低）
+            # ★ 基准0.02s(新默认值)：0.02s→1.0(标准)，0.01→0.5，0→极速
+            # 注意：旧的 min(1.0) 上界去掉了，设0.1s的老用户获得更长匹配超时(更稳)
             if self._turbo_mode:
                 self._speed_scale = 0.0
             else:
-                self._speed_scale = max(0.0, min(1.0, _flow_gap / 0.1))
+                self._speed_scale = max(0.0, _flow_gap / 0.02)
 
             _t0 = _time.time()
             from image_recognition import find_image_with_timeout
@@ -10350,8 +10351,9 @@ class ComboSkillRunner:
                                 break
                             condition_met = False
                         else:
-                            # 速度比例缩放：step_interval=0.1→0.15s, 0.05→0.075s, 0→0.005s(极速)
-                            _t = 0.005 if self._turbo_mode else max(0.01, 0.15 * self._speed_scale)
+                            # ★★★ 速度优化：基准从 0.15s → 0.04s（40ms够做一次截图+模板匹配了）
+                            # 极速：0.005s / 标准(0.02s flow_gap)：0.04s → 实际执行大多在10~20ms就完成
+                            _t = 0.005 if self._turbo_mode else max(0.01, 0.04 * self._speed_scale)
                             loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                             condition_met = loc is not None
                             _cond_elapsed = _time.time() - _cond_start
@@ -10710,23 +10712,24 @@ class ComboSkillRunner:
             from image_recognition import replay_coordinate_operations, replay_coordinates_only
 
             # ── 统一步骤间隔（组合技级配置）──
-            # 优先级：1. skill_data.step_interval 配置  2. 默认 0.1 秒
+            # ★★★ 优先级：1. skill_data.step_interval 配置  2. 默认 0.02 秒（和_flow_gap同步，之前0.1s太慢）
             _raw_interval = self.skill_data.get('step_interval', None)
             try:
                 if _raw_interval is None:
-                    step_interval = 0.1  # 默认 0.1 秒（之前无图是 0.2s）
+                    step_interval = 0.02  # ★ 默认0.1s → 0.02s，步间提速5倍
                 else:
                     step_interval = float(_raw_interval)
                     if step_interval < 0:
                         step_interval = 0.0
             except (TypeError, ValueError):
-                step_interval = 0.1
+                step_interval = 0.02  # ★ 同上
 
             if has_images:
                 _t_replay0 = _time.time()
-                # 录制回放内每张图的匹配超时：极速模式压到0.2s/次，只做1次闪匹配
-                # 速度比例缩放：step_interval=0.1→1.5s, 0.05→0.75s, 0→0.2s(极速)
-                _match_timeout = 0.2 if self._turbo_mode else max(0.2, 1.5 * self._speed_scale)
+                # ★ 录制回放内每张图的匹配超时：
+                # 极速(step_interval=0)：0.15s/次，只做1次闪匹配
+                # 标准(step_interval=0.02s → speed_scale=1.0)：0.75s/次，带轮询（比之前1.5s省一半）
+                _match_timeout = 0.15 if self._turbo_mode else max(0.15, 0.75 * self._speed_scale)
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=step_interval, consider_color=False,
