@@ -1775,7 +1775,7 @@ class FolderManager(QDialog):
                     thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius: 8px; }")
                     del_btn = _create_hover_close_button(
                         thumb_w,
-                        on_click=lambda checked=False, fn=img_file: _delete_step(i, fn),
+                        on_click=lambda checked=False, idx=i, fn=img_file: _delete_step(idx, fn),
                         size=20
                     )
                     del_btn.move(26, 0)
@@ -1874,9 +1874,14 @@ class FolderManager(QDialog):
                     _pl.addWidget(_lb, 0, Qt.AlignCenter)
                 elif action_type == 'scroll':
                     _amt = record.get('scroll_amount', 3)
+                    # ★★★ 修复：防御 0 值，避免显示"下滑0"
+                    if _amt == 0:
+                        _amt = 3
                     _dir = "上" if _amt > 0 else "下"
                     _lb = QLabel(f"{_dir}{abs(_amt)}")
                     _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:10px;padding:2px 4px;background:rgba(142,142,147,0.15);border-radius:6px;}")
+                    _lb.setCursor(Qt.PointingHandCursor)
+                    _lb.mousePressEvent = lambda e, idx=i: _show_scroll_dialog(idx)
                     _pl.addWidget(_lb, 0, Qt.AlignCenter)
                 elif action_type == 'condition':
                     _lb = QLabel("条件分支")
@@ -2001,6 +2006,10 @@ class FolderManager(QDialog):
         def _show_key_dialog(idx):
             """显示按键编辑对话框"""
             self._show_key_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _rebuild_all)
+
+        def _show_scroll_dialog(idx):
+            """显示滚动编辑对话框"""
+            self._show_scroll_input_dialog_coord(idx, folder_path, recording_data, recording_json_path, _rebuild_all)
 
         def _swap_rows(idx_a, idx_b):
             """交换两行顺序（同步重命名图片文件）"""
@@ -2684,6 +2693,9 @@ class FolderManager(QDialog):
                 _l.addWidget(_lb, 0, Qt.AlignCenter)
             elif _at == 'scroll':
                 _amt = record.get('scroll_amount', 3)
+                # ★★★ 修复：防御 0 值，避免显示"下滑0"
+                if _amt == 0:
+                    _amt = 3
                 _dir = "上" if _amt > 0 else "下"
                 _lb = QLabel(f"{_dir}{abs(_amt)}")
                 _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:11px;padding:2px 6px;background:rgba(142,142,147,0.15);border-radius:6px;}")
@@ -3083,7 +3095,84 @@ class FolderManager(QDialog):
                 recording_data[index]['action_type'] = 'keyboard'
                 save_json_data(recording_json_path, recording_data)
                 refresh_cb()
-    
+
+    def _show_scroll_input_dialog_coord(self, index, folder_path, recording_data, recording_json_path, refresh_cb):
+        """滚动操作编辑对话框（设置方向和格数）"""
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QSpinBox, QPushButton, QHBoxLayout, QButtonGroup, QRadioButton
+        from PyQt5.QtCore import Qt
+        from styles import apply_dialog_style
+
+        current_amt = 3
+        if index < len(recording_data):
+            current_amt = recording_data[index].get('scroll_amount', 3)
+        # ★★★ 修复：防御 0 值，确保 QSpinBox 初始值至少为 1
+        if current_amt == 0:
+            current_amt = 3
+
+        dialog = QDialog(self.parent)
+        dialog.setWindowTitle("设置滚动")
+        dialog.setModal(True)
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        apply_dialog_style(dialog, 0.28, 0.2)
+        layout = QVBoxLayout()
+        layout.setSpacing(12)
+
+        # 方向选择
+        dir_label = QLabel("滚动方向:")
+        layout.addWidget(dir_label)
+        dir_group = QButtonGroup(dialog)
+        dir_layout = QHBoxLayout()
+        rb_up = QRadioButton("向上")
+        rb_down = QRadioButton("向下")
+        # ⚠️ 注意：ID 必须用正数，避免 checkedId() 返回 -1 时无法区分"无选中"和"选中 ID=-1 的按钮"
+        dir_group.addButton(rb_up, 1)
+        dir_group.addButton(rb_down, 2)
+        if current_amt > 0:
+            rb_up.setChecked(True)
+        else:
+            rb_down.setChecked(True)
+        dir_layout.addWidget(rb_up)
+        dir_layout.addWidget(rb_down)
+        layout.addLayout(dir_layout)
+
+        # 格数输入
+        amount_label = QLabel("滚动格数（正数表示格数，负数表示反向）:")
+        layout.addWidget(amount_label)
+        amount_spin = QSpinBox()
+        amount_spin.setRange(1, 100)
+        amount_spin.setValue(abs(current_amt))
+        amount_spin.setFixedWidth(80)
+        layout.addWidget(amount_spin)
+
+        # 按钮
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("确定")
+        ok_btn.setFocusPolicy(Qt.StrongFocus)
+        ok_btn.setDefault(True)
+        ok_btn.clicked.connect(dialog.accept)
+        btn_layout.addWidget(ok_btn)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setFocusPolicy(Qt.StrongFocus)
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+
+        if dialog.exec_() == QDialog.Accepted:
+            checked_id = dir_group.checkedId()
+            direction = 1 if checked_id == 1 else -1  # 1=向上, 2=向下
+            # ★★★ 修复：确保 amount 至少为 1（防御 QSpinBox.value() 可能返回 0 的边界情况）
+            amount = max(1, amount_spin.value())
+            scroll_amount = direction * amount
+            # 确保结果不为 0（防御性）
+            if scroll_amount == 0:
+                scroll_amount = 3 if direction >= 0 else -3
+            if index < len(recording_data):
+                recording_data[index]['scroll_amount'] = scroll_amount
+                recording_data[index]['action_type'] = 'scroll'
+                save_json_data(recording_json_path, recording_data)
+                refresh_cb()
+
     def show_key_input_dialog(self, index, folder_path):
         """显示按键输入对话框，用于修改按键"""
         try:

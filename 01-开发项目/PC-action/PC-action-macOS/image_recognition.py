@@ -693,8 +693,16 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
                 if not location:
                     image_match_fail_count += 1
-                    debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败 '{image_name}'，停止回放")
-                    break
+                    if skip_on_fail:
+                        debug_print(f"[回放] ⚠️ 步骤 {step}: 图片匹配失败 '{image_name}'，跳过此步骤继续执行")
+                        if delay > 0:
+                            if _interruptible_sleep(delay, stop_check=stop_check): break
+                        elif replay_interval > 0:
+                            if _interruptible_sleep(replay_interval, stop_check=stop_check): break
+                        continue
+                    else:
+                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败 '{image_name}'，停止回放")
+                        break
                 else:
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
                     x, y, width, height = location

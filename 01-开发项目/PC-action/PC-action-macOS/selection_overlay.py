@@ -1214,6 +1214,9 @@ class SelectionOverlay(QWidget):
                         amount = int(input_dialog.line_edit.text())
                     except (ValueError, AttributeError):
                         amount = 3
+                    # ★★★ 修复：确保 amount 至少为 1，防止保存 0 值导致显示"下滑0"
+                    if amount <= 0:
+                        amount = 3
                     scroll_amount = input_dialog.scroll_direction * amount
                     ok = True
                     key = ""
