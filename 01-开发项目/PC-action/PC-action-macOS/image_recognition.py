@@ -401,9 +401,18 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
                 elif action_type == 'scroll':
                     scroll_amount = operation.get('scroll_amount', 3)
-                    debug_print(f"[回放] 步骤 {step}: 滚动 {scroll_amount} 像素")
-                    # 执行滚动操作
-                    pyautogui.scroll(scroll_amount)
+                    direction = "向上" if scroll_amount > 0 else "向下"
+                    debug_print(f"[回放] 步骤 {step}: {direction}滚动 {abs(scroll_amount)} 格")
+                    # ⚡ 用 Win32 mouse_event 一次性发送总wheel delta，瞬间完成
+                    # pyautogui.scroll(N) 会分N次发送，每次间隔50ms，333格需要16.6秒
+                    # mouse_event 的 wheel 参数单位是 WHEEL_DELTA(=120) 的倍数
+                    try:
+                        _wheel_delta = int(scroll_amount) * 120
+                        _user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, _wheel_delta, 0)
+                        debug_print(f"[回放] 步骤 {step}: wheel delta={_wheel_delta} 已发送")
+                    except Exception as _scroll_e:
+                        debug_print(f"[回放] 步骤 {step}: mouse_event失败，回退pyautogui: {_scroll_e}")
+                        pyautogui.scroll(scroll_amount)
                     success_count += 1
                     debug_print(f"[回放] 步骤 {step}: 滚动完成")
 
@@ -933,7 +942,9 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             y = operation.get('y', 0)
 
             if action_type == 'scroll':
-                _user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, operation.get('scroll_amount', 3), 0)
+                # ⚡ wheel 参数是 WHEEL_DELTA(=120) 的倍数，不是格数
+                _scroll_amt = operation.get('scroll_amount', 3)
+                _user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, int(_scroll_amt) * 120, 0)
                 success_count += 1
                 continue
 
