@@ -22,66 +22,55 @@ _MOUSEEVENTF_MIDDLEDOWN = 0x0020
 _MOUSEEVENTF_MIDDLEUP = 0x0040
 _MOUSEEVENTF_WHEEL = 0x0800
 
-# SendInput 相关结构体（比 mouse_event 更可靠）
-class _MOUSEINPUT(ctypes.Structure):
-    _fields_ = [("dx", ctypes.c_long), ("dy", ctypes.c_long),
-                ("mouseData", ctypes.c_ulong), ("dwFlags", ctypes.c_ulong),
-                ("time", ctypes.c_ulong), ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
-
-class _INPUT_UNION(ctypes.Union):
-    _fields_ = [("mi", _MOUSEINPUT)]
-
-class _INPUT(ctypes.Structure):
-    class _INPUT(ctypes.Structure):
-        _anonymous_ = ("u",)
-        _fields_ = [("type", ctypes.c_ulong), ("u", _INPUT_UNION)]
-
-# 重新定义（修正嵌套）
-class _INPUT(ctypes.Structure):
-    _anonymous_ = ("u",)
-    _fields_ = [("type", ctypes.c_ulong), ("u", _INPUT_UNION)]
-
-def _send_mouse_input(flags):
-    """用 SendInput 发送鼠标事件"""
-    extra = ctypes.c_ulong(0)
-    inp = _INPUT()
-    inp.type = 0  # INPUT_MOUSE
-    inp.mi.dx = 0
-    inp.mi.dy = 0
-    inp.mi.mouseData = 0
-    inp.mi.dwFlags = flags
-    inp.mi.time = 0
-    inp.mi.dwExtraInfo = ctypes.pointer(extra)
-    _user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+_MOUSEEVENTF_ABSOLUTE = 0x8000
 
 def _fast_click(btn='left'):
-    """极速点击（用 SendInput，比 mouse_event 更可靠）"""
+    """极速点击（mouse_event）"""
     if btn == 'left':
-        _send_mouse_input(0x0002)  # MOUSEEVENTF_LEFTDOWN
-        _send_mouse_input(0x0004)  # MOUSEEVENTF_LEFTUP
+        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
     elif btn == 'right':
-        _send_mouse_input(0x0008)  # MOUSEEVENTF_RIGHTDOWN
-        _send_mouse_input(0x0010)  # MOUSEEVENTF_RIGHTUP
+        _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
     elif btn == 'middle':
-        _send_mouse_input(0x0020)  # MOUSEEVENTF_MIDDLEDOWN
-        _send_mouse_input(0x0040)  # MOUSEEVENTF_MIDDLEUP
+        _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
     else:
-        _send_mouse_input(0x0002)
-        _send_mouse_input(0x0004)
+        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
+        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
-def _reliable_double_click(x, y):
-    """可靠的双击：SendInput + 延迟"""
-    _user32.SetCursorPos(int(x), int(y))
-    time.sleep(0.03)
+def _absolute_click(x, y, btn='left'):
+    """用 MOUSEEVENTF_ABSOLUTE 绝对坐标点击，不依赖光标位置"""
+    sw = _user32.GetSystemMetrics(0)  # SM_CXSCREEN
+    sh = _user32.GetSystemMetrics(1)  # SM_CYSCREEN
+    ax = int(x * 65536 / sw) if sw > 0 else 0
+    ay = int(y * 65536 / sh) if sh > 0 else 0
+    if btn == 'left':
+        _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTDOWN, ax, ay, 0, 0)
+        time.sleep(0.01)
+        _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTUP, ax, ay, 0, 0)
+    elif btn == 'right':
+        _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_RIGHTDOWN, ax, ay, 0, 0)
+        time.sleep(0.01)
+        _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_RIGHTUP, ax, ay, 0, 0)
+    return sw, sh, ax, ay
+
+def _absolute_double_click(x, y):
+    """用 MOUSEEVENTF_ABSOLUTE 绝对坐标双击"""
+    sw = _user32.GetSystemMetrics(0)
+    sh = _user32.GetSystemMetrics(1)
+    ax = int(x * 65536 / sw) if sw > 0 else 0
+    ay = int(y * 65536 / sh) if sh > 0 else 0
     # 第一次点击
-    _send_mouse_input(0x0002)  # LEFTDOWN
-    time.sleep(0.02)
-    _send_mouse_input(0x0004)  # LEFTUP
+    _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTDOWN, ax, ay, 0, 0)
+    time.sleep(0.01)
+    _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTUP, ax, ay, 0, 0)
     time.sleep(0.05)  # 双击间隔
     # 第二次点击
-    _send_mouse_input(0x0002)
-    time.sleep(0.02)
-    _send_mouse_input(0x0004)
+    _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTDOWN, ax, ay, 0, 0)
+    time.sleep(0.01)
+    _user32.mouse_event(_MOUSEEVENTF_ABSOLUTE | _MOUSEEVENTF_LEFTUP, ax, ay, 0, 0)
+    return sw, sh, ax, ay
 
 def _fast_move(x, y):
     """极速移动鼠标"""
@@ -740,8 +729,18 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             # 根据操作类型执行相应操作
             if action_type == 'double_click':
-                _reliable_double_click(center_x, center_y)
-                debug_print(f"[回放] 步骤 {step}: SendInput doubleClick({center_x}, {center_y})")
+                try:
+                    sw, sh, ax, ay = _absolute_double_click(center_x, center_y)
+                    debug_print(f"[回放] 步骤 {step}: 绝对坐标双击 ({center_x},{center_y}) -> abs({ax},{ay}) screen={sw}x{sh}")
+                except Exception as e:
+                    debug_print(f"[回放] 步骤 {step}: 绝对坐标双击失败: {e}，尝试pyautogui回退")
+                    try:
+                        pyautogui.click(center_x, center_y)
+                        time.sleep(0.1)
+                        pyautogui.click(center_x, center_y)
+                        debug_print(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
+                    except Exception as e2:
+                        debug_print(f"[回放] 步骤 {step}: pyautogui双击也失败: {e2}")
             elif action_type == 'left_click':
                 _fast_click('left')
             elif action_type == 'right_click':
