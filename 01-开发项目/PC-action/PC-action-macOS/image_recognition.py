@@ -597,51 +597,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     if delay and delay > 0:
                         if _interruptible_sleep(delay, stop_check=stop_check):
                             break
-                # 如果不是图片操作，跳过直接继续下一轮循环
-                if not image_name:
-                    # 点击/拖拽操作但没有image → 检查是否有x,y坐标（纯坐标步骤，绿色圆点那种）
-                    if action_type in ('left_click', 'right_click', 'double_click', 'drag'):
-                        has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
-                        if has_xy:
-                            # ✅ 有x,y坐标 → 纯坐标步骤，直接按坐标点击并完成此步骤
-                            debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({operation['x']}, {operation['y']})")
-                            cx, cy = operation['x'], operation['y']
-                            _fast_move(cx, cy)
-                            if action_type == 'left_click':
-                                _fast_click('left')
-                            elif action_type == 'right_click':
-                                _fast_click('right')
-                            elif action_type == 'double_click':
-                                _fast_click('left'); _fast_click('left')
-                            elif action_type == 'drag':
-                                _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-                                _user32.mouse_event(0x0001, 50, 0, 0, 0)
-                                _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-                            else:
-                                _fast_click('left')
-                            success_count += 1
-                            _log_clipboard(f"步骤{step}后({action_type})")
-                            if delay > 0:
-                                if _interruptible_sleep(delay, stop_check=stop_check): break
-                            if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check): break
-                            continue
-                        else:
-                            # ❌ 既没有image也没有x,y → 无法执行，报错
-                            _log_clipboard(f"步骤{step}后({action_type})")
-                            if skip_on_fail:
-                                debug_print(f"[回放] ⚠️ 步骤 {step}: 操作类型是 {action_type}，但无 image 也无 x,y 坐标，跳过此步骤")
-                                if i < total_operations - 1:
-                                    if delay and delay > 0:
-                                        if _interruptible_sleep(delay, stop_check=stop_check): break
-                                    elif replay_interval and replay_interval > 0:
-                                        if _interruptible_sleep(replay_interval, stop_check=stop_check): break
-                                continue
-                            else:
-                                debug_print(f"[回放] ❌ 步骤 {step}: 操作类型是 {action_type}，但无 image 也无 x,y 坐标，立即停止回放")
-                                break
-                    else:
-                        # 键盘/滚动/文本输入 → 正常不需要图像，放行 continue
-                        continue
+                # 键盘/滚动/文本输入操作完成后直接继续下一轮（不需要image也不需要坐标点击）
+                if not image_name and action_type in ('text_input', 'keyboard', 'keyboard_direct', 'scroll'):
+                    continue
             
             # 对于需要图像的操作，检查图像文件
             if image_name:
