@@ -739,7 +739,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             elif action_type == 'right_click':
                 _fast_click('right')
             elif action_type == 'double_click':
-                _fast_click('left'); _fast_click('left')
+                _fast_click('left'); time.sleep(0.05); _fast_click('left')
             elif action_type == 'drag':
                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
                 _user32.mouse_event(0x0001, 50, 0, 0, 0)  # MOUSEEVENTF_MOVE
@@ -856,7 +856,7 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             elif action_type == 'right_click':
                 _fast_click('right')
             elif action_type == 'double_click':
-                _fast_click('left'); _fast_click('left')
+                _fast_click('left'); time.sleep(0.05); _fast_click('left')
             elif action_type == 'middle_click':
                 _fast_click('middle')
             else:
