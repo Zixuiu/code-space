@@ -690,14 +690,16 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
             _fast_move(center_x, center_y)
+            time.sleep(0.02)  # 等待鼠标移动完成，否则点击不生效
 
             # 根据操作类型执行相应操作
-            if action_type == 'left_click':
+            if action_type == 'double_click':
+                pyautogui.doubleClick(center_x, center_y)
+                debug_print(f"[回放] 步骤 {step}: pyautogui.doubleClick({center_x}, {center_y})")
+            elif action_type == 'left_click':
                 _fast_click('left')
             elif action_type == 'right_click':
                 _fast_click('right')
-            elif action_type == 'double_click':
-                _fast_click('left'); time.sleep(0.05); _fast_click('left')
             elif action_type == 'drag':
                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
                 _user32.mouse_event(0x0001, 50, 0, 0, 0)  # MOUSEEVENTF_MOVE
