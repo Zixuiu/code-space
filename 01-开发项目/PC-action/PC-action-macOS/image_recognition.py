@@ -125,6 +125,18 @@ def set_log_callback(callback):
 def debug_print(message):
     """调试输出，仅在调试模式下打印，同时发送到日志回调"""
     global _debug_mode, _log_callback
+    # 回放关键日志无条件输出（包含 [回放] 标记的）
+    if not _debug_mode and message and '[回放]' in str(message):
+        try:
+            print(message)
+        except Exception:
+            pass
+        if _log_callback is not None:
+            try:
+                _log_callback(message)
+            except Exception:
+                pass
+        return
     if _debug_mode:
         print(message)
         # 如果有日志回调，发送日志

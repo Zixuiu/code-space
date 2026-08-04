@@ -7252,15 +7252,16 @@ class AutoRecorderApp(QMainWindow):
                 pass
 
             # 执行回放
-            self.debug_print(f"[回放] 开始执行回放: {folder_path}")
+            self.append_log(f"[回放] 开始执行回放: {folder_path}")
             if is_coord_only:
-                self.debug_print(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
+                self.append_log(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
                 from image_recognition import replay_coordinates_only
                 success_count, total_count = replay_coordinates_only(
                     recording_data=recording_data,
                     replay_interval=self.replay_interval
                 )
             else:
+                self.append_log(f"[回放] 检测为含图像/键盘录制，使用 replay_coordinate_operations")
                 from image_recognition import replay_coordinate_operations
                 replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
@@ -7279,11 +7280,11 @@ class AutoRecorderApp(QMainWindow):
 
             # 回放完成
             self.is_replaying = False
-            self.debug_print(f"[回放] 回放完成: {success_count}/{total_count} 操作成功")
+            self.append_log(f"[回放] 回放完成: {success_count}/{total_count} 操作成功")
             
         except Exception as e:
             self.is_replaying = False
-            self.debug_print(f"[回放] 回放失败: {e}")
+            self.append_log(f"[回放] 回放失败: {e}")
             import traceback
             traceback.print_exc()
         finally:
@@ -7295,7 +7296,7 @@ class AutoRecorderApp(QMainWindow):
                 import pyautogui as _pg_release
                 for _key in ['ctrl', 'shift', 'alt', 'win']:
                     _pg_release.keyUp(_key)
-                self.debug_print("[回放] 已释放所有修饰键")
+                self.append_log("[回放] 已释放所有修饰键")
             except Exception:
                 pass
             # ★ 回放结束后恢复全局热键处理器（只需清除标志位）★
