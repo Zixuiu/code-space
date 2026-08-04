@@ -2812,13 +2812,19 @@ class FolderManager(QDialog):
             _ov.setGeometry(_tg)
             def _mp(ev):
                 if ev.button() == Qt.LeftButton:
-                    _x = int(ev.globalX()); _y = int(ev.globalY())
-                    self.debug_print(f"[录制-坐标诊断] 鼠标左键原始坐标 ev.globalX/Y=({_x},{_y}) 即将写入JSON")
+                    import ctypes as _ctypes_diag
+                    try:
+                        _dpi = _ctypes_diag.windll.user32.GetDpiForSystem() / 96.0
+                    except Exception:
+                        _dpi = 1.0
+                    _raw_x, _raw_y = int(ev.globalX()), int(ev.globalY())
+                    _x, _y = int(_raw_x * _dpi), int(_raw_y * _dpi)
+                    self.append_log(f"[录制-坐标诊断] Qt原始坐标=({_raw_x},{_raw_y}) DPIscale={_dpi} -> JSON保存物理坐标=({_x},{_y})")
                     recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
                     for _i,_o in enumerate(recording_data,1): _o["step"]=_i
                     save_json_data(recording_json_path, recording_data)
                     _refresh_table()
-                    self.debug_print(f"[录制-坐标诊断] JSON已保存，recording_data[-1]={recording_data[-1]}")
+                    self.append_log(f"[录制-坐标诊断] 写入OK recording_data[-1]={recording_data[-1]}")
                     _ov.accept()
                 elif ev.button() == Qt.RightButton:
                     _ov.reject()
@@ -2837,14 +2843,20 @@ class FolderManager(QDialog):
                 if ev.key() == Qt.Key_Escape:
                     _ov.reject()
                 elif ev.key() in (Qt.Key_Return, Qt.Key_Enter):
+                    import ctypes as _ctypes_diag
+                    try:
+                        _dpi = _ctypes_diag.windll.user32.GetDpiForSystem() / 96.0
+                    except Exception:
+                        _dpi = 1.0
                     _cursor = QCursor.pos()
-                    _x = int(_cursor.x()); _y = int(_cursor.y())
-                    self.debug_print(f"[录制-坐标诊断] Enter键录制 QCursor.pos=({_x},{_y}) 即将写入JSON")
+                    _raw_x, _raw_y = int(_cursor.x()), int(_cursor.y())
+                    _x, _y = int(_raw_x * _dpi), int(_raw_y * _dpi)
+                    self.append_log(f"[录制-坐标诊断] Enter QCursor原始=({_raw_x},{_raw_y}) DPIscale={_dpi} -> JSON保存物理坐标=({_x},{_y})")
                     recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
                     for _i,_o in enumerate(recording_data,1): _o["step"]=_i
                     save_json_data(recording_json_path, recording_data)
                     _refresh_table()
-                    self.debug_print(f"[录制-坐标诊断] JSON已保存，recording_data[-1]={recording_data[-1]}")
+                    self.append_log(f"[录制-坐标诊断] 写入OK recording_data[-1]={recording_data[-1]}")
                     _ov.accept()
             _ov.keyPressEvent = _kp
             def _focus():

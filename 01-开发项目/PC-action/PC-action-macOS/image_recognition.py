@@ -46,31 +46,52 @@ class POINT(ctypes.Structure):
 
 def _verified_click(x, y, action_type='left_click'):
     """
-    坐标点击验证：先 SetCursorPos → GetCursorPos 回读，
-    如果回读值偏差>=5px，再用 pyautogui.moveTo+click 兜底
+    坐标点击：先 Win32 SetCursorPos+点击；
+    任何异常 / 落点偏差>=5px 自动用 pyautogui 重新点击一次。
+    全程使用 unconditional_log → 日志窗格一定能看到
     """
-    # 1) 先用 Win32 极速路径
-    _user32.SetCursorPos(int(x), int(y))
-    p = POINT()
-    _user32.GetCursorPos(ctypes.byref(p))
-    dx, dy = abs(p.x - int(x)), abs(p.y - int(y))
-    verified_ok = (dx < 5 and dy < 5)
-    if not verified_ok:
-        try:
-            pyautogui.moveTo(int(x), int(y))
-            p2 = POINT()
-            _user32.GetCursorPos(ctypes.byref(p2))
-            dx2, dy2 = abs(p2.x - int(x)), abs(p2.y - int(y))
-            if dx2 >= 5 or dy2 >= 5:
-                debug_print(f"[坐标诊断] 落点仍有偏差: 目标({x},{y}) -> SetCursorPos({p.x},{p.y}) -> pyautogui({p2.x},{p2.y})")
-        except Exception as _e:
-            debug_print(f"[坐标诊断] pyautogui回退异常: {_e}")
-    # 点击
+    ix, iy = int(x), int(y)
     btn = 'left'
     if action_type == 'right_click': btn = 'right'
     elif action_type == 'middle_click': btn = 'middle'
-    _fast_click(btn)
-    return verified_ok
+    try:
+        # ---- 先 Win32 路径 ----
+        _user32.SetCursorPos(ix, iy)
+        p = POINT()
+        ok_getcursor = False
+        try:
+            _user32.GetCursorPos(ctypes.byref(p))
+            ok_getcursor = True
+        except Exception:
+            pass
+        verified_ok = False
+        if ok_getcursor:
+            dx, dy = abs(p.x - ix), abs(p.y - iy)
+            verified_ok = (dx < 5 and dy < 5)
+            if not verified_ok:
+                unconditional_log(f"[坐标诊断] SetCursorPos落点偏差: 目标({ix},{iy}) 实际({p.x},{p.y}) -> 将用pyautogui重放")
+        else:
+            unconditional_log(f"[坐标诊断] GetCursorPos不可用，直接Win32点击后再pyautogui兜底重放")
+        # 先点击
+        _fast_click(btn)
+        if verified_ok:
+            unconditional_log(f"[坐标诊断] 点击OK(Win32): ({ix},{iy})")
+            return True
+    except Exception as _e_outer:
+        unconditional_log(f"[坐标诊断] Win32路径异常: {_e_outer} -> 改用pyautogui点击")
+    # ---- 兜底：pyautogui 再点击一次 ----
+    try:
+        if action_type == 'right_click':
+            pyautogui.rightClick(ix, iy)
+        elif action_type == 'middle_click':
+            pyautogui.middleClick(ix, iy)
+        else:
+            pyautogui.click(ix, iy)
+        unconditional_log(f"[坐标诊断] pyautogui兜底点击OK: ({ix},{iy})")
+        return True
+    except Exception as _e_pa:
+        unconditional_log(f"[坐标诊断] pyautogui兜底也失败: {_e_pa}")
+        return False
 
 
 # ⚡ Win32 虚拟键码映射（用于 keybd_event 极速按键）
@@ -153,6 +174,19 @@ def set_log_callback(callback):
     """设置日志回调函数，用于将日志发送到UI"""
     global _log_callback
     _log_callback = callback
+
+def unconditional_log(message):
+    """无条件透传日志到UI（用于坐标/点击诊断，不依赖_debug_mode）"""
+    global _log_callback
+    try:
+        print(message)
+    except Exception:
+        pass
+    if _log_callback is not None:
+        try:
+            _log_callback(message)
+        except Exception:
+            pass
 
 def debug_print(message):
     """调试输出，仅在调试模式下打印，同时发送到日志回调"""
@@ -625,7 +659,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         if has_xy:
                             # ✅ 有x,y坐标 → 纯坐标步骤，直接按坐标点击并完成此步骤
                             cx, cy = operation['x'], operation['y']
-                            debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} -> 录制保存的坐标({cx}, {cy})")
+                            unconditional_log(f"[坐标诊断] 步骤{step}: 录制JSON坐标=({cx},{cy}) action={action_type}")
                             if action_type == 'drag':
                                 _fast_move(cx, cy)
                                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
@@ -857,14 +891,29 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 continue
 
             # 极速移动+点击 (with坐标诊断)
-            debug_print(f"[回放] replay_coordinates_only: 目标坐标({x}, {y}), action={action_type}")
-            if action_type in ('left_click', 'click', 'right_click', 'middle_click'):
-                _verified_click(x, y, action_type)
-            elif action_type == 'double_click':
-                _user32.SetCursorPos(int(x), int(y)); _fast_click('left'); _fast_click('left')
-            else:
-                _user32.SetCursorPos(int(x), int(y)); _fast_click('left')
-            success_count += 1
+            unconditional_log(f"[坐标诊断] replay_coordinates_only: 目标坐标({x}, {y}), action={action_type}")
+            try:
+                if action_type in ('left_click', 'click', 'right_click', 'middle_click'):
+                    _verified_click(x, y, action_type)
+                elif action_type == 'double_click':
+                    _user32.SetCursorPos(int(x), int(y)); _fast_click('left'); _fast_click('left')
+                else:
+                    _user32.SetCursorPos(int(x), int(y)); _fast_click('left')
+                success_count += 1
+            except Exception as _e_coords:
+                unconditional_log(f"[坐标诊断] Win32路径异常，改用pyautogui.click: {_e_coords}")
+                try:
+                    if action_type == 'right_click':
+                        pyautogui.rightClick(int(x), int(y))
+                    elif action_type == 'middle_click':
+                        pyautogui.middleClick(int(x), int(y))
+                    elif action_type == 'double_click':
+                        pyautogui.doubleClick(int(x), int(y))
+                    else:
+                        pyautogui.click(int(x), int(y))
+                    success_count += 1
+                except Exception as _e2:
+                    unconditional_log(f"[坐标诊断] pyautogui兜底也失败: {_e2}")
 
             # 步骤间间隔：优先用操作的 delay，否则用 replay_interval（无强制最低，由调用方决定）
             if i < total_operations - 1:

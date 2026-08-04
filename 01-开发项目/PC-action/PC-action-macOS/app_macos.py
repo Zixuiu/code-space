@@ -3156,10 +3156,20 @@ class CoordinateRecorder(QWidget):
             try:
                 self.step_counter += 1
                 global_logical = self.mapToGlobal(event.pos())
-                px = int(global_logical.x())
-                py = int(global_logical.y())
-                if hasattr(self.parent, 'debug_print'):
-                    self.parent.debug_print(f"[录制-坐标诊断-macOS] 左键 mapToGlobal=({px},{py})")
+                import ctypes as _ctypes_diag
+                try:
+                    _dpi = _ctypes_diag.windll.user32.GetDpiForSystem() / 96.0
+                except Exception:
+                    _dpi = 1.0
+                _rx, _ry = int(global_logical.x()), int(global_logical.y())
+                px, py = int(_rx * _dpi), int(_ry * _dpi)
+                try:
+                    if hasattr(self.parent, 'append_log'):
+                        self.parent.append_log(f"[录制-坐标诊断-macOS] 左键Qt=({_rx},{_ry}) DPIscale={_dpi} -> JSON物理坐标=({px},{py})")
+                    elif hasattr(self.parent, 'debug_print'):
+                        self.parent.debug_print(f"[录制-坐标诊断-macOS] 左键Qt=({_rx},{_ry}) DPIscale={_dpi} -> JSON物理坐标=({px},{py})")
+                except Exception:
+                    pass
                 rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
@@ -3182,10 +3192,20 @@ class CoordinateRecorder(QWidget):
             try:
                 self.step_counter += 1
                 global_logical = self.mapToGlobal(event.pos())
-                px = int(global_logical.x())
-                py = int(global_logical.y())
-                if hasattr(self.parent, 'debug_print'):
-                    self.parent.debug_print(f"[录制-坐标诊断-macOS] 右键 mapToGlobal=({px},{py})")
+                import ctypes as _ctypes_diag
+                try:
+                    _dpi = _ctypes_diag.windll.user32.GetDpiForSystem() / 96.0
+                except Exception:
+                    _dpi = 1.0
+                _rx, _ry = int(global_logical.x()), int(global_logical.y())
+                px, py = int(_rx * _dpi), int(_ry * _dpi)
+                try:
+                    if hasattr(self.parent, 'append_log'):
+                        self.parent.append_log(f"[录制-坐标诊断-macOS] 右键Qt=({_rx},{_ry}) DPIscale={_dpi} -> JSON物理坐标=({px},{py})")
+                    elif hasattr(self.parent, 'debug_print'):
+                        self.parent.debug_print(f"[录制-坐标诊断-macOS] 右键Qt=({_rx},{_ry}) DPIscale={_dpi} -> JSON物理坐标=({px},{py})")
+                except Exception:
+                    pass
                 rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
