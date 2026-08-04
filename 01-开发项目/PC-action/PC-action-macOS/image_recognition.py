@@ -41,59 +41,6 @@ def _fast_move(x, y):
     """极速移动鼠标"""
     _user32.SetCursorPos(x, y)
 
-class POINT(ctypes.Structure):
-    _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-def _verified_click(x, y, action_type='left_click'):
-    """
-    坐标点击：先 Win32 SetCursorPos+点击；
-    任何异常 / 落点偏差>=5px 自动用 pyautogui 重新点击一次。
-    全程使用 unconditional_log → 日志窗格一定能看到
-    """
-    ix, iy = int(x), int(y)
-    btn = 'left'
-    if action_type == 'right_click': btn = 'right'
-    elif action_type == 'middle_click': btn = 'middle'
-    try:
-        # ---- 先 Win32 路径 ----
-        _user32.SetCursorPos(ix, iy)
-        p = POINT()
-        ok_getcursor = False
-        try:
-            _user32.GetCursorPos(ctypes.byref(p))
-            ok_getcursor = True
-        except Exception:
-            pass
-        verified_ok = False
-        if ok_getcursor:
-            dx, dy = abs(p.x - ix), abs(p.y - iy)
-            verified_ok = (dx < 5 and dy < 5)
-            if not verified_ok:
-                unconditional_log(f"[坐标诊断] SetCursorPos落点偏差: 目标({ix},{iy}) 实际({p.x},{p.y}) -> 将用pyautogui重放")
-        else:
-            unconditional_log(f"[坐标诊断] GetCursorPos不可用，直接Win32点击后再pyautogui兜底重放")
-        # 先点击
-        _fast_click(btn)
-        if verified_ok:
-            unconditional_log(f"[坐标诊断] 点击OK(Win32): ({ix},{iy})")
-            return True
-    except Exception as _e_outer:
-        unconditional_log(f"[坐标诊断] Win32路径异常: {_e_outer} -> 改用pyautogui点击")
-    # ---- 兜底：pyautogui 再点击一次 ----
-    try:
-        if action_type == 'right_click':
-            pyautogui.rightClick(ix, iy)
-        elif action_type == 'middle_click':
-            pyautogui.middleClick(ix, iy)
-        else:
-            pyautogui.click(ix, iy)
-        unconditional_log(f"[坐标诊断] pyautogui兜底点击OK: ({ix},{iy})")
-        return True
-    except Exception as _e_pa:
-        unconditional_log(f"[坐标诊断] pyautogui兜底也失败: {_e_pa}")
-        return False
-
-
 # ⚡ Win32 虚拟键码映射（用于 keybd_event 极速按键）
 _KEYEVENTF_KEYUP = 0x0002
 _VK_CODES = {
@@ -174,19 +121,6 @@ def set_log_callback(callback):
     """设置日志回调函数，用于将日志发送到UI"""
     global _log_callback
     _log_callback = callback
-
-def unconditional_log(message):
-    """无条件透传日志到UI（用于坐标/点击诊断，不依赖_debug_mode）"""
-    global _log_callback
-    try:
-        print(message)
-    except Exception:
-        pass
-    if _log_callback is not None:
-        try:
-            _log_callback(message)
-        except Exception:
-            pass
 
 def debug_print(message):
     """调试输出，仅在调试模式下打印，同时发送到日志回调"""
@@ -658,17 +592,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
                         if has_xy:
                             # ✅ 有x,y坐标 → 纯坐标步骤，直接按坐标点击并完成此步骤
+                            debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({operation['x']}, {operation['y']})")
                             cx, cy = operation['x'], operation['y']
-                            unconditional_log(f"[坐标诊断] 步骤{step}: 录制JSON坐标=({cx},{cy}) action={action_type}")
-                            if action_type == 'drag':
-                                _fast_move(cx, cy)
+                            _fast_move(cx, cy)
+                            if action_type == 'left_click':
+                                _fast_click('left')
+                            elif action_type == 'right_click':
+                                _fast_click('right')
+                            elif action_type == 'double_click':
+                                _fast_click('left'); _fast_click('left')
+                            elif action_type == 'drag':
                                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
                                 _user32.mouse_event(0x0001, 50, 0, 0, 0)
                                 _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
-                            elif action_type == 'double_click':
-                                _fast_move(cx, cy); _fast_click('left'); _fast_click('left')
                             else:
-                                _verified_click(cx, cy, action_type)
+                                _fast_click('left')
                             success_count += 1
                             _log_clipboard(f"步骤{step}后({action_type})")
                             if delay > 0:
@@ -890,30 +828,19 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 success_count += 1
                 continue
 
-            # 极速移动+点击 (with坐标诊断)
-            unconditional_log(f"[坐标诊断] replay_coordinates_only: 目标坐标({x}, {y}), action={action_type}")
-            try:
-                if action_type in ('left_click', 'click', 'right_click', 'middle_click'):
-                    _verified_click(x, y, action_type)
-                elif action_type == 'double_click':
-                    _user32.SetCursorPos(int(x), int(y)); _fast_click('left'); _fast_click('left')
-                else:
-                    _user32.SetCursorPos(int(x), int(y)); _fast_click('left')
-                success_count += 1
-            except Exception as _e_coords:
-                unconditional_log(f"[坐标诊断] Win32路径异常，改用pyautogui.click: {_e_coords}")
-                try:
-                    if action_type == 'right_click':
-                        pyautogui.rightClick(int(x), int(y))
-                    elif action_type == 'middle_click':
-                        pyautogui.middleClick(int(x), int(y))
-                    elif action_type == 'double_click':
-                        pyautogui.doubleClick(int(x), int(y))
-                    else:
-                        pyautogui.click(int(x), int(y))
-                    success_count += 1
-                except Exception as _e2:
-                    unconditional_log(f"[坐标诊断] pyautogui兜底也失败: {_e2}")
+            # 极速移动+点击
+            _user32.SetCursorPos(x, y)
+            if action_type in ('left_click', 'click'):
+                _fast_click('left')
+            elif action_type == 'right_click':
+                _fast_click('right')
+            elif action_type == 'double_click':
+                _fast_click('left'); _fast_click('left')
+            elif action_type == 'middle_click':
+                _fast_click('middle')
+            else:
+                _fast_click('left')
+            success_count += 1
 
             # 步骤间间隔：优先用操作的 delay，否则用 replay_interval（无强制最低，由调用方决定）
             if i < total_operations - 1:
