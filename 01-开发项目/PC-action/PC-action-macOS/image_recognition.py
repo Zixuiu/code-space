@@ -37,6 +37,19 @@ def _fast_click(btn='left'):
         _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
         _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
 
+def _get_screen_dpr():
+    """获取当前屏幕的设备像素比（DPI缩放因子）"""
+    try:
+        hdc = _user32.GetDC(0)
+        if hdc:
+            from ctypes import windll
+            dpi = windll.gdi32.GetDeviceCaps(hdc, 88)
+            _user32.ReleaseDC(0, hdc)
+            return dpi / 96.0
+    except Exception:
+        pass
+    return 1.0
+
 def _fast_move(x, y):
     """极速移动鼠标"""
     _user32.SetCursorPos(x, y)
@@ -592,8 +605,14 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         has_xy = ('x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None)
                         if has_xy:
                             # ✅ 有x,y坐标 → 纯坐标步骤，直接按坐标点击并完成此步骤
-                            debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({operation['x']}, {operation['y']})")
-                            cx, cy = operation['x'], operation['y']
+                            _dpr = _get_screen_dpr()
+                            _raw_x, _raw_y = operation['x'], operation['y']
+                            cx = int(_raw_x / _dpr) if _dpr != 1.0 else _raw_x
+                            cy = int(_raw_y / _dpr) if _dpr != 1.0 else _raw_y
+                            if _dpr != 1.0:
+                                _dpr_debug = "[回放] 步骤 " + str(step) + ": 坐标DPR转换 (" + str(_raw_x) + "," + str(_raw_y) + ") -> (" + str(cx) + "," + str(cy) + ") (DPR=" + str(_dpr) + ")"
+                                debug_print(_dpr_debug)
+                            debug_print("[回放] 步骤 " + str(step) + ": 纯坐标点击 " + action_type + " (" + str(cx) + ", " + str(cy) + ")")
                             _fast_move(cx, cy)
                             if action_type == 'left_click':
                                 _fast_click('left')
@@ -828,7 +847,12 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 success_count += 1
                 continue
 
-            # 极速移动+点击
+            # 极速移动+点击（录制时坐标已乘以DPR，回放时需除以DPR转回逻辑坐标）
+            _dpr = _get_screen_dpr()
+            if _dpr != 1.0:
+                x = int(x / _dpr)
+                y = int(y / _dpr)
+                debug_print("[回放] 坐标DPR转换后: (" + str(x) + ", " + str(y) + ") (DPR=" + str(_dpr) + ")")
             _user32.SetCursorPos(x, y)
             if action_type in ('left_click', 'click'):
                 _fast_click('left')
