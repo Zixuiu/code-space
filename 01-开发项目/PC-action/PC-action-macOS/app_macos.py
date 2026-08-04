@@ -3158,6 +3158,8 @@ class CoordinateRecorder(QWidget):
                 global_logical = self.mapToGlobal(event.pos())
                 px = int(global_logical.x())
                 py = int(global_logical.y())
+                if hasattr(self.parent, 'debug_print'):
+                    self.parent.debug_print(f"[录制-坐标诊断-macOS] 左键 mapToGlobal=({px},{py})")
                 rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
@@ -3182,6 +3184,8 @@ class CoordinateRecorder(QWidget):
                 global_logical = self.mapToGlobal(event.pos())
                 px = int(global_logical.x())
                 py = int(global_logical.y())
+                if hasattr(self.parent, 'debug_print'):
+                    self.parent.debug_print(f"[录制-坐标诊断-macOS] 右键 mapToGlobal=({px},{py})")
                 rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
