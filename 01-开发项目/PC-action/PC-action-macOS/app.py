@@ -2812,8 +2812,7 @@ class FolderManager(QDialog):
             _ov.setGeometry(_tg)
             def _mp(ev):
                 if ev.button() == Qt.LeftButton:
-                    _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
-                    _x = int(ev.globalX() * _dpr); _y = int(ev.globalY() * _dpr)
+                    _x = int(ev.globalX()); _y = int(ev.globalY())
                     recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
                     for _i,_o in enumerate(recording_data,1): _o["step"]=_i
                     save_json_data(recording_json_path, recording_data)
@@ -2837,8 +2836,7 @@ class FolderManager(QDialog):
                     _ov.reject()
                 elif ev.key() in (Qt.Key_Return, Qt.Key_Enter):
                     _cursor = QCursor.pos()
-                    _screen = QApplication.primaryScreen(); _dpr = _screen.devicePixelRatio() if _screen else 1.0
-                    _x = int(_cursor.x() * _dpr); _y = int(_cursor.y() * _dpr)
+                    _x = int(_cursor.x()); _y = int(_cursor.y())
                     recording_data.append({"step":len(recording_data)+1,"action_type":"left_click","x":_x,"y":_y,"delay":0.1})
                     for _i,_o in enumerate(recording_data,1): _o["step"]=_i
                     save_json_data(recording_json_path, recording_data)

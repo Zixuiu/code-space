@@ -3155,11 +3155,9 @@ class CoordinateRecorder(QWidget):
             self._processing_click = True
             try:
                 self.step_counter += 1
-                screen = QApplication.primaryScreen()
-                dpr = screen.devicePixelRatio() if screen else 1.0
                 global_logical = self.mapToGlobal(event.pos())
-                px = int(global_logical.x() * dpr)
-                py = int(global_logical.y() * dpr)
+                px = int(global_logical.x())
+                py = int(global_logical.y())
                 rec = {"step": self.step_counter, "action_type": "left_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
@@ -3181,11 +3179,9 @@ class CoordinateRecorder(QWidget):
             self._processing_click = True
             try:
                 self.step_counter += 1
-                screen = QApplication.primaryScreen()
-                dpr = screen.devicePixelRatio() if screen else 1.0
                 global_logical = self.mapToGlobal(event.pos())
-                px = int(global_logical.x() * dpr)
-                py = int(global_logical.y() * dpr)
+                px = int(global_logical.x())
+                py = int(global_logical.y())
                 rec = {"step": self.step_counter, "action_type": "right_click", "x": px, "y": py, "delay": 0.1}
                 self.records.append(rec)
                 if self.parent and hasattr(self.parent, 'coordinate_records'):
