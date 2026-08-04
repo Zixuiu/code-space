@@ -729,18 +729,14 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             # 根据操作类型执行相应操作
             if action_type == 'double_click':
+                # ★ 用 pyautogui.click 两次（带100ms间隔），已验证能产生双击跳转效果
                 try:
-                    sw, sh, ax, ay = _absolute_double_click(center_x, center_y)
-                    debug_print(f"[回放] 步骤 {step}: 绝对坐标双击 ({center_x},{center_y}) -> abs({ax},{ay}) screen={sw}x{sh}")
+                    pyautogui.click(center_x, center_y)
+                    time.sleep(0.1)
+                    pyautogui.click(center_x, center_y)
+                    debug_print(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
                 except Exception as e:
-                    debug_print(f"[回放] 步骤 {step}: 绝对坐标双击失败: {e}，尝试pyautogui回退")
-                    try:
-                        pyautogui.click(center_x, center_y)
-                        time.sleep(0.1)
-                        pyautogui.click(center_x, center_y)
-                        debug_print(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
-                    except Exception as e2:
-                        debug_print(f"[回放] 步骤 {step}: pyautogui双击也失败: {e2}")
+                    debug_print(f"[回放] 步骤 {step}: pyautogui双击失败: {e}")
             elif action_type == 'left_click':
                 _fast_click('left')
             elif action_type == 'right_click':
@@ -861,7 +857,13 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             elif action_type == 'right_click':
                 _fast_click('right')
             elif action_type == 'double_click':
-                _fast_click('left'); time.sleep(0.05); _fast_click('left')
+                # ★ 用 pyautogui.click 两次（带100ms间隔）
+                try:
+                    pyautogui.click(x, y)
+                    time.sleep(0.1)
+                    pyautogui.click(x, y)
+                except Exception:
+                    _fast_click('left'); time.sleep(0.05); _fast_click('left')
             elif action_type == 'middle_click':
                 _fast_click('middle')
             else:
