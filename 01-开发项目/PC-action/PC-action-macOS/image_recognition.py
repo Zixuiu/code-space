@@ -720,6 +720,15 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     x, y, width, height = location
                     center_x = x + width // 2
                     center_y = y + height // 2
+            else:
+                # ★ 无图片的纯坐标步骤 → 直接使用录制保存的 x/y 坐标
+                if 'x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None:
+                    center_x = operation['x']
+                    center_y = operation['y']
+                    debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({center_x}, {center_y})")
+                else:
+                    debug_print(f"[回放] ⚠️ 步骤 {step}: 无图片且无坐标，跳过")
+                    continue
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
             _fast_move(center_x, center_y)
