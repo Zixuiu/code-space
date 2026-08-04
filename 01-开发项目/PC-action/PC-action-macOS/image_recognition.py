@@ -22,20 +22,66 @@ _MOUSEEVENTF_MIDDLEDOWN = 0x0020
 _MOUSEEVENTF_MIDDLEUP = 0x0040
 _MOUSEEVENTF_WHEEL = 0x0800
 
+# SendInput 相关结构体（比 mouse_event 更可靠）
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = [("dx", ctypes.c_long), ("dy", ctypes.c_long),
+                ("mouseData", ctypes.c_ulong), ("dwFlags", ctypes.c_ulong),
+                ("time", ctypes.c_ulong), ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
+
+class _INPUT_UNION(ctypes.Union):
+    _fields_ = [("mi", _MOUSEINPUT)]
+
+class _INPUT(ctypes.Structure):
+    class _INPUT(ctypes.Structure):
+        _anonymous_ = ("u",)
+        _fields_ = [("type", ctypes.c_ulong), ("u", _INPUT_UNION)]
+
+# 重新定义（修正嵌套）
+class _INPUT(ctypes.Structure):
+    _anonymous_ = ("u",)
+    _fields_ = [("type", ctypes.c_ulong), ("u", _INPUT_UNION)]
+
+def _send_mouse_input(flags):
+    """用 SendInput 发送鼠标事件"""
+    extra = ctypes.c_ulong(0)
+    inp = _INPUT()
+    inp.type = 0  # INPUT_MOUSE
+    inp.mi.dx = 0
+    inp.mi.dy = 0
+    inp.mi.mouseData = 0
+    inp.mi.dwFlags = flags
+    inp.mi.time = 0
+    inp.mi.dwExtraInfo = ctypes.pointer(extra)
+    _user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+
 def _fast_click(btn='left'):
-    """极速点击（Win32 API，比pyautogui快5-10倍）"""
+    """极速点击（用 SendInput，比 mouse_event 更可靠）"""
     if btn == 'left':
-        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        _send_mouse_input(0x0002)  # MOUSEEVENTF_LEFTDOWN
+        _send_mouse_input(0x0004)  # MOUSEEVENTF_LEFTUP
     elif btn == 'right':
-        _user32.mouse_event(_MOUSEEVENTF_RIGHTDOWN, 0, 0, 0, 0)
-        _user32.mouse_event(_MOUSEEVENTF_RIGHTUP, 0, 0, 0, 0)
+        _send_mouse_input(0x0008)  # MOUSEEVENTF_RIGHTDOWN
+        _send_mouse_input(0x0010)  # MOUSEEVENTF_RIGHTUP
     elif btn == 'middle':
-        _user32.mouse_event(_MOUSEEVENTF_MIDDLEDOWN, 0, 0, 0, 0)
-        _user32.mouse_event(_MOUSEEVENTF_MIDDLEUP, 0, 0, 0, 0)
+        _send_mouse_input(0x0020)  # MOUSEEVENTF_MIDDLEDOWN
+        _send_mouse_input(0x0040)  # MOUSEEVENTF_MIDDLEUP
     else:
-        _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
-        _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+        _send_mouse_input(0x0002)
+        _send_mouse_input(0x0004)
+
+def _reliable_double_click(x, y):
+    """可靠的双击：SendInput + 延迟"""
+    _user32.SetCursorPos(int(x), int(y))
+    time.sleep(0.03)
+    # 第一次点击
+    _send_mouse_input(0x0002)  # LEFTDOWN
+    time.sleep(0.02)
+    _send_mouse_input(0x0004)  # LEFTUP
+    time.sleep(0.05)  # 双击间隔
+    # 第二次点击
+    _send_mouse_input(0x0002)
+    time.sleep(0.02)
+    _send_mouse_input(0x0004)
 
 def _fast_move(x, y):
     """极速移动鼠标"""
@@ -694,8 +740,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             # 根据操作类型执行相应操作
             if action_type == 'double_click':
-                pyautogui.doubleClick(center_x, center_y)
-                debug_print(f"[回放] 步骤 {step}: pyautogui.doubleClick({center_x}, {center_y})")
+                _reliable_double_click(center_x, center_y)
+                debug_print(f"[回放] 步骤 {step}: SendInput doubleClick({center_x}, {center_y})")
             elif action_type == 'left_click':
                 _fast_click('left')
             elif action_type == 'right_click':
