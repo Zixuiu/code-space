@@ -1055,10 +1055,13 @@ class ComboSkillEditDialog(QDialog):
             # action 为空时，自动加载执行选项并选中第一项，让用户能看到可用流程
             type_combo.setCurrentIndex(2)
             detail_combo.setEnabled(True)
-            # 【性能优化】缓存已存在时，直接取第一项，避免循环 addItem
-            if self._execute_options_cache is not None and self._execute_options_cache:
-                detail_combo.addItem(f"执行: {self._execute_options_cache[0]}", self._execute_options_cache[0])
-                self.flows[index]['action'] = self._execute_options_cache[0]
+            # 【性能优化】缓存已存在时，直接从缓存加载全部流程选项，避免重复扫描磁盘
+            # ★修复：之前只取第一项，导致"执行操作"下拉框只能看到一个流程，改为遍历加载全部
+            if self._execute_options_cache is not None:
+                for folder in self._execute_options_cache:
+                    detail_combo.addItem(f"执行: {folder}", folder)
+                if detail_combo.count() > 0:
+                    self.flows[index]['action'] = detail_combo.itemData(0)
             else:
                 self.load_execute_options(detail_combo)
                 if detail_combo.count() > 0:
