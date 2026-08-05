@@ -93,7 +93,7 @@ def setup_ssh_and_check():
         return False, pub_key_file, config_file
 
     # 有私钥，做一次 SSH 认证测试
-    r = run_cmd("ssh -o StrictHostKeyChecking=no -T git@gitcode.com", timeout=20)
+    r = run_cmd("ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes -T git@gitcode.com", timeout=8)
     out = (r.stdout or "") + (r.stderr or "")
     if "permission denied" in out.lower() or "publickey" in out.lower():
         log("SSH 认证失败：GitCode 上还没添加公钥，或私钥与公钥不匹配", "ERROR")
@@ -123,7 +123,6 @@ def main():
     log("\n步骤 1-2/5: 配置 SSH 公钥 / 私钥 / 客户端...")
     ssh_ok, pub_key_file, config_file = setup_ssh_and_check()
     if not ssh_ok:
-        input("\n按 Enter 退出...")
         sys.exit(1)
     log("SSH 配置完成，认证通过", "SUCCESS")
 
@@ -197,7 +196,6 @@ def main():
     print(f"✅ 远程仓库: {SSH_URL}")
     print(f"ℹ️  注意: 本地组合技、快捷键、录制文件夹、*.db 数据库不会被推送（已受保护）")
     print("=" * 70)
-    input("\n按 Enter 退出...")
 
 
 if __name__ == "__main__":

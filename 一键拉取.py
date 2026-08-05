@@ -159,7 +159,7 @@ def setup_ssh():
         return False
 
     # 有私钥才去做真正的 SSH 认证测试
-    r = run_cmd("ssh -o StrictHostKeyChecking=no -T git@gitcode.com", timeout=20)
+    r = run_cmd("ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes -T git@gitcode.com", timeout=8)
     out = (r.stdout or "") + (r.stderr or "")
     if "permission denied" in out.lower() or "publickey" in out.lower():
         log("SSH 认证失败：GitCode 上还没添加公钥，或私钥与公钥不匹配", "ERROR")
@@ -193,12 +193,16 @@ def has_any_files():
     return False
 
 
-def backup_protected():
-    """备份受保护路径到临时目录，返回 (backup_root, [(abs_path, backup_path), ...])"""
+def backup_protected(skip_dirs=()):
+    """备份受保护路径到临时目录，返回 (backup_root, [(abs_path, backup_path), ...])。
+    skip_dirs: 跳过含这些子串的受保护项（如 'recordings'）。do_pull 场景下未跟踪文件
+    不受 reset --hard 影响，无需备份大目录，可显著提速。"""
     backup_root = tempfile.mkdtemp(prefix="pull_backup_")
     entries = []
     paths = collect_protected_paths()
     for rel in paths:
+        if any(s in rel for s in skip_dirs):
+            continue
         src = os.path.join(BASE_DIR, rel)
         if not os.path.exists(src):
             continue
@@ -351,7 +355,7 @@ def do_clone():
 
 def do_pull():
     """已有 git 仓库：fetch + reset --hard，覆盖本地所有改动，仅保留受保护数据"""
-    backup_root, entries = backup_protected()
+    backup_root, entries = backup_protected(skip_dirs=("recordings",))
     if entries:
         log(f"已备份 {len(entries)} 项本地数据", "SUCCESS")
     else:
@@ -398,7 +402,6 @@ def main():
     if issues:
         for it in issues:
             log(it, "ERROR")
-        input("\n按 Enter 退出...")
         sys.exit(1)
     log("环境检查通过（Git 已安装）", "SUCCESS")
 
@@ -407,7 +410,6 @@ def main():
     ssh_ok = setup_ssh()
     if not ssh_ok:
         log("SSH 认证失败（见上方提示），请先到 GitCode 添加公钥后再运行", "ERROR")
-        input("\n按 Enter 退出...")
         sys.exit(1)
     log("SSH 配置完成", "SUCCESS")
 
@@ -428,7 +430,6 @@ def main():
 
     if not ok:
         log("同步失败，所有本地数据已自动恢复", "ERROR")
-        input("\n按 Enter 退出...")
         sys.exit(1)
 
     # Step 5: 总结
@@ -448,7 +449,6 @@ def main():
     print("   3. 改完代码想上传 → 双击「一键推送.py」")
     print("   4. 想拉最新代码 → 双击「一键拉取.py」")
     print("=" * 70)
-    input("\n按 Enter 退出...")
 
 
 if __name__ == "__main__":
