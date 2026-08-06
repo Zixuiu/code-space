@@ -717,7 +717,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败 '{image_name}'，停止回放")
                         break
                 else:
-                    debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}）")
+                    # ★ 成功日志带匹配分数：贴阈值命中往往就是"没找到图却点了坐标"的元凶（误命中），
+                    # 用户看到分数即可判断是真命中还是疑似误命中。
+                    _hit_score = _LAST_MATCH_BEST_SCORE_GLOBAL[0] if _LAST_MATCH_BEST_SCORE_GLOBAL else 0.0
+                    debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}, 分数: {_hit_score:.3f}）")
+                    if _hit_score < dynamic_confidence + 0.06 and dynamic_confidence >= 0.9:
+                        debug_print(f"[回放] ⚠️ 步骤 {step}: 分数 {_hit_score:.3f} 紧贴阈值({dynamic_confidence:.2f})，若视觉上并未看到目标图，请留意——疑似误命中")
                     x, y, width, height = location
                     center_x = x + width // 2
                     center_y = y + height // 2
