@@ -137,6 +137,16 @@ class ComboSkillEditDialog(QDialog):
             QCheckBox::indicator {
                 width: 18px;
                 height: 18px;
+                border: 1.5px solid #C7C7CC;
+                border-radius: 4px;
+                background: #FFFFFF;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #8E8E93;
+            }
+            QCheckBox::indicator:checked {
+                background: #0A84FF;
+                border-color: #0A84FF;
             }
         """)
         top_layout.addWidget(self.skip_on_fail_check)
