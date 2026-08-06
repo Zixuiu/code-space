@@ -7396,84 +7396,12 @@ class AutoRecorderApp(QMainWindow):
                 except Exception as _react_e:
                     self.debug_print(f"[回放诊断] 激活失败: {_react_e}")
 
-            # ★★★ 关键修复：回放后完全重新初始化 keyboard 库 ★★★
-            # 根据项目约束：After replay completion, remove all existing hotkeys and re-register all hotkeys
-            # 注意:此代码在 finally 块的 if _hooks_disabled 内,无论前面是否有异常都会执行
-            try:
-                self.debug_print("=" * 60)
-                self.debug_print("[回放诊断] ★★★ 完全重新初始化 keyboard 库 ★★★")
-                self.debug_print("=" * 60)
-
-                # 1. 完全停止 keyboard 库的监听系统
-                import keyboard as _kb_rereg
-                try:
-                    _kb_rereg.unhook_all()
-                    # ⚡ 关键修复：unhook_all不清空_hotkeys字典，手动清空防止热键累积泄漏
-                    _hotkeys_dict = getattr(_kb_rereg, '_hotkeys', None)
-                    if _hotkeys_dict is not None:
-                        _before_count = len(_hotkeys_dict)
-                        _hotkeys_dict.clear()
-                        self.debug_print(f"[回放诊断] ✅ 已移除所有钩子，并清空 {_before_count} 个热键缓存")
-                    else:
-                        self.debug_print("[回放诊断] ✅ 已移除所有钩子")
-                except Exception as _uh_e:
-                    self.debug_print(f"[回放诊断] ⚠️ 移除钩子失败: {_uh_e}")
-
-                # 2. 清除所有热键ID（标记为未注册）
-                self.shortcut_objects = []
-                self.grave_hotkey_id = None
-                self.stop_hotkey_id = None
-                if hasattr(self, '_view_images_grave_hotkey_id'):
-                    self._view_images_grave_hotkey_id = None
-
-                # 3. 重新注册所有热键
-                self.update_shortcuts()
-
-                try:
-                    self.register_record_hotkey()
-                    log_info('[热键] 重新注册录制热键 `')
-                except Exception as e:
-                    log_error(f'[热键] 重新注册录制热键失败: {e}')
-
-                try:
-                    self.register_stop_replay_hotkey()
-                    log_info('[热键] 重新注册停止热键 F12')
-                except Exception as e:
-                    log_error(f'[热键] 重新注册停止热键失败: {e}')
-
-                # 4. 重新添加全局按键监听器
-                try:
-                    def _key_logger(event):
-                        if event.event_type == 'down':
-                            if event.name in ['alt', 'ctrl', 'shift', 'left alt', 'right alt'] or len(event.name) == 1:
-                                self.debug_print(f"[键盘事件] 捕获按键: {event.name}")
-                    _kb_rereg.hook(_key_logger)
-                    self.debug_print("[回放诊断] ✅ 已重新注册全局按键监听器")
-                except Exception as _kl_e:
-                    self.debug_print(f"[回放诊断] ⚠️ 重新注册按键监听器失败: {_kl_e}")
-
-                # 5. 验证结果
-                _hk_after = getattr(_kb_rereg, '_hotkeys', {})
-                self.debug_print(f"[回放诊断] 重新注册后热键数量: {len(_hk_after)}")
-
-                _listener_after = getattr(_kb_rereg, '_listener', None)
-                if _listener_after:
-                    _handlers_after = getattr(_listener_after, 'handlers', [])
-                    _handler_names = [getattr(_h, '__name__', str(_h)[:50]) for _h in _handlers_after]
-                    self.debug_print(f"[回放诊断] handlers 列表: {_handler_names}")
-                    self.debug_print(f"[回放诊断] handlers 中有 process_event: {'process_event' in str(_handler_names)}")
-
-                # 测试 Alt+M 是否在 _hotkeys 中（大小写都测试）
-                for _test_key in ['alt+m', 'Alt+M', 'Alt+m', 'alt+M']:
-                    if _test_key in _hk_after:
-                        self.debug_print(f"[回放诊断] ✅ '{_test_key}' 在 _hotkeys 中")
-                    else:
-                        self.debug_print(f"[回放诊断] ❌ '{_test_key}' 不在 _hotkeys 中")
-
-            except Exception as _rereg_e:
-                import traceback
-                self.debug_print(f"[回放诊断] 重新注册失败: {_rereg_e}")
-                self.debug_print(f"[回放诊断] 失败堆栈: {traceback.format_exc()}")
+            # ★★★ 修复：不再"完全重新初始化" keyboard 库 ★★★
+            # 原因：回放期间热键只是置了 _hotkeys_temporarily_disabled 标志（并未 remove_hotkey），
+            # 清掉标志后回调即可恢复（见 7185 的"新策略"注释）。
+            # 旧代码这里调用 unhook_all() 会杀死 keyboard 的监听线程，导致之后重注册的热键
+            # "按了没反应"（快捷键失效）——正是用户反馈的问题。故不再卸载/重注册热键。
+            self.debug_print("[回放诊断] 跳过 keyboard 库重新初始化（避免 unhook_all 杀死监听线程）")
 
     def stop_replay(self):
         """停止当前回放（完全重置状态，同时停止所有组合技）"""

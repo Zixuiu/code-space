@@ -78,8 +78,7 @@ class ComboSkillEditDialog(QDialog):
         _card = QFrame(self)
         _card.setStyleSheet("""
             QFrame {
-                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
-                    stop:0 #FFFFFF, stop:1 #F0F0F5);
+                background: #FFFFFF;
                 border-radius: 18px;
                 border: 2px solid #8E8E93;
             }
