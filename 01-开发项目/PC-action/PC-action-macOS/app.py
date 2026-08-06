@@ -5404,6 +5404,8 @@ class AutoRecorderApp(QMainWindow):
         self.register_record_hotkey()
         self.register_stop_replay_hotkey()
         self._start_hotkey_health_check()
+        # ★ 启动即检测管理员权限；非管理员时弹窗提醒，避免全局热键/回放在部分电脑上失效
+        self._check_admin_and_warn()
         self.load_font_size_setting()
         if hasattr(self, 'status_label') and self.current_user:
             self.status_label.setText(f"当前用户: {self.current_user}")
@@ -7298,6 +7300,17 @@ class AutoRecorderApp(QMainWindow):
                 # 只清除禁用标志，让热键回调正常工作
                 self._hotkeys_temporarily_disabled = False
                 self.debug_print("[回放] 已清除热键临时禁用标志，热键恢复响应")
+
+                # ★ 主动自愈：回放过程（ctrl+a/ctrl+v/enter 高频模拟按键）可能让 keyboard 库的
+                # 监听/处理线程崩溃（尤其非管理员权限下）。仅清标志位无法救活已死的线程，
+                # 因此立即在后台线程跑一次健康检查：线程若已死会触发 _reinitialize_all_hotkeys 恢复；
+                # 线程若仍存活则零副作用（不重初始化）。比单纯等待 1 秒健康检查更及时。
+                try:
+                    import threading as _th_reinit
+                    _th_reinit.Thread(target=self._check_and_restore_hotkeys, daemon=True).start()
+                    self.debug_print("[回放] 已触发热键健康检查（后台），自动恢复可能失效的线程")
+                except Exception as _re_e:
+                    self.debug_print(f"[回放] 触发热键健康检查失败: {_re_e}")
 
                 # 简单诊断：检查 keyboard 库状态
                 try:
@@ -9741,6 +9754,32 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             log_error(f"[热键] 注册F12停止快捷键失败: {e}")
             self.stop_replay_hotkey_id = None
+
+    def _check_admin_and_warn(self):
+        """检测是否以管理员权限运行；非管理员时弹窗提醒，避免全局热键/回放在部分电脑上失效。
+        仅 Windows 生效（macOS 权限模型不同，且 F1 在 mac 上是亮度键不受影响）。"""
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            _is_admin = ctypes.windll.shell32.IsUserAnAdmin()
+        except Exception:
+            return
+        if not _is_admin:
+            try:
+                from PyQt5.QtWidgets import QMessageBox
+                QMessageBox.warning(
+                    self,
+                    "建议以管理员身份运行",
+                    "当前 PC-action 未以管理员权限运行。\n\n"
+                    "本程序使用的 keyboard 库需要管理员权限才能稳定拦截全局热键；"
+                    "在部分电脑（尤其公司/受管控环境）上，非管理员权限会导致回放后快捷键失效、"
+                    "怎么按都没反应。\n\n"
+                    "建议：关闭本程序后，右键它的启动图标/快捷方式 → 选择「以管理员身份运行」。",
+                    QMessageBox.Ok
+                )
+            except Exception:
+                pass
 
     def _start_hotkey_health_check(self):
         """启动全局热键健康检查定时器，自动恢复失效的热键"""
