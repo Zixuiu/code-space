@@ -6833,13 +6833,21 @@ class AutoRecorderApp(QMainWindow):
         from PyQt5.QtWidgets import QMenu
         from PyQt5.QtCore import QPoint
         
+        from utils import get_recordings_path
+        folder_path = os.path.join(get_recordings_path(), recording_name)
+        
         menu = QMenu(self)
         pin_action = menu.addAction("📌 置顶")
+        interval_action = menu.addAction("设置默认间隔")
+        if not os.path.exists(folder_path):
+            interval_action.setEnabled(False)
         
         action = menu.exec_(item_widget.mapToGlobal(pos))
         
         if action == pin_action:
             self.pin_recording_to_top(recording_name)
+        elif action == interval_action:
+            self.set_folder_interval(folder_path)
     
     def pin_recording_to_top(self, recording_name):
         """将指定的流程置顶到列表最上面"""
