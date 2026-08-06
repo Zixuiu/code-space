@@ -20,3 +20,14 @@ debug.log
 *.old
 recordings/
 trash/
+
+# ============================================================
+# PC-action 本地用户数据：严禁被推送/拉取影响（组合技/快捷键/录制）
+# 与 PC-action-macOS/.gitignore 双保险，确保无论从哪个目录执行 git 都生效
+# ============================================================
+01-开发项目/PC-action/PC-action-macOS/data/
+01-开发项目/PC-action/PC-action-macOS/user_data/
+01-开发项目/PC-action/PC-action-macOS/recordings/
+
+# 项目私有记忆/配置（含本地工作日志、MEMORY，不应同步）
+.workbuddy/

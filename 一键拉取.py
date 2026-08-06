@@ -34,9 +34,9 @@ SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4
 #       其他项目（如 go-music-dl/webview 的浏览器数据库）或测试副本目录的数据。
 APP_DIR = "01-开发项目/PC-action/PC-action-macOS"
 PROTECTED_EXPLICIT = [
-    f"{APP_DIR}/data/combo_skills.json",  # 组合技
-    f"{APP_DIR}/user_data",               # 快捷键、录制顺序、UI 偏好等
-    f"{APP_DIR}/recordings",              # 录制文件夹
+    f"{APP_DIR}/data",          # 组合技（data/combo_skills.json）及快捷键/键位配置
+    f"{APP_DIR}/user_data",     # 快捷键、录制顺序、UI 偏好等全部用户配置
+    f"{APP_DIR}/recordings",    # 录制文件夹（流程本身/图片/recording.json 配置）
 ]
 # 只在 APP_DIR 下扫描 *.db（避免误备份其他项目的数据库）
 PROTECTED_PATTERNS = [f"{APP_DIR}/*.db"]
@@ -229,6 +229,23 @@ def restore_protected(entries):
             log(f"恢复失败 {src}: {e}", "WARNING")
 
 
+def verify_restored(entries):
+    """恢复后校验：凡是备份过的本地数据，恢复后必须存在且非空；否则大声告警。"""
+    ok, bad = 0, []
+    for src, _dst in entries:
+        if os.path.exists(src) and os.path.getsize(src) > 0:
+            ok += 1
+        else:
+            bad.append(src)
+    if bad:
+        log("⚠️ 以下本地数据恢复异常（不存在或为空），请立即检查：", "ERROR")
+        for b in bad:
+            log(f"   - {os.path.relpath(b, BASE_DIR)}", "ERROR")
+    else:
+        log(f"本地数据校验通过：{ok} 项已确认保留（组合技/快捷键/录制均未被影响）", "SUCCESS")
+    return not bad
+
+
 def cleanup_backup(backup_root):
     shutil.rmtree(backup_root, ignore_errors=True)
 
@@ -341,6 +358,7 @@ def do_clone():
 
         # 双保险：用备份再覆盖一次（以防 moved_tmp 的合并没覆盖到）
         restore_protected(backup_entries)
+        verify_restored(backup_entries)
         log("首次克隆完成", "SUCCESS")
 
         # 初始化 git 仓库级 sshCommand（全局已设过，再补一次仓库级更保险）
@@ -385,7 +403,7 @@ def do_pull():
     # 恢复本地受保护数据
     if entries:
         restore_protected(entries)
-        log("本地数据已恢复", "SUCCESS")
+        verify_restored(entries)
     cleanup_backup(backup_root)
     return True
 

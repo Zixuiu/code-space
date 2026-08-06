@@ -66,18 +66,17 @@ _check_exe.py
 build_exe.bat
 build_exe.ps1
 
-# 运行时用户数据
+# ============================================================
+# 本地用户数据：严禁被 git 推送或拉取影响（推送不上、拉取不覆盖）
+# ============================================================
+# ① 组合技（含组合技本身、以及组合技里引用的流程）
+data/
+
+# ② 快捷键配置（文件夹快捷键、键位绑定等全部用户配置）
 user_data/
+
+# ③ 流程录制文件夹（含流程本身、流程里的图片、recording.json 流程配置）
+recordings/
 
 # 录制回收站
 recordings/trash/
-# 组合技配置
-data/combo_skills.json
-data/combo_skills.json.bak
-
-# 流程录制文件夹
-recordings/
-
-# 快捷键配置
-data/shortcuts.json
-data/key_bindings.json
