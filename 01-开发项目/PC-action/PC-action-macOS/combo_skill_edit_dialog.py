@@ -274,8 +274,14 @@ class ComboSkillEditDialog(QDialog):
                 background: {T['primary']}15; border: none; outline: none;
             }}
             QHeaderView::section {{
-                background: transparent; color: #666; padding: 10px;
-                font-weight: 600; border: none; border-bottom: none; font-size: 12px;
+                /* 显式白底：transparent 在 Windows 下会让 QHeaderView 回落成原生灰色表头 */
+                background-color: #FFFFFF;
+                color: #666;
+                padding: 10px;
+                font-weight: 600;
+                border: none;
+                border-bottom: 1px solid #E5E5EA;
+                font-size: 12px;
             }}
         """)
         self.tree_widget.setColumnWidth(0, 250)
