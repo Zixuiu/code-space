@@ -370,6 +370,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         except Exception:
             pass
 
+    _step_durations = []
     for i, operation in enumerate(recording_data):
         _step_start = time.time()
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
@@ -735,7 +736,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 # ★ 用 pyautogui.click 两次（带100ms间隔），已验证能产生双击跳转效果
                 try:
                     pyautogui.click(center_x, center_y)
-                    time.sleep(0.1)
+                    time.sleep(0.03)
                     pyautogui.click(center_x, center_y)
                     debug_print(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
                 except Exception as e:
@@ -788,12 +789,25 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
 
             # 极小延迟（1ms+stop_check）— 极速模式下完全跳过（turbo_match 本来就要求响应快）
             if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check):
+                _step_durations.append((step, action_type, time.time() - _step_start))
                 break
+            # ★ 记录本步耗时（成功路径）
+            _step_durations.append((step, action_type, time.time() - _step_start))
         except Exception:
             import traceback; traceback.print_exc()
+            _step_durations.append((step, action_type, time.time() - _step_start))
             continue
     
     _replay_elapsed = time.time() - _replay_start
+    # ★★★ 每步耗时诊断（重点看时间，定位最慢一步）★★★
+    if _step_durations:
+        _dur_sorted = sorted(_step_durations, key=lambda x: x[2], reverse=True)
+        debug_print(f"[耗时诊断] 回放总计 {_replay_elapsed:.3f}s | 共执行 {len(_step_durations)} 步")
+        for _sd, _sa, _dt in _dur_sorted:
+            debug_print(f"[耗时] 步骤{_sd}({_sa}): {_dt*1000:.1f}ms")
+        _slow = _dur_sorted[0]
+        _slow_pct = (_slow[2] / _replay_elapsed * 100) if _replay_elapsed > 0 else 0
+        debug_print(f"[耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
     if not skip_cache_clear:
         clear_image_cache()
     try:
@@ -863,7 +877,7 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                 # ★ 用 pyautogui.click 两次（带100ms间隔）
                 try:
                     pyautogui.click(x, y)
-                    time.sleep(0.1)
+                    time.sleep(0.03)
                     pyautogui.click(x, y)
                 except Exception:
                     _fast_click('left'); time.sleep(0.05); _fast_click('left')
