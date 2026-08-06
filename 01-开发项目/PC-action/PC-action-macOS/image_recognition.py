@@ -404,11 +404,14 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             _restore_delay = 0.02
                             _do_verify = False       # 极速模式跳过剪贴板验证（省一次pyperclip读）
                         else:
-                            _clip_stable = 0.3
-                            _clip_retry_sleep = 0.2
-                            _paste_wait = 0.2
-                            _restore_max_retry = 3
-                            _restore_delay = 0.3
+                            # 非极速模式：剪贴板等待做保守削减。
+                            # 内容已通过剪贴板校验、恢复也有 verify 兜底，原 0.3/0.2/0.3 偏保守，
+                            # 且这段等待发生在界面已更新之后，会让后续图片匹配"看起来很晚才点"。
+                            _clip_stable = 0.1
+                            _clip_retry_sleep = 0.1
+                            _paste_wait = 0.05
+                            _restore_max_retry = 2
+                            _restore_delay = 0.1
                             _do_verify = True
                         # 先保存用户当前剪贴板内容，避免文本输入污染剪贴板
                         saved_clipboard = None
