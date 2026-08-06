@@ -107,7 +107,7 @@ class ComboSkillEditDialog(QDialog):
 
         # ── 顶部栏：标题 + 名称 + 循环次数 + 备注 ──
         top_layout = QHBoxLayout()
-        title = QLabel("✦ 组合技")
+        title = QLabel("组合技")
         title.setStyleSheet("font-size: 16px; font-weight: bold;")
         top_layout.addWidget(title)
 
@@ -244,7 +244,7 @@ class ComboSkillEditDialog(QDialog):
             lambda st: self.step_interval_spin.setEnabled(not st))
         top_layout.addWidget(self.step_interval_default_cb)
 
-        note_btn = QPushButton("✎ 备注")
+        note_btn = QPushButton("备注")
         note_btn.setStyleSheet(self._bar_btn_style())
         note_btn.clicked.connect(self.show_note_page)
         top_layout.addWidget(note_btn)
@@ -337,7 +337,7 @@ class ComboSkillEditDialog(QDialog):
         note_layout.setSpacing(15)
 
         note_title_layout = QHBoxLayout()
-        note_title = QLabel("✎ 组合技备注")
+        note_title = QLabel("组合技备注")
         note_title.setStyleSheet("font-size: 16px; font-weight: bold;")
         note_title_layout.addWidget(note_title)
         note_title_layout.addStretch()
