@@ -5038,7 +5038,23 @@ class FolderManager(QDialog):
         dialog.resize(width, int(height * 0.25))  # 减小窗口高度比例
 
         dialog.setWindowModality(Qt.WindowModal)
-        
+
+        # 拦截 F1 触发的系统“帮助”事件（Windows 下 F1 会被系统抢走焦点/弹帮助，
+        # 导致 F1、F2 等功能键组合录不进弹窗）。拦截后 F1 能干净进入 keyPressEvent 录入。
+        from PyQt5.QtCore import QObject, QEvent
+
+        class _F1HelpBlocker(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.Help:
+                    event.accept()
+                    return True
+                return False
+
+        _help_blocker = _F1HelpBlocker(dialog)
+        dialog.installEventFilter(_help_blocker)
+        dialog._help_blocker_ref = _help_blocker  # 保持引用，防止被 GC
+        dialog.activateWindow()
+
         # 应用统一的对话框样式
         apply_dialog_style(dialog, 0.3, 0.25)
 
@@ -5053,7 +5069,7 @@ class FolderManager(QDialog):
         instruction_label.setAlignment(Qt.AlignCenter)
         # 按屏幕比例设置字体大小
         instruction_font_size = int(screen_height * 0.025)  # 屏幕高度的2.5%
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #0A84FF; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
         layout.addWidget(instruction_label)
 
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
@@ -5156,81 +5172,58 @@ class FolderManager(QDialog):
             shortcut_label.setText("")
 
         def keyPressEvent(event):
-            key = event.key()
-            modifiers = event.modifiers()
-
-            # 忽略修饰键本身
-            if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
+            # 忽略系统自动重复，避免重复录入
+            if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
                 return
 
-            # 获取键名
-            key_name = {
-                Qt.Key_F1: "F1", Qt.Key_F2: "F2", Qt.Key_F3: "F3", Qt.Key_F4: "F4",
-                Qt.Key_F5: "F5", Qt.Key_F6: "F6", Qt.Key_F7: "F7", Qt.Key_F8: "F8",
-                Qt.Key_F9: "F9", Qt.Key_F10: "F10", Qt.Key_F11: "F11", Qt.Key_F12: "F12",
-                Qt.Key_Escape: "Esc", Qt.Key_Tab: "Tab", Qt.Key_Space: "Space",
-                Qt.Key_Return: "Enter", Qt.Key_Enter: "Enter", Qt.Key_Backspace: "Backspace",
-                Qt.Key_Delete: "Del", Qt.Key_Insert: "Ins", Qt.Key_Home: "Home",
-                Qt.Key_End: "End", Qt.Key_PageUp: "PageUp", Qt.Key_PageDown: "PageDown",
-                Qt.Key_Up: "↑", Qt.Key_Down: "↓", Qt.Key_Left: "←", Qt.Key_Right: "→",
-                Qt.Key_0: "0", Qt.Key_1: "1", Qt.Key_2: "2", Qt.Key_3: "3",
-                Qt.Key_4: "4", Qt.Key_5: "5", Qt.Key_6: "6", Qt.Key_7: "7",
-                Qt.Key_8: "8", Qt.Key_9: "9",
-            }.get(key, QKeySequence(key).toString())
+            key = event.key()
 
+            # 忽略单独的修饰键本身（只按修饰键不计入组合）
+            if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+                return
+
+            # 将按键转换为可读名称（字母/数字统一小写，便于阅读与热键注册）
+            def _key_name(k):
+                if Qt.Key_F1 <= k <= Qt.Key_F12:
+                    return "F%d" % (k - Qt.Key_F1 + 1)
+                if Qt.Key_0 <= k <= Qt.Key_9:
+                    return str(k - Qt.Key_0)
+                if Qt.Key_A <= k <= Qt.Key_Z:
+                    return chr(k).lower()
+                _special = {
+                    Qt.Key_Space: "Space", Qt.Key_Return: "Enter", Qt.Key_Enter: "Enter",
+                    Qt.Key_Escape: "Esc", Qt.Key_Tab: "Tab", Qt.Key_Backspace: "Backspace",
+                    Qt.Key_Delete: "Del", Qt.Key_Insert: "Ins", Qt.Key_Home: "Home",
+                    Qt.Key_End: "End", Qt.Key_PageUp: "PageUp", Qt.Key_PageDown: "PageDown",
+                    Qt.Key_Up: "↑", Qt.Key_Down: "↓", Qt.Key_Left: "←", Qt.Key_Right: "→",
+                }
+                return _special.get(k, "")
+
+            key_name = _key_name(key)
             if not key_name:
                 return
 
-            # 构建快捷键字符串
-            parts = []
-            if modifiers & Qt.ControlModifier:
-                parts.append("Ctrl")
-            if modifiers & Qt.ShiftModifier:
-                parts.append("Shift")
-            if modifiers & Qt.AltModifier:
-                parts.append("Alt")
+            # 当前按住的修饰键（不再强制要求必须有修饰键，任意键均可自由组合）
+            mods = []
+            if event.modifiers() & Qt.ControlModifier:
+                mods.append("Ctrl")
+            if event.modifiers() & Qt.AltModifier:
+                mods.append("Alt")
+            if event.modifiers() & Qt.ShiftModifier:
+                mods.append("Shift")
 
-            # 添加当前键
-            parts.append(key_name)
+            token = "+".join(mods + [key_name])
 
-            # 检查是否已经有键按下，创建组合键
-            if current_keys:
-                # 获取最后一个键
-                last_key = current_keys[-1]
-                # 如果最后一个键不包含修饰键，则创建组合键
-                if not any(mod in last_key for mod in ['Ctrl', 'Shift', 'Alt']):
-                    # 检查最后一个键是否已经是组合键
-                    if '+' in last_key:
-                        # 从组合键中提取所有键
-                        existing_keys = last_key.split('+')
-                        # 添加新键
-                        existing_keys.append(key_name)
-                        # 限制最多3个键
-                        if len(existing_keys) <= 3:
-                            # 确保组合键是按字母/数字顺序排序，保持一致性
-                            existing_keys.sort()
-                            combined_key = "+".join(existing_keys)
-                            shortcut_label.setText(combined_key)
-                            current_keys.append(combined_key)
-                            return
-                        else:
-                            # 超过3个键，不更新
-                            return
-                    else:
-                        # 创建组合键，例如"F1+F2"
-                        combined_key = f"{last_key}+{key_name}"
-                        # 确保组合键是按字母/数字顺序排序，保持一致性
-                        keys = [last_key, key_name]
-                        keys.sort()
-                        combined_key = "+".join(keys)
-                        shortcut_label.setText(combined_key)
-                        current_keys.append(combined_key)
-                        return
-
-            # 如果不是组合键，则正常处理
-            shortcut = "+".join(parts)
-            shortcut_label.setText(shortcut)
-            current_keys.append(shortcut)
+            # 在上一次组合基础上累积，支持任意 2~3 个键自由组合（如 c+2、1+2、shift+a+b）
+            existing = current_keys[-1].split("+") if current_keys else []
+            if token in existing:
+                return  # 同一按键不重复计入
+            existing.append(token)
+            if len(existing) > 3:
+                existing = existing[:3]
+            combo = "+".join(existing)
+            shortcut_label.setText(combo)
+            current_keys.append(combo)
 
         # 连接信号
         clear_btn.clicked.connect(clear_shortcut)
@@ -9115,7 +9108,23 @@ class AutoRecorderApp(QMainWindow):
         width, height = get_screen_size(0.3)
         dialog.resize(width, int(height * 0.25))
         dialog.setWindowModality(Qt.WindowModal)
-        
+
+        # 拦截 F1 触发的系统“帮助”事件（Windows 下 F1 会被系统抢走焦点/弹帮助，
+        # 导致 F1、F2 等功能键组合录不进弹窗）。拦截后 F1 能干净进入 keyPressEvent 录入。
+        from PyQt5.QtCore import QObject, QEvent
+
+        class _F1HelpBlocker(QObject):
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.Help:
+                    event.accept()
+                    return True
+                return False
+
+        _help_blocker = _F1HelpBlocker(dialog)
+        dialog.installEventFilter(_help_blocker)
+        dialog._help_blocker_ref = _help_blocker  # 保持引用，防止被 GC
+        dialog.activateWindow()
+
         layout = QVBoxLayout()
         layout.setSpacing(15)
         layout.setContentsMargins(25, 20, 25, 20)
@@ -9222,39 +9231,55 @@ class AutoRecorderApp(QMainWindow):
             shortcut_label.setText("")
         
         def keyPressEvent(event):
-            key = event.key()
-            if key == Qt.Key_Control or key == Qt.Key_Shift or key == Qt.Key_Alt:
+            # 忽略系统自动重复，避免重复录入
+            if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
                 return
-            
-            modifiers = []
+
+            key = event.key()
+            if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+                return
+
+            def _key_name(k):
+                if Qt.Key_F1 <= k <= Qt.Key_F12:
+                    return "f%d" % (k - Qt.Key_F1 + 1)
+                if Qt.Key_0 <= k <= Qt.Key_9:
+                    return str(k - Qt.Key_0)
+                if Qt.Key_A <= k <= Qt.Key_Z:
+                    return chr(k).lower()
+                _special = {
+                    Qt.Key_Space: "space", Qt.Key_Return: "return", Qt.Key_Enter: "return",
+                    Qt.Key_Tab: "tab", Qt.Key_Escape: "esc", Qt.Key_Backspace: "backspace",
+                    Qt.Key_Delete: "delete", Qt.Key_Insert: "insert", Qt.Key_Home: "home",
+                    Qt.Key_End: "end", Qt.Key_PageUp: "pageup", Qt.Key_PageDown: "pagedown",
+                    Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right",
+                }
+                return _special.get(k, "")
+
+            key_name = _key_name(key)
+            if not key_name:
+                return
+
+            # 当前按住的修饰键（任意键均可自由组合，不再限定 alt/ctrl）
+            mods = []
             if event.modifiers() & Qt.ControlModifier:
-                modifiers.append("ctrl")
-            if event.modifiers() & Qt.ShiftModifier:
-                modifiers.append("shift")
+                mods.append("ctrl")
             if event.modifiers() & Qt.AltModifier:
-                modifiers.append("alt")
-            
-            key_map = {
-                Qt.Key_F1: "f1", Qt.Key_F2: "f2", Qt.Key_F3: "f3", Qt.Key_F4: "f4",
-                Qt.Key_F5: "f5", Qt.Key_F6: "f6", Qt.Key_F7: "f7", Qt.Key_F8: "f8",
-                Qt.Key_F9: "f9", Qt.Key_F10: "f10", Qt.Key_F11: "f11", Qt.Key_F12: "f12",
-                Qt.Key_Space: "space", Qt.Key_Return: "return", Qt.Key_Tab: "tab",
-                Qt.Key_Escape: "esc", Qt.Key_Backspace: "backspace", Qt.Key_Delete: "delete",
-                Qt.Key_Home: "home", Qt.Key_End: "end", Qt.Key_PageUp: "pageup", Qt.Key_PageDown: "pagedown",
-                Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right",
-                Qt.Key_Insert: "insert",
-            }
-            
-            if key in key_map:
-                key_name = key_map[key]
-            else:
-                key_name = chr(key).lower() if key < 128 else ""
-            
-            if key_name:
-                shortcut_parts = modifiers + [key_name]
-                shortcut_str = "+".join(shortcut_parts)
-                current_keys = shortcut_parts
-                shortcut_label.setText(shortcut_str)
+                mods.append("alt")
+            if event.modifiers() & Qt.ShiftModifier:
+                mods.append("shift")
+
+            token = "+".join(mods + [key_name])
+
+            # 在上一次组合基础上累积，支持任意 2~3 个键自由组合（如 c+2、1+2）
+            existing = current_keys[-1].split("+") if current_keys else []
+            if token in existing:
+                return
+            existing.append(token)
+            if len(existing) > 3:
+                existing = existing[:3]
+            combo = "+".join(existing)
+            shortcut_label.setText(combo)
+            current_keys.append(combo)
         
         dialog.keyPressEvent = keyPressEvent
         dialog.setFocusPolicy(Qt.StrongFocus)

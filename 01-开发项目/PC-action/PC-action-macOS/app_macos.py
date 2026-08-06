@@ -1489,7 +1489,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         instruction_font_size = int(screen_height * 0.022)
         instruction_label.setStyleSheet(f"""
             font-size: {instruction_font_size}px;
-            color: {MacOSColors.TEXT_SECONDARY};
+            color: {MacOSColors.ACCENT};
             font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             background-color: transparent;
         """)
@@ -1665,6 +1665,31 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 return
             if event.key() in (Qt.Key_Shift, Qt.Key_Control, Qt.Key_Alt, Qt.Key_Meta):
                 return
+            # 忽略系统自动重复，避免重复录入
+            if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
+                return
+
+            def _key_name(k):
+                if Qt.Key_F1 <= k <= Qt.Key_F12:
+                    return "F%d" % (k - Qt.Key_F1 + 1)
+                if Qt.Key_0 <= k <= Qt.Key_9:
+                    return str(k - Qt.Key_0)
+                if Qt.Key_A <= k <= Qt.Key_Z:
+                    return chr(k).lower()
+                _special = {
+                    Qt.Key_Space: "Space", Qt.Key_Return: "Enter", Qt.Key_Enter: "Enter",
+                    Qt.Key_Tab: "Tab", Qt.Key_Backspace: "Backspace", Qt.Key_Delete: "Delete",
+                    Qt.Key_Insert: "Insert", Qt.Key_Home: "Home", Qt.Key_End: "End",
+                    Qt.Key_PageUp: "PageUp", Qt.Key_PageDown: "PageDown",
+                    Qt.Key_Up: "up", Qt.Key_Down: "down", Qt.Key_Left: "left", Qt.Key_Right: "right",
+                }
+                return _special.get(k, "")
+
+            key_name = _key_name(event.key())
+            if not key_name:
+                return
+
+            # 当前按住的修饰键（任意键均可自由组合，不再限定 alt/ctrl）
             mods = []
             if event.modifiers() & Qt.ControlModifier:
                 mods.append("Ctrl")
@@ -1674,50 +1699,19 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 mods.append("Shift")
             if event.modifiers() & Qt.MetaModifier:
                 mods.append("Win")
-            key_name = event.text()
-            if not key_name:
-                key = event.key()
-                if key == Qt.Key_Return or key == Qt.Key_Enter:
-                    key_name = "Enter"
-                elif key == Qt.Key_Tab:
-                    key_name = "Tab"
-                elif key == Qt.Key_Backspace:
-                    key_name = "Backspace"
-                elif key == Qt.Key_Delete:
-                    key_name = "Delete"
-                elif key == Qt.Key_Home:
-                    key_name = "Home"
-                elif key == Qt.Key_End:
-                    key_name = "End"
-                elif key == Qt.Key_PageUp:
-                    key_name = "PageUp"
-                elif key == Qt.Key_PageDown:
-                    key_name = "PageDown"
-                elif key == Qt.Key_Space:
-                    key_name = "Space"
-                elif key == Qt.Key_Escape:
-                    dialog.reject()
-                    return
-                else:
-                    key_name = event.text()
-            if mods and key_name:
-                shortcut = "+".join(mods + [key_name.upper()])
-            elif key_name:
-                shortcut = key_name.upper()
-            else:
+
+            token = "+".join(mods + [key_name])
+
+            # 基于当前已输入的快捷键继续累积，支持任意 2~3 个键自由组合（如 c+2、1+2）
+            cur = shortcut_label.text()
+            existing = [] if cur in ("未设置", "", None) else cur.split("+")
+            if token in existing:
                 return
-            shortcut_label.setText(shortcut)
-            shortcut_label.setStyleSheet(f"""
-                font-size: {shortcut_font_size}px;
-                font-weight: 600;
-                padding: 14px;
-                border: 2px solid {MacOSColors.ACCENT};
-                border-radius: 12px;
-                background-color: {MacOSColors.CARD_BG};
-                min-height: 44px;
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                color: {MacOSColors.ACCENT};
-            """)
+            existing.append(token)
+            if len(existing) > 3:
+                existing = existing[:3]
+            combo = "+".join(existing)
+            shortcut_label.setText(combo)
 
         dialog.keyPressEvent = key_handler
         dialog.setFocusPolicy(Qt.StrongFocus)
@@ -2450,7 +2444,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         _cl.addWidget(title_label)
         instruction_label = QLabel("请按下快捷键组合...")
         instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_label.setStyleSheet(f"font-size:13px;color:{MacOSColors.TEXT_SECONDARY};background:transparent;")
+        instruction_label.setStyleSheet(f"font-size:13px;color:{MacOSColors.ACCENT};background:transparent;")
         _cl.addWidget(instruction_label)
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
         shortcut_label.setAlignment(Qt.AlignCenter)
@@ -2479,25 +2473,55 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             current_keys = []
             shortcut_label.setText("")
         def keyPressEvent(event):
-            key = event.key()
-            modifiers = event.modifiers()
-            if key in [Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta]:
+            # 忽略系统自动重复，避免重复录入
+            if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
                 return
-            key_name = {Qt.Key_F1:"F1",Qt.Key_F2:"F2",Qt.Key_F3:"F3",Qt.Key_F4:"F4",Qt.Key_F5:"F5",Qt.Key_F6:"F6",Qt.Key_F7:"F7",Qt.Key_F8:"F8",Qt.Key_F9:"F9",Qt.Key_F10:"F10",Qt.Key_F11:"F11",Qt.Key_F12:"F12",Qt.Key_Escape:"Esc",Qt.Key_Tab:"Tab",Qt.Key_Space:"Space",Qt.Key_Return:"Enter",Qt.Key_Enter:"Enter",Qt.Key_Backspace:"Backspace",Qt.Key_Delete:"Del",Qt.Key_Insert:"Ins",Qt.Key_Home:"Home",Qt.Key_End:"End",Qt.Key_PageUp:"PageUp",Qt.Key_PageDown:"PageDown",Qt.Key_Up:"↑",Qt.Key_Down:"↓",Qt.Key_Left:"←",Qt.Key_Right:"→"}.get(key, QKeySequence(key).toString())
+
+            key = event.key()
+            if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
+                return
+
+            def _key_name(k):
+                if Qt.Key_F1 <= k <= Qt.Key_F12:
+                    return "F%d" % (k - Qt.Key_F1 + 1)
+                if Qt.Key_0 <= k <= Qt.Key_9:
+                    return str(k - Qt.Key_0)
+                if Qt.Key_A <= k <= Qt.Key_Z:
+                    return chr(k).lower()
+                _special = {
+                    Qt.Key_Space: "Space", Qt.Key_Return: "Enter", Qt.Key_Enter: "Enter",
+                    Qt.Key_Escape: "Esc", Qt.Key_Tab: "Tab", Qt.Key_Backspace: "Backspace",
+                    Qt.Key_Delete: "Del", Qt.Key_Insert: "Ins", Qt.Key_Home: "Home",
+                    Qt.Key_End: "End", Qt.Key_PageUp: "PageUp", Qt.Key_PageDown: "PageDown",
+                    Qt.Key_Up: "↑", Qt.Key_Down: "↓", Qt.Key_Left: "←", Qt.Key_Right: "→",
+                }
+                return _special.get(k, "")
+
+            key_name = _key_name(key)
             if not key_name:
                 return
-            parts = []
-            if modifiers & Qt.ControlModifier:
-                parts.append("Ctrl")
-            if modifiers & Qt.ShiftModifier:
-                parts.append("Shift")
-            if modifiers & Qt.AltModifier:
-                parts.append("Alt")
-            parts.append(key_name)
-            shortcut = "+".join(parts)
-            shortcut_label.setText(shortcut)
+
+            mods = []
+            if event.modifiers() & Qt.ControlModifier:
+                mods.append("Ctrl")
+            if event.modifiers() & Qt.ShiftModifier:
+                mods.append("Shift")
+            if event.modifiers() & Qt.AltModifier:
+                mods.append("Alt")
+
+            token = "+".join(mods + [key_name])
+
+            # 累积组合（支持任意 2~3 个键自由组合，不再限定 alt/ctrl）
+            existing = current_keys[-1].split("+") if current_keys else []
+            if token in existing:
+                return
+            existing.append(token)
+            if len(existing) > 3:
+                existing = existing[:3]
+            combo = "+".join(existing)
+            shortcut_label.setText(combo)
             current_keys.clear()
-            current_keys.append(shortcut)
+            current_keys.append(combo)
         clear_btn.clicked.connect(clear_shortcut)
         ok_btn.clicked.connect(dialog.accept)
         cancel_btn.clicked.connect(dialog.reject)

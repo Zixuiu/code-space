@@ -170,7 +170,7 @@ class ComboSkillEditDialog(QDialog):
         self.step_interval_spin.setEnabled(not self._step_interval_default)
         self.step_interval_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
-                background-color: {T['bg_card']};
+                background-color: transparent;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
                 border-radius: 7px;
@@ -181,7 +181,7 @@ class ComboSkillEditDialog(QDialog):
                 border-color: {T['primary']};
             }}
             QDoubleSpinBox:disabled {{
-                background-color: {T['bg_card']};
+                background-color: transparent;
                 color: {T['text_secondary']};
                 border: 1px solid {T['border']};
             }}
