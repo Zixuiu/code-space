@@ -270,6 +270,12 @@ def is_admin():
 
 
 def run_as_admin():
+    """以管理员身份重新启动当前程序（仅 Windows）。
+
+    通过 ShellExecuteW 的 runas 动词触发 UAC 提权，派生一个新的高权限进程。
+    返回 True 表示已成功发起提权（新的管理员进程已启动，当前进程应退出）；
+    返回 False 表示提权失败或被用户取消（当前进程应以非管理员身份继续运行）。
+    """
     if sys.platform != 'win32':
         return False
     try:
@@ -278,11 +284,17 @@ def run_as_admin():
         if getattr(sys, 'frozen', False):
             params = None
         else:
-            params = ' '.join([f'"{x}"' for x in sys.argv])
-        ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", exe_path, params, None, 1
+            # 将脚本路径规范为绝对路径，避免工作目录导致重解析失败
+            args = list(sys.argv)
+            if args:
+                args[0] = os.path.abspath(args[0])
+            params = ' '.join([f'"{x}"' for x in args])
+        script_dir = os.path.dirname(os.path.abspath(sys.argv[0])) if sys.argv else None
+        hinst = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", exe_path, params, script_dir, 1
         )
-        return True
+        # 返回值 > 32 表示执行成功；ERROR_CANCELLED(1223) 等会返回 <= 32
+        return hinst > 32
     except Exception:
         return False
 

@@ -3398,4 +3398,8 @@ def start_macos_app():
 
 
 if __name__ == "__main__":
+    # 自动以管理员身份运行（与 app.py 入口保持一致）
+    if sys.platform == "win32" and not is_admin():
+        if run_as_admin():
+            sys.exit(0)
     start_macos_app()

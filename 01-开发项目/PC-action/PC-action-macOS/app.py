@@ -11100,4 +11100,10 @@ def start_app():
     start_macos_app()
 
 if __name__ == "__main__":
+    # 自动以管理员身份运行：未提权则派生一个管理员进程并退出当前实例，
+    # 避免 keyboard 全局热键在非管理员环境下偶发失效。用户取消 UAC 时
+    # run_as_admin 返回 False，当前进程降级为非管理员继续运行（仍有提示）。
+    if sys.platform == "win32" and not is_admin():
+        if run_as_admin():
+            sys.exit(0)
     start_app()
