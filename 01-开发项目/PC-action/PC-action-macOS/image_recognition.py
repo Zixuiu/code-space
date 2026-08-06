@@ -696,7 +696,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                 else:
                     # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
-                    single_attempt_timeout = match_timeout * 0.5
+                    # 失败判定保底 1s：图片没出现时至少轮询 1 秒才判失败（用户要求"给他 1s 期限"）
+                    single_attempt_timeout = max(match_timeout * 0.5, 1.0)
                     if single_attempt_timeout <= 0.03:
                         location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.001, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                     else:
@@ -1329,9 +1330,10 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         except:
             pass
 
-    # ⏭ 智能提前退出：首次截图已跑完所有匹配仍失败，最佳分数远低于阈值则跳过轮询
-    # ★★★ 速度优化：放宽提前退出条件 + 缩短超时也提前退出（条件判断场景timeout=0.04s没必要轮询）
-    if scale_best_scores and timeout > 0.02:
+    # ⏭ 智能提前退出：仅对"条件判断"类短超时（<=0.1s）生效——图片明显不存在时立即放弃，加速判定；
+    # 回放等待图片出现 / "等待出现"功能均用长超时，不提前退出，必须轮询满 timeout（默认≥1s）仍未命中才判失败，
+    # 否则图标稍晚渲染 / 外观略变会在首帧低分时瞬间放弃，造成"很快就失败"。
+    if scale_best_scores and timeout <= 0.1:
         _best_score = max(v[0] for v in scale_best_scores.values())
         _early_threshold = max(confidence * 0.45, 0.20)
         if _best_score < _early_threshold:
@@ -1348,12 +1350,13 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             return None
 
     # ★★★ 速度优化：轮询间隔从 15ms → 8ms（截图服务刷新频率足够快）
-    # 最大轮询次数根据 timeout 动态调整：timeout=0.04s → 最多3次；timeout=0.75s → 最多30次
+    # 轮询次数上限与 8ms 轮询间隔对齐，确保不会在 timeout 之前提前耗尽轮次
+    # （之前上限 40 会导致 1s 超时只轮询约 0.4s 就结束，无法填满用户要求的 1s 期限）
     _POLL_INTERVAL = 0.008
     _screenshot_none_count = 0
     _exception_count = 0
     _loop_iter = 0
-    _max_poll_iters = min(40, max(2, int(timeout / 0.02)))  # 每20ms一轮(匹配+sleep)，动态上限
+    _max_poll_iters = min(200, max(2, int(timeout / 0.008)))  # 每轮≈8ms(匹配+sleep)，与超时对齐的动态上限
     while time.time() - start_time < timeout and _loop_iter < _max_poll_iters:
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             # ★★★ 修复：停止前也保存当前最佳分数
