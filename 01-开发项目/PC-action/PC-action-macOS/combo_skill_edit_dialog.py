@@ -183,8 +183,21 @@ class ComboSkillEditDialog(QDialog):
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
                 border-radius: 7px;
-                padding: 4px 8px;
+                padding: 2px 8px;
                 font-size: 12px;
+            }}
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
+                background: transparent;
+                border: none;
+                width: 14px;
+            }}
+            QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {{
+                background: transparent;
+            }}
+            QDoubleSpinBox QLineEdit {{
+                background: transparent;
+                border: none;
+                color: {T['text_primary']};
             }}
             QDoubleSpinBox:focus {{
                 border-color: {T['primary']};
@@ -193,6 +206,10 @@ class ComboSkillEditDialog(QDialog):
                 background-color: transparent;
                 color: {T['text_secondary']};
                 border: 1px solid {T['border']};
+            }}
+            QDoubleSpinBox:disabled QLineEdit {{
+                background: transparent;
+                color: {T['text_secondary']};
             }}
         """)
         top_layout.addWidget(self.step_interval_spin)
