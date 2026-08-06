@@ -1083,6 +1083,18 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 _small_gray_template = cv2.resize(_gray_template, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
                 _small_gray_screenshot = cv2.resize(_gray_first_screenshot, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
 
+    # ⚡ 颜色模式轮询预筛模板：单独算一套 0.5x 灰度模板（与 _gray_template 解耦，
+    # 不影响 _fast_match 的 BGR 彩色匹配行为）。轮询时先用它廉价预筛，
+    # 仅在分数接近阈值时才做昂贵的全屏 BGR 彩色匹配，避免"图还没出现"时每轮都跑 ~80ms 全屏匹配。
+    _prescreen_small_gray_template = None
+    if consider_color and first_screenshot is not None:
+        try:
+            _pg_t = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+            if _pg_t.shape[1] >= 20 and _pg_t.shape[0] >= 20:
+                _prescreen_small_gray_template = cv2.resize(_pg_t, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+        except Exception:
+            _prescreen_small_gray_template = None
+
     def _fast_match(screen_bgr, template_bgr, gray_screen=None):
         """快速匹配：灰度比BGR快3倍。可传入预计算的gray_screen避免重复cvtColor"""
         if _gray_template is not None:
@@ -1241,6 +1253,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 _small_result = _fast_match_small()
                 if _small_result is not None:
                     debug_print(f"[匹配诊断] ⚡ 0.5x缩小命中(score={scale_best_scores.get(1.0, (0,))[0]:.3f})")
+                    try:
+                        _sm_score = scale_best_scores.get(1.0, (0,))[0]
+                        _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_sm_score) if _sm_score else 0.0
+                    except Exception:
+                        pass
                     iteration = 1
                     return _small_result
 
@@ -1266,6 +1283,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                             h, w = image_array.shape[:2]
                             _cl = _color_gate_locate(result, roi, image_array, confidence, x1, y1)
                             if _cl is not None:
+                                _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(roi_max_val) if roi_max_val else 0.0
                                 debug_print(f"[颜色门控] ROI命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2}) DPI={_dpi}")
                                 return (_cl[0], _cl[1], _cl[2], _cl[3])
                             debug_print(f"[颜色门控] ROI形状命中但颜色不符，拒绝(继续查找)")
@@ -1284,6 +1302,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 h, w = image_array.shape[:2]
                 _cl = _color_gate_locate(_fast_result, first_screenshot, image_array, confidence)
                 if _cl is not None:
+                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_fast_max_val) if _fast_max_val else 0.0
                     debug_print(f"[匹配诊断] ⚡ 全屏1:1快速命中(score={_fast_max_val:.3f}) 位置={_cl[0]},{_cl[1]}")
                     return (_cl[0], _cl[1], w, h)
                 debug_print(f"[颜色门控] 全屏1:1形状命中但颜色不符，拒绝(进入轮询/复杂匹配)")
@@ -1323,6 +1342,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                     h, w = image_array.shape[:2]
                                     _cl_c = _color_gate_locate(_rr, _roi_full, image_array, confidence, _fx, _fy)
                                     if _cl_c is not None:
+                                        _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                                         return (_cl_c[0], _cl_c[1], _cl_c[2], _cl_c[3])
                                     debug_print(f"[颜色门控] 粗匹配精修命中但颜色不符，拒绝")
                                 debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 尝试区域多尺度")
@@ -1342,6 +1362,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                                 h, w = _resized.shape[:2]
                                                 _cl_m = _color_gate_locate(_msr, _roi_full, _resized, confidence, _fx, _fy)
                                                 if _cl_m is not None:
+                                                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_msv) if _msv else 0.0
                                                     debug_print(f"[匹配诊断] ⚡ 精匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
                                                     return (_cl_m[0], _cl_m[1], _cl_m[2], _cl_m[3])
                                                 debug_print(f"[颜色门控] 多尺度命中但颜色不符，拒绝")
@@ -1378,6 +1399,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                                 h, w = _resized.shape[:2]
                                                 _cl_cm = _color_gate_locate(_msr, _roi_coarse, _resized, confidence, _fx, _fy)
                                                 if _cl_cm is not None:
+                                                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_msv) if _msv else 0.0
                                                     debug_print(f"[匹配诊断] ⚡ 粗匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
                                                     return (_cl_cm[0], _cl_cm[1], _cl_cm[2], _cl_cm[3])
                                                 debug_print(f"[颜色门控] 多尺度命中但颜色不符，拒绝")
@@ -1473,6 +1495,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 _, _rv, _, _rl = cv2.minMaxLoc(result)
                 if _rv >= confidence:
                     h, w = image_array.shape[:2]
+                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                     return (_rl[0] * 2, _rl[1] * 2, w, h)
                 if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
                     scale_best_scores[1.0] = (_rv, (_rl[0] * 2, _rl[1] * 2))
@@ -1490,14 +1513,29 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         _, _rv, _, _rl = cv2.minMaxLoc(result)
                         if _rv >= confidence:
                             h, w = image_array.shape[:2]
+                            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                             return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
                 else:
                     result = cv2.matchTemplate(gray_s, _gray_template, cv2.TM_CCOEFF_NORMED)
                     _, _rv, _, _rl = cv2.minMaxLoc(result)
                     if _rv >= confidence:
                         h, w = image_array.shape[:2]
+                        _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                         return (_rl[0], _rl[1], w, h)
             else:
+                # ⚡ 颜色模式轮询优化：先用 0.5x 缩小灰度图做廉价预筛（~15ms），
+                # 仅当缩小图分数明显不达标时才跳过本次昂贵的全屏 BGR 彩色匹配（~80ms），
+                # 大幅削减"等待图片出现"期间的无效全屏匹配（前半段偏慢主因）
+                if _prescreen_small_gray_template is not None:
+                    _ps = _get_shared_small_gray()
+                    if _ps is not None:
+                        _psr = cv2.matchTemplate(_ps, _prescreen_small_gray_template, cv2.TM_CCOEFF_NORMED)
+                        _, _psv, _, _psl = cv2.minMaxLoc(_psr)
+                        _prescreen_skip_thr = max(0.25, confidence * 0.3)
+                        if _psv < _prescreen_skip_thr:
+                            # 缩小灰度都远低于阈值，全屏彩色匹配基本不可能通过，跳过本次昂贵匹配
+                            _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
+                            continue
                 screenshot_bgr = _get_shared_screenshot()
                 if screenshot_bgr is None:
                     _screenshot_none_count += 1
@@ -1514,6 +1552,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                             h, w = image_array.shape[:2]
                             _cl = _color_gate_locate(result, _roi_bgr, image_array, confidence, _roi_x1, _roi_y1)
                             if _cl is not None:
+                                _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                                 return (_cl[0], _cl[1], _cl[2], _cl[3])
                 else:
                     result = _fast_match(screenshot_bgr, image_array)
@@ -1522,6 +1561,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         h, w = image_array.shape[:2]
                         _cl = _color_gate_locate(result, screenshot_bgr, image_array, confidence)
                         if _cl is not None:
+                            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                             return (_cl[0], _cl[1], _cl[2], _cl[3])
         except Exception as e:
             _exception_count += 1
