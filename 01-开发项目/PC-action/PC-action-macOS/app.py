@@ -5481,6 +5481,28 @@ class RoundedPillButton(QPushButton):
         painter.setFont(f2)
         painter.drawText(r, Qt.AlignCenter, self.text())
 
+class _FolderTableCtxFilter(QObject):
+    """右键事件过滤器：直接拦截 folder_table 的右键事件并弹出菜单。
+    比依赖 customContextMenuRequested 信号更稳——不受表格内部子控件/信号细节影响。"""
+
+    def __init__(self, table, handler):
+        super().__init__(table)
+        self._table = table
+        self._handler = handler
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.ContextMenu:
+            # 全局坐标 -> 视口坐标，交给菜单处理器
+            pos = self._table.viewport().mapFromGlobal(event.globalPos())
+            try:
+                self._handler(pos, self._table)
+            except Exception:
+                import traceback
+                traceback.print_exc()
+            return True  # 拦截，避免再触发默认右键/信号
+        return super().eventFilter(obj, event)
+
+
 class AutoRecorderApp(QMainWindow):
     log_signal = pyqtSignal(str)
     
@@ -9064,10 +9086,14 @@ class AutoRecorderApp(QMainWindow):
         
         folder_table.cellClicked.connect(on_folder_table_click)
         # ★ 流程管理Tab 右键菜单（已执行次数 / 设置默认间隔 / 删除）
+        # 用事件过滤器直接拦截右键，比 customContextMenuRequested 信号更可靠
         folder_table.setContextMenuPolicy(Qt.CustomContextMenu)
-        folder_table.customContextMenuRequested.connect(
-            lambda pos, ft=folder_table: self.show_folder_table_context_menu(pos, ft)
+        _folder_ctx_filter = _FolderTableCtxFilter(
+            folder_table, self.show_folder_table_context_menu
         )
+        folder_table.viewport().installEventFilter(_folder_ctx_filter)
+        folder_table.installEventFilter(_folder_ctx_filter)
+        folder_table._ctx_filter = _folder_ctx_filter  # 保持引用，防止被 GC
         layout.addWidget(folder_table)
         
         # 连接按钮
@@ -9147,6 +9173,7 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             # print(f"加载流程列表失败: {e}")  # [日志已禁用]
             pass
+
 
     def show_folder_table_context_menu(self, position, folder_table):
         """流程管理Tab的表格右键菜单：已执行次数 / 设置默认间隔 / 删除"""
