@@ -9063,6 +9063,11 @@ class AutoRecorderApp(QMainWindow):
                         self.delete_folder_in_tab(data[1], folder_table)
         
         folder_table.cellClicked.connect(on_folder_table_click)
+        # ★ 流程管理Tab 右键菜单（已执行次数 / 设置默认间隔 / 删除）
+        folder_table.setContextMenuPolicy(Qt.CustomContextMenu)
+        folder_table.customContextMenuRequested.connect(
+            lambda pos, ft=folder_table: self.show_folder_table_context_menu(pos, ft)
+        )
         layout.addWidget(folder_table)
         
         # 连接按钮
@@ -9142,6 +9147,144 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             # print(f"加载流程列表失败: {e}")  # [日志已禁用]
             pass
+
+    def show_folder_table_context_menu(self, position, folder_table):
+        """流程管理Tab的表格右键菜单：已执行次数 / 设置默认间隔 / 删除"""
+        row = folder_table.rowAt(position.y())
+        if row < 0:
+            return
+        name_item = folder_table.item(row, 1)  # 流程名称列
+        if not name_item:
+            return
+        folder_path = name_item.data(Qt.UserRole)
+        if not folder_path or not os.path.exists(folder_path):
+            return
+        folder_name = os.path.basename(folder_path)
+        try:
+            usage_counts = self._get_usage_counts()
+            count = usage_counts.get(folder_name, 0)
+        except Exception:
+            count = 0
+        from PyQt5.QtWidgets import QMenu
+        menu = QMenu(self)
+        count_action = menu.addAction(f"已执行 {count} 次")
+        count_action.setEnabled(False)
+        menu.addSeparator()
+        interval_action = QAction("设置默认间隔", self)
+        interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
+        menu.addAction(interval_action)
+        delete_action = QAction("删除", self)
+        delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, folder_table))
+        menu.addAction(delete_action)
+        menu.exec_(folder_table.viewport().mapToGlobal(position))
+
+    def set_folder_interval_in_tab(self, folder_path):
+        """流程管理Tab：设置流程文件夹的默认操作间隔（秒）"""
+        folder_name = os.path.basename(folder_path)
+        current_interval = self.folder_intervals.get(folder_path, self.replay_interval)
+
+        from PyQt5.QtWidgets import QDoubleSpinBox
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("设置默认间隔")
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+
+        width, height = get_screen_size(0.3)
+        dialog.resize(width, int(height * 0.32))
+        dialog.setWindowModality(Qt.WindowModal)
+        dialog.activateWindow()
+        apply_dialog_style(dialog, 0.3, 0.32)
+
+        layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(25, 20, 25, 20)
+
+        screen_width, screen_height = get_screen_size()
+
+        instruction_label = QLabel(f"设置流程「{folder_name}」的默认操作间隔")
+        instruction_label.setAlignment(Qt.AlignCenter)
+        instruction_font_size = int(screen_height * 0.025)
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #0A84FF; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        layout.addWidget(instruction_label)
+
+        spin = QDoubleSpinBox()
+        spin.setRange(0.0, 10.0)
+        spin.setSingleStep(0.01)
+        spin.setDecimals(3)
+        try:
+            spin.setValue(float(current_interval))
+        except (TypeError, ValueError):
+            spin.setValue(0.001)
+        spin.setSuffix(" 秒")
+        spin_font_size = int(screen_height * 0.03)
+        spin.setStyleSheet(f"""
+            QDoubleSpinBox {{
+                font-size: {spin_font_size}px;
+                padding: 8px;
+                border: 2px solid #4CAF50;
+                border-radius: 8px;
+                background-color: white;
+                min-height: 35px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            }}
+            QDoubleSpinBox:focus {{ border-color: #0A84FF; }}
+        """)
+        layout.addWidget(spin)
+
+        hint_label = QLabel("每个操作之间默认等待的秒数。设为 0 表示几乎无间隔；"
+                            "若某个操作单独设置了延迟，会优先使用它单独的值。")
+        hint_label.setWordWrap(True)
+        hint_label.setAlignment(Qt.AlignCenter)
+        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.018)}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        layout.addWidget(hint_label)
+
+        button_layout = QHBoxLayout()
+        button_layout.setSpacing(12)
+        ok_btn = QPushButton("确定")
+        ok_btn.setFixedSize(100, 36)
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0A84FF;
+                color: white;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                text-align: center;
+            }
+            QPushButton:hover { background-color: #0A84FF; }
+            QPushButton:pressed { background-color: #0A84FF; }
+        """)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setFixedSize(100, 36)
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #0A84FF;
+                color: white;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 14px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                text-align: center;
+            }
+            QPushButton:hover { background-color: #0A84FF; }
+            QPushButton:pressed { background-color: #0A84FF; }
+        """)
+        button_layout.addStretch(1)
+        button_layout.addWidget(ok_btn)
+        button_layout.addWidget(cancel_btn)
+        layout.addLayout(button_layout)
+
+        def on_ok():
+            val = round(float(spin.value()), 3)
+            self.folder_intervals[folder_path] = val
+            self.save_interval_config()
+            dialog.accept()
+
+        ok_btn.clicked.connect(on_ok)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        dialog.exec_()
     
     def get_folder_shortcut(self, folder_path):
         """获取流程的快捷键"""
