@@ -6961,6 +6961,16 @@ class AutoRecorderApp(QMainWindow):
         play_btn.clicked.connect(lambda checked, name=recording: self.play_recording(name))
         item_layout.addWidget(play_btn)
         
+        # ★ 修复：右键落在行内子控件（名称标签/播放按钮）上时，子控件默认策略
+        # （Qt.DefaultContextMenu）会把右键事件吞掉，父容器收不到 customContextMenuRequested，
+        # 导致"右键流程文件夹没弹出菜单/看不到设置默认间隔"。
+        # 给子控件也挂上 CustomContextMenu，且用子控件自身的坐标系做 mapToGlobal。
+        for _child in (name_label, play_btn):
+            _child.setContextMenuPolicy(Qt.CustomContextMenu)
+            _child.customContextMenuRequested.connect(
+                lambda pos, name=recording, w=_child: self.show_recording_context_menu(pos, name, w)
+            )
+        
         layout.addWidget(item_widget)
     
     def load_replay_list(self, layout):
