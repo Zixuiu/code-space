@@ -1413,11 +1413,22 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                     _screenshot_none_count += 1
                     _interruptible_sleep(_POLL_INTERVAL, stop_check=stop_check)
                     continue
-                result = _fast_match(screenshot_bgr, image_array)
-                _, _rv, _, _rl = cv2.minMaxLoc(result)
-                if _rv >= confidence:
-                    h, w = image_array.shape[:2]
-                    return (_rl[0], _rl[1], w, h)
+                # ⚡ 颜色匹配模式：有 roi_hint 时只搜周边小区域（与灰度模式一致），
+                # 避免每轮都做整屏 BGR 匹配（2560x1600 约 50-100ms/轮），显著降低图标已出现时的识别延迟
+                if _has_roi:
+                    _roi_bgr = screenshot_bgr[_roi_y1:_roi_y1 + _roi_h, _roi_x1:_roi_x1 + _roi_w]
+                    if _roi_bgr.shape[0] >= template_h and _roi_bgr.shape[1] >= template_w:
+                        result = _fast_match(_roi_bgr, image_array)
+                        _, _rv, _, _rl = cv2.minMaxLoc(result)
+                        if _rv >= confidence:
+                            h, w = image_array.shape[:2]
+                            return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
+                else:
+                    result = _fast_match(screenshot_bgr, image_array)
+                    _, _rv, _, _rl = cv2.minMaxLoc(result)
+                    if _rv >= confidence:
+                        h, w = image_array.shape[:2]
+                        return (_rl[0], _rl[1], w, h)
         except Exception as e:
             _exception_count += 1
 
