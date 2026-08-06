@@ -129,28 +129,42 @@ def main():
     # Step 3: 检查 Git 状态
     log("\n步骤 3/5: 检查 Git 状态...")
     r = run_cmd("git status --short")
-    if r.returncode == 0:
-        if not r.stdout.strip():
-            log("工作区干净，无需提交", "INFO")
+    if r.returncode != 0:
+        log("无法获取 Git 状态", "ERROR")
+    else:
+        pre_status = r.stdout.strip()
+        if not pre_status:
+            log("工作区干净，无新更改，无需提交", "INFO")
         else:
-            files = [line.strip() for line in r.stdout.split('\n') if line.strip()]
-            log(f"有 {len(files)} 个文件需要提交:", "INFO")
+            files = [line.strip() for line in pre_status.split('\n') if line.strip()]
+            log(f"检测到 {len(files)} 个待处理项（含未跟踪）:", "INFO")
             for f in files[:10]:
                 print(f"   - {f}")
             if len(files) > 10:
-                print(f"   ... 还有 {len(files)-10} 个文件")
+                print(f"   ... 还有 {len(files)-10} 个")
 
-            log("正在添加所有文件...", "INFO")
-            run_cmd("git add .")
+            log("正在添加可提交文件...", "INFO")
+            run_cmd("git add -A")
 
-            commit_msg = f"auto push {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            r = run_cmd(f'git commit -m "{commit_msg}"')
-            if r.returncode == 0:
-                log("文件已提交", "SUCCESS")
+            # 重新检查暂存区：区分“有实质改动”与“仅未跟踪/被忽略文件（无需提交）”
+            r2 = run_cmd("git diff --cached --name-only")
+            if not r2.stdout.strip():
+                # 暂存区为空 = 工作区的变动全是未跟踪/已被 gitignore 忽略的本地数据
+                log("暂存区为空（仅未跟踪/已忽略的本地数据如 musicDownload），无需提交", "INFO")
             else:
-                log("提交失败（可能没有更改）", "WARNING")
-    else:
-        log("无法获取 Git 状态", "ERROR")
+                staged = [l.strip() for l in r2.stdout.split('\n') if l.strip()]
+                log(f"将提交 {len(staged)} 个文件:", "INFO")
+                for f in staged[:10]:
+                    print(f"   + {f}")
+                if len(staged) > 10:
+                    print(f"   ... 还有 {len(staged)-10} 个文件")
+
+                commit_msg = f"auto push {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                r = run_cmd(f'git commit -m "{commit_msg}"')
+                if r.returncode == 0:
+                    log("文件已提交", "SUCCESS")
+                else:
+                    log("提交失败，错误信息: " + (r.stderr.strip() or r.stdout.strip())[:400], "ERROR")
 
     # Step 4: 设置远程仓库为 SSH
     log("\n步骤 4/5: 配置远程仓库为 SSH 协议...")

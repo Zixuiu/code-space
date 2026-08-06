@@ -31,3 +31,6 @@ trash/
 
 # 项目私有记忆/配置（含本地工作日志、MEMORY，不应同步）
 .workbuddy/
+
+# 本地下载/产出目录（不进 GitCode）
+musicDownload/
