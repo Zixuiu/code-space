@@ -1386,9 +1386,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def show_folder_context_menu(self, position, table_widget):
         row = table_widget.rowAt(position.y())
-        col = table_widget.columnAt(position.x())
-        
-        if row >= 0:
+        # 点到空白/表头区域时 rowAt 返回 -1，兜底选最接近的一行，保证菜单一定能弹出
+        if row < 0 and table_widget.rowCount() > 0:
+            best, best_dist = 0, 10 ** 9
+            for r in range(table_widget.rowCount()):
+                rect = table_widget.visualRect(table_widget.model().index(r, 1))
+                mid = rect.top() + rect.height() // 2
+                d = abs(position.y() - mid)
+                if d < best_dist:
+                    best_dist, best = d, r
+            row = best
+
+        if row >= 0 and row < table_widget.rowCount():
             name_item = table_widget.item(row, 1)
             if name_item:
                 folder_path = name_item.data(Qt.UserRole)
@@ -1396,19 +1405,22 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 if folder_path and os.path.exists(folder_path):
                     usage_counts = self._get_usage_counts()
                     count = usage_counts.get(folder_name, 0)
-                    
+
                     menu = QMenu(self)
-                    
+
                     count_action = menu.addAction(f"已执行 {count} 次")
                     count_action.setEnabled(False)
                     menu.addSeparator()
-                    
+
+                    interval_action = menu.addAction("设置默认间隔")
+                    interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
+
                     rename_action = menu.addAction("✏️ 重命名")
                     rename_action.triggered.connect(lambda: self.rename_folder_in_tab(folder_path, table_widget))
-                    
+
                     delete_action = menu.addAction("🗑️ 删除")
                     delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, table_widget))
-                    
+
                     menu.exec_(table_widget.viewport().mapToGlobal(position))
 
     def load_folders_to_table(self, table_widget):
