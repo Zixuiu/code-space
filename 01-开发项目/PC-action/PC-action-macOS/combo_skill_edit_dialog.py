@@ -123,7 +123,26 @@ class ComboSkillEditDialog(QDialog):
         self.loop_count_spin = QSpinBox()
         self.loop_count_spin.setRange(1, 9999)
         self.loop_count_spin.setValue(self.skill_data.get('loop_count', 1))
-        self.loop_count_spin.setStyleSheet("background:transparent; border:none;")
+        self.loop_count_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: #FFFFFF;
+                color: {T['text_primary']};
+                border: 1px solid {T['border']};
+                border-radius: 7px;
+                padding: 2px 8px;
+                font-size: 12px;
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: #FFFFFF;
+                border: none;
+                width: 14px;
+            }}
+            QSpinBox QLineEdit {{
+                background-color: #FFFFFF;
+                border: none;
+                color: {T['text_primary']};
+            }}
+        """)
         top_layout.addWidget(self.loop_count_spin)
 
         self.skip_on_fail_check = QCheckBox("跳过失败")
@@ -179,7 +198,7 @@ class ComboSkillEditDialog(QDialog):
         self.step_interval_spin.setEnabled(not self._step_interval_default)
         self.step_interval_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
-                background-color: transparent;
+                background-color: #FFFFFF;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
                 border-radius: 7px;
@@ -187,15 +206,15 @@ class ComboSkillEditDialog(QDialog):
                 font-size: 12px;
             }}
             QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
-                background: transparent;
+                background-color: #FFFFFF;
                 border: none;
                 width: 14px;
             }}
             QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {{
-                background: transparent;
+                background-color: #FFFFFF;
             }}
             QDoubleSpinBox QLineEdit {{
-                background: transparent;
+                background-color: #FFFFFF;
                 border: none;
                 color: {T['text_primary']};
             }}
@@ -203,12 +222,12 @@ class ComboSkillEditDialog(QDialog):
                 border-color: {T['primary']};
             }}
             QDoubleSpinBox:disabled {{
-                background-color: transparent;
+                background-color: #FFFFFF;
                 color: {T['text_secondary']};
                 border: 1px solid {T['border']};
             }}
             QDoubleSpinBox:disabled QLineEdit {{
-                background: transparent;
+                background-color: #FFFFFF;
                 color: {T['text_secondary']};
             }}
         """)
@@ -785,6 +804,26 @@ class ComboSkillEditDialog(QDialog):
         delay_spin.setDecimals(1)
         delay_spin.setSingleStep(0.5)
         delay_spin.setFixedWidth(70)
+        delay_spin.setStyleSheet(f"""
+            QDoubleSpinBox {{
+                background-color: #FFFFFF;
+                color: {T['text_primary']};
+                border: 1px solid {T['border']};
+                border-radius: 6px;
+                padding: 2px 6px;
+                font-size: 12px;
+            }}
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
+                background-color: #FFFFFF;
+                border: none;
+                width: 12px;
+            }}
+            QDoubleSpinBox QLineEdit {{
+                background-color: #FFFFFF;
+                border: none;
+                color: {T['text_primary']};
+            }}
+        """)
         delay_spin.valueChanged.connect(lambda val, i=index, ie=is_else: self.on_delay_changed(i, val, ie))
         delay_spin.blockSignals(False)
         delay_layout.addWidget(delay_spin)
