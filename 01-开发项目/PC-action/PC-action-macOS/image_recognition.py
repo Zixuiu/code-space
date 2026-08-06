@@ -802,12 +802,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     # ★★★ 每步耗时诊断（重点看时间，定位最慢一步）★★★
     if _step_durations:
         _dur_sorted = sorted(_step_durations, key=lambda x: x[2], reverse=True)
-        debug_print(f"[耗时诊断] 回放总计 {_replay_elapsed:.3f}s | 共执行 {len(_step_durations)} 步")
+        debug_print(f"[回放][耗时诊断] 回放总计 {_replay_elapsed:.3f}s | 共执行 {len(_step_durations)} 步")
         for _sd, _sa, _dt in _dur_sorted:
-            debug_print(f"[耗时] 步骤{_sd}({_sa}): {_dt*1000:.1f}ms")
+            debug_print(f"[回放][耗时] 步骤{_sd}({_sa}): {_dt*1000:.1f}ms")
         _slow = _dur_sorted[0]
         _slow_pct = (_slow[2] / _replay_elapsed * 100) if _replay_elapsed > 0 else 0
-        debug_print(f"[耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
+        debug_print(f"[回放][耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
     if not skip_cache_clear:
         clear_image_cache()
     try:
