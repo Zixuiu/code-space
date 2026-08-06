@@ -242,6 +242,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
 
+    # ★ DPI 缩放转换：录制坐标是 Qt 逻辑坐标，纯坐标点击（无图像匹配）需要物理像素坐标
+    _dpi_scale = _get_dpi_scale()
+
     # 仅非组合技调用（无stop_check）时清除停止标志
     # 组合技调用时不清除，避免一个runner重置了全局标志导致其他runner无法被正确停止
     if stop_check is None:
@@ -731,6 +734,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 if 'x' in operation and 'y' in operation and operation['x'] is not None and operation['y'] is not None:
                     center_x = operation['x']
                     center_y = operation['y']
+                    # ★ 录制坐标是 Qt 逻辑坐标，点击需要物理像素坐标（DPI 缩放转换）
+                    if _dpi_scale != 1.0:
+                        center_x = int(round(center_x * _dpi_scale))
+                        center_y = int(round(center_y * _dpi_scale))
                     debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({center_x}, {center_y})")
                 else:
                     debug_print(f"[回放] ⚠️ 步骤 {step}: 无图片且无坐标，跳过")
@@ -851,6 +858,10 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
     pyautogui.FAILSAFE = False
     pyautogui.PAUSE = 0
 
+    # ★ DPI 缩放转换：录制坐标是 Qt 逻辑坐标，而 SetCursorPos/pyautogui 需要物理像素坐标。
+    #   Windows 缩放 >100%（如 200%）时物理 = 逻辑 × 缩放，不转换会点到完全不同的位置。
+    _dpi_scale = _get_dpi_scale()
+
     if stop_check is None:
         _replay_stop_flag = False
     
@@ -875,6 +886,11 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
             if action_type in ('keyboard', 'keyboard_direct', 'text_input'):
                 success_count += 1
                 continue
+
+            # ★ 逻辑坐标 → 物理坐标（DPI 缩放转换，200% 缩放下偏移一半）
+            if _dpi_scale != 1.0:
+                x = int(round(x * _dpi_scale))
+                y = int(round(y * _dpi_scale))
 
             # 极速移动+点击
             _user32.SetCursorPos(x, y)

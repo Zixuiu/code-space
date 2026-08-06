@@ -2390,7 +2390,7 @@ class FolderManager(QDialog):
             if os.path.exists(recording_json_path):
                 with open(recording_json_path, 'r', encoding='utf-8') as f:
                     ops = json.load(f)
-                    if isinstance(ops, list):
+                    if ops and isinstance(ops, list):
                         max_step = max(op.get('step', 0) for op in ops)
 
             # 隐藏父对话框
@@ -4229,23 +4229,121 @@ class FolderManager(QDialog):
         except Exception as e:
             self.show_beautiful_message('critical', '错误', f"重命名失败: {str(e)}")
 
+    def _robust_move_folder(self, src, dst, max_retries=5, delay=0.5):
+        """
+        尽量把 src 目录树移动到 dst。
+        遇到被 Windows 锁定的文件时自动重试；仍失败则跳过该文件并继续，
+        避免因为单个文件被占用导致整个删除流程崩溃。
+        返回未能移动的文件路径列表。
+        """
+        os.makedirs(dst, exist_ok=True)
+        skipped = []
+
+        for root, dirs, files in os.walk(src):
+            rel = os.path.relpath(root, src)
+            dst_dir = os.path.join(dst, rel) if rel != '.' else dst
+            os.makedirs(dst_dir, exist_ok=True)
+
+            for name in files:
+                src_file = os.path.join(root, name)
+                dst_file = os.path.join(dst_dir, name)
+                moved = False
+
+                for attempt in range(max_retries):
+                    try:
+                        os.replace(src_file, dst_file)
+                        moved = True
+                        break
+                    except FileNotFoundError:
+                        moved = True
+                        break
+                    except (PermissionError, OSError) as e:
+                        if getattr(e, 'winerror', None) in (5, 32) and attempt < max_retries - 1:
+                            time.sleep(delay)
+                            continue
+                        break
+
+                if not moved:
+                    # 直接移动失败，尝试复制后删除源
+                    try:
+                        shutil.copy2(src_file, dst_file)
+                        try:
+                            os.remove(src_file)
+                            moved = True
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
+
+                if not moved:
+                    skipped.append(src_file)
+
+        # 清理 src 中已空的目录（从下往上）
+        for root, dirs, files in os.walk(src, topdown=False):
+            try:
+                os.rmdir(root)
+            except OSError:
+                pass
+
+        return skipped
+
     def delete_folder(self, folder_path):
         try:
             from utils import get_recordings_path
+
+            # ★修复：删除前强力清理 _debug_failed_match 调试截图目录。
+            # 这些临时调试图被图片查看器/杀毒软件/未释放句柄占用时，会导致
+            # shutil.move 整个流程目录失败（WinError 5）。先带重试删除它们。
+            for root, dirs, files in os.walk(folder_path, topdown=False):
+                if os.path.basename(root) == '_debug_failed_match':
+                    for name in files:
+                        fpath = os.path.join(root, name)
+                        for attempt in range(5):
+                            try:
+                                os.remove(fpath)
+                                break
+                            except (PermissionError, OSError):
+                                if attempt < 4:
+                                    time.sleep(0.5)
+                    for attempt in range(5):
+                        try:
+                            os.rmdir(root)
+                            break
+                        except OSError:
+                            if attempt < 4:
+                                time.sleep(0.5)
+                    dirs[:] = []
+
             # 创建回收站目录（如果不存在）
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
             os.makedirs(trash_dir, exist_ok=True)
-            
+
             # 生成唯一的目标文件夹名
             folder_name = os.path.basename(folder_path)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             trash_folder_name = f"{folder_name}_{timestamp}"
             trash_folder_path = os.path.join(trash_dir, trash_folder_name)
-            
-            # 移动文件夹到回收站
-            shutil.move(folder_path, trash_folder_path)
-            
+
+            # 移动文件夹到回收站；若整目录移动因文件被占用失败，
+            # 降级为逐个文件移动，跳过被锁定的文件，避免删除流程崩溃。
+            try:
+                shutil.move(folder_path, trash_folder_path)
+            except (PermissionError, OSError) as e:
+                if getattr(e, 'winerror', None) in (5, 32):
+                    skipped = self._robust_move_folder(folder_path, trash_folder_path)
+                    if skipped:
+                        skip_log = os.path.join(trash_folder_path, '_move_skipped_files.txt')
+                        try:
+                            with open(skip_log, 'w', encoding='utf-8') as f:
+                                f.write("以下文件在删除时被占用，未能移入回收站：\n")
+                                for p in skipped:
+                                    f.write(p + '\n')
+                        except Exception:
+                            pass
+                else:
+                    raise
+
             # 保存删除信息到回收站索引文件
             self.update_trash_index(trash_folder_name, folder_name, folder_path)
 
@@ -10993,7 +11091,7 @@ class ComboSkillRunner:
                         # skip_on_fail 开启时，即使全部步骤失败也不计入连续失败（避免很快停止）
                         if not _action_ok and not self.skip_on_fail:
                             self._consecutive_failures += 1
-                            if self._consecutive_failures >= 3:
+                            if self._consecutive_failures >= 10000:
                                 try:
                                     if self._main_app is not None:
                                         self._main_app.append_log(f" ║  ⛔ 连续 {self._consecutive_failures} 次执行失败，停止组合技")
