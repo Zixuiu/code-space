@@ -1025,6 +1025,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     """
     import numpy as np
     import cv2
+    import math
 
     # ★ 重置上一次的最佳匹配分（避免上一步残留污染判断）
     _LAST_MATCH_BEST_SCORE_GLOBAL[0] = 0.0
@@ -1132,6 +1133,72 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             scale_best_scores[1.0] = (max_val, (max_loc[0] * 2, max_loc[1] * 2))
         return None
 
+    # ===== 颜色门控（仅 consider_color / 无灰度模板时生效）=====
+    # 候选位置经形状匹配命中后，再比颜色：色差超容差视为"形状对、颜色不对"丢弃，
+    # 解决 OpenCV 归一化互相关对纯色实心、同形状不同色图标无法拒识的误命中问题。
+    _COLOR_TOL = 0.5  # 颜色相似度下限（HSV 色相分布余弦相似度 / Lab 均值色差映射，0~1）
+
+    def _color_similarity(a, b):
+        """返回 0~1 的颜色相似度：优先用有彩色像素的 HSV 色相分布余弦相似度（规避透明/灰白背景干扰），
+        彩色像素不足时回退 Lab 均值色差。异常时返回 1.0（放行，避免误杀）。"""
+        try:
+            aa = cv2.resize(a, (24, 24), interpolation=cv2.INTER_AREA)
+            bb = cv2.resize(b, (24, 24), interpolation=cv2.INTER_AREA)
+            ha = cv2.cvtColor(aa, cv2.COLOR_BGR2HSV).reshape(-1, 3).astype(np.float32)
+            hb = cv2.cvtColor(bb, cv2.COLOR_BGR2HSV).reshape(-1, 3).astype(np.float32)
+            sa = ha[:, 1]; sb = hb[:, 1]
+            ma = sa > 40; mb = sb > 40
+            if ma.sum() >= 8 and mb.sum() >= 8:
+                bins = np.arange(0, 181, 15)
+                hah = np.histogram(ha[ma, 0], bins=bins)[0].astype(np.float32)
+                hbh = np.histogram(hb[mb, 0], bins=bins)[0].astype(np.float32)
+                nrm = np.linalg.norm(hah) * np.linalg.norm(hbh)
+                if nrm > 0:
+                    return float(max(0.0, np.dot(hah, hbh) / nrm))
+            la = cv2.cvtColor(aa, cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32).mean(0)
+            lb = cv2.cvtColor(bb, cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32).mean(0)
+            d = math.sqrt(float(((la - lb) ** 2).sum()))
+            return float(max(0.0, 1.0 - d / 60.0))
+        except Exception:
+            return 1.0
+
+    def _peaks_above(result, confidence, min_dist=8):
+        """非极大抑制：收集 result 中 >=confidence 的局部极大值（最多 8 个，按分数降序）。"""
+        neighborhood = np.ones((min_dist, min_dist), np.uint8)
+        local_max = (cv2.dilate(result, neighborhood) == result)
+        ys, xs = np.where((result >= confidence) & local_max)
+        pts = sorted(zip(xs.tolist(), ys.tolist(), result[ys, xs].tolist()), key=lambda t: -t[2])
+        return [(int(x), int(y), float(s)) for x, y, s in pts[:8]]
+
+    def _color_gate_locate(result, screen_roi, template_bgr, confidence, off_x=0, off_y=0):
+        """在 result（已对 screen_roi 做 matchTemplate）中找形状分>=confidence 的候选，按颜色相似度选最优；
+        最优候选颜色相似度 < _COLOR_TOL 则返回 None（拒绝）。
+        - 灰度模式（_gray_template 非 None）：直接取 maxLoc（保持原行为，不做颜色判断）。
+        - 颜色模式：对多个峰值逐一比色，选颜色最像者，且必须过颜色容差才返回。"""
+        if _gray_template is not None:
+            _, rv, _, rl = cv2.minMaxLoc(result)
+            if rv >= confidence:
+                h, w = template_bgr.shape[:2]
+                return (rl[0] + off_x, rl[1] + off_y, w, h)
+            return None
+        h, w = template_bgr.shape[:2]
+        if screen_roi.shape[0] < h or screen_roi.shape[1] < w:
+            return None
+        peaks = _peaks_above(result, confidence)
+        best = None
+        best_c = -1.0
+        for (cx, cy, sc) in peaks:
+            crop = screen_roi[cy:cy + h, cx:cx + w]
+            if crop.shape[0] < h or crop.shape[1] < w:
+                continue
+            cs = _color_similarity(crop, template_bgr)
+            if cs > best_c:
+                best_c = cs
+                best = (cx + off_x, cy + off_y, w, h)
+        if best is None or best_c < _COLOR_TOL:
+            return None
+        return best
+
     def _try_match(screenshot, skip_multi_scale=False):
         nonlocal iteration
         iteration += 1
@@ -1192,8 +1259,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         iteration = 1
                         if roi_max_val >= confidence:
                             h, w = image_array.shape[:2]
-                            debug_print(f"[匹配诊断] ⚡ ROI灰度命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2}) DPI={_dpi}")
-                            return (roi_max_loc[0] + x1, roi_max_loc[1] + y1, w, h)
+                            _cl = _color_gate_locate(result, roi, image_array, confidence, x1, y1)
+                            if _cl is not None:
+                                debug_print(f"[颜色门控] ROI命中(score={roi_max_val:.3f}) 区域({x1},{y1},{x2},{y2}) DPI={_dpi}")
+                                return (_cl[0], _cl[1], _cl[2], _cl[3])
+                            debug_print(f"[颜色门控] ROI形状命中但颜色不符，拒绝(继续查找)")
                         debug_print(f"[匹配诊断] ROI未命中(score={roi_max_val:.3f}), 尝试全屏灰度1:1")
                 except Exception as _roi_e:
                     debug_print(f"[匹配诊断] ROI切片异常: {_roi_e}, 尝试全屏1:1")
@@ -1207,8 +1277,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 iteration = 1
             if _fast_max_val >= confidence:
                 h, w = image_array.shape[:2]
-                debug_print(f"[匹配诊断] ⚡ 全屏1:1快速命中(score={_fast_max_val:.3f}) 位置={_fast_max_loc}")
-                return (_fast_max_loc[0], _fast_max_loc[1], w, h)
+                _cl = _color_gate_locate(_fast_result, first_screenshot, image_array, confidence)
+                if _cl is not None:
+                    debug_print(f"[匹配诊断] ⚡ 全屏1:1快速命中(score={_fast_max_val:.3f}) 位置={_cl[0]},{_cl[1]}")
+                    return (_cl[0], _cl[1], w, h)
+                debug_print(f"[颜色门控] 全屏1:1形状命中但颜色不符，拒绝(进入轮询/复杂匹配)")
             debug_print(f"[匹配诊断] 全屏1:1未命中(score={_fast_max_val:.3f}<{confidence:.2f})")
 
             # ⚡ 如果分数很低（< 阈值60%），图片大概率不在屏幕上，跳过粗匹配/多尺度，直接轮询
@@ -1243,7 +1316,10 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                 _, _rv, _, _rl = cv2.minMaxLoc(_rr)
                                 if _rv >= confidence:
                                     h, w = image_array.shape[:2]
-                                    return (_rl[0] + _fx, _rl[1] + _fy, w, h)
+                                    _cl_c = _color_gate_locate(_rr, _roi_full, image_array, confidence, _fx, _fy)
+                                    if _cl_c is not None:
+                                        return (_cl_c[0], _cl_c[1], _cl_c[2], _cl_c[3])
+                                    debug_print(f"[颜色门控] 粗匹配精修命中但颜色不符，拒绝")
                                 debug_print(f"[匹配诊断] 精匹配未命中(score={_rv:.3f}<{confidence:.2f}), 尝试区域多尺度")
                                 try:
                                     for _ms_scale in _SCALES:
@@ -1259,8 +1335,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                             _, _msv, _, _msl = cv2.minMaxLoc(_msr)
                                             if _msv >= confidence:
                                                 h, w = _resized.shape[:2]
-                                                debug_print(f"[匹配诊断] ⚡ 精匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
-                                                return (_msl[0] + _fx, _msl[1] + _fy, w, h)
+                                                _cl_m = _color_gate_locate(_msr, _roi_full, _resized, confidence, _fx, _fy)
+                                                if _cl_m is not None:
+                                                    debug_print(f"[匹配诊断] ⚡ 精匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
+                                                    return (_cl_m[0], _cl_m[1], _cl_m[2], _cl_m[3])
+                                                debug_print(f"[颜色门控] 多尺度命中但颜色不符，拒绝")
                                     debug_print(f"[匹配诊断] 精匹配区域多尺度未命中, 回退全屏")
                                 except Exception as _cme2:
                                     debug_print(f"[匹配诊断] 精匹配区域多尺度异常: {_cme2}, 回退全屏")
@@ -1292,8 +1371,11 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                             _, _msv, _, _msl = cv2.minMaxLoc(_msr)
                                             if _msv >= confidence:
                                                 h, w = _resized.shape[:2]
-                                                debug_print(f"[匹配诊断] ⚡ 粗匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
-                                                return (_msl[0] + _fx, _msl[1] + _fy, w, h)
+                                                _cl_cm = _color_gate_locate(_msr, _roi_coarse, _resized, confidence, _fx, _fy)
+                                                if _cl_cm is not None:
+                                                    debug_print(f"[匹配诊断] ⚡ 粗匹配区域多尺度命中(scale={_ms_scale}, score={_msv:.3f})")
+                                                    return (_cl_cm[0], _cl_cm[1], _cl_cm[2], _cl_cm[3])
+                                                debug_print(f"[颜色门控] 多尺度命中但颜色不符，拒绝")
                                     debug_print(f"[匹配诊断] 粗匹配区域多尺度未命中, 回退全屏")
                                 except Exception as _cme:
                                     debug_print(f"[匹配诊断] 粗匹配区域多尺度异常: {_cme}, 回退全屏")
@@ -1425,13 +1507,17 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                         _, _rv, _, _rl = cv2.minMaxLoc(result)
                         if _rv >= confidence:
                             h, w = image_array.shape[:2]
-                            return (_rl[0] + _roi_x1, _rl[1] + _roi_y1, w, h)
+                            _cl = _color_gate_locate(result, _roi_bgr, image_array, confidence, _roi_x1, _roi_y1)
+                            if _cl is not None:
+                                return (_cl[0], _cl[1], _cl[2], _cl[3])
                 else:
                     result = _fast_match(screenshot_bgr, image_array)
                     _, _rv, _, _rl = cv2.minMaxLoc(result)
                     if _rv >= confidence:
                         h, w = image_array.shape[:2]
-                        return (_rl[0], _rl[1], w, h)
+                        _cl = _color_gate_locate(result, screenshot_bgr, image_array, confidence)
+                        if _cl is not None:
+                            return (_cl[0], _cl[1], _cl[2], _cl[3])
         except Exception as e:
             _exception_count += 1
 
