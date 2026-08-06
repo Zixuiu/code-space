@@ -9150,33 +9150,47 @@ class AutoRecorderApp(QMainWindow):
 
     def show_folder_table_context_menu(self, position, folder_table):
         """流程管理Tab的表格右键菜单：已执行次数 / 设置默认间隔 / 删除"""
-        row = folder_table.rowAt(position.y())
-        if row < 0:
-            return
-        name_item = folder_table.item(row, 1)  # 流程名称列
-        if not name_item:
-            return
-        folder_path = name_item.data(Qt.UserRole)
-        if not folder_path or not os.path.exists(folder_path):
-            return
-        folder_name = os.path.basename(folder_path)
         try:
-            usage_counts = self._get_usage_counts()
-            count = usage_counts.get(folder_name, 0)
+            row = folder_table.rowAt(position.y())
+            # 点到空白/表头区域时 rowAt 返回 -1，兜底选最接近的一行，保证菜单一定能弹出
+            if row < 0 and folder_table.rowCount() > 0:
+                best, best_dist = 0, 10 ** 9
+                for r in range(folder_table.rowCount()):
+                    rect = folder_table.visualRect(folder_table.model().index(r, 1))
+                    mid = rect.top() + rect.height() // 2
+                    d = abs(position.y() - mid)
+                    if d < best_dist:
+                        best_dist, best = d, r
+                row = best
+            if row < 0 or row >= folder_table.rowCount():
+                return
+            name_item = folder_table.item(row, 1)  # 流程名称列
+            if not name_item:
+                return
+            folder_path = name_item.data(Qt.UserRole)
+            if not folder_path or not os.path.exists(folder_path):
+                return
+            folder_name = os.path.basename(folder_path)
+            try:
+                usage_counts = self._get_usage_counts()
+                count = usage_counts.get(folder_name, 0)
+            except Exception:
+                count = 0
+            from PyQt5.QtWidgets import QMenu
+            menu = QMenu(self)
+            count_action = menu.addAction(f"已执行 {count} 次")
+            count_action.setEnabled(False)
+            menu.addSeparator()
+            interval_action = QAction("设置默认间隔", self)
+            interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
+            menu.addAction(interval_action)
+            delete_action = QAction("删除", self)
+            delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, folder_table))
+            menu.addAction(delete_action)
+            menu.exec_(folder_table.viewport().mapToGlobal(position))
         except Exception:
-            count = 0
-        from PyQt5.QtWidgets import QMenu
-        menu = QMenu(self)
-        count_action = menu.addAction(f"已执行 {count} 次")
-        count_action.setEnabled(False)
-        menu.addSeparator()
-        interval_action = QAction("设置默认间隔", self)
-        interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
-        menu.addAction(interval_action)
-        delete_action = QAction("删除", self)
-        delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, folder_table))
-        menu.addAction(delete_action)
-        menu.exec_(folder_table.viewport().mapToGlobal(position))
+            import traceback
+            traceback.print_exc()
 
     def set_folder_interval_in_tab(self, folder_path):
         """流程管理Tab：设置流程文件夹的默认操作间隔（秒）"""
