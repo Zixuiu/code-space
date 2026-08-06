@@ -6837,7 +6837,7 @@ class AutoRecorderApp(QMainWindow):
         folder_path = os.path.join(get_recordings_path(), recording_name)
         
         menu = QMenu(self)
-        pin_action = menu.addAction("📌 置顶")
+        pin_action = menu.addAction("▌ 置顶")
         interval_action = menu.addAction("设置默认间隔")
         if not os.path.exists(folder_path):
             interval_action.setEnabled(False)
