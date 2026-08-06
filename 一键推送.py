@@ -127,14 +127,18 @@ def main():
     log("SSH 配置完成，认证通过", "SUCCESS")
 
     # Step 3: 暂存并提交所有可提交改动
-    # 以“暂存区是否有内容”为唯一判断依据，避免 subprocess 环境下 git status 初值偶发误判
+    # 用 `git diff --cached --quiet` 的退出码作为唯一判断依据（最可靠，不解析文本输出）：
+    #   退出码 0 = 暂存区无差异（无需提交）
+    #   退出码 1 = 暂存区有差异（需要提交）
     log("\n步骤 3/5: 暂存并提交改动...")
     run_cmd("git add -A")
-    r2 = run_cmd("git diff --cached --name-only")
-    if not r2.stdout.strip():
+    r_diff = run_cmd("git diff --cached --quiet")
+    if r_diff.returncode == 0:
         # 暂存区为空 = 没有需要提交的新更改（未跟踪/已被 gitignore 忽略的本地数据不会进来）
         log("暂存区为空，没有需要提交的新更改", "INFO")
     else:
+        # 退出码非 0（通常为 1）表示有可提交内容
+        r2 = run_cmd("git diff --cached --name-only")
         staged = [l.strip() for l in r2.stdout.split('\n') if l.strip()]
         log(f"将提交 {len(staged)} 个文件:", "INFO")
         for f in staged[:10]:
