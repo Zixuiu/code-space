@@ -1159,7 +1159,21 @@ class FolderManager(QDialog):
                     if layout:
                         layout.setContentsMargins(0, 0, 0, 0)
                         layout.setAlignment(Qt.AlignCenter)
-            
+
+            # ★ 修复：右键落在"快捷键/重命名"单元格（cellWidget 容器或按钮）上时，
+            # 这些子控件默认 DefaultContextMenu 会吞掉右键事件，导致表格的右键菜单
+            # （含"设置默认间隔"）弹不出来。给容器和按钮都挂上 CustomContextMenu，
+            # 并把坐标转换回表格 viewport 坐标系转发给 show_context_menu。
+            for _cw in (shortcut_container, rename_container, shortcut_btn, rename_btn):
+                if _cw is None:
+                    continue
+                _cw.setContextMenuPolicy(Qt.CustomContextMenu)
+                _cw.customContextMenuRequested.connect(
+                    lambda pos, w=_cw: self.show_context_menu(
+                        self.table.viewport().mapFromGlobal(w.mapToGlobal(pos))
+                    )
+                )
+
             # 保持按钮原有大小设置，确保与容器匹配
             pass
     

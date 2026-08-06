@@ -152,6 +152,7 @@ class ComboSkillEditDialog(QDialog):
             QCheckBox {
                 font-size: 13px;
                 padding: 4px 8px;
+                background-color: transparent;
             }
             QCheckBox::indicator {
                 width: 18px;
@@ -237,7 +238,7 @@ class ComboSkillEditDialog(QDialog):
         self.step_interval_default_cb.setChecked(self._step_interval_default)
         self.step_interval_default_cb.setToolTip("勾选后使用系统默认值(0.1秒)")
         self.step_interval_default_cb.setStyleSheet("""
-            QCheckBox { font-size: 11px; color: #888; }
+            QCheckBox { font-size: 11px; color: #888; background-color: transparent; }
             QCheckBox::indicator { width: 14px; height: 14px; }
         """)
         self.step_interval_default_cb.stateChanged.connect(
