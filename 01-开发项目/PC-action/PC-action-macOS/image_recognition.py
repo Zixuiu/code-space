@@ -731,16 +731,17 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     # ★ 稳定检测：刚匹配到的这一帧，图标可能仍在移动/动画过渡中，
                     # 直接点击会点到半空（"图片还没稳定就点了"）。再次就近匹配确认位置基本不动才点击。
                     # 仅在非极速模式启用；用首次命中位置作 roi_hint（转回逻辑坐标）做局部快速确认，避免误命中远处相似图标。
+                    # 轻量化：循环 3 次（静止图标第二次命中即返回，约 +0.05s/步）；仅在图标确在动时才最多观察 ~0.36s。
                     if not turbo_match:
                         try:
                             _sc = (location[0] + location[2] // 2, location[1] + location[3] // 2)
                             _stable_loc = location
                             _stable_hint = (int(round(_sc[0] / _dpi_scale)), int(round(_sc[1] / _dpi_scale)))
-                            _STABLE_TOL = 5  # 物理像素：两次匹配中心位移 < 此值视为已静止
+                            _STABLE_TOL = 6  # 物理像素：两次匹配中心位移 < 此值视为已静止
                             _stable_ok = False
-                            for _s in range(6):
-                                time.sleep(0.05)
-                                _rel = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.15,
+                            for _s in range(3):
+                                time.sleep(0.04)
+                                _rel = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.08,
                                                                consider_color=use_color, region_center=region_center,
                                                                stop_check=stop_check, roi_hint=_stable_hint)
                                 if _rel is None:
