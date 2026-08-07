@@ -1083,6 +1083,20 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     template_h, template_w = image_array.shape[:2]
     debug_print(f"[匹配诊断] 模板 {template_w}x{template_h} | 截图 {screenshot_w}x{screenshot_h} | 阈值 {confidence:.2f} | 颜色 {'开启' if consider_color else '关闭'}")
 
+    # ★ 位置锚定：若提供录制坐标(roi_hint)，匹配结果必须离录制位置足够近才接受，
+    # 否则远处"同色同形"的干扰图标会被误命中（如游戏 UI 里时有时无的相似图标）。
+    # 仅在 roi_hint 存在时生效，不影响无坐标的纯识别。
+    _recorded_phys = None
+    _POS_TOL_PHYS = 0.0
+    if roi_hint is not None:
+        try:
+            _dpi_r = _get_dpi_scale()
+            _recorded_phys = (roi_hint[0] * _dpi_r + (template_w * _dpi_r) / 2.0,
+                              roi_hint[1] * _dpi_r + (template_h * _dpi_r) / 2.0)
+            _POS_TOL_PHYS = 220.0 * _dpi_r  # 逻辑像素容忍度 220，覆盖正常 UI 抖动
+        except Exception:
+            _recorded_phys = None
+
     # 记录所有尺度的最佳分数（用于失败时诊断）
     scale_best_scores = {}  # {scale: (max_val, max_loc)}
 
@@ -1213,7 +1227,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             _, rv, _, rl = cv2.minMaxLoc(result)
             if rv >= confidence:
                 h, w = template_bgr.shape[:2]
-                return (rl[0] + off_x, rl[1] + off_y, w, h)
+                _loc = (rl[0] + off_x, rl[1] + off_y, w, h)
+                # ★ 位置锚定：远处干扰图标直接拒绝
+                if _recorded_phys is not None:
+                    _cx = _loc[0] + _loc[2] / 2.0
+                    _cy = _loc[1] + _loc[3] / 2.0
+                    _d2 = (_cx - _recorded_phys[0]) ** 2 + (_cy - _recorded_phys[1]) ** 2
+                    if _d2 > _POS_TOL_PHYS ** 2:
+                        debug_print(f"[位置锚定] 拒绝远处匹配 距离={math.sqrt(_d2):.0f}px (阈值{_POS_TOL_PHYS:.0f})")
+                        return None
+                return _loc
             return None
         h, w = template_bgr.shape[:2]
         if screen_roi.shape[0] < h or screen_roi.shape[1] < w:
@@ -1231,6 +1254,14 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 best = (cx + off_x, cy + off_y, w, h)
         if best is None or best_c < _COLOR_TOL:
             return None
+        # ★ 位置锚定：颜色最像但远离录制位置，仍是误命中，拒绝
+        if _recorded_phys is not None:
+            _cx = best[0] + best[2] / 2.0
+            _cy = best[1] + best[3] / 2.0
+            _d2 = (_cx - _recorded_phys[0]) ** 2 + (_cy - _recorded_phys[1]) ** 2
+            if _d2 > _POS_TOL_PHYS ** 2:
+                debug_print(f"[位置锚定] 拒绝远处匹配 距离={math.sqrt(_d2):.0f}px (阈值{_POS_TOL_PHYS:.0f})")
+                return None
         return best
 
     def _try_match(screenshot, skip_multi_scale=False):
