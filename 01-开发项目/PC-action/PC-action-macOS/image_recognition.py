@@ -787,7 +787,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
             _fast_move(center_x, center_y)
-            time.sleep(0.02)  # 等待鼠标移动完成，否则点击不生效
+            time.sleep(0.01)  # 等待鼠标移动生效（原0.02，减半仍足够，提速）
 
             # 根据操作类型执行相应操作
             if action_type == 'double_click':
