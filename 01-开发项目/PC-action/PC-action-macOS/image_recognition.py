@@ -680,12 +680,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     cached_img = get_cached_image(image_path)
                     if cached_img is not None:
                         img_height, img_width = cached_img.shape[:2]
-                        if img_width < 50 or img_height < 50:
-                            # 小图标模板特征弱，纯形状匹配极易误命中到屏幕上其它相似小图标（"乱点"主因）。
+                        if img_width < 80 or img_height < 80:
+                            # 中等/小图标模板特征弱，纯形状匹配极易误命中到屏幕上其它相似图标（"乱点"主因）。
                             # 强制开启颜色匹配 + 提高置信度，显著降低误命中概率。
+                            # 阈值从 50 提到 80：覆盖 50~80px 的中等图标（如 70x63），这类图之前会漏掉颜色保护。
                             use_color = True
                             dynamic_confidence = 0.9
-                            debug_print(f"[回放] 步骤 {step}: 小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
+                            debug_print(f"[回放] 步骤 {step}: 中等/小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
                 except Exception:
                     pass
                 # 根据 match_timeout 自适应分配匹配时间
