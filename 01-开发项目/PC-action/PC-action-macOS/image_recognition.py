@@ -1155,6 +1155,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         except Exception:
             _prescreen_small_gray_template = None
 
+    # ⚡ 颜色模式快速搜索模板：始终准备一份灰度模板，颜色模式下用"灰度快筛 + 候选区颜色验证"
+    # 取代昂贵的全屏BGR matchTemplate（慢约3倍），提速且保留颜色门控防误点。
+    # 灰度模式(_gray_template 已存在)直接复用；颜色模式单独算一份灰度模板，与 _gray_template 解耦，
+    # 避免误触发 _fast_match/_color_gate_locate 的"灰度模式"分支（那样会跳过颜色判断）。
+    _fast_gray_template = None
+    _fast_small_gray_template = None
+    if template_w >= 20 and template_h >= 20:
+        _fast_gray_template = _gray_template if _gray_template is not None else cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+        _fast_small_gray_template = cv2.resize(_fast_gray_template, None, fx=0.5, fy=0.5, interpolation=cv2.INTER_AREA)
+
     def _fast_match(screen_bgr, template_bgr, gray_screen=None):
         """快速匹配：灰度比BGR快3倍。可传入预计算的gray_screen避免重复cvtColor"""
         if _gray_template is not None:
@@ -1359,8 +1369,17 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                 except Exception as _roi_e:
                     debug_print(f"[匹配诊断] ROI切片异常: {_roi_e}, 尝试全屏1:1")
 
-            # ⚡ 次快路径：全屏灰度 1:1 匹配（灰度比BGR快3倍）
-            _fast_result = _fast_match(first_screenshot, image_array)
+            # ⚡ 次快路径：全屏 1:1 匹配。
+            # 颜色模式用灰度快筛(比BGR快约3倍)得到 result，再交 _color_gate_locate 做颜色验证，
+            # 既提速又保留"形状对、颜色不对"的防误点；灰度模式仍走原 _fast_match（已是灰度）。
+            if consider_color and _fast_gray_template is not None:
+                _gs = _get_shared_gray()
+                if _gs is not None:
+                    _fast_result = cv2.matchTemplate(_gs, _fast_gray_template, cv2.TM_CCOEFF_NORMED)
+                else:
+                    _fast_result = _fast_match(first_screenshot, image_array)
+            else:
+                _fast_result = _fast_match(first_screenshot, image_array)
             _, _fast_max_val, _, _fast_max_loc = cv2.minMaxLoc(_fast_result)
             if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _fast_max_val:
                 scale_best_scores[1.0] = (_fast_max_val, _fast_max_loc)
@@ -1623,7 +1642,16 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                 _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                                 return (_cl[0], _cl[1], _cl[2], _cl[3])
                 else:
-                    result = _fast_match(screenshot_bgr, image_array)
+                    # ⚡ 颜色模式：用灰度快筛(比BGR快约3倍)得到 result，再交 _color_gate_locate 验证颜色，
+                    # 取代昂贵的全屏 BGR matchTemplate；灰度模式走原 _fast_match。
+                    if consider_color and _fast_gray_template is not None:
+                        _gs = _get_shared_gray()
+                        if _gs is not None:
+                            result = cv2.matchTemplate(_gs, _fast_gray_template, cv2.TM_CCOEFF_NORMED)
+                        else:
+                            result = _fast_match(screenshot_bgr, image_array)
+                    else:
+                        result = _fast_match(screenshot_bgr, image_array)
                     _, _rv, _, _rl = cv2.minMaxLoc(result)
                     if _rv >= confidence:
                         h, w = image_array.shape[:2]
