@@ -10285,8 +10285,24 @@ class AutoRecorderApp(QMainWindow):
             actual_folder_shortcuts = len(shortcut_objects)
 
             need_restore = False
+            # 0. ★ 事件队列积压检测：processing_thread 卡死（不消费事件）时 is_alive() 仍为 True，
+            #     但 OS 线程仍在往队列里塞事件，队列会持续积压——这是"线程活着却不处理事件"的铁证，
+            #     仅靠线程存活检测查不出来。积压 >8 条判定处理线程卡死（正常使用中队列几乎恒为空/≤2）。
+            queue_stalled = False
+            try:
+                if listener is not None:
+                    _q = getattr(listener, 'queue', None)
+                    if _q is not None and hasattr(_q, 'qsize'):
+                        _qs = _q.qsize()
+                        if _qs > 8:
+                            self.debug_print(f'[热键健康] ❌ 事件队列积压 {_qs} 条（处理线程疑似卡死），准备恢复')
+                            queue_stalled = True
+            except Exception:
+                queue_stalled = False
             # 1. 检查 listening_thread 是否存活
-            if not listener_alive:
+            if queue_stalled:
+                need_restore = True
+            elif not listener_alive:
                 self.debug_print('[热键健康] ❌ listening_thread 未存活，准备恢复')
                 need_restore = True
             # 1b. 检查 processing_thread 是否存活
@@ -10691,9 +10707,15 @@ class AutoRecorderApp(QMainWindow):
                                 # ★ 新策略：使用标志位禁用热键，不清空字典
                                 # 这样可以保留 keyboard 库的完整状态，避免事件链断裂
                                 if getattr(self, '_hotkeys_temporarily_disabled', False):
-                                    # 回放期间临时禁用，不执行任何操作
-                                    self.debug_print(f"[热键] {_sc} 触发但热键已临时禁用")
-                                    return
+                                    # ★ 兜底修复：若回放已结束但禁用标志仍残留（回放线程异常/状态未清干净），
+                                    # 自动清除并继续执行，避免"回放后快捷键永久失效、怎么按都没反应"。
+                                    if not self._replay_lock.locked():
+                                        self._hotkeys_temporarily_disabled = False
+                                        self.debug_print(f"[热键] {_sc} 触发时发现禁用标志残留（回放已结束），已自动清除并继续")
+                                    else:
+                                        # 回放真正在进行中，临时禁用生效，不执行
+                                        self.debug_print(f"[热键] {_sc} 触发但热键已临时禁用（回放进行中）")
+                                        return
                                 # ★ 诊断：即使不执行也要记录热键触发，便于排查问题
                                 if not self.replay_enabled:
                                     self.debug_print(f"[热键] 快捷键 {_sc} 触发但回放已关闭 (replay_enabled=False)")
