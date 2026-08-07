@@ -728,6 +728,39 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}, 分数: {_hit_score:.3f}）")
                     if _hit_score < dynamic_confidence + 0.06 and dynamic_confidence >= 0.9:
                         debug_print(f"[回放] ⚠️ 步骤 {step}: 分数 {_hit_score:.3f} 紧贴阈值({dynamic_confidence:.2f})，若视觉上并未看到目标图，请留意——疑似误命中")
+                    # ★ 稳定检测：刚匹配到的这一帧，图标可能仍在移动/动画过渡中，
+                    # 直接点击会点到半空（"图片还没稳定就点了"）。再次就近匹配确认位置基本不动才点击。
+                    # 仅在非极速模式启用；用首次命中位置作 roi_hint（转回逻辑坐标）做局部快速确认，避免误命中远处相似图标。
+                    if not turbo_match:
+                        try:
+                            _sc = (location[0] + location[2] // 2, location[1] + location[3] // 2)
+                            _stable_loc = location
+                            _stable_hint = (int(round(_sc[0] / _dpi_scale)), int(round(_sc[1] / _dpi_scale)))
+                            _STABLE_TOL = 5  # 物理像素：两次匹配中心位移 < 此值视为已静止
+                            _stable_ok = False
+                            for _s in range(6):
+                                time.sleep(0.05)
+                                _rel = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.15,
+                                                               consider_color=use_color, region_center=region_center,
+                                                               stop_check=stop_check, roi_hint=_stable_hint)
+                                if _rel is None:
+                                    continue  # 动画空隙/图标刚挪走，保留上次位置继续等
+                                _rc = (_rel[0] + _rel[2] // 2, _rel[1] + _rel[3] // 2)
+                                _dist = ((_rc[0] - _sc[0]) ** 2 + (_rc[1] - _sc[1]) ** 2) ** 0.5
+                                _stable_loc = _rel
+                                _sc = _rc
+                                _stable_hint = (int(round(_rc[0] / _dpi_scale)), int(round(_rc[1] / _dpi_scale)))
+                                if _dist <= _STABLE_TOL:
+                                    _stable_ok = True
+                                    break
+                                # 位移仍大，图标在动，继续观察
+                            if _stable_ok:
+                                debug_print(f"[回放] 步骤 {step}: 稳定确认通过（图标已静止），执行点击")
+                            else:
+                                debug_print(f"[回放] 步骤 {step}: ⚠️ 图标持续移动未完全稳定，使用最近位置点击")
+                            location = _stable_loc
+                        except Exception:
+                            pass
                     x, y, width, height = location
                     center_x = x + width // 2
                     center_y = y + height // 2
