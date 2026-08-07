@@ -682,10 +682,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         img_height, img_width = cached_img.shape[:2]
                         if img_width < 80 or img_height < 80:
                             # 中等/小图标模板特征弱，纯形状匹配极易误命中到屏幕上其它相似图标（"乱点"主因）。
-                            # 强制开启颜色匹配 + 提高置信度，显著降低误命中概率。
+                            # 强制开启颜色匹配，显著降低误命中概率；但置信度保持默认 0.8，不过度抬高——
+                            # 25x46 这类细长小图标形状匹配分通常就在 0.8~0.9，抬到 0.9 会"明明在屏上却匹配不上"。
                             # 阈值从 50 提到 80：覆盖 50~80px 的中等图标（如 70x63），这类图之前会漏掉颜色保护。
                             use_color = True
-                            dynamic_confidence = 0.9
+                            dynamic_confidence = 0.8
                             debug_print(f"[回放] 步骤 {step}: 中等/小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
                 except Exception:
                     pass
@@ -1224,6 +1225,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         peaks = _peaks_above(result, confidence)
         best = None
         best_c = -1.0
+        best_sc = -1.0
         for (cx, cy, sc) in peaks:
             crop = screen_roi[cy:cy + h, cx:cx + w]
             if crop.shape[0] < h or crop.shape[1] < w:
@@ -1232,7 +1234,13 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             if cs > best_c:
                 best_c = cs
                 best = (cx + off_x, cy + off_y, w, h)
-        if best is None or best_c < _COLOR_TOL:
+                best_sc = sc
+        if best is None:
+            return None
+        # 高形状分豁免：形状几乎完美(>=0.92)时放宽颜色要求，避免渲染噪声/半透明/抗锯齿造成的颜色微差误拒真图
+        if best_sc >= 0.92 and best_c >= 0.35:
+            return best
+        if best_c < _COLOR_TOL:
             return None
         return best
 
