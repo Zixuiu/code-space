@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain 智能客服 · 实时演示系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root{
+            --bg:#f0f4f8; --sidebar:#0f172a; --sidebar-hover:#1e293b; --accent:#7dd3fc;
+            --ink:#0b1e2e; --muted:#64748b; --line:#eef2f6; --card:#fff;
+        }
+        html,body{height:100%;}
+        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;}
+        .app{display:flex;height:100vh;}
+
+        /* 侧边栏：可视化 LangChain 三大组件 */
+        .sidebar{width:268px;background:var(--sidebar);color:#cbd5e1;display:flex;flex-direction:column;flex-shrink:0;}
+        .sidebar-brand{display:flex;align-items:center;gap:.55rem;padding:1.15rem 1.3rem;font-size:1.1rem;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);}
+        .sidebar-brand .ico{font-size:1.35rem;}
+        .sidebar-brand span{color:var(--accent);}
+        .side-scroll{flex:1;overflow-y:auto;padding:.9rem;}
+        .comp{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.85rem .95rem;margin-bottom:.8rem;}
+        .comp h4{font-size:.82rem;color:#e2e8f0;display:flex;align-items:center;gap:.4rem;margin-bottom:.45rem;}
+        .comp .status{font-size:.7rem;color:#22c55e;margin-left:auto;}
+        .comp p{font-size:.78rem;color:#94a3b8;line-height:1.5;}
+        .mem-val{font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--accent);margin-top:.2rem;word-break:break-all;}
+        .tool-line{font-size:.76rem;color:#cbd5e1;font-family:'JetBrains Mono',monospace;margin-top:.25rem;}
+        .side-foot{padding:.8rem 1.3rem;border-top:1px solid rgba(255,255,255,.08);font-size:.72rem;color:#475569;}
+
+        /* 主区 */
+        .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+        .topbar{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 1.4rem;flex-shrink:0;}
+        .topbar .t-title{font-weight:700;font-size:1.05rem;}
+        .topbar .t-sub{color:var(--muted);font-size:.8rem;}
+        .reset-btn{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:.45rem .9rem;font-size:.82rem;cursor:pointer;color:var(--ink);}
+        .reset-btn:hover{background:#e2e8f0;}
+
+        .chat{flex:1;overflow-y:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1rem;}
+        .msg{display:flex;gap:.7rem;max-width:82%;}
+        .msg.user{margin-left:auto;flex-direction:row-reverse;}
+        .avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.05rem;}
+        .avatar.ai{background:linear-gradient(135deg,#0f172a,#1e293b);}
+        .avatar.me{background:#dbeafe;color:#1e40af;font-weight:700;font-size:.85rem;}
+        .bubble{padding:.8rem 1rem;border-radius:14px;font-size:.92rem;line-height:1.6;}
+        .msg.ai .bubble{background:#fff;border:1px solid var(--line);border-top-left-radius:4px;}
+        .msg.user .bubble{background:#0f172a;color:#fff;border-top-right-radius:4px;}
+
+        .think{margin-top:.6rem;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;padding:.6rem .8rem;}
+        .think summary{cursor:pointer;font-size:.78rem;color:#0369a1;font-weight:600;user-select:none;}
+        .think pre{margin-top:.5rem;font-family:'JetBrains Mono',monospace;font-size:.74rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:#475569;}
+        .think pre .chain{color:#7dcfff;}
+        .think pre .obs{color:#10b981;}
+        .think pre .act{color:#f7768e;}
+
+        .chips{display:flex;flex-wrap:wrap;gap:.5rem;padding:.2rem 1.6rem .9rem;}
+        .chip{background:#fff;border:1px solid var(--line);border-radius:100px;padding:.4rem .9rem;font-size:.8rem;cursor:pointer;color:#334155;}
+        .chip:hover{border-color:var(--accent);color:#0369a1;}
+
+        .composer{display:flex;gap:.6rem;padding:.9rem 1.6rem 1.2rem;background:#fff;border-top:1px solid var(--line);}
+        .composer input{flex:1;border:1px solid var(--line);border-radius:12px;padding:.7rem 1rem;font-size:.92rem;outline:none;font-family:inherit;}
+        .composer input:focus{border-color:var(--accent);}
+        .composer button{background:#0f172a;color:#fff;border:none;border-radius:12px;padding:0 1.4rem;font-weight:600;cursor:pointer;font-size:.9rem;}
+        .composer button:hover{background:#1e293b;}
+
+        @media (max-width:820px){ .sidebar{display:none;} .msg{max-width:92%;} }
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- 侧边栏：把 LangChain 三大组件可视化 -->
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="ico">🦜</span><span>Lang</span>Chain 客服引擎</div>
+        <div class="side-scroll">
+            <div class="comp">
+                <h4>🧠 Memory（记忆）<span class="status">● 在线</span></h4>
+                <p>当前对话上下文：</p>
+                <div class="mem-val" id="memVal">—（尚未锁定产品）</div>
+                <p style="margin-top:.4rem;" id="memCount">已记录 0 轮对话</p>
+            </div>
+            <div class="comp">
+                <h4>🔧 Tools（工具）<span class="status">● 就绪</span></h4>
+                <p>Agent 可调用的外部函数：</p>
+                <div class="tool-line">@tool get_product_price(name)</div>
+                <p style="margin-top:.3rem;">→ 返回指定产品的实时价格</p>
+            </div>
+            <div class="comp">
+                <h4>🤖 Agent（智能体）<span class="status">● 运行中</span></h4>
+                <p>自主决策：分析问题 → 选择是否调用工具 → 结合记忆生成回答。</p>
+            </div>
+            <div class="comp">
+                <h4>📦 知识库（产品）</h4>
+                <div class="tool-line">智能水杯 ¥299</div>
+                <div class="tool-line">无线耳机 ¥499</div>
+                <div class="tool-line">运动手环 ¥199</div>
+                <div class="tool-line">智能手表 ¥899</div>
+            </div>
+        </div>
+        <div class="side-foot">本演示为浏览器内运行的 Agent 模拟器，完整复刻教程架构（Memory + Tools + Agent）。</div>
+    </aside>
+
+    <!-- 主聊天区 -->
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <div class="t-title">💬 LangChain 智能客服 · 实时演示</div>
+                <div class="t-sub">打字提问，或点下方示例一键体验 →</div>
+            </div>
+            <button class="reset-btn" id="resetBtn">🔄 清空对话</button>
+        </header>
+
+        <div class="chat" id="chat"></div>
+
+        <div class="chips" id="chips">
+            <span class="chip">你们都卖什么产品？</span>
+            <span class="chip">你好，我想了解一下智能水杯</span>
+            <span class="chip">它有什么特殊功能吗？</span>
+            <span class="chip">那价格是多少呢？</span>
+            <span class="chip">比运动手环贵多少？</span>
+        </div>
+
+        <div class="composer">
+            <input id="input" placeholder="输入消息，例如：智能手表多少钱？" autocomplete="off">
+            <button id="sendBtn">发送</button>
+        </div>
+    </main>
+</div>
+
+<script>
+    // ===================== 知识库 & 状态 =====================
+    const PRODUCTS = {
+        "智能水杯": { price: 299, intro: "智能水杯是我们的热门产品，内置温度传感器与蓝牙模块，可通过手机 APP 管理饮水数据。", features: "主要功能：① 实时温度显示 ② 智能饮水提醒 ③ APP 数据同步 ④ 长效续航。" },
+        "无线耳机": { price: 499, intro: "无线耳机主打主动降噪与长续航，适合通勤与运动场景。", features: "主要功能：① 主动降噪 ② 30 小时续航 ③ 低延迟游戏模式 ④ 双设备连接。" },
+        "运动手环": { price: 199, intro: "运动手环轻巧防水，是入门级健康追踪的好帮手。", features: "主要功能：① 心率监测 ② 睡眠分析 ③ 50 米防水 ④ 14 天超长续航。" },
+        "智能手表": { price: 899, intro: "智能手表为旗舰款，支持独立通话与精准定位。", features: "主要功能：① AMOLED 高清屏 ② GPS 定位 ③ 血氧检测 ④ 独立通话。" }
+    };
+    const NAMES = Object.keys(PRODUCTS);
+
+    let currentProduct = null;
+    let history = [];
+
+    // ===================== Agent 核心逻辑（模拟 LangChain） =====================
+    function detectProduct(text){ for(const n of NAMES){ if(text.includes(n)) return n; } return null; }
+    function isPriceIntent(text){ return /价格|多少钱|报价|售价|多少元|¥|元|贵|便宜|划算|实惠|价位|价钱/.test(text); }
+    function isCompare(text){ return /贵多少|便宜多少|差(价|多少)?|对比|比|相差|贵了|便宜了/.test(text); }
+    function isCatalogIntent(text){ return /卖啥|卖什么|都卖|卖哪些|卖些|有哪些|有啥|啥.*卖|什么.*(产品|卖)|哪些.*(产品|卖)|产品.*(有|列表|呢)|商品|在售|经营什么|卖的|你们.*(卖|产品)/.test(text); }
+
+    function agentReply(userText){
+        const trace = [];
+        trace.push("> Entering new AgentExecutor chain...");
+
+        const mentioned = detectProduct(userText);
+        const prevProduct = currentProduct;
+
+        // 先确定对比所需的两个产品（在更新上下文之前）
+        let cmp = null;
+        if(isCompare(userText)){
+            const found = NAMES.filter(n => userText.includes(n));
+            if(found.length >= 2) cmp = [found[0], found[1]];
+            else if(found.length === 1){
+                if(prevProduct && found[0] !== prevProduct) cmp = [prevProduct, found[0]];
+                else cmp = [found[0], null];
+            } else if(prevProduct) cmp = [prevProduct, null];
+        }
+
+        // 更新记忆中的当前产品
+        if(mentioned){
+            if(currentProduct !== mentioned) trace.push(`识别到产品「${mentioned}」，更新记忆中的当前上下文。`);
+            currentProduct = mentioned;
+        }
+
+        let answer = "";
+
+        // 1) 价格对比
+        if(isCompare(userText) && cmp && cmp[0] && cmp[1]){
+            const [a, b] = cmp;
+            trace.push(`思考：用户要比较 ${a} 与 ${b} 的价格，需分别调用工具查询。`);
+            trace.push(`Action: get_product_price`);
+            trace.push(`Action Input: "${a}"`);
+            trace.push(`Observation: ${a} 的价格是 ¥${PRODUCTS[a].price}`);
+            trace.push(`Action: get_product_price`);
+            trace.push(`Action Input: "${b}"`);
+            trace.push(`Observation: ${b} 的价格是 ¥${PRODUCTS[b].price}`);
+            const diff = PRODUCTS[a].price - PRODUCTS[b].price;
+            const word = diff >= 0 ? `贵 ¥${diff}` : `便宜 ¥${-diff}`;
+            trace.push(`推理：${PRODUCTS[a].price} - ${PRODUCTS[b].price} = ${diff}`);
+            answer = `${a}（¥${PRODUCTS[a].price}）比 ${b}（¥${PRODUCTS[b].price}）${word}。两款产品定位不同，您更看重哪方面需求呢？`;
+        }
+        // 2) 只有一款、却要对比 → 追问对比对象
+        else if(isCompare(userText) && cmp && cmp[0] && !cmp[1]){
+            answer = `您是想拿 ${cmp[0]} 和哪款产品对比呢？目前可选：${NAMES.join("、")}。`;
+            trace.push(`思考：只识别到一款产品，缺少对比对象，需向用户追问。`);
+        }
+        // 3) 单一价格查询
+        else if(isPriceIntent(userText)){
+            const p = mentioned || currentProduct;
+            if(p){
+                trace.push(`思考：用户询问价格，需调用 get_product_price 工具。`);
+                trace.push(`Action: get_product_price`);
+                trace.push(`Action Input: "${p}"`);
+                trace.push(`Observation: ${p} 的价格是 ¥${PRODUCTS[p].price}`);
+                answer = `${p} 的价格是 ¥${PRODUCTS[p].price}。目前有促销活动，您可以到官网查看详情~`;
+            } else {
+                trace.push("思考：未识别到具体产品，但用户询问价格，遂列出全部产品售价供参考。");
+                const lines = NAMES.map(n => `· ${n}：¥${PRODUCTS[n].price}`).join('\n');
+                answer = `我们各款产品的价格如下：\n${lines}\n您具体想深入了解哪一款呢？`;
+            }
+        }
+        // 4) 产品功能 / 介绍
+        else if(mentioned || currentProduct){
+            const p = mentioned || currentProduct;
+            trace.push(`思考：用户咨询 ${p} 的信息，无需调用工具，直接基于知识回答。`);
+            if(/功能|能.*做|特殊|用途|干嘛|什么用|特点/.test(userText)){
+                answer = `${p} ${PRODUCTS[p].features}`;
+            } else {
+                answer = `${PRODUCTS[p].intro} ${PRODUCTS[p].features}`;
+            }
+        }
+        // 4.5) 商品总览
+        else if(isCatalogIntent(userText)){
+            trace.push("思考：用户询问在售商品清单，无需调用工具，直接基于知识库列出全部产品。");
+            const lines = NAMES.map(n => `· ${n} — ¥${PRODUCTS[n].price}`).join('\n');
+            answer = `我们目前主打以下智能硬件产品：\n${lines}\n您想深入了解哪一款的功能或价格呢？直接问我即可～`;
+        }
+        // 5) 问候 / 闲聊 / 兜底
+        else {
+            if(/你好|您好|hi|hello|在吗|在不在|哈啰|嗨/i.test(userText)){
+                answer = "您好！我是 LangChain 智能客服助手 🤖，可以帮您了解产品功能与实时价格。您想了解哪款产品呢？";
+            } else if(/你多大了|你是谁|你叫|什么名字|多大|你的名字|你是(什么|哪个)|干嘛的|做什么的/.test(userText)){
+                answer = "我是基于 LangChain 架构（Memory + Tools + Agent）的智能客服演示助手 🤖，没有年龄哦～我擅长介绍我们的智能硬件产品，您可以问我产品功能或价格！";
+            } else {
+                answer = "抱歉，我暂时没理解您的问题 🤔。您可以问我某款产品的功能或价格，例如：「智能水杯有什么功能？」「运动手环多少钱？」";
+            }
+            trace.push(`思考：通用问候 / 未匹配到明确意图，直接回应。`);
+        }
+
+        trace.push("> Finished chain.");
+        history.push({role:"user", text:userText});
+        history.push({role:"ai", text:answer});
+        return { answer, trace };
+    }
+
+    // ===================== 渲染 =====================
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const memVal = document.getElementById('memVal');
+    const memCount = document.getElementById('memCount');
+
+    function colorTrace(line){
+        if(line.startsWith(">")) return `<span class="chain">${line}</span>`;
+        if(line.startsWith("Observation")) return `<span class="obs">${line}</span>`;
+        if(line.startsWith("Action")) return `<span class="act">${line}</span>`;
+        return line;
+    }
+
+    function addMessage(role, text, trace){
+        const msg = document.createElement('div');
+        msg.className = 'msg ' + role;
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar ' + (role === 'ai' ? 'ai' : 'me');
+        avatar.textContent = role === 'ai' ? '🤖' : '我';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = text.replace(/¥/g, '<b>¥</b>').replace(/\n/g, '<br>');
+        if(role === 'ai' && trace){
+            const details = document.createElement('details');
+            details.className = 'think';
+            details.open = true;
+            const sum = document.createElement('summary');
+            sum.textContent = '🧠 查看 Agent 思考过程（Verbose）';
+            const pre = document.createElement('pre');
+            pre.innerHTML = trace.map(colorTrace).join('\n');
+            details.appendChild(sum);
+            details.appendChild(pre);
+            bubble.appendChild(details);
+        }
+        msg.appendChild(avatar);
+        msg.appendChild(bubble);
+        chat.appendChild(msg);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function updateMemory(){
+        memVal.textContent = currentProduct ? currentProduct : '—（尚未锁定产品）';
+        memCount.textContent = '已记录 ' + (history.length / 2) + ' 轮对话';
+    }
+
+    function send(text){
+        text = text.trim();
+        if(!text) return;
+        addMessage('user', text);
+        const { answer, trace } = agentReply(text);
+        setTimeout(() => {
+            addMessage('ai', answer, trace);
+            updateMemory();
+        }, 260);
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', () => { send(input.value); input.value=''; });
+    input.addEventListener('keydown', e => { if(e.key === 'Enter'){ send(input.value); input.value=''; } });
+    document.getElementById('chips').addEventListener('click', e => {
+        if(e.target.classList.contains('chip')) send(e.target.textContent);
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        chat.innerHTML = ''; history = []; currentProduct = null; updateMemory();
+    });
+
+    // 初始欢迎语
+    addMessage('ai', '你好！我是基于 LangChain 架构（Memory + Tools + Agent）的智能客服演示。左侧能实时看到我的「记忆」和「工具」状态，每条回复都可展开查看思考过程。试着问我产品功能或价格吧 👇');
+    updateMemory();
+</script>
+</body>
+</html>

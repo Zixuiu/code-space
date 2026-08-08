@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FDE 全栈能力地图 · 前端部署工程师该掌握什么</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1e2533; --muted:#64748b; --line:#e6eaf0;
+    --blue:#185fa5; --blue-soft:#e6f1fb; --purple:#534ab7; --purple-soft:#eeedfe;
+    --green:#3b6d11; --green-soft:#eaf3de; --amber:#854f0b; --amber-soft:#faeebda;
+    --cyan:#0f6e56; --cyan-soft:#e1f5ee; --red:#a32d2d; --red-soft:#fcebeb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 22px 80px}
+
+  /* Hero */
+  .hero{background:linear-gradient(135deg,#185fa5,#534ab7);color:#fff;border-radius:0 0 26px 26px;
+    padding:46px 22px 38px;margin-bottom:26px}
+  .hero-in{max-width:1180px;margin:0 auto;padding:0 22px}
+  .hero h1{font-size:30px;font-weight:700;letter-spacing:.5px}
+  .hero .sub{font-size:15px;opacity:.92;margin-top:10px;max-width:820px}
+  .hero .tag{display:inline-block;background:rgba(255,255,255,.16);padding:4px 12px;border-radius:20px;
+    font-size:12.5px;margin-top:16px;margin-right:8px}
+  .stats{display:flex;flex-wrap:wrap;gap:14px;margin-top:22px}
+  .stat{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);
+    border-radius:14px;padding:12px 18px;min-width:140px}
+  .stat b{font-size:22px;display:block}
+  .stat span{font-size:12px;opacity:.9}
+
+  /* Coverage bar */
+  .cover{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;
+    margin-bottom:24px;display:flex;flex-wrap:wrap;align-items:center;gap:18px}
+  .cover .ring{position:relative;width:78px;height:78px;flex:0 0 auto}
+  .cover .ring svg{transform:rotate(-90deg)}
+  .cover .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px}
+  .cover .txt{font-size:13.5px;color:var(--muted)}
+  .cover .txt b{color:var(--ink)}
+
+  /* Toolbar */
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:22px}
+  .search{flex:1;min-width:220px;display:flex;align-items:center;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:9px 14px}
+  .search input{border:none;outline:none;font-size:14px;flex:1;background:transparent;color:var(--ink)}
+  .filters{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:var(--card);color:var(--muted);border-radius:20px;
+    padding:7px 14px;font-size:13px;cursor:pointer;transition:.15s;user-select:none}
+  .chip:hover{border-color:var(--blue)}
+  .chip.active{background:var(--blue);border-color:var(--blue);color:#fff}
+
+  /* Grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    display:flex;flex-direction:column}
+  .card .head{padding:16px 18px;border-left:5px solid var(--blue);background:#fbfcfe}
+  .card .head .dt{font-size:13px;color:var(--muted)}
+  .card .head h3{font-size:16.5px;margin-top:3px}
+  .card .head p{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .card ul{list-style:none;padding:10px 14px 16px}
+  .card li{padding:9px 10px;border-radius:10px;display:flex;align-items:flex-start;gap:8px;
+    transition:.12s}
+  .card li:hover{background:#f7f9fc}
+  .card li .lv{flex:0 0 auto;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;margin-top:2px;
+    white-space:nowrap}
+  .card li .body{flex:1}
+  .card li .body b{font-size:13.5px;font-weight:600}
+  .card li .body span{display:block;font-size:12px;color:var(--muted);margin-top:2px}
+  .card li .done{flex:0 0 auto;font-size:10.5px;font-weight:600;color:var(--cyan);
+    background:var(--cyan-soft);border:1px solid #b5e1d2;padding:2px 7px;border-radius:6px;margin-top:2px}
+  .lv.must{background:var(--green-soft);color:var(--green)}
+  .lv.core{background:var(--blue-soft);color:var(--blue)}
+  .lv.adv{background:var(--purple-soft);color:var(--purple)}
+  .lv.strat{background:var(--amber-soft);color:var(--amber)}
+
+  /* legend */
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 26px;font-size:12px;color:var(--muted)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+  /* Roadmap */
+  .road{margin-top:40px}
+  .road h2{font-size:21px;margin-bottom:8px}
+  .road .desc{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+  .step{border:1px solid var(--line);border-radius:16px;padding:18px;background:var(--card);position:relative}
+  .step .no{width:30px;height:30px;border-radius:50%;background:var(--blue);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;margin-bottom:10px}
+  .step h4{font-size:15.5px}
+  .step p{font-size:12.8px;color:var(--muted);margin-top:7px}
+  .step .cur{border:2px solid var(--green);}
+  .step .cur .no{background:var(--green)}
+  .step .cur b{color:var(--green);font-size:12px}
+
+  .foot{margin-top:46px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .empty{text-align:center;color:var(--muted);padding:40px;display:none}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-in">
+    <h1>FDE 全栈能力地图</h1>
+    <div class="sub">FDE = 前端部署工程师（Forward Deployed Engineer）。起源于 Palantir，本质是「解决方案架构师 + 业务顾问 + 产品经理 + 交付实施」的合体——把 AI 接进客户现场的业务系统，并让它真被用起来。下面 9 大维度、约 50 项能力，是 2026 年这个最火岗位的真实要求。</div>
+    <div>
+      <span class="tag">LinkedIn 岗位 3 年涨 42 倍</span>
+      <span class="tag">Indeed 2026 同比 +729%</span>
+      <span class="tag">资深年包中位数 ~$485K</span>
+      <span class="tag">OpenAI/Anthropic/微软集体下场</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>9</b><span>能力维度</span></div>
+      <div class="stat"><b>~50</b><span>核心能力点</span></div>
+      <div class="stat"><b>4</b><span>难度层级</span></div>
+      <div class="stat"><b>12</b><span>你已实操命中</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- 覆盖度 -->
+  <div class="cover">
+    <div class="ring">
+      <svg width="78" height="78">
+        <circle cx="39" cy="39" r="33" stroke="#e6eaf0" stroke-width="9" fill="none"/>
+        <circle cx="39" cy="39" r="33" stroke="#0f6e56" stroke-width="9" fill="none"
+          stroke-dasharray="207" stroke-dashoffset="145" stroke-linecap="round"/>
+      </svg>
+      <b>26%</b>
+    </div>
+    <div class="txt">
+      环图显示：基于我们当前 <b>langchain/</b> 项目实操，「技术底座」维度已命中约 <b>12 项</b>能力（绿色标记「已实操」）。
+      要成为完整 FDE，还差「工程化」与「业务落地」两层 —— 正是它比普通开发/售前更值钱的部分。
+      下面的卡片里，<b style="color:var(--cyan)">青色「已实操」</b>标签即你今天亲手跑过的。
+    </div>
+  </div>
+
+  <!-- 工具栏 -->
+  <div class="toolbar">
+    <div class="search">
+      <input id="q" type="text" placeholder="搜索能力点，如：RAG、微信、私有化、Agent…">
+    </div>
+    <div class="filters" id="filters">
+      <span class="chip active" data-f="all">全部</span>
+      <span class="chip" data-f="must">必会</span>
+      <span class="chip" data-f="core">核心</span>
+      <span class="chip" data-f="adv">进阶</span>
+      <span class="chip" data-f="strat">战略</span>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#3b6d11"></i>必会：入场门槛</span>
+    <span><i style="background:#185fa5"></i>核心：日常主力</span>
+    <span><i style="background:#534ab7"></i>进阶：拉开差距</span>
+    <span><i style="background:#854f0b"></i>战略：决定上限</span>
+    <span><i style="background:#0f6e56"></i>已实操：你今天就跑过</span>
+  </div>
+
+  <!-- 维度卡片 -->
+  <div class="grid" id="grid">
+
+    <!-- 1 -->
+    <div class="card" data-dim="1">
+      <div class="head" style="border-color:var(--blue)">
+        <div class="dt">维度 01 · 地基</div>
+        <h3>AI 与大模型基础</h3>
+        <p>不懂模型就别谈部署。这一层是和任何算法/研发对话的语言。</p>
+      </div>
+      <ul>
+        <li><span class="lv must">必会</span><span class="body"><b>LLM 工作原理</b><span>token、注意力机制、上下文窗口、训练/推理区别</span></span></li>
+        <li><span class="lv must">必会</span><span class="body"><b>主流模型谱系</b><span>GPT / Claude / Llama / DeepSeek / Qwen / Gemini 的定位与取舍</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>Prompt 工程</b><span>Few-shot、链式提示、结构化输出、角色设定</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>推理参数调优</b><span>temperature / top_p / max_tokens 对效果的影响</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>模型选型与成本管理</b><span>按场景选模型、按 token 计价、免费档 vs 付费档</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>幻觉识别与缓解</b><span>不确定性表达、引用溯源、事实核查</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>评测方法</b><span>基准测试 / 人工评估 / LLM-as-judge</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 2 -->
+    <div class="card" data-dim="2">
+      <div class="head" style="border-color:var(--purple)">
+        <div class="dt">维度 02 · 引擎</div>
+        <h3>Agent 与编排</h3>
+        <p>FDE 的核心引擎。把「会聊天」升级成「能干活」。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>Agent 范式</b><span>ReAct / Plan-Execute / Reflexion 的适用场景</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>LangChain / LlamaIndex</b><span>主流编排框架，把组件拼成可运行链路</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>Memory 管理</b><span>Buffer / Summary / Vector 短期长期记忆</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>Tool / Function Calling</b><span>把外部能力封装成模型可调用函数</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>多 Agent 协作</b><span>CrewAI / AutoGen、角色分工与消息传递</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>工作流编排</b><span>DAG / 状态机 / 人工介入 Human-in-loop</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>思考链可观测</b><span>verbose / tracing / LangSmith 调试</span></span><span class="done">已实操</span></li>
+      </ul>
+    </div>
+
+    <!-- 3 -->
+    <div class="card" data-dim="3">
+      <div class="head" style="border-color:var(--green)">
+        <div class="dt">维度 03 · 记忆</div>
+        <h3>RAG 与知识工程</h3>
+        <p>让 AI 懂客户业务。知识一多，纯 prompt 就不够了。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>文档解析与清洗</b><span>PDF / 网页 / 数据库 / 表格抽取</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>切分策略</b><span>固定 / 语义 / 递归切分对不同文档的效果</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>向量库</b><span>Chroma / FAISS / Milvus / pgvector 选型</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>检索增强</b><span>Hybrid Search / Rerank / Query Rewrite</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>知识库更新与版本</b><span>增量索引、过期淘汰、灰度</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>GraphRAG / 知识图谱</b><span>复杂关系型知识的检索</span></span></li>
+        <li><span class="lv must">必会</span><span class="body"><b>私有数据接入合规</b><span>敏感数据如何进向量库不出网</span></span><span class="done">已实操</span></li>
+      </ul>
+    </div>
+
+    <!-- 4 -->
+    <div class="card" data-dim="4">
+      <div class="head" style="border-color:var(--blue)">
+        <div class="dt">维度 04 · 本职</div>
+        <h3>前端与交付层</h3>
+        <p>「前端」部署工程师的本职：让客户看得见、用得上。</p>
+      </div>
+      <ul>
+        <li><span class="lv must">必会</span><span class="body"><b>HTML/CSS/JS 与框架</b><span>React / Vue 至少熟一门，能快速搭界面</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>对话 UI / 聊天组件</b><span>消息流、流式渲染、思考过程展示</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>嵌入集成</b><span>iframe / Web Component / SDK 三种嵌入方式</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>实时通信</b><span>WebSocket / SSE / 流式输出（大模型必用）</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>回调与事件处理</b><span>微信/CRM 回调、消息加解密、异步回包</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>低代码 / 无代码平台</b><span>用金蝶等 PaaS 加速交付，少写代码</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>多端适配</b><span>PC / 移动 / 小程序一套逻辑多端复用</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 5 -->
+    <div class="card" data-dim="5">
+      <div class="head" style="border-color:var(--purple)">
+        <div class="dt">维度 05 · 服务</div>
+        <h3>后端与服务化</h3>
+        <p>把对话引擎包成一个统一 API，所有渠道来调它。</p>
+      </div>
+      <ul>
+        <li><span class="lv must">必会</span><span class="body"><b>API 设计</b><span>REST / WebSocket / GraphQL 接口契约</span></span></li>
+        <li><span class="lv must">必会</span><span class="body"><b>服务框架</b><span>FastAPI / Flask / Node 至少一门</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>多租户隔离</b><span>按 user_id / session 分桶 Memory，绝不串台</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>鉴权与密钥管理</b><span>OAuth / API Key / 密钥轮换，前端不暴露 Key</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>限流与并发控制</b><span>防刷、控成本、保护后端与模型额度</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>异步任务</b><span>大模型超时处理、后台计算、5 秒响应限制</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>可观测性</b><span>日志 / metrics / tracing 串联全链路</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 6 -->
+    <div class="card" data-dim="6">
+      <div class="head" style="border-color:var(--green)">
+        <div class="dt">维度 06 · 工程</div>
+        <h3>部署与私有化</h3>
+        <p>从「能跑」到「敢给客户用」的分水岭。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>容器化</b><span>Docker / Compose 把环境打包可复现</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>编排</b><span>K8s / 云厂商托管，弹性伸缩</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>私有化推理</b><span>vLLM / Ollama / TGI / SGLang 跑客户内网模型</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>GPU 与推理优化</b><span>量化 / 批处理 / KV Cache 降本提速</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>监控告警</b><span>Prometheus / Grafana 盯延迟与错误率</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>灰度与回滚</b><span>模型/版本渐进发布，出错能秒回退</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 7 -->
+    <div class="card" data-dim="7">
+      <div class="head" style="border-color:var(--blue)">
+        <div class="dt">维度 07 · 接入</div>
+        <h3>渠道与系统集成</h3>
+        <p>接进客户系统才是 FDE 的现场价值。前面聊过这套架构。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>微信生态</b><span>公众号 / 企业微信 / 小程序回调与加密</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>官网嵌入</b><span>聊天挂件，与 live 版前端一致</span></span><span class="done">已实操</span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>CRM / ERP 集成</b><span>销售易 / 金蝶 / Salesforce 的 Webhook / OpenAPI</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>工单 / 邮件系统</b><span>把对话事件沉淀为客户服务闭环</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>协作平台</b><span>钉钉 / 飞书 / Slack / Teams 机器人</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>业务 API 封装为 Tool</b><span>查订单/库存变成 Agent 真能调的工具</span></span></li>
+        <li><span class="lv strat">战略</span><span class="body"><b>单点登录 / 组织架构</b><span>对接客户 IAM，按部门/角色授权</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 8 -->
+    <div class="card" data-dim="8">
+      <div class="head" style="border-color:var(--amber)">
+        <div class="dt">维度 08 · 软硬</div>
+        <h3>业务理解与软技能</h3>
+        <p>最值钱的一层。买 AI ≠ AI 转型，落地才是瓶颈。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>需求抽象</b><span>把客户模糊诉求翻译成 Agent 工具与流程</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>行业认知</b><span>金融 / 医疗 / 制造 / 零售 / 政企的差异化</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>售前方案与现场 Demo</b><span>用客户的语言讲架构、当场出效果</span></span><span class="done">已实操</span></li>
+        <li><span class="lv strat">战略</span><span class="body"><b>驻场沟通与客户信任</b><span>贴身服务、管理预期、成为不可替代的人</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>项目交付节奏</b><span>把 PoC 推成生产、控制范围 creep</span></span></li>
+        <li><span class="lv strat">战略</span><span class="body"><b>价值量化</b><span>ROI / 效率提升，让客户持续买单</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>跨团队协同</b><span>拉着研发 / 产品 / 销售一起交付</span></span></li>
+      </ul>
+    </div>
+
+    <!-- 9 -->
+    <div class="card" data-dim="9">
+      <div class="head" style="border-color:var(--red)">
+        <div class="dt">维度 09 · 红线</div>
+        <h3>安全与合规</h3>
+        <p>政企/金融客户的第一道门槛，踩不得。</p>
+      </div>
+      <ul>
+        <li><span class="lv core">核心</span><span class="body"><b>数据不出网 / 私有化</b><span>敏感行业必须内网闭环</span></span></li>
+        <li><span class="lv core">核心</span><span class="body"><b>内容安全审核</b><span>输入/输出过滤，防越狱与违规</span></span><span class="done">已实操</span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>权限与数据脱敏</b><span>按角色隔离、PII 自动遮蔽</span></span></li>
+        <li><span class="lv adv">进阶</span><span class="body"><b>审计留痕</b><span>会话存档，金融/医疗常要求合规追溯</span></span></li>
+        <li><span class="lv strat">战略</span><span class="body"><b>模型与供应链安全</b><span>开源模型来源、依赖漏洞管理</span></span></li>
+        <li><span class="lv strat">战略</span><span class="body"><b>合规框架</b><span>等保 / 数据安全法 / 行业监管对接</span></span></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="empty" id="empty">没有匹配的能力点，换个关键词试试。</div>
+
+  <!-- 成长路线 -->
+  <div class="road">
+    <h2>三阶段成长路线</h2>
+    <div class="desc">从今天的位置，到能独立交付客户，建议按这三阶推进。你现在在第一阶。</div>
+    <div class="steps">
+      <div class="step cur">
+        <div class="no">1</div>
+        <h4>技术底座 <b>· 你在这</b></h4>
+        <p>LangChain Agent + 真模型接入 + 工具调用 + 渠道架构认知。我们已经用 langchain/ 项目亲手跑通这一层，约命中 12 项能力。</p>
+      </div>
+      <div class="step">
+        <div class="no">2</div>
+        <h4>工程化</h4>
+        <p>多租户隔离、鉴权限流、Docker/K8s 容器化、私有化推理（vLLM/Ollama）、监控告警。把 Demo 变成生产级服务。</p>
+      </div>
+      <div class="step">
+        <div class="no">3</div>
+        <h4>业务落地</h4>
+        <p>驻场贴身、需求抽象成工具、行业认知、价值量化、合规闭环。让 AI 在客户现场真被用起来——这才是 FDE 真正值钱的地方。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    本能力地图基于 2026 年 FDE 岗位公开招聘要求与本次「LangChain 客服 Agent」实操项目整理。
+    青色「已实操」标记对应 <b>各种速成html/langchain/</b> 目录下的真实代码（live 直连版 / server 后端版 / app 命令行版）。
+    可作为售前转 FDE 的能力自查清单与学习路线图。
+  </div>
+
+</div>
+
+<script>
+  const q = document.getElementById('q');
+  const grid = document.getElementById('grid');
+  const cards = [...grid.children];
+  const empty = document.getElementById('empty');
+  let filter = 'all';
+
+  function matchLi(li){
+    const txt = li.textContent.toLowerCase();
+    const level = li.querySelector('.lv').classList.contains(filter) || filter==='all';
+    const kw = q.value.trim().toLowerCase();
+    const hitKw = !kw || txt.includes(kw);
+    return level && hitKw;
+  }
+
+  function render(){
+    let visibleCards = 0;
+    cards.forEach(card=>{
+      const lis = [...card.querySelectorAll('li')];
+      let shown = 0;
+      lis.forEach(li=>{
+        const ok = matchLi(li);
+        li.style.display = ok ? '' : 'none';
+        if(ok) shown++;
+      });
+      card.style.display = shown ? '' : 'none';
+      if(shown) visibleCards++;
+    });
+    empty.style.display = visibleCards ? 'none' : 'block';
+  }
+
+  q.addEventListener('input', render);
+  document.getElementById('filters').addEventListener('click', e=>{
+    if(!e.target.classList.contains('chip')) return;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    e.target.classList.add('active');
+    filter = e.target.dataset.f;
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>

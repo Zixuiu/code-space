@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain 实战教程 · 智能客服案例</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: #f0f4f8;
+            padding: 2rem 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            border-radius: 40px;
+            box-shadow: 0 20px 60px rgba(0, 20, 40, 0.12);
+            padding: 2.5rem;
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            border-bottom: 2px solid #f0f4f8;
+            padding-bottom: 1.5rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+            padding: 0.4rem 1.2rem;
+            border-radius: 100px;
+        }
+        .logo span { color: #7dd3fc; }
+
+        .badge {
+            background: #e8edf5;
+            padding: 0.3rem 1rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .toc {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid #eef2f6;
+        }
+        .toc h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 0.8rem;
+        }
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.6rem;
+        }
+        .toc-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: #1e293b;
+            padding: 0.4rem 0.8rem;
+            border-radius: 10px;
+            background: white;
+            border: 1px solid #eef2f6;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .toc-item:hover {
+            border-color: #94a3b8;
+            transform: translateY(-1px);
+        }
+        .toc-item .num {
+            background: #0f172a;
+            color: white;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .section {
+            margin-bottom: 2.5rem;
+            scroll-margin-top: 1rem;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
+        .section-header .step-badge {
+            background: #0f172a;
+            color: white;
+            font-weight: 700;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.8rem;
+            border-radius: 100px;
+        }
+        .section-header h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #0b1e2e;
+        }
+
+        .section-desc {
+            color: #334155;
+            line-height: 1.7;
+            margin-bottom: 1.2rem;
+            font-size: 1rem;
+        }
+
+        .problem-box {
+            background: #fef9e7;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin: 0.8rem 0 1.2rem;
+        }
+        .problem-box strong {
+            color: #b45309;
+        }
+
+        .solution-box {
+            background: #ecfdf5;
+            border-left: 4px solid #10b981;
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin: 0.8rem 0 1.2rem;
+        }
+        .solution-box strong {
+            color: #065f46;
+        }
+
+        .code-block {
+            background: #0b1a26;
+            border-radius: 16px;
+            padding: 1.2rem 1.5rem;
+            color: #e2e8f0;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin: 0.8rem 0 1.2rem;
+            border: 1px solid #1e2d3d;
+        }
+        .code-block .comment { color: #7aa2b7; }
+        .code-block .keyword { color: #f7768e; }
+        .code-block .func { color: #7dcfff; }
+        .code-block .string { color: #b4f9a8; }
+        .code-block .highlight { background: rgba(255,255,255,0.06); padding: 0.1rem 0.3rem; border-radius: 4px; }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        .component-card {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 1.2rem;
+            border: 1px solid #eef2f6;
+        }
+        .component-card .icon {
+            font-size: 1.8rem;
+            margin-bottom: 0.3rem;
+        }
+        .component-card h4 {
+            font-weight: 600;
+            color: #0b1e2e;
+            margin-bottom: 0.2rem;
+        }
+        .component-card p {
+            font-size: 0.85rem;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+        .comparison-table th {
+            background: #f1f5f9;
+            text-align: left;
+            padding: 0.8rem 1rem;
+            font-weight: 600;
+            color: #0b1e2e;
+        }
+        .comparison-table td {
+            padding: 0.8rem 1rem;
+            border-bottom: 1px solid #eef2f6;
+            color: #334155;
+        }
+        .comparison-table tr:hover td {
+            background: #fafcff;
+        }
+
+        .flow-chart {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            margin: 1rem 0;
+            border: 1px solid #eef2f6;
+            font-size: 0.9rem;
+        }
+        .flow-chart .arrow {
+            color: #94a3b8;
+            font-size: 1.2rem;
+            margin: 0 0.3rem;
+        }
+        .flow-step {
+            display: inline-block;
+            background: white;
+            padding: 0.4rem 1rem;
+            border-radius: 30px;
+            border: 1px solid #dce2ec;
+            margin: 0.2rem;
+        }
+
+        .nav-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #f0f4f8;
+        }
+        .btn {
+            padding: 0.6rem 1.8rem;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+        .btn-primary {
+            background: #0f172a;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1e293b;
+            transform: scale(0.97);
+        }
+        .btn-outline:hover {
+            background: #e2e8f0;
+        }
+
+        @media (max-width: 640px) {
+            .container { padding: 1.2rem; }
+            .toc-grid { grid-template-columns: 1fr; }
+            .component-grid { grid-template-columns: 1fr; }
+            .section-header h2 { font-size: 1.2rem; }
+            .code-block { font-size: 0.75rem; padding: 0.8rem 1rem; }
+        }
+
+        .highlight-box {
+            background: #f0f9ff;
+            border-radius: 16px;
+            padding: 1.2rem 1.5rem;
+            border: 1px solid #b8d8f0;
+            margin: 1rem 0;
+        }
+        .highlight-box h4 {
+            color: #0369a1;
+            margin-bottom: 0.3rem;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.15rem 0.6rem;
+            border-radius: 100px;
+            margin-right: 0.3rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- 头部 -->
+    <div class="header">
+        <div class="logo">🦜<span>Lang</span>Chain</div>
+        <div class="badge">📘 实战教程 · 智能客服案例</div>
+    </div>
+
+    <!-- 目录 -->
+    <div class="toc">
+        <h3>📑 本教程结构</h3>
+        <div class="toc-grid">
+            <div class="toc-item" onclick="document.getElementById('sec1').scrollIntoView({behavior:'smooth'})">
+                <span class="num">1</span> 场景与痛点
+            </div>
+            <div class="toc-item" onclick="document.getElementById('sec2').scrollIntoView({behavior:'smooth'})">
+                <span class="num">2</span> 方案设计
+            </div>
+            <div class="toc-item" onclick="document.getElementById('sec3').scrollIntoView({behavior:'smooth'})">
+                <span class="num">3</span> 核心代码
+            </div>
+            <div class="toc-item" onclick="document.getElementById('sec4').scrollIntoView({behavior:'smooth'})">
+                <span class="num">4</span> 组件拆解
+            </div>
+            <div class="toc-item" onclick="document.getElementById('sec5').scrollIntoView({behavior:'smooth'})">
+                <span class="num">5</span> 运行与效果
+            </div>
+            <div class="toc-item" onclick="document.getElementById('sec6').scrollIntoView({behavior:'smooth'})">
+                <span class="num">6</span> 进阶优化
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 第1部分 ==================== -->
+    <div class="section" id="sec1">
+        <div class="section-header">
+            <span class="step-badge">1</span>
+            <h2>🎯 场景：智能客服机器人</h2>
+        </div>
+        <div class="section-desc">
+            <strong>背景：</strong>一家电子产品公司每天收到大量用户咨询，包括产品功能、价格、售后等问题。人工客服成本高、响应慢，需要构建一个 AI 客服系统。
+        </div>
+
+        <div class="problem-box">
+            <strong>⚠️ 核心痛点：</strong>
+            <ul style="margin: 0.5rem 0 0 1.2rem; line-height: 1.8; color: #78350f;">
+                <li><strong>上下文丢失：</strong>用户问完"智能水杯有什么功能？"再问"那价格呢？"，AI 需要记得在聊的是智能水杯，而不是重新问"您说的是哪款产品？"</li>
+                <li><strong>知识静态：</strong>产品信息不断更新（价格、库存、促销），AI 不能把信息硬编码在提示词里，需要能查询实时数据</li>
+                <li><strong>对话混乱：</strong>用户可能突然切换话题，AI 需要识别意图并正确响应</li>
+            </ul>
+        </div>
+
+        <div class="solution-box">
+            <strong>✅ LangChain 解决方案：</strong>
+            <ul style="margin: 0.5rem 0 0 1.2rem; line-height: 1.8; color: #065f46;">
+                <li><strong>记忆 (Memory) →</strong> 用 <code>ConversationBufferMemory</code> 保存对话历史</li>
+                <li><strong>工具 (Tools) →</strong> 用 <code>@tool</code> 定义价格查询函数，让 AI 能调用</li>
+                <li><strong>Agent →</strong> 让 AI 自主决定"是否需要查价格"还是"直接回答"</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ==================== 第2部分 ==================== -->
+    <div class="section" id="sec2">
+        <div class="section-header">
+            <span class="step-badge">2</span>
+            <h2>🧩 方案设计：两个版本对比</h2>
+        </div>
+
+        <table class="comparison-table">
+            <thead>
+                <tr>
+                    <th>对比项</th>
+                    <th>基础客服 (V1)</th>
+                    <th>智能客服 (V2) ⭐ 推荐</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>使用组件</strong></td>
+                    <td>ConversationChain + Memory</td>
+                    <td>Agent + Tools + Memory</td>
+                </tr>
+                <tr>
+                    <td><strong>能否查价格</strong></td>
+                    <td>❌ 只能引导用户去官网</td>
+                    <td>✅ 直接调用工具返回精确价格</td>
+                </tr>
+                <tr>
+                    <td><strong>扩展性</strong></td>
+                    <td>低（需改提示词）</td>
+                    <td>高（加工具即可）</td>
+                </tr>
+                <tr>
+                    <td><strong>适用场景</strong></td>
+                    <td>简单问答、固定话术</td>
+                    <td>复杂业务、多数据源</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="flow-chart">
+            <strong>🔁 智能客服处理流程：</strong>
+            <div style="margin-top: 0.8rem;">
+                <span class="flow-step">👤 用户提问</span>
+                <span class="arrow">→</span>
+                <span class="flow-step">🧠 Agent 分析意图</span>
+                <span class="arrow">→</span>
+                <span class="flow-step">🔧 需要工具？</span>
+                <span class="arrow">↗</span>
+                <span class="flow-step" style="background:#dbeafe;">✅ 调用工具</span>
+                <span class="arrow">→</span>
+                <span class="flow-step" style="background:#d1fae5;">💬 生成回答</span>
+                <br>
+                <span style="display:inline-block; margin-top:0.5rem; color:#64748b; font-size:0.8rem;">
+                    ⬆ 同时记忆上下文，支持多轮对话 ⬆
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 第3部分 ==================== -->
+    <div class="section" id="sec3">
+        <div class="section-header">
+            <span class="step-badge">3</span>
+            <h2>💻 核心代码实现</h2>
+        </div>
+
+        <div class="section-desc">
+            以下是完整的客服系统代码，包含<strong>记忆</strong>、<strong>工具</strong>和<strong>Agent</strong>三大核心组件。
+        </div>
+
+        <div class="code-block">
+<span class="comment"># ============================================</span>
+<span class="comment"># 第1步：安装依赖</span>
+<span class="comment"># ============================================</span>
+<span class="comment"># pip install langchain langchain-openai python-dotenv</span>
+
+<span class="comment"># ============================================</span>
+<span class="comment"># 第2步：导入模块</span>
+<span class="comment"># ============================================</span>
+<span class="keyword">from</span> langchain_openai <span class="keyword">import</span> ChatOpenAI
+<span class="keyword">from</span> langchain.memory <span class="keyword">import</span> ConversationBufferMemory
+<span class="keyword">from</span> langchain.agents <span class="keyword">import</span> create_react_agent, AgentExecutor
+<span class="keyword">from</span> langchain.tools <span class="keyword">import</span> tool
+<span class="keyword">from</span> langchain <span class="keyword">import</span> hub
+
+<span class="comment"># ============================================</span>
+<span class="comment"># 第3步：定义工具 —— 查询产品价格</span>
+<span class="comment"># ============================================</span>
+<span class="keyword">@tool</span>
+<span class="func">def</span> get_product_price(product_name: str) -> str:
+    <span class="string">"""
+    查询产品价格。输入产品名称，返回价格信息。
+    """</span>
+    price_dict = {
+        <span class="string">"智能水杯"</span>: <span class="string">"¥299"</span>,
+        <span class="string">"无线耳机"</span>: <span class="string">"¥499"</span>,
+        <span class="string">"运动手环"</span>: <span class="string">"¥199"</span>,
+        <span class="string">"智能手表"</span>: <span class="string">"¥899"</span>
+    }
+    <span class="keyword">for</span> key <span class="keyword">in</span> price_dict:
+        <span class="keyword">if</span> key <span class="keyword">in</span> product_name:
+            <span class="keyword">return</span> <span class="string">f"{key} 的价格是 {price_dict[key]}"</span>
+    <span class="keyword">return</span> <span class="string">f"抱歉，未找到 {product_name} 的价格信息"</span>
+
+<span class="comment"># ============================================</span>
+<span class="comment"># 第4步：创建带记忆的智能 Agent</span>
+<span class="comment"># ============================================</span>
+<span class="func">def</span> create_smart_agent():
+    <span class="comment"># 初始化模型</span>
+    llm = ChatOpenAI(
+        model=<span class="string">"gpt-3.5-turbo"</span>,
+        temperature=<span class="number">0</span>,  <span class="comment"># 0 = 更确定，适合工具调用</span>
+    )
+
+    <span class="comment"># 加载工具列表</span>
+    tools = [get_product_price]
+
+    <span class="comment"># 获取 React 风格的提示词模板</span>
+    prompt = hub.pull(<span class="string">"hwchase17/react"</span>)
+
+    <span class="comment"># 创建 Agent</span>
+    agent = create_react_agent(
+        llm=llm,
+        tools=tools,
+        prompt=prompt
+    )
+
+    <span class="comment"># 创建执行器（带记忆）</span>
+    memory = ConversationBufferMemory(
+        memory_key=<span class="string">"chat_history"</span>,
+        return_messages=<span class="keyword">True</span>
+    )
+
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        memory=memory,
+        verbose=<span class="keyword">True</span>,  <span class="comment"># 打印思考过程，便于调试</span>
+        handle_parsing_errors=<span class="keyword">True</span>
+    )
+
+    <span class="keyword">return</span> agent_executor
+
+<span class="comment"># ============================================</span>
+<span class="comment"># 第5步：运行对话</span>
+<span class="comment"># ============================================</span>
+<span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:
+    agent = create_smart_agent()
+
+    questions = [
+        <span class="string">"你好，我想了解一下智能水杯"</span>,
+        <span class="string">"它有什么特殊功能吗？"</span>,
+        <span class="string">"那价格是多少呢？"</span>,
+        <span class="string">"比运动手环贵多少？"</span>
+    ]
+
+    <span class="keyword">for</span> q <span class="keyword">in</span> questions:
+        <span class="func">print</span>(<span class="string">f"\n[用户] {q}"</span>)
+        response = agent.invoke({<span class="string">"input"</span>: q})
+        <span class="func">print</span>(<span class="string">f"[客服] {response['output']}"</span>)
+        <span class="func">print</span>(<span class="string">"-"</span> * <span class="number">50</span>)
+        </div>
+
+        <div class="highlight-box">
+            <h4>💡 代码关键点解读</h4>
+            <ul style="margin: 0.3rem 0 0 1.2rem; line-height: 1.8; color: #0c4a6e;">
+                <li><strong>@tool 装饰器：</strong>将普通函数变成 LangChain 工具，AI 可以主动调用</li>
+                <li><strong>hub.pull()：</strong>从 LangChain Hub 拉取标准提示词模板，不用自己写</li>
+                <li><strong>ConversationBufferMemory：</strong>保存对话历史，实现上下文记忆</li>
+                <li><strong>handle_parsing_errors=True：</strong>即使 AI 输出格式有误，系统也能容错</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ==================== 第4部分 ==================== -->
+    <div class="section" id="sec4">
+        <div class="section-header">
+            <span class="step-badge">4</span>
+            <h2>🔬 组件拆解：LangChain 核心模块</h2>
+        </div>
+
+        <div class="section-desc">
+            这个案例用到了 LangChain 最核心的 4 个模块，每个模块解决一类特定问题：
+        </div>
+
+        <div class="component-grid">
+            <div class="component-card">
+                <div class="icon">🧠</div>
+                <h4>Memory（记忆）</h4>
+                <p>保存对话历史，解决"上下文丢失"问题。<br>示例：<code>ConversationBufferMemory</code></p>
+            </div>
+            <div class="component-card">
+                <div class="icon">🔧</div>
+                <h4>Tools（工具）</h4>
+                <p>让 AI 能调用外部函数（数据库、API、计算）。<br>示例：<code>@tool</code> 装饰器</p>
+            </div>
+            <div class="component-card">
+                <div class="icon">🤖</div>
+                <h4>Agent（智能体）</h4>
+                <p>自主决策：分析问题 → 选择工具 → 生成回答。<br>示例：<code>create_react_agent</code></p>
+            </div>
+            <div class="component-card">
+                <div class="icon">⛓️</div>
+                <h4>Chain（链）</h4>
+                <p>将多个步骤串联成工作流。<br>示例：<code>AgentExecutor</code> 执行链</p>
+            </div>
+        </div>
+
+        <div style="background: #f1f5f9; border-radius: 16px; padding: 1.2rem 1.5rem; margin-top: 0.5rem;">
+            <strong>📌 它们如何配合？</strong><br>
+            <span style="color: #334155; line-height: 1.8;">
+                <strong>用户提问</strong> → <strong>Agent</strong>（分析意图）→ 需要数据？→ <strong>Tools</strong>（查价格）→ <strong>Memory</strong>（保存上下文）→ <strong>Agent</strong>（生成回答）→ 返回用户
+            </span>
+        </div>
+    </div>
+
+    <!-- ==================== 第5部分 ==================== -->
+    <div class="section" id="sec5">
+        <div class="section-header">
+            <span class="step-badge">5</span>
+            <h2>▶️ 运行效果演示</h2>
+        </div>
+
+        <div class="section-desc">
+            运行上面的代码，你会看到类似这样的对话（<strong>Verbose=True</strong> 会打印 Agent 的思考过程）：
+        </div>
+
+        <div class="code-block" style="background: #0f1a24; color: #b0c4d9;">
+<span style="color: #7aa2b7;"># 首次运行会自动加载提示词模板</span>
+
+<span style="color: #7aa2b7;">[用户] 你好，我想了解一下智能水杯</span>
+<span style="color: #7dcfff;">> Entering new AgentExecutor chain...</span>
+<span style="color: #e2e8f0;">我需要先介绍一下智能水杯的基本信息，不涉及价格查询。</span>
+<span style="color: #7dcfff;">> Finished chain.</span>
+<span style="color: #b4f9a8;">[客服] 您好！智能水杯是我们的热门产品，内置温度传感器和蓝牙模块...</span>
+
+<span style="color: #7aa2b7;">[用户] 它有什么特殊功能吗？</span>
+<span style="color: #7dcfff;">> Entering new AgentExecutor chain...</span>
+<span style="color: #e2e8f0;">用户继续追问智能水杯的功能，需要详细列举。</span>
+<span style="color: #7dcfff;">> Finished chain.</span>
+<span style="color: #b4f9a8;">[客服] 智能水杯主要有以下功能：1. 实时温度显示 2. 饮水提醒...</span>
+
+<span style="color: #7aa2b7;">[用户] 那价格是多少呢？</span>
+<span style="color: #7dcfff;">> Entering new AgentExecutor chain...</span>
+<span style="color: #e2e8f0;">用户问价格，我需要调用 get_product_price 工具。</span>
+<span style="color: #e2e8f0;">Action: get_product_price</span>
+<span style="color: #e2e8f0;">Action Input: "智能水杯"</span>
+<span style="color: #e2e8f0;">Observation: 智能水杯 的价格是 ¥299</span>
+<span style="color: #e2e8f0;">现在我可以回答用户了。</span>
+<span style="color: #7dcfff;">> Finished chain.</span>
+<span style="color: #b4f9a8;">[客服] 智能水杯的价格是 ¥299，目前有促销活动，您可以到官网查看详情。</span>
+
+<span style="color: #7aa2b7;">[用户] 比运动手环贵多少？</span>
+<span style="color: #7dcfff;">> Entering new AgentExecutor chain...</span>
+<span style="color: #e2e8f0;">需要比较智能水杯和运动手环的价格。</span>
+<span style="color: #e2e8f0;">Action: get_product_price</span>
+<span style="color: #e2e8f0;">Action Input: "运动手环"</span>
+<span style="color: #e2e8f0;">Observation: 运动手环 的价格是 ¥199</span>
+<span style="color: #e2e8f0;">智能水杯¥299，运动手环¥199，差价是¥100。</span>
+<span style="color: #7dcfff;">> Finished chain.</span>
+<span style="color: #b4f9a8;">[客服] 智能水杯（¥299）比运动手环（¥199）贵 ¥100。两款产品定位不同...</span>
+        </div>
+
+        <div class="highlight-box" style="background: #fefce8; border-color: #fcd34d;">
+            <h4>✨ 关键观察</h4>
+            <ul style="margin: 0.3rem 0 0 1.2rem; line-height: 1.8; color: #78350f;">
+                <li>第3轮对话，Agent <strong>自动识别</strong>需要查价格，主动调用了工具</li>
+                <li>第4轮对话，Agent <strong>记住了</strong>前面聊的是"智能水杯"，没有重复问用户</li>
+                <li>Agent 甚至能<strong>计算差价</strong>（¥299 - ¥199 = ¥100），展现了推理能力</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ==================== 第6部分 ==================== -->
+    <div class="section" id="sec6">
+        <div class="section-header">
+            <span class="step-badge">6</span>
+            <h2>🚀 进阶优化方向</h2>
+        </div>
+
+        <div class="section-desc">
+            以上是 MVP（最小可行产品），实际生产环境可以进一步优化：
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.8rem 0;">
+            <div style="background: #f8fafc; border-radius: 16px; padding: 1.2rem;">
+                <span class="tag">数据</span>
+                <h4 style="margin: 0.3rem 0;">📊 接入真实数据库</h4>
+                <p style="font-size: 0.9rem; color: #475569; line-height: 1.6;">
+                    用 <code>SQLDatabaseToolkit</code> 连接 MySQL/PostgreSQL，让 AI 直接查询产品表、订单表。
+                </p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 1.2rem;">
+                <span class="tag">检索</span>
+                <h4 style="margin: 0.3rem 0;">📚 RAG + 知识库</h4>
+                <p style="font-size: 0.9rem; color: #475569; line-height: 1.6;">
+                    将产品文档存入向量数据库（Chroma/Pinecone），用 <code>RetrievalQA</code> 让 AI 检索回答。
+                </p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 1.2rem;">
+                <span class="tag">性能</span>
+                <h4 style="margin: 0.3rem 0;">⚡ 流式输出</h4>
+                <p style="font-size: 0.9rem; color: #475569; line-height: 1.6;">
+                    开启 <code>streaming=True</code>，让回答逐字输出，提升用户体验。
+                </p>
+            </div>
+            <div style="background: #f8fafc; border-radius: 16px; padding: 1.2rem;">
+                <span class="tag">生产</span>
+                <h4 style="margin: 0.3rem 0;">🔒 安全与审计</h4>
+                <p style="font-size: 0.9rem; color: #475569; line-height: 1.6;">
+                    用 <code>CallbackManager</code> 记录所有对话和工具调用，用于监控和调试。
+                </p>
+            </div>
+        </div>
+
+        <div style="background: #0f172a; border-radius: 16px; padding: 1.2rem 1.5rem; margin-top: 0.5rem;">
+            <div style="color: #94a3b8; font-size: 0.85rem; line-height: 1.8;">
+                <strong style="color: #e2e8f0;">📌 完整生产级架构建议：</strong><br>
+                用户 → API Gateway → LangServe (部署 Agent) → 调用 OpenAI API → 返回结果<br>
+                <span style="color: #64748b; font-size: 0.8rem;">
+                    中间层：Redis 缓存 + 向量数据库 (RAG) + 日志系统 (LangSmith)
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航 -->
+    <div class="nav-buttons">
+        <span style="color: #94a3b8; font-size: 0.85rem;">📖 完整教程 · 从零到一</span>
+        <div>
+            <button class="btn btn-primary" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ 回到顶部</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

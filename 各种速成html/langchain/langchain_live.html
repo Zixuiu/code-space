@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LangChain 智能客服 · 浏览器直连真实大模型</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root{
+            --bg:#f0f4f8; --sidebar:#0f172a; --sidebar-hover:#1e293b; --accent:#7dd3fc;
+            --ink:#0b1e2e; --muted:#64748b; --line:#eef2f6; --card:#fff;
+        }
+        html,body{height:100%;}
+        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--ink);height:100vh;overflow:hidden;}
+        .app{display:flex;height:100vh;}
+
+        .sidebar{width:268px;background:var(--sidebar);color:#cbd5e1;display:flex;flex-direction:column;flex-shrink:0;}
+        .sidebar-brand{display:flex;align-items:center;gap:.55rem;padding:1.15rem 1.3rem;font-size:1.1rem;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,.08);}
+        .sidebar-brand .ico{font-size:1.35rem;}
+        .sidebar-brand span{color:var(--accent);}
+        .side-scroll{flex:1;overflow-y:auto;padding:.9rem;}
+        .comp{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.85rem .95rem;margin-bottom:.8rem;}
+        .comp h4{font-size:.82rem;color:#e2e8f0;display:flex;align-items:center;gap:.4rem;margin-bottom:.45rem;}
+        .comp .status{font-size:.7rem;color:#22c55e;margin-left:auto;}
+        .comp p{font-size:.78rem;color:#94a3b8;line-height:1.5;}
+        .tool-line{font-size:.76rem;color:#cbd5e1;margin-top:.15rem;}
+        .warn{background:rgba(250,204,21,.12);border:1px solid rgba(250,204,21,.35);color:#fde68a;font-size:.72rem;line-height:1.5;border-radius:10px;padding:.6rem .7rem;margin-bottom:.8rem;}
+        .side-foot{padding:.8rem 1.3rem;border-top:1px solid rgba(255,255,255,.08);font-size:.72rem;color:#475569;}
+
+        .main{flex:1;display:flex;flex-direction:column;min-width:0;}
+        .topbar{height:62px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 1.4rem;flex-shrink:0;}
+        .topbar .t-title{font-weight:700;font-size:1.05rem;}
+        .topbar .t-sub{color:var(--muted);font-size:.8rem;}
+        .reset-btn{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:.45rem .9rem;font-size:.82rem;cursor:pointer;color:var(--ink);}
+        .reset-btn:hover{background:#e2e8f0;}
+
+        .chat{flex:1;overflow-y:auto;padding:1.4rem 1.6rem;display:flex;flex-direction:column;gap:1rem;}
+        .msg{display:flex;gap:.7rem;max-width:82%;}
+        .msg.user{margin-left:auto;flex-direction:row-reverse;}
+        .avatar{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.05rem;}
+        .avatar.ai{background:linear-gradient(135deg,#0f172a,#1e293b);}
+        .avatar.me{background:#dbeafe;color:#1e40af;font-weight:700;font-size:.85rem;}
+        .bubble{padding:.8rem 1rem;border-radius:14px;font-size:.92rem;line-height:1.6;word-break:break-word;}
+        .bubble table.md{border-collapse:collapse;margin:.5rem 0;font-size:.86rem;}
+        .bubble table.md td{border:1px solid #e2e8f0;padding:.35rem .55rem;}
+        .bubble table.md tr:first-child td{background:#f1f5f9;font-weight:600;}
+        .msg.ai .bubble{background:#fff;border:1px solid var(--line);border-top-left-radius:4px;}
+        .msg.user .bubble{background:#0f172a;color:#fff;border-top-right-radius:4px;}
+        .typing{display:inline-flex;gap:.3rem;align-items:center;}
+        .typing i{width:6px;height:6px;border-radius:50%;background:#94a3b8;animation:blink 1.2s infinite;}
+        .typing i:nth-child(2){animation-delay:.2s;}
+        .typing i:nth-child(3){animation-delay:.4s;}
+        @keyframes blink{0%,60%,100%{opacity:.3;}30%{opacity:1;}}
+
+        .chips{display:flex;flex-wrap:wrap;gap:.5rem;padding:.2rem 1.6rem .9rem;}
+        .chip{background:#fff;border:1px solid var(--line);border-radius:100px;padding:.4rem .9rem;font-size:.8rem;cursor:pointer;color:#334155;}
+        .chip:hover{border-color:var(--accent);color:#0369a1;}
+
+        .composer{display:flex;gap:.6rem;padding:.9rem 1.6rem 1.2rem;background:#fff;border-top:1px solid var(--line);}
+        .composer input{flex:1;border:1px solid var(--line);border-radius:12px;padding:.7rem 1rem;font-size:.92rem;outline:none;font-family:inherit;}
+        .composer input:focus{border-color:var(--accent);}
+        .composer button{background:#0f172a;color:#fff;border:none;border-radius:12px;padding:0 1.4rem;font-weight:600;cursor:pointer;font-size:.9rem;}
+        .composer button:hover{background:#1e293b;}
+        .composer button:disabled{opacity:.5;cursor:not-allowed;}
+
+        @media (max-width:820px){ .sidebar{display:none;} .msg{max-width:92%;} }
+    </style>
+</head>
+<body>
+<div class="app">
+    <aside class="sidebar">
+        <div class="sidebar-brand"><span class="ico">🦜</span><span>Lang</span>Chain 客服引擎</div>
+        <div class="side-scroll">
+            <div class="warn">⚠️ 本页已内嵌你的 OpenRouter API Key，仅供本地个人使用。<b>请勿把此文件公开分享</b>，否则 Key 会泄露。要安全部署请用 langchain_server.py（后端版）。</div>
+            <div class="comp">
+                <h4>🌐 真实大模型<span class="status">● 直连</span></h4>
+                <p>本页面在浏览器里直接调用 OpenRouter 的真实 LLM，回复由模型生成，不是规则模拟。</p>
+            </div>
+            <div class="comp">
+                <h4>🧠 Memory（记忆）<span class="status">● 浏览器内</span></h4>
+                <p>对话历史保存在本页 JS 中，模型能记住前文（刷新页面即清空）。</p>
+            </div>
+            <div class="comp">
+                <h4>📦 知识库（系统提示词）</h4>
+                <div class="tool-line">智能水杯 ¥299</div>
+                <div class="tool-line">无线耳机 ¥499</div>
+                <div class="tool-line">运动手环 ¥199</div>
+                <div class="tool-line">智能手表 ¥899</div>
+            </div>
+        </div>
+        <div class="side-foot">
+            模型：openrouter/free（已验证可用 ✅）<br>
+            <div style="margin-top:.45rem;color:#475569;">OpenRouter 免费聚合模型，回复由真实 LLM 生成。</div>
+        </div>
+    </aside>
+
+    <main class="main">
+        <header class="topbar">
+            <div>
+                <div class="t-title">💬 LangChain 智能客服 · 真实大模型（直连版）</div>
+                <div class="t-sub">回复由 OpenRouter 真实 LLM 生成，这次真的调用了你的 API 👇</div>
+            </div>
+            <button class="reset-btn" id="resetBtn">🔄 清空对话</button>
+        </header>
+
+        <div class="chat" id="chat"></div>
+
+        <div class="chips" id="chips">
+            <span class="chip">你们都卖什么产品？</span>
+            <span class="chip">智能水杯有什么功能？</span>
+            <span class="chip">运动手环多少钱？</span>
+            <span class="chip">智能手表比运动手环贵多少？</span>
+            <span class="chip">你知道 DeepSeek 么？</span>
+        </div>
+
+        <div class="composer">
+            <input id="input" placeholder="输入消息，回车发送…" autocomplete="off">
+            <button id="sendBtn">发送</button>
+        </div>
+    </main>
+</div>
+
+<script>
+    // ====== 你的 OpenRouter API Key（内嵌，仅供本地使用，勿公开分享）======
+    const OPENROUTER_API_KEY = "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";
+    // 已实测：用户账号下只有 openrouter/free 可用，固定使用它
+    const MODEL = "openrouter/free";
+
+    const SYSTEM_PROMPT = `你是一个智能硬件电商的在线客服助手，名字叫「小链」。请用友好、简洁的中文回答用户问题。
+我们目前在售的 4 款智能硬件产品：
+1. 智能水杯 —— 售价 ¥299。功能：实时温度显示、智能饮水提醒、APP 数据同步、长效续航。
+2. 无线耳机 —— 售价 ¥499。功能：主动降噪、30 小时续航、低延迟游戏模式、双设备连接。
+3. 运动手环 —— 售价 ¥199。功能：心率监测、睡眠分析、50 米防水、14 天超长续航。
+4. 智能手表 —— 售价 ¥899。功能：AMOLED 高清屏、GPS 定位、血氧检测、独立通话。
+回答要求：用户问「卖什么/有哪些」时列出全部产品与价格；问某款价格时直接给价；对比两款时算差价。与产品无关的问题礼貌回应并引导回产品话题。不要编造不存在的产品或价格。`;
+
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // 对话历史（浏览器内存）
+    let history = [
+        { role: "system", content: SYSTEM_PROMPT }
+    ];
+
+    function escapeHtml(s){
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+    // 过滤模型可能夹带的安全标注等噪声行（如 "User Safety: safe" / "Response Safety: safe"）
+    function cleanReply(text){
+        return text.split('\n').filter(l => !/safety/i.test(l)).join('\n').trim();
+    }
+    // 极简 Markdown 渲染：转义 + 加粗 + 表格 + 换行
+    function renderMarkdown(src){
+        const lines = src.split('\n');
+        let html = '';
+        let tableOpen = false;
+        const closeTable = () => { if(tableOpen){ html += '</table>'; tableOpen = false; } };
+        for(const line of lines){
+            const isTableRow = line.trim().startsWith('|') && line.includes('|');
+            if(isTableRow && !/^[\s|:-]+$/.test(line.trim())){
+                const cells = line.trim().replace(/^\|/,'').replace(/\|$/,'').split('|').map(c => c.trim());
+                if(!tableOpen){ html += '<table class="md">'; tableOpen = true; }
+                html += '<tr>' + cells.map(c => '<td>' + escapeHtml(c).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>') + '</td>').join('') + '</tr>';
+            } else {
+                closeTable();
+                if(line.trim() === ''){ html += '<br>'; continue; }
+                html += escapeHtml(line).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>') + '<br>';
+            }
+        }
+        closeTable();
+        return html;
+    }
+
+    function addMessage(role, text, isHtml){
+        const msg = document.createElement('div');
+        msg.className = 'msg ' + role;
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar ' + (role === 'ai' ? 'ai' : 'me');
+        avatar.textContent = role === 'ai' ? '🤖' : '我';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        if(isHtml){ bubble.innerHTML = text; } else { bubble.textContent = text; }
+        msg.appendChild(avatar);
+        msg.appendChild(bubble);
+        chat.appendChild(msg);
+        chat.scrollTop = chat.scrollHeight;
+        return bubble;
+    }
+
+    function showTyping(){
+        const msg = document.createElement('div');
+        msg.className = 'msg ai'; msg.id = 'typingMsg';
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar ai'; avatar.textContent = '🤖';
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>';
+        msg.appendChild(avatar); msg.appendChild(bubble);
+        chat.appendChild(msg); chat.scrollTop = chat.scrollHeight;
+    }
+    function hideTyping(){ const t = document.getElementById('typingMsg'); if(t) t.remove(); }
+
+    async function send(text){
+        text = text.trim();
+        if(!text) return;
+        addMessage('user', text);
+        history.push({ role: "user", content: text });
+        input.value = '';
+        sendBtn.disabled = true;
+        showTyping();
+        try{
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Authorization": "Bearer " + OPENROUTER_API_KEY,
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "http://localhost",
+                    "X-Title": "LangChain Demo"
+                },
+                body: JSON.stringify({
+                    model: MODEL,
+                    messages: history,
+                    temperature: 0.7,
+                    max_tokens: 800
+                })
+            });
+            const data = await res.json();
+            hideTyping();
+            if(!res.ok){
+                const msg = (data && data.error && data.error.message) ? data.error.message : JSON.stringify(data);
+                let tip = '';
+                if(res.status === 404 || /unavailable for free|not found|does not exist/i.test(msg)){
+                    tip = '\n\n💡 该免费模型当前不可用。请在左下角「模型选择」里切换另一个免费模型再试（推荐先试 gemma-2-9b-it:free）。';
+                }
+                const safeMsg = escapeHtml("⚠️ 调用失败（HTTP " + res.status + "）：\n" + msg + tip).replace(/\n/g, '<br>');
+                addMessage('ai', safeMsg, true);
+                history.pop(); // 失败的 user 消息先不保留，避免污染历史
+                return;
+            }
+            const reply = data.choices[0].message.content;
+            history.push({ role: "assistant", content: reply });
+            // 控制历史长度，避免 token 膨胀
+            if(history.length > 13){
+                // 保留 system + 最近 6 轮
+                history = [history[0], ...history.slice(-12)];
+            }
+            addMessage('ai', renderMarkdown(cleanReply(reply)), true);
+        }catch(e){
+            hideTyping();
+            addMessage('ai', "⚠️ 网络请求失败，请检查网络是否能访问 openrouter.ai：\n" + e);
+            history.pop();
+        }finally{
+            sendBtn.disabled = false;
+        }
+    }
+
+    document.getElementById('sendBtn').addEventListener('click', () => send(input.value));
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') send(input.value); });
+    document.getElementById('chips').addEventListener('click', e => {
+        if(e.target.classList.contains('chip')) send(e.target.textContent);
+    });
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        history = [{ role: "system", content: SYSTEM_PROMPT }];
+        chat.innerHTML = '';
+        addMessage('ai', '对话已清空 ✅ 我们重新开始吧～想了解哪款产品？');
+    });
+
+    addMessage('ai', '你好！我是基于 LangChain + OpenRouter 真实大模型的客服小链 🤖。这次的回复是真实模型生成的——你可以随便问，比如「你们卖啥」「你男的女的」「你知道 DeepSeek 么」，都能接住。');
+</script>
+</body>
+</html>
