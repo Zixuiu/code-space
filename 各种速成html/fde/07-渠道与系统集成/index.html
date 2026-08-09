@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · 渠道与系统集成</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · 渠道与系统集成</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">接客户系统本质就是「调 API」。官网挂件最简单（fetch 你的 /chat），CRM/ERP 用 Webhook 推事件，后端统一处理。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>官网聊天挂件（iframe）怎么嵌</li><li>CRM Webhook 接收与回包</li><li>后端统一 /chat 接口的价值</li><li>把客户业务 API 封装成 Agent 工具</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>官网挂件</b>：前端嵌个 iframe 直接 fetch 你的 /chat，和 langchain_web.html 一样。</p>
+<p><b>CRM 集成</b>：客户系统用 Webhook/OpenAPI 推对话事件，你回 JSON，客户再渲染到自己 UI。</p>
+<p><b>统一后端</b>：所有渠道都调同一个 /chat，多租户隔离在后端做，前端只管展示。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>&lt;!-- 前端：官网聊天挂件 --&gt;
+&lt;iframe src=&quot;https://你的服务/chat-widget&quot;
+        style=&quot;position:fixed;right:20px;bottom:20px;width:380px;height:600px;border:0&quot;&gt;
+&lt;/iframe&gt;
+
+# 后端：CRM Webhook 接收并回包
+from flask import Flask, request, jsonify
+app = Flask(__name__)
+
+@app.route(&quot;/webhook/crm&quot;, methods=[&quot;POST&quot;])
+def crm_webhook():
+    data = request.json
+    uid = data[&quot;customer_id&quot;]
+    msg = data[&quot;message&quot;]
+    return jsonify({&quot;reply&quot;: chat(uid, msg)})  # chat 见多租户章节</code></pre>
+
+  <h2>动手练习</h2>
+  <p>做一个静态页嵌入上面 iframe，本地起服务看挂件能否对话；再写个 /webhook/crm 用 Postman 模拟 CRM 调用。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>

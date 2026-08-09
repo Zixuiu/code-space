@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · 多租户会话隔离</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · 多租户会话隔离</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">Demo 能跑 ≠ 敢给客户用。每个客户/用户必须各有独立会话记忆，否则 A 的客户看到 B 的对话就是事故。这是接入任何系统的硬门槛。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>为什么全局一份 Memory 会串台</li><li>用 user_id 分桶管理会话</li><li>内存字典 vs Redis 持久化</li><li>会话过期与清理</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>串台是事故</b>：当前 langchain_server.py 是全局一份 history，多用户共用会互相看到对话。</p>
+<p><b>分桶</b>：以 user_id（微信 openid / CRM customer_id）为 key 隔离各自的 history 与 memory。</p>
+<p><b>持久化</b>：内存字典重启即丢，生产用 Redis 存会话，并设置 TTL 过期。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>SESSIONS = {}  # user_id -&gt; 各自的历史
+
+def get_session(uid):
+    if uid not in SESSIONS:
+        SESSIONS[uid] = {&quot;history&quot;: [{&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: SYSTEM_PROMPT}]}
+    return SESSIONS[uid]
+
+def chat(uid, msg):
+    s = get_session(uid)
+    s[&quot;history&quot;].append({&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: msg})
+    reply = call_llm(s[&quot;history&quot;])          # 调你的大模型
+    s[&quot;history&quot;].append({&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: reply})
+    return reply
+
+# 调用示例：chat(&quot;openid_abc&quot;, &quot;智能水杯多少钱？&quot;)</code></pre>
+
+  <h2>动手练习</h2>
+  <p>把 SESSIONS 换成 Redis（redis-py），设 30 分钟 TTL，模拟两个用户互不影响。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>

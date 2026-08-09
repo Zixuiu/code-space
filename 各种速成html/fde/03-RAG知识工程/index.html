@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · RAG 知识工程</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · RAG 知识工程</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">RAG = 先把文档切块 → 向量化 → 入库 → 用户提问时检索最相关片段 → 拼进 prompt 让 LLM 只基于检索内容回答。知识量大/频繁更新时的标配。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>什么时候该用 RAG（vs 直接写进 prompt）</li><li>文本切分策略</li><li>Embedding 与向量库（Chroma）</li><li>检索质量决定上限</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>何时用</b>：商品/文档几百上千条、天天变、要可溯源时，写进 prompt 装不下也不好维护，上 RAG。</p>
+<p><b>链路</b>：切分 → 嵌入 → 存向量库 → 相似度检索 → 拼 context → 生成。</p>
+<p class="warn">RAG 难在「检索准不准」，retriever 没召回对的片段，LLM 再强也答歪。别只盯着生成。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+docs = open(&quot;产品手册.txt&quot;, encoding=&quot;utf-8&quot;).read()
+chunks = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=50).split_text(docs)
+emb = SentenceTransformerEmbeddings(model_name=&quot;all-MiniLM-L6-v2&quot;)
+vs = Chroma.from_texts(chunks, emb, persist_directory=&quot;./chroma&quot;)
+
+hits = vs.similarity_search(&quot;智能水杯怎么用&quot;, k=3)
+context = &quot;\n&quot;.join(h.page_content for h in hits)
+# 把 context 拼进 prompt 交给 LLM 生成答案</code></pre>
+
+  <h2>动手练习</h2>
+  <p>把 4 个产品介绍写进 产品手册.txt，检索「最便宜的是哪款」验证检索命中。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>

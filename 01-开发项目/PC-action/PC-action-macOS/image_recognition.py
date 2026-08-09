@@ -1642,23 +1642,52 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
                                 _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
                                 return (_cl[0], _cl[1], _cl[2], _cl[3])
                 else:
-                    # ⚡ 颜色模式：用灰度快筛(比BGR快约3倍)得到 result，再交 _color_gate_locate 验证颜色，
-                    # 取代昂贵的全屏 BGR matchTemplate；灰度模式走原 _fast_match。
-                    if consider_color and _fast_gray_template is not None:
-                        _gs = _get_shared_gray()
-                        if _gs is not None:
-                            result = cv2.matchTemplate(_gs, _fast_gray_template, cv2.TM_CCOEFF_NORMED)
+                    # ⚡ 颜色模式轮询提速（解决"窗口动画/飞入时识别特别慢"）：
+                    # 优先用 0.5x 缩小灰度图做廉价快筛(~4ms/轮)，命中后再用原图在候选位置附近精确匹配+颜色验证；
+                    # 未命中（窗口还在动画/图片未出现）直接跳过昂贵的全屏匹配，下一轮再试。
+                    # 这样动画期间几乎零成本轮询，窗口稳定（或动画中后期元素大致就位）瞬间即可精确命中点击。
+                    _hit_small = False
+                    if _prescreen_small_gray_template is not None:
+                        _ps = _get_shared_small_gray()
+                        if _ps is not None:
+                            _psr = cv2.matchTemplate(_ps, _prescreen_small_gray_template, cv2.TM_CCOEFF_NORMED)
+                            _, _psv, _, _psl = cv2.minMaxLoc(_psr)
+                            if _psv >= confidence:
+                                h, w = image_array.shape[:2]
+                                cand_x, cand_y = _psl[0] * 2, _psl[1] * 2
+                                _pad = 32
+                                x1 = max(0, cand_x - _pad); y1 = max(0, cand_y - _pad)
+                                x2 = min(screenshot_bgr.shape[1], cand_x + w + _pad); y2 = min(screenshot_bgr.shape[0], cand_y + h + _pad)
+                                roi = screenshot_bgr[y1:y2, x1:x2]
+                                if roi.shape[0] >= h and roi.shape[1] >= w:
+                                    _rr = _fast_match(roi, image_array)
+                                    _, _rv, _, _rl = cv2.minMaxLoc(_rr)
+                                    if _rv >= confidence:
+                                        _cl = _color_gate_locate(_rr, roi, image_array, confidence, x1, y1)
+                                        if _cl is not None:
+                                            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
+                                            return (_cl[0], _cl[1], _cl[2], _cl[3])
+                                        debug_print(f"[颜色门控] 缩小命中但颜色不符，继续轮询")
+                                    if not scale_best_scores or scale_best_scores.get(1.0, (0,))[0] < _rv:
+                                        scale_best_scores[1.0] = (_rv, (_rl[0] + x1, _rl[1] + y1))
+                                _hit_small = True
+                    if not _hit_small:
+                        # 缩小图未命中（或模板过小无缩小图）：做全屏灰度快筛作为兜底，避免缩小图漏检真图
+                        if consider_color and _fast_gray_template is not None:
+                            _gs = _get_shared_gray()
+                            if _gs is not None:
+                                result = cv2.matchTemplate(_gs, _fast_gray_template, cv2.TM_CCOEFF_NORMED)
+                            else:
+                                result = _fast_match(screenshot_bgr, image_array)
                         else:
                             result = _fast_match(screenshot_bgr, image_array)
-                    else:
-                        result = _fast_match(screenshot_bgr, image_array)
-                    _, _rv, _, _rl = cv2.minMaxLoc(result)
-                    if _rv >= confidence:
-                        h, w = image_array.shape[:2]
-                        _cl = _color_gate_locate(result, screenshot_bgr, image_array, confidence)
-                        if _cl is not None:
-                            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
-                            return (_cl[0], _cl[1], _cl[2], _cl[3])
+                        _, _rv, _, _rl = cv2.minMaxLoc(result)
+                        if _rv >= confidence:
+                            h, w = image_array.shape[:2]
+                            _cl = _color_gate_locate(result, screenshot_bgr, image_array, confidence)
+                            if _cl is not None:
+                                _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_rv) if _rv else 0.0
+                                return (_cl[0], _cl[1], _cl[2], _cl[3])
         except Exception as e:
             _exception_count += 1
 

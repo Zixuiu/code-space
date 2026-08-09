@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FDE 速成教程 · 控制台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #f0f4f8;
+            --sidebar: #0f172a;
+            --sidebar-hover: #1e293b;
+            --accent: #7dd3fc;
+            --ink: #0b1e2e;
+            --muted: #64748b;
+            --line: #eef2f6;
+            --card: #ffffff;
+            --blue:#185fa5; --purple:#534ab7; --green:#3b6d11; --amber:#854f0b; --red:#a32d2d; --cyan:#0f6e56;
+        }
+
+        html, body { height: 100%; }
+        body {
+            font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+            background: var(--bg); color: var(--ink); height: 100vh; overflow: hidden;
+        }
+        .app { display: flex; height: 100vh; }
+
+        /* ===================== 侧边栏 ===================== */
+        .sidebar { width: 252px; background: var(--sidebar); color: #cbd5e1; display: flex; flex-direction: column; flex-shrink: 0; transition: width .2s ease; }
+        .sidebar.collapsed { width: 72px; }
+        .sidebar-brand { display: flex; align-items: center; gap: .6rem; padding: 1.2rem 1.3rem; font-size: 1.15rem; font-weight: 700; color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); white-space: nowrap; overflow: hidden; }
+        .sidebar-brand .logo-ico { font-size: 1.4rem; flex-shrink: 0; }
+        .sidebar-brand span { color: var(--accent); }
+        .nav { flex: 1; padding: .8rem .7rem; overflow-y: auto; }
+        .nav-group-label { font-size: .68rem; letter-spacing: .8px; text-transform: uppercase; color: #475569; padding: .9rem .8rem .4rem; white-space: nowrap; }
+        .nav-item { display: flex; align-items: center; gap: .75rem; padding: .7rem .8rem; margin-bottom: .25rem; border-radius: 12px; cursor: pointer; color: #cbd5e1; font-size: .92rem; font-weight: 500; white-space: nowrap; transition: all .15s; }
+        .nav-item .ico { font-size: 1.15rem; width: 22px; text-align: center; flex-shrink: 0; }
+        .nav-item:hover { background: var(--sidebar-hover); color: #fff; }
+        .nav-item.active { background: linear-gradient(135deg, #1e3a5f, #0f2942); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
+        .sidebar.collapsed .nav-item span.txt, .sidebar.collapsed .nav-group-label, .sidebar.collapsed .sidebar-brand span, .sidebar.collapsed .sidebar-foot span { display: none; }
+        .sidebar-foot { padding: .9rem 1.3rem; border-top: 1px solid rgba(255,255,255,.08); font-size: .78rem; color: #64748b; display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+        .sidebar-foot .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+
+        /* ===================== 主区域 ===================== */
+        .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .topbar { height: 64px; background: #fff; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; flex-shrink: 0; }
+        .topbar-left { display: flex; align-items: center; gap: .9rem; }
+        .toggle-btn { background: var(--bg); border: 1px solid var(--line); cursor: pointer; width: 36px; height: 36px; border-radius: 10px; font-size: 1rem; color: var(--ink); }
+        .crumbs { font-size: .9rem; color: var(--muted); }
+        .crumbs b { color: var(--ink); }
+        .topbar-right { display: flex; align-items: center; gap: 1rem; }
+        .search { display: flex; align-items: center; gap: .5rem; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: .45rem .8rem; color: var(--muted); font-size: .85rem; min-width: 200px; }
+        .avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #0f172a, #1e293b); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; }
+
+        .content { flex: 1; overflow-y: auto; padding: 1.8rem 2rem 3rem; }
+        .view { display: none; animation: fade .25s ease; }
+        .view.active { display: block; }
+        @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .page-title { font-size: 1.6rem; font-weight: 700; margin-bottom: .3rem; }
+        .page-sub { color: var(--muted); margin-bottom: 1.5rem; font-size: .95rem; }
+
+        .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem 1.6rem; margin-bottom: 1.2rem; }
+        .card h3 { font-size: 1.05rem; margin-bottom: .6rem; }
+        .problem-box { background: #fef9e7; border-left: 4px solid #f59e0b; padding: 1rem 1.5rem; border-radius: 12px; margin: .8rem 0; }
+        .solution-box { background: #ecfdf5; border-left: 4px solid #10b981; padding: 1rem 1.5rem; border-radius: 12px; margin: .8rem 0; }
+        .highlight-box { background: #f0f9ff; border-radius: 16px; padding: 1.2rem 1.5rem; border: 1px solid #b8d8f0; margin: 1rem 0; }
+        .highlight-box h4 { color: #0369a1; margin-bottom: .3rem; }
+        .code-block { background: #0b1a26; border-radius: 16px; padding: 1.2rem 1.5rem; color: #e2e8f0; font-family: monospace; font-size: .85rem; line-height: 1.8; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: .8rem 0; border: 1px solid #1e2d3d; }
+        .component-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0; }
+        .component-card { background: #f8fafc; border-radius: 16px; padding: 1.2rem; border: 1px solid var(--line); }
+        .component-card .icon { font-size: 1.8rem; margin-bottom: .3rem; }
+        .component-card h4 { font-weight: 600; color: var(--ink); margin-bottom: .2rem; }
+        .component-card p { font-size: .85rem; color: var(--muted); line-height: 1.5; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
+        .comparison-table th { background: #f1f5f9; text-align: left; padding: .8rem 1rem; font-weight: 600; color: var(--ink); }
+        .comparison-table td { padding: .8rem 1rem; border-bottom: 1px solid var(--line); color: #334155; vertical-align: top; }
+        .comparison-table tr:hover td { background: #fafcff; }
+        .flow-chart { background: #f8fafc; border-radius: 16px; padding: 1.5rem; text-align: center; margin: 1rem 0; border: 1px solid var(--line); font-size: .9rem; }
+        .flow-chart .arrow { color: #94a3b8; font-size: 1.2rem; margin: 0 .3rem; }
+        .flow-step { display: inline-block; background: #fff; padding: .4rem 1rem; border-radius: 30px; border: 1px solid #dce2ec; margin: .2rem; }
+        .tag { display: inline-block; background: #dbeafe; color: #1e40af; font-size: .7rem; font-weight: 600; padding: .15rem .6rem; border-radius: 100px; margin-right: .3rem; }
+        .tag.done { background:#e1f5ee; color: var(--cyan); }
+        .tag.need { background:#fcebeb; color: var(--red); }
+        .tag.soon { background:#fff3e0; color: var(--amber); }
+        ul.tight { margin: .5rem 0 0 1.2rem; line-height: 1.8; }
+        code { font-family: monospace; background: #eef2f6; padding: .1rem .35rem; border-radius: 6px; font-size: .85em; color: #0f172a; }
+        .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
+        .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.2rem 1.3rem; position: relative; overflow: hidden; }
+        .kpi .k-ico { font-size: 1.5rem; }
+        .kpi .k-num { font-size: 1.8rem; font-weight: 700; margin-top: .3rem; color: var(--ink); }
+        .kpi .k-lbl { color: var(--muted); font-size: .85rem; }
+        .module-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .module-card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 1.3rem; cursor: pointer; transition: all .15s; }
+        .module-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,20,40,.08); }
+        .module-card .m-ico { font-size: 1.5rem; }
+        .module-card .m-title { font-weight: 700; margin: .4rem 0 .3rem; }
+        .module-card .m-desc { color: var(--muted); font-size: .85rem; line-height: 1.5; }
+        .module-card .m-go { margin-top: .7rem; font-size: .82rem; color: #0369a1; font-weight: 600; }
+        .cover-flex { display:flex; gap:1.4rem; align-items:center; flex-wrap:wrap; }
+        .ring { position:relative; width:96px; height:96px; flex:0 0 auto; }
+        .ring svg { transform:rotate(-90deg); }
+        .ring b { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:22px; }
+        .road-steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin:1rem 0; }
+        .road { border:1px solid var(--line); border-radius:16px; padding:1.3rem; background:var(--card); position:relative; }
+        .road .no { width:30px; height:30px; border-radius:50%; background:var(--blue); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; margin-bottom:.6rem; }
+        .road.cur { border:2px solid var(--green); }
+        .road.cur .no { background:var(--green); }
+        .road.cur b { color:var(--green); }
+        .road h4 { font-size:1.05rem; }
+        .road p { font-size:.85rem; color:var(--muted); margin-top:.5rem; line-height:1.6; }
+        @media (max-width: 900px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .module-grid { grid-template-columns: 1fr; }
+            .search { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- ===================== 侧边栏 ===================== -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span class="logo-ico">🚀</span>
+            <span>F</span>DE 速成
+        </div>
+        <nav class="nav">
+            <div class="nav-group-label">速成导航</div>
+            <div class="nav-item active" data-view="home"><span class="ico">🏠</span><span class="txt">概览控制台</span></div>
+            <div class="nav-item" data-view="sec1"><span class="ico">🔥</span><span class="txt">什么是 FDE</span></div>
+            <div class="nav-item" data-view="sec2"><span class="ico">🗺️</span><span class="txt">能力全景</span></div>
+            <div class="nav-item" data-view="sec3"><span class="ico">🛠️</span><span class="txt">实战样板（LangChain）</span></div>
+            <div class="nav-item" data-view="sec4"><span class="ico">📊</span><span class="txt">已掌握 vs 待掌握</span></div>
+            <div class="nav-item" data-view="sec5"><span class="ico">🚀</span><span class="txt">三阶成长路线</span></div>
+            <div class="nav-item" data-view="sec6"><span class="ico">🎯</span><span class="txt">下一步实操</span></div>
+        </nav>
+        <div class="sidebar-foot">
+            <span class="dot"></span><span>前端部署工程师 · 速成 v1.0</span>
+        </div>
+    </aside>
+
+    <!-- ===================== 主区域 ===================== -->
+    <main class="main">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="toggle-btn" id="toggleBtn" title="收起/展开菜单">☰</button>
+                <div class="crumbs">FDE 速成教程 / <b id="crumb">概览控制台</b></div>
+            </div>
+            <div class="topbar-right">
+                <div class="search">🔍 搜索 FDE 内容…</div>
+                <div class="avatar">FD</div>
+            </div>
+        </header>
+
+        <div class="content">
+
+            <!-- ============ 概览控制台 ============ -->
+            <section class="view active" id="view-home">
+                <div class="page-title">👋 欢迎来到 FDE 速成控制台</div>
+                <div class="page-sub">FDE（前端部署工程师 / Forward Deployed Engineer）= 解决方案架构师 + 业务顾问 + 产品经理 + 交付实施的合体。本速成用我们亲手做的 LangChain 客服 Agent 当样板，带你从「这是什么」一路学到「怎么成为」。</div>
+
+                <div class="kpi-row">
+                    <div class="kpi"><div class="k-ico">🌍</div><div class="k-num">2026</div><div class="k-lbl">最火 AI 岗位（公认）</div></div>
+                    <div class="kpi"><div class="k-ico">🗺️</div><div class="k-num">9</div><div class="k-lbl">能力维度</div></div>
+                    <div class="kpi"><div class="k-ico">📦</div><div class="k-num">~50</div><div class="k-lbl">核心能力点</div></div>
+                    <div class="kpi"><div class="k-ico">✅</div><div class="k-num">26%</div><div class="k-lbl">你已实操命中</div></div>
+                </div>
+
+                <div class="card">
+                    <h3>🔥 FDE 一句话定义</h3>
+                    <div class="highlight-box">
+                        <h4>把 AI 接进客户现场的业务系统，并让它真被用起来的人。</h4>
+                        <p style="color:var(--muted);font-size:.9rem;margin-top:.4rem">起源 <b>Palantir</b> 的「前线部署」——工程师直接派到客户现场，不是交付完软件就走人，而是围着客户的业务结果写代码、接系统、做部署。买 AI ≠ AI 转型，<b>落地才是瓶颈</b>，而 FDE 就是干落地的人。</p>
+                    </div>
+                </div>
+
+                <div class="module-grid">
+                    <div class="module-card" data-view="sec1">
+                        <div class="m-ico">🔥</div>
+                        <div class="m-title">什么是 FDE</div>
+                        <div class="m-desc">它为什么 2026 年爆火：岗位增速、巨头抢人、薪资水平、和你（金蝶售前）的关系。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                    <div class="module-card" data-view="sec2">
+                        <div class="m-ico">🗺️</div>
+                        <div class="m-title">能力全景</div>
+                        <div class="m-desc">9 大维度、约 50 项能力，带难度标签与「已实操」标记，可直接跳转能力地图。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                    <div class="module-card" data-view="sec3">
+                        <div class="m-ico">🛠️</div>
+                        <div class="m-title">实战样板</div>
+                        <div class="m-desc">把 langchain/ 里真实跑通的客服 Agent 逐条映射到 FDE 能力点，照着学最直观。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                    <div class="module-card" data-view="sec4">
+                        <div class="m-ico">📊</div>
+                        <div class="m-title">已掌握 vs 待掌握</div>
+                        <div class="m-desc">诚实拆解：技术底座已拿下，还差工程化和业务落地哪几块、优先级怎么排。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                    <div class="module-card" data-view="sec5">
+                        <div class="m-ico">🚀</div>
+                        <div class="m-title">三阶成长路线</div>
+                        <div class="m-desc">技术底座 → 工程化 → 业务落地，你现在在第一阶，路线清清楚楚。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                    <div class="module-card" data-view="sec6">
+                        <div class="m-ico">🎯</div>
+                        <div class="m-title">下一步实操</div>
+                        <div class="m-desc">给你列好「今天就能动手」的几个练习，把待掌握项一个个啃下来。</div>
+                        <div class="m-go">进入查看 →</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ 什么是 FDE ============ -->
+            <section class="view" id="view-sec1">
+                <div class="page-title">🔥 什么是 FDE，为什么 2026 年这么火</div>
+                <div class="page-sub">数据均来自 2026 年公开报告与招聘信息。看完这页，你就能跟客户/老板讲清楚「FDE 到底是什么、值钱在哪」。</div>
+
+                <div class="card">
+                    <h3>一、岗位增速爆炸</h3>
+                    <div class="component-grid">
+                        <div class="component-card"><div class="icon">📈</div><h4>LinkedIn：42 倍</h4><p>2023→2025 年 FDE 岗位增长 42 倍，同期 AI 工程师仅 13 倍。</p></div>
+                        <div class="component-card"><div class="icon">💼</div><h4>Indeed：+729%</h4><p>2026 年 4 月 FDE 招聘同比增长 729%，到约 5330 个。</p></div>
+                        <div class="component-card"><div class="icon">🏢</div><h4>巨头集体下场</h4><p>OpenAI / Anthropic / 微软 / AWS 全用 FDE 驻场模式抢人。</p></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>二、巨头砸钱抢人（这是真金白银的信号）</h3>
+                    <table class="comparison-table">
+                        <tr><th>公司</th><th>动作</th><th>投入</th></tr>
+                        <tr><td>OpenAI</td><td>成立 DeployCo，收购 AI 咨询公司 Tomoro（约 150 名 FDE）</td><td>40 亿美元</td></tr>
+                        <tr><td>Anthropic</td><td>联手黑石/高盛搞合资，FDE 驻场模式</td><td>15 亿美元</td></tr>
+                        <tr><td>Microsoft</td><td>建 Frontier Company（6000 名专家）</td><td>25 亿美元</td></tr>
+                        <tr><td>AWS</td><td>AI 部署组织</td><td>10 亿美元</td></tr>
+                    </table>
+                </div>
+
+                <div class="card">
+                    <h3>三、薪资水平（为什么它比普通开发贵）</h3>
+                    <ul class="tight">
+                        <li><b>国内：</b>字节「豆包 AI 大模型 FDE」月薪 3.5–7 万、15 薪（最高约 105 万/年）；蚂蚁数科 4–6 万/月；智谱 FDE 负责人 6–8 万/月。</li>
+                        <li><b>美国：</b>资深 FDE 年包中位数约 <b>48.5 万美元</b>，顶级实验室 35–55 万美元区间。</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h3>四、FDE 到底是干啥的（核心）</h3>
+                    <div class="flow-chart">
+                        <span class="flow-step">① 听需求</span><span class="arrow">→</span>
+                        <span class="flow-step">② 抽象成工具/流程</span><span class="arrow">→</span>
+                        <span class="flow-step">③ 接进客户系统</span><span class="arrow">→</span>
+                        <span class="flow-step">④ 驻场调通</span><span class="arrow">→</span>
+                        <span class="flow-step">⑤ 让它真被用起来</span>
+                    </div>
+                    <p style="color:var(--muted);font-size:.9rem">它是 <b>解决方案架构师 + 业务顾问 + 产品经理 + 交付实施</b> 的合体。难点不是模型强不强，而是把 AI 接进 CRM/ERP/知识库/权限流，并真正跑起来、被使用。这正是我们后面「实战样板」要拆的活。</p>
+                </div>
+
+                <div class="solution-box">
+                    <strong>💡 跟你的关系：</strong> 你本来就在金蝶做<b>售前</b>，FDE 本质是「售前 + 实施 + 产品 + 交付」的升级合体、还要驻场贴身——对你几乎是顺理成章的进阶方向。你补的 Agent/RAG/私有化，刚好是 FDE 招聘里最硬的几项。
+                </div>
+            </section>
+
+            <!-- ============ 能力全景 ============ -->
+            <section class="view" id="view-sec2">
+                <div class="page-title">🗺️ FDE 能力全景（9 维度）</div>
+                <div class="page-sub">下面把约 50 项能力按 9 个维度列出来。青色「已实操」= 你今天在 langchain/ 项目亲手跑过。想筛选/搜索，点「打开完整能力地图」。</div>
+
+                <div class="card">
+                    <h3>维度速览</h3>
+                    <table class="comparison-table">
+                        <tr><th>维度</th><th>一句话</th><th>已实操命中</th></tr>
+                        <tr><td>01 · AI 与大模型基础</td><td>不懂模型就别谈部署，和研发对话的语言</td><td><span class="tag done">Prompt / 参数 / 选型</span></td></tr>
+                        <tr><td>02 · Agent 与编排</td><td>FDE 核心引擎：会聊天→能干活</td><td><span class="tag done">LangChain / Memory / Tool / 思考链</span></td></tr>
+                        <tr><td>03 · RAG 与知识工程</td><td>让 AI 懂客户业务，知识一多就靠它</td><td><span class="tag done">私有数据合规认知</span></td></tr>
+                        <tr><td>04 · 前端与交付层</td><td>「前端」本职：让客户看得见用得上</td><td><span class="tag done">对话UI / 嵌入 / 回调</span></td></tr>
+                        <tr><td>05 · 后端与服务化</td><td>把对话引擎包成统一 API</td><td><span class="tag done">服务框架 / 密钥管理</span></td></tr>
+                        <tr><td>06 · 部署与私有化</td><td>从「能跑」到「敢给客户用」</td><td><span class="tag done">私有化推理认知</span></td></tr>
+                        <tr><td>07 · 渠道与系统集成</td><td>接进客户系统才是现场价值</td><td><span class="tag done">微信 / 官网 / CRM 架构</span></td></tr>
+                        <tr><td>08 · 业务理解与软技能</td><td>最值钱的一层：落地才是瓶颈</td><td><span class="tag done">售前方案 / 现场Demo</span></td></tr>
+                        <tr><td>09 · 安全与合规</td><td>政企/金融第一道门槛</td><td><span class="tag done">内容安全审核</span></td></tr>
+                    </table>
+                    <div class="module-card" data-view="skills" style="margin-top:1rem">
+                        <div class="m-ico">🔗</div>
+                        <div class="m-title">打开完整能力地图（可筛选/搜索）</div>
+                        <div class="m-desc">独立的 fde_skills.html，含每项能力点的难度标签与「已实操」明细，适合当自查清单。</div>
+                        <div class="m-go">在新标签打开 →</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ============ 实战样板 ============ -->
+            <section class="view" id="view-sec3">
+                <div class="page-title">🛠️ 实战样板：用 LangChain 客服 Agent 学 FDE</div>
+                <div class="page-sub">这是本速成最值钱的一页——你已经在 <code>langchain/</code> 里亲手做过的东西，逐条对应到 FDE 能力点。看一遍就知道「我其实已经在练 FDE 了」。</div>
+
+                <div class="card">
+                    <h3>项目做了什么</h3>
+                    <p style="font-size:.92rem;color:#334155">一个能真调 OpenRouter 大模型的智能客服：支持多轮记忆、工具调用算差价、多渠道接入架构、私有化认知、安全审核过滤。文件分布在 <code>langchain/</code>：<code>live.html</code>（浏览器直连）、<code>server.py</code>+<code>web.html</code>（后端版）、<code>app.py</code>（命令行真 Agent）。</p>
+                </div>
+
+                <div class="card">
+                    <h3>逐条映射到 FDE 能力</h3>
+                    <table class="comparison-table">
+                        <tr><th>你做过的（langchain/）</th><th>对应的 FDE 能力维度</th><th>能力点</th></tr>
+                        <tr><td>用 OpenRouter 真调大模型</td><td>01 基础</td><td><span class="tag done">模型选型 / 成本管理</span></td></tr>
+                        <tr><td>写系统提示词、调 temperature</td><td>01 基础</td><td><span class="tag done">Prompt 工程 / 参数调优</span></td></tr>
+                        <tr><td>Memory 多轮记忆</td><td>02 Agent</td><td><span class="tag done">Memory 管理</span></td></tr>
+                        <tr><td>@tool get_product_price 真调工具</td><td>02 Agent</td><td><span class="tag done">Tool / Function Calling</span></td></tr>
+                        <tr><td>AgentExecutor 决策链</td><td>02 Agent</td><td><span class="tag done">LangChain 编排 / 思考链可观测</span></td></tr>
+                        <tr><td>前端聊天界面（对话 UI）</td><td>04 前端</td><td><span class="tag done">对话组件 / 流式渲染</span></td></tr>
+                        <tr><td>iframe / Web 嵌入官网</td><td>04 前端 / 07 渠道</td><td><span class="tag done">嵌入集成 / 官网嵌入</span></td></tr>
+                        <tr><td>Flask 后端 /chat 接口</td><td>05 后端</td><td><span class="tag done">服务框架 / API 设计</span></td></tr>
+                        <tr><td>Key 放 .env 不暴露前端</td><td>05 后端</td><td><span class="tag done">密钥管理</span></td></tr>
+                        <tr><td>微信 / CRM 接入架构设计</td><td>07 渠道</td><td><span class="tag done">微信生态 / CRM 集成</span></td></tr>
+                        <tr><td>私有化部署认知（vLLM/Ollama）</td><td>06 部署</td><td><span class="tag done">私有化推理认知</span></td></tr>
+                        <tr><td>过滤 safety 噪声 / 内容审核</td><td>09 安全</td><td><span class="tag done">内容安全审核</span></td></tr>
+                        <tr><td>售前讲架构、当场出 Demo</td><td>08 软技能</td><td><span class="tag done">售前方案 / 现场 Demo</span></td></tr>
+                    </table>
+                </div>
+
+                <div class="solution-box">
+                    <strong>结论：</strong> 这一个项目就命中了 <b>9 个维度里的 13+ 项能力</b>，而且全是「核心技术底座」。也就是说，你今天等于把 FDE 的第一阶（技术底座）亲手建了一遍——这是很多纯售前/产品岗的人连名字都说不全的硬货。
+                </div>
+            </section>
+
+            <!-- ============ 已掌握 vs 待掌握 ============ -->
+            <section class="view" id="view-sec4">
+                <div class="page-title">📊 已掌握 vs 待掌握（诚实拆解）</div>
+                <div class="page-sub">基于 langchain/ 项目实操，技术底座已拿下约 26%。下面把「还差什么」按优先级排好——这就是你接下来要补的课。</div>
+
+                <div class="cover-flex">
+                    <div class="ring">
+                        <svg width="96" height="96">
+                            <circle cx="48" cy="48" r="40" stroke="#e6eaf0" stroke-width="11" fill="none"/>
+                            <circle cx="48" cy="48" r="40" stroke="#0f6e56" stroke-width="11" fill="none" stroke-dasharray="251" stroke-dashoffset="186" stroke-linecap="round"/>
+                        </svg>
+                        <b>26%</b>
+                    </div>
+                    <div style="flex:1;min-width:260px">
+                        <p style="font-size:.95rem"><b>已掌握（技术底座）</b>：LangChain Agent、真模型接入、工具调用、渠道架构、私有化认知、安全过滤、售前 Demo——约 13 项，覆盖维度 01/02/04/05/06/07/08/09 的基础部分。</p>
+                        <p style="font-size:.95rem;margin-top:.5rem"><b>待掌握（约 74%）</b>：集中在 <span class="tag need">工程化</span> 和 <span class="tag need">业务落地</span> 两层——而这两层，恰恰就是 FDE 比普通开发/售前更值钱的地方。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>🔴 待掌握清单（按优先级）</h3>
+                    <table class="comparison-table">
+                        <tr><th>优先级</th><th>待掌握能力</th><th>属于哪一阶</th><th>为什么重要</th></tr>
+                        <tr><td><span class="tag need">第一优先</span></td><td>多租户会话隔离（按 user_id 分 Memory）</td><td>工程化</td><td>接任何客户系统的硬门槛，否则串台就完蛋</td></tr>
+                        <tr><td><span class="tag need">第一优先</span></td><td>容器化（Docker / Compose）</td><td>工程化</td><td>环境可复现、可交付，Demo→生产的第一步</td></tr>
+                        <tr><td><span class="tag need">第一优先</span></td><td>私有化推理落地（vLLM/Ollama 真部署）</td><td>工程化</td><td>政企/金融客户数据不能出网，必考题</td></tr>
+                        <tr><td><span class="tag soon">第二优先</span></td><td>鉴权限流 / 异步任务 / 可观测性</td><td>工程化</td><td>防刷、控成本、调大模型超时的标准解法</td></tr>
+                        <tr><td><span class="tag soon">第二优先</span></td><td>监控告警 / 灰度回滚</td><td>工程化</td><td>生产级服务的稳定性底线</td></tr>
+                        <tr><td><span class="tag soon">第三优先</span></td><td>RAG 全链路（切分/向量库/检索增强）</td><td>技术深钻</td><td>客户知识一多，纯 prompt 就不够了</td></tr>
+                        <tr><td><span class="tag soon">第三优先</span></td><td>需求抽象 / 驻场沟通 / 价值量化</td><td>业务落地</td><td>最值钱的一层，靠真项目喂出来</td></tr>
+                        <tr><td><span class="tag soon">第三优先</span></td><td>行业认知 / 合规框架（等保等）</td><td>业务落地</td><td>金融/医疗/政企差异化打法的底座</td></tr>
+                    </table>
+                </div>
+
+                <div class="problem-box">
+                    <strong>⚠️ 常见误区：</strong> 以为「能跑通 Demo = 会 FDE」。错。Demo 能跑 ≠ 敢给客户用。中间隔着多租户隔离、鉴权限流、容器化、监控告警——这是「能用」和「生产级」的分水岭，也是 FDE 真正拉开差距的地方。
+                </div>
+            </section>
+
+            <!-- ============ 三阶成长路线 ============ -->
+            <section class="view" id="view-sec5">
+                <div class="page-title">🚀 三阶成长路线</div>
+                <div class="page-sub">从你今天的位置，到能独立交付客户，建议按这三阶推进。你现在稳稳在第一阶。</div>
+
+                <div class="road-steps">
+                    <div class="road cur">
+                        <div class="no">1</div>
+                        <h4>技术底座 <b>· 你在这 ✅</b></h4>
+                        <p>LangChain Agent + 真模型接入 + 工具调用 + 渠道架构认知 + 私有化/安全认知。已用 langchain/ 项目亲手跑通，约命中 13 项能力（26%）。</p>
+                    </div>
+                    <div class="road">
+                        <div class="no">2</div>
+                        <h4>工程化</h4>
+                        <p>多租户隔离、鉴权限流、Docker/K8s 容器化、私有化推理（vLLM/Ollama）真部署、监控告警、灰度回滚。把 Demo 变成生产级服务。</p>
+                    </div>
+                    <div class="road">
+                        <div class="no">3</div>
+                        <h4>业务落地</h4>
+                        <p>驻场贴身、需求抽象成工具、行业认知、价值量化、合规闭环。让 AI 在客户现场真被用起来——这才是 FDE 真正值钱的地方。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>每阶的「毕业标准」</h3>
+                    <ul class="tight">
+                        <li><b>第一阶毕业：</b>能独立用 LangChain 搭一个带记忆+工具的客服 Demo，并讲清架构。</li>
+                        <li><b>第二阶毕业：</b>能把这个 Demo 容器化部署，给 10 个客户同时用而不串台、不崩、有监控。</li>
+                        <li><b>第三阶毕业：</b>能驻场把客户模糊诉求变成可运行的 Agent，并让客户持续买单。</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- ============ 下一步实操 ============ -->
+            <section class="view" id="view-sec6">
+                <div class="page-title">🎯 下一步实操（今天就能动手）</div>
+                <div class="page-sub">把「待掌握」里第一优先的几项，变成你下一个可交付的小项目。照着做，第二阶就起步了。</div>
+
+                <div class="card">
+                    <h3>练习 1：把 server.py 改成多租户隔离版</h3>
+                    <div class="highlight-box">
+                        <h4>目标：按 user_id 分桶 Memory，10 个客户同时聊不串台。</h4>
+                        <p style="font-size:.9rem;color:#334155;margin-top:.4rem">现在 <code>langchain_server.py</code> 是全局一份 Memory。改成 <code>memories = {}</code> 字典，每次请求带 <code>user_id</code>，取 <code>memories.get(user_id)</code>。这是接入任何客户系统的前提，也是从 Demo 跨向生产的第一个坎。</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>练习 2：把客服 Agent 装进 Docker</h3>
+                    <div class="code-block"># Dockerfile 骨架
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+COPY . .
+CMD ["python", "langchain_server.py"]</div>
+                    <p style="font-size:.9rem;color:#334155">写一个 <code>Dockerfile</code> + <code>docker-compose.yml</code>，让服务一条命令起得来、环境可复现。这是「Demo → 交付」的标准动作。</p>
+                </div>
+
+                <div class="card">
+                    <h3>练习 3：写一个微信公众号回调适配层</h3>
+                    <p style="font-size:.9rem;color:#334155">在 server.py 上加一个 <code>/wechat</code> 路由，接收微信推送的消息 → 调现有 <code>/chat</code> → 异步回包（先回「正在查询…」再推结果，规避 5 秒超时）。填好服务器和 token 就能联调。</p>
+                </div>
+
+                <div class="card">
+                    <h3>练习 4：补一份《给客户看的集成方案》</h3>
+                    <p style="font-size:.9rem;color:#334155">用本速成第 1 页（FDE 为什么火）+ 第 3 页（实战样板）+ 你画的「多渠道接入架构图」，攒成一份售前 PPT。拿去跟客户聊，本身就是 FDE 第八维（售前方案）的实操。</p>
+                </div>
+
+                <div class="solution-box">
+                    <strong>📌 一句话收尾：</strong> 你今天做的 LangChain 客服 Agent，已经是 FDE 技术底座的真刀真枪。接下来别急着学更多模型，先把<b>多租户隔离 + Docker 部署</b>这两块啃下，你就从「会 Demo」跨到了「能交付」——那才是 FDE 身价开始涨的地方。
+                </div>
+            </section>
+
+        </div>
+    </main>
+</div>
+
+<script>
+    const sidebar = document.getElementById('sidebar');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const crumb = document.getElementById('crumb');
+    const navItems = [...document.querySelectorAll('.nav-item, .module-card')];
+    const views = {
+        home:'概览控制台', sec1:'什么是 FDE', sec2:'能力全景', sec3:'实战样板（LangChain）',
+        sec4:'已掌握 vs 待掌握', sec5:'三阶成长路线', sec6:'下一步实操', skills:'完整能力地图'
+    };
+
+    function go(view){
+        // skills 特殊处理：打开独立能力地图
+        if(view === 'skills'){
+            window.open('fde_skills.html', '_blank');
+            return;
+        }
+        if(!document.getElementById('view-' + view)) return;
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById('view-' + view).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+        crumb.textContent = views[view] || '';
+        document.querySelector('.content').scrollTop = 0;
+    }
+
+    navItems.forEach(el => {
+        el.addEventListener('click', () => go(el.dataset.view));
+    });
+
+    toggleBtn.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
+
+    go('home');
+</script>
+</body>
+</html>

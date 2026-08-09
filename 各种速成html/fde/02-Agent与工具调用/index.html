@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · Agent 与工具调用</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · Agent 与工具调用</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">Agent = 会自己决定「调哪个工具」的 LLM。FDE 落地 AI 的核心就是把业务系统封装成 tool，让模型在对话中自主调用。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>@tool 把函数暴露给模型</li><li>create_tool_calling_agent + AgentExecutor 跑决策循环</li><li>用 verbose 看思考链</li><li>工具调用失败时的兜底降级</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>工具即能力</b>：<code>@tool</code> 装饰的函数就是 Agent 的「手」，能查库存、算差价、调订单 API。</p>
+<p><b>决策循环</b>：模型分析用户问题 → 选工具 → 拿结果 → 再思考 → 直到能回答。verbose=True 能看到全过程。</p>
+<p class="warn">弱模型（如 openrouter/free）未必支持工具调用，会触发异常；生产务必加 try/except 降级为纯 LLM 客服。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>from langchain.agents import create_tool_calling_agent, AgentExecutor
+from langchain.tools import tool
+from langchain_core.prompts import ChatPromptTemplate
+
+PRICES = {&quot;智能水杯&quot;:299, &quot;无线耳机&quot;:499, &quot;运动手环&quot;:199, &quot;智能手表&quot;:899}
+
+@tool
+def get_product_price(name: str) -&gt; int:
+    # 返回指定产品的价格（元）
+    return PRICES.get(name, -1)
+
+prompt = ChatPromptTemplate.from_messages([
+    (&quot;system&quot;, &quot;你是智能客服，能用工具查价格并算差价。&quot;),
+    (&quot;human&quot;, &quot;{input}&quot;),
+    (&quot;placeholder&quot;, &quot;{agent_scratchpad}&quot;),
+])
+agent = create_tool_calling_agent(llm, [get_product_price], prompt)
+exe = AgentExecutor(agent=agent, tools=[get_product_price], verbose=True)
+print(exe.invoke({&quot;input&quot;: &quot;智能手表比运动手环贵多少？&quot;})[&quot;output&quot;])</code></pre>
+
+  <h2>动手练习</h2>
+  <p>再加一个 @tool get_stock(name) 返回库存，问「智能水杯还有货吗」看 Agent 是否自动调新工具。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>

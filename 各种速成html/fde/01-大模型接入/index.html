@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · 大模型接入</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · 大模型接入</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">把任意大模型（OpenAI / DeepSeek / 通义 / 本地）接进应用，是 FDE 的地基。统一用 LangChain 的 ChatOpenAI 接口，换个 base_url 和 model 就能切厂商。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>用 ChatOpenAI 统一接各家模型</li><li>OpenRouter 聚合网关的用法（一个 Key 调多家）</li><li>API Key 与 .env 安全管理</li><li>模型选型与成本意识</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>统一接口</b>：LangChain 的 <code>ChatOpenAI</code> 本质是个 OpenAI 兼容客户端，只要目标服务暴露 OpenAI 格式接口，改 <code>base_url</code> 即可，不用换代码。</p>
+<p><b>OpenRouter</b>：一个 Key 聚合几百个模型（含免费档），适合 FDE 多模型对比、快速验证。</p>
+<p><b>安全</b>：Key 永远放 <code>.env</code>，别写进前端/提交仓库；免费模型质量弱，生产换付费档。</p>
+<p class="warn">注意：给 OpenRouter 传自定义 HTTP 头（如 X-Title）必须 ASCII，中文会触发 ascii 编码错误导致调用失败。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>import os
+from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
+
+load_dotenv()
+llm = ChatOpenAI(
+    base_url=&quot;https://openrouter.ai/api/v1&quot;,
+    api_key=os.getenv(&quot;OPENROUTER_API_KEY&quot;),
+    model=os.getenv(&quot;OPENROUTER_MODEL&quot;, &quot;openrouter/free&quot;),
+    temperature=0.7,
+)
+print(llm.invoke(&quot;用一句话介绍你自己&quot;).content)</code></pre>
+
+  <h2>动手练习</h2>
+  <p>把 model 改成 DeepSeek（deepseek/deepseek-chat），对比回复质量与速度，体会「换模型不换代码」。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>

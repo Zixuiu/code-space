@@ -1,0 +1,25 @@
+# FDE 实战：私有化部署最小骨架
+# 1) 起 Ollama 提供本地模型（OpenAI 兼容接口）
+# 2) 你的 LangChain 服务把 base_url 指向 http://ollama:11434/v1
+services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/root/.ollama
+    # 进入容器执行: ollama pull qwen2.5:7b
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - OPENAI_BASE_URL=http://ollama:11434/v1
+      - OPENAI_API_KEY=ollama
+      - OPENAI_MODEL=qwen2.5:7b
+    depends_on:
+      - ollama
+
+volumes:
+  ollama:

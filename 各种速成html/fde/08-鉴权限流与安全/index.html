@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FDE 速成 · 鉴权限流与安全</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;color:#1f2937;background:#f7f8fa;line-height:1.7}
+  header{background:linear-gradient(120deg,#4f46e5,#7c3aed);color:#fff;padding:2.2rem 1.5rem}
+  header h1{margin:0;font-size:1.6rem}
+  header p{margin:.4rem 0 0;opacity:.92;font-size:.95rem}
+  main{max-width:860px;margin:0 auto;padding:1.8rem 1.5rem 4rem}
+  h2{margin-top:2.2rem;font-size:1.2rem;color:#4f46e5;border-left:4px solid #4f46e5;padding-left:.6rem}
+  ul{padding-left:1.4rem}
+  li{margin:.35rem 0}
+  .lead{font-size:1.05rem;color:#374151;background:#eef2ff;padding:1rem 1.2rem;border-radius:10px}
+  pre{background:#0f172a;color:#e2e8f0;padding:1rem 1.1rem;border-radius:10px;overflow:auto;font-size:.84rem;line-height:1.55}
+  code{font-family:"JetBrains Mono",Consolas,monospace}
+  .tag{display:inline-block;background:#4f46e5;color:#fff;font-size:.72rem;padding:.15rem .6rem;border-radius:20px;margin-right:.4rem;vertical-align:middle}
+  .nav{margin-top:3rem;padding-top:1rem;border-top:1px solid #e5e7eb;font-size:.9rem}
+  .nav a{color:#4f46e5;text-decoration:none}
+  .warn{background:#fff7ed;border:1px solid #fdba74;color:#9a3412;padding:.8rem 1rem;border-radius:10px;font-size:.9rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>FDE 速成 · 鉴权限流与安全</h1>
+  <p>FDE 速成知识点 · 实战向</p>
+</header>
+<main>
+  <p class="lead">对外暴露的 /chat 必须鉴权 + 限流 + 成本熔断，否则被刷爆账单。数据合规（PII 脱敏）在敏感行业是红线。</p>
+
+  <h2>你会学到</h2>
+  <ul><li>API Key / JWT 鉴权</li><li>限流防刷（按 IP/用户）</li><li>成本熔断（单次/每日上限）</li><li>PII 脱敏与数据合规</li></ul>
+
+  <h2>核心概念</h2>
+  <p><b>鉴权</b>：每个调用方带 Key 或 JWT，非法直接 401。</p>
+<p><b>限流</b>：按 IP/用户限制单位时间请求数，防刷、控并发。</p>
+<p><b>成本熔断</b>：大模型按 token 计费，设每日/单次上限，超了降级或拒绝。</p>
+<p class="warn">金融/医疗场景还要做 PII 脱敏、对话留痕（会话存档），这是合规硬要求。</p>
+
+  <h2><span class="tag">案例</span>可直接参考的代码</h2>
+  <pre><code>from flask import Flask, request, jsonify
+from functools import wraps
+import time
+
+app = Flask(__name__)
+API_KEY = &quot;你的服务端Key&quot;
+RATE = {}  # ip -&gt; [时间戳]
+
+def rate_limit(f):
+    @wraps(f)
+    def w():
+        ip = request.remote_addr
+        now = time.time()
+        RATE[ip] = [t for t in RATE.get(ip, []) if now - t &lt; 60]
+        if len(RATE[ip]) &gt;= 20:        # 每 IP 每分钟上限 20 次
+            return jsonify({&quot;err&quot;: &quot;限流&quot;}), 429
+        RATE[ip].append(now)
+        return f()
+    return w
+
+@app.route(&quot;/chat&quot;)
+@rate_limit
+def chat():
+    if request.headers.get(&quot;X-API-Key&quot;) != API_KEY:
+        return jsonify({&quot;err&quot;: &quot;未授权&quot;}), 401
+    # ... 调大模型并返回
+    return jsonify({&quot;reply&quot;: &quot;hi&quot;})</code></pre>
+
+  <h2>动手练习</h2>
+  <p>把内存 RATE 换成 Redis 限流，并加 JWT 校验，模拟 20 次后第 21 次被限流。</p>
+
+  <div class="nav">
+    返回 <a href="../index.html">FDE 总导航</a> ｜ 看 <a href="../fde_skills.html">FDE 能力地图</a> ｜ 单屏版 <a href="../fde_saas.html">fde_saas.html</a>
+  </div>
+</main>
+</body>
+</html>
