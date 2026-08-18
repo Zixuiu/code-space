@@ -113,6 +113,45 @@ def setup_ssh_and_check():
     return True, pub_key_file, config_file
 
 
+def get_gitcode_token():
+    """读取 GitCode personal access token：优先级 环境变量 GITCODE_TOKEN > 本地文件 ~/.ssh/gitcode_token（不入库）"""
+    env_tok = os.environ.get("GITCODE_TOKEN", "").strip()
+    if env_tok:
+        return env_tok
+    tok_file = os.path.join(os.path.expanduser("~"), ".ssh", "gitcode_token")
+    try:
+        if os.path.exists(tok_file):
+            with open(tok_file, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return None
+
+
+def push_via_token():
+    """HTTPS + personal access token 推送；token 仅在本次命令的 URL 中，不写入 git config"""
+    token = get_gitcode_token()
+    if not token:
+        log("未找到 GitCode token：请设置环境变量 GITCODE_TOKEN，或在 ~/.ssh/gitcode_token 写入 token", "ERROR")
+        return False
+    https_url = f"https://oauth2:{token}@gitcode.com/weixin_58844486/codespace.git"
+    log("使用 HTTPS + token 方式推送（token 不写入本地配置）...", "INFO")
+    r = run_cmd(f'git push "{https_url}" HEAD:main', timeout=90)
+    if r.returncode == 0:
+        log("🎉 推送成功（HTTPS + token）！代码已上传到 GitCode！", "SUCCESS")
+        return True
+    err = (r.stdout or "") + (r.stderr or "")
+    if "permission denied" in err.lower() or "401" in err or "403" in err:
+        log("Token 认证失败：请检查 token 是否有效、是否有 write_repository 权限", "ERROR")
+    else:
+        err_lines = [l for l in err.split('\n')
+                     if not any(x in l for x in ['SAFE_RM', 'otFound', '无法将', 'NotFound',
+                                                  '所在位置', 'CategoryInfo', 'FullyQualifiedErrorId'])]
+        clean_err = '\n'.join(err_lines).strip()
+        log(f"HTTPS 推送失败: {clean_err[:400] or ('返回码 ' + str(r.returncode))}", "WARNING")
+    return False
+
+
 def main():
     print("=" * 70)
     print("🚀 GitCode 一键推送工具（保护本地组合技/快捷键/录制数据不被上传）")
@@ -122,9 +161,11 @@ def main():
     # Step 1+2: 配置 SSH 并检查私钥 + 认证
     log("\n步骤 1-2/5: 配置 SSH 公钥 / 私钥 / 客户端...")
     ssh_ok, pub_key_file, config_file = setup_ssh_and_check()
-    if not ssh_ok:
-        sys.exit(1)
-    log("SSH 配置完成，认证通过", "SUCCESS")
+    use_token = not ssh_ok
+    if ssh_ok:
+        log("SSH 配置完成，认证通过", "SUCCESS")
+    else:
+        log("SSH 不可用（缺私钥或认证失败），将回退到 HTTPS + token 方式", "WARNING")
 
     # Step 3: 暂存并提交所有可提交改动
     # 用 `git diff --cached --quiet` 的退出码作为唯一判断依据（最可靠，不解析文本输出）：
@@ -146,7 +187,7 @@ def main():
         if len(staged) > 10:
             print(f"   ... 还有 {len(staged)-10} 个文件")
         commit_msg = f"auto push {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        r = run_cmd(f'git commit -m "{commit_msg}"')
+        r = run_cmd(f'git -c user.email="1399972370@qq.com" -c user.name="PC-action" commit -m "{commit_msg}"')
         if r.returncode == 0:
             log("文件已提交", "SUCCESS")
         else:
@@ -166,25 +207,30 @@ def main():
                 print(f"   {line.strip()}")
 
     # Step 5: 推送代码
-    log("\n步骤 5/5: 推送到 GitCode (SSH)...")
-    log("这可能需要几秒钟...", "INFO")
-    r = run_cmd("git push -u origin main", timeout=90)
-
-    if r.returncode == 0:
-        log("🎉 推送成功！代码已上传到 GitCode！", "SUCCESS")
-    elif "successfully authenticated" in r.stdout.lower() or "welcome" in r.stdout.lower():
-        log("✅ 认证成功，但可能已有更新", "SUCCESS")
-    elif "permission denied" in r.stderr.lower() or "publickey" in r.stderr.lower():
-        log("SSH 认证失败（具体原因请见上方步骤 1-2 的诊断）", "ERROR")
-    else:
-        err_lines = [l for l in r.stderr.split('\n')
-                     if not any(x in l for x in ['SAFE_RM', 'otFound', '无法将', 'NotFound',
-                                                  '所在位置', 'CategoryInfo', 'FullyQualifiedErrorId'])]
-        clean_err = '\n'.join(err_lines).strip()
-        if clean_err:
-            log(f"推送结果: {clean_err[:400]}", "WARNING")
+    log("\n步骤 5/5: 推送到 GitCode...")
+    if ssh_ok:
+        log("尝试 SSH 推送...", "INFO")
+        r = run_cmd('GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=no" git push -u origin main', timeout=90)
+        if r.returncode == 0:
+            log("🎉 推送成功（SSH）！代码已上传到 GitCode！", "SUCCESS")
+        elif "permission denied" in r.stderr.lower() or "publickey" in r.stderr.lower():
+            log("SSH 认证失败，回退到 HTTPS + token 方式", "WARNING")
+            use_token = True
         else:
-            log(f"返回码: {r.returncode}，请检查网络连接", "WARNING")
+            err_lines = [l for l in r.stderr.split('\n')
+                         if not any(x in l for x in ['SAFE_RM', 'otFound', '无法将', 'NotFound',
+                                                      '所在位置', 'CategoryInfo', 'FullyQualifiedErrorId'])]
+            clean_err = '\n'.join(err_lines).strip()
+            if clean_err:
+                log(f"SSH 推送结果: {clean_err[:400]}", "WARNING")
+            else:
+                log(f"返回码: {r.returncode}，请检查网络连接，将回退 token 方式", "WARNING")
+            use_token = True
+
+    if use_token:
+        ok = push_via_token()
+        if not ok:
+            sys.exit(1)
 
     # 摘要
     print("\n" + "=" * 70)
@@ -193,7 +239,7 @@ def main():
     print(f"✅ SSH 公钥: {pub_key_file}")
     print(f"✅ SSH 配置: {config_file}")
     print(f"✅ 项目目录: {BASE_DIR}")
-    print(f"✅ 远程仓库: {SSH_URL}")
+    print(f"✅ 远程仓库: {SSH_URL if ssh_ok else 'https://gitcode.com/weixin_58844486/codespace.git'}")
     print(f"ℹ️  注意: 本地组合技、快捷键、录制文件夹、*.db 数据库不会被推送（已受保护）")
     print("=" * 70)
 
