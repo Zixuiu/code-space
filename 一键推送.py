@@ -75,40 +75,14 @@ def setup_ssh_and_check():
 
     # 缺私钥
     if not os.path.exists(prv_key_file):
-        log("SSH 私钥缺失（~/.ssh/id_ed25519 不存在），无法推送", "ERROR")
-        print("=" * 60)
-        print("操作方法（把能正常推送代码那台电脑的私钥拷过来）：")
-        print("-" * 60)
-        print(f"1. 在【电脑A】（能正常 git push 的那台）上找到文件:")
-        print(f"   C:\\Users\\你的用户名\\.ssh\\id_ed25519")
-        print(f"   （例：C:\\Users\\INK\\.ssh\\id_ed25519）")
-        print()
-        print(f"2. 把这个文件复制到【电脑B】的:")
-        print(f"   {prv_key_file}")
-        print()
-        print(f"3. 复制完成后，重新双击运行本脚本即可。")
-        print("-" * 60)
-        print("私钥是敏感文件，不要发到公共渠道或上传到任何地方。")
-        print("=" * 60)
+        log("SSH 私钥缺失（~/.ssh/id_ed25519 不存在），自动回退 HTTPS+token 推送", "WARNING")
         return False, pub_key_file, config_file
 
     # 有私钥，做一次 SSH 认证测试
     r = run_cmd("ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes -T git@gitcode.com", timeout=8)
     out = (r.stdout or "") + (r.stderr or "")
     if "permission denied" in out.lower() or "publickey" in out.lower():
-        log("SSH 认证失败：GitCode 上还没添加公钥，或私钥与公钥不匹配", "ERROR")
-        print("=" * 60)
-        print("两种情况分别处理：")
-        print("-" * 60)
-        print("A) GitCode 上从没加过这把公钥：")
-        print(f"  1) 打开: https://gitcode.com/-/user_settings/keys")
-        print(f"  2) 粘贴这把公钥:")
-        print(SSH_PUBLIC_KEY)
-        print(f"  3) 标题随便填（如 PC-action），保存后重跑脚本。")
-        print()
-        print("B) 已经加过公钥仍失败：")
-        print("  → 私钥与公钥不配对，重新从电脑A拷 id_ed25519 覆盖即可。")
-        print("=" * 60)
+        log("SSH 认证失败（公钥未登记或与私钥不匹配），自动回退 HTTPS+token 推送", "WARNING")
         return False, pub_key_file, config_file
     return True, pub_key_file, config_file
 

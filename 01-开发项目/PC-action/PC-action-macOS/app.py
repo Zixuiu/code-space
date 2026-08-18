@@ -10785,6 +10785,9 @@ class ComboSkillRunner:
         self._on_finished = None
         self._on_log = None
         self._on_step = None
+        # 耗时统计：面板内可见的计时器数据
+        self._combo_step_times = []   # (step, action, ms, flow_index)
+        self._combo_flow_times = []   # (flow_index, action, exec_elapsed)
 
     def isRunning(self):
         return self.running
@@ -11087,6 +11090,10 @@ class ComboSkillRunner:
                             if self._main_app is not None:
                                 _emoji = "✅" if _action_ok else "❌"
                                 self._main_app.append_log(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
+                            try:
+                                self._combo_flow_times.append((flow_index, target_action, _exec_elapsed))
+                            except Exception:
+                                pass
                         except Exception:
                             break
                         # skip_on_fail 开启时，即使全部步骤失败也不计入连续失败（避免很快停止）
@@ -11147,6 +11154,31 @@ class ComboSkillRunner:
                 self.reset()
 
             _run_elapsed = _time.time() - _run_start
+            # ===== 耗时统计汇总（面板内可见，定位最慢流程/最慢单步）=====
+            try:
+                if self._main_app is not None:
+                    _st = getattr(self, '_combo_step_times', [])
+                    _ft = getattr(self, '_combo_flow_times', [])
+                    self._main_app.append_log(f"╔═ {'═'*45}")
+                    self._main_app.append_log(f" ║  📊 耗时统计汇总")
+                    self._main_app.append_log(f" ║    总耗时: {_run_elapsed:.3f}s | 流程数: {len(flows)} | 执行步数: {len(_st)}")
+                    if _ft:
+                        # 按流程聚合（同一流程可能被执行多次，取平均）
+                        _by_flow = {}
+                        for _f, _a, _d in _ft:
+                            _by_flow.setdefault(_f, []).append(_d)
+                        _avg = sorted(
+                            ((_f, sum(_ds) / len(_ds), len(_ds)) for _f, _ds in _by_flow.items()),
+                            key=lambda x: x[1], reverse=True
+                        )
+                        _top = " > ".join(f"流程{_f + 1} {_avg_d * 1000:.0f}ms(×{_n})" for _f, _avg_d, _n in _avg[:3])
+                        self._main_app.append_log(f" ║    最慢流程(均): {_top}")
+                    if _st:
+                        _ss = max(_st, key=lambda x: x[2])
+                        self._main_app.append_log(f" ║    ⚠️ 最慢单步: 流程{_ss[3] + 1} 步骤{_ss[0]}({_ss[1]}): {_ss[2]:.0f}ms")
+                    self._main_app.append_log(f"╚═{'═'*45}")
+            except Exception:
+                pass
             if self.running:
                 try:
                     if self._main_app is not None:
@@ -11173,6 +11205,16 @@ class ComboSkillRunner:
                 self._on_finished(False, f"执行失败: {str(e)}")
         finally:
             self.running = False
+
+    def _combo_step_timing_cb(self, step, action, ms):
+        """逐步骤耗时回调：同时累计到面板计时器数据，并实时打印到组合技日志"""
+        try:
+            _fid = getattr(self, '_current_flow_index', 0)
+            self._combo_step_times.append((step, action, ms, _fid))
+            if self._main_app is not None:
+                self._main_app.append_log(f" ║    ⏱ 步骤{step}({action}): {ms:.0f}ms  [流程{_fid + 1}]")
+        except Exception:
+            pass
 
     def _execute_action(self, action):
         import time as _time
@@ -11276,7 +11318,10 @@ class ComboSkillRunner:
                 # ★ 录制回放内每张图的匹配超时：
                 # 极速(step_interval=0)：0.15s/次，只做1次闪匹配
                 # 标准(step_interval=0.02s → speed_scale=1.0)：0.75s/次，带轮询（比之前1.5s省一半）
-                _match_timeout = 0.15 if self._turbo_mode else max(0.15, 0.75 * self._speed_scale)
+                _match_timeout = 0.15 if self._turbo_mode else min(2.0, max(0.15, 0.75 * self._speed_scale))
+                # ★ 速度优化：speed_scale>=1.0（含 25x 这类"想快"的配置）启用 turbo 闪匹配
+                #   （局部 ROI 截图 + 全屏兜底，又快又不易 miss）；仅极慢配置才走标准重试
+                _turbo = self._turbo_mode or self._speed_scale >= 1.0
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=step_interval, consider_color=False,
@@ -11284,7 +11329,8 @@ class ComboSkillRunner:
                     stop_check=lambda: not self.running,
                     skip_cache_clear=True,
                     skip_on_fail=self.skip_on_fail,
-                    turbo_match=self._turbo_mode or self._speed_scale < 0.3  # 极速/快速模式：一次即止不重试
+                    turbo_match=_turbo,  # 极速/快速模式：一次即止不重试
+                    on_step_timing=self._combo_step_timing_cb
                 )
                 # 兼容新旧返回值
                 if len(replay_result) == 3:

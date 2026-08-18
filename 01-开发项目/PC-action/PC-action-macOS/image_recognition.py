@@ -214,7 +214,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -867,6 +867,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         _slow = _dur_sorted[0]
         _slow_pct = (_slow[2] / _replay_elapsed * 100) if _replay_elapsed > 0 else 0
         debug_print(f"[回放][耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
+        # ★ 面板内可见的逐步骤计时回调（组合技计时器用）
+        if on_step_timing:
+            for _sd, _sa, _dt in _dur_sorted:
+                try:
+                    on_step_timing(_sd, _sa, _dt * 1000)
+                except Exception:
+                    pass
     if not skip_cache_clear:
         clear_image_cache()
     try:
