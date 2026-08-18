@@ -698,6 +698,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     _roi_hint = (operation['x'], operation['y'])
                 if turbo_match:
                     # 极速模式：一次闪匹配，不重试（速度最快，但要求屏幕上该时刻确实有图）
+                    debug_print(f"[回放] ⚡ 步骤 {step}: turbo 闪匹配（单次 0.005s，不轮询/不重试）")
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                 else:
                     # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
@@ -1047,14 +1048,32 @@ def _get_shared_small_gray():
     return _shared_small_gray_screenshot
 
 
-def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None):
+def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None, roi_hint=None):
+    """⚡ turbo 单次闪匹配。roi_hint=(逻辑x,逻辑y) 时只截其附近±R窗口，比全屏快约10倍。"""
     try:
         arr = get_cached_image(image_path)
         if arr is None:
             return None
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return None
-        screenshot = _mss_grab_array()
+        # ★ 局部截图加速：roi_hint 为录制坐标(逻辑像素)，转物理像素后以其中心截 ±R 窗口
+        _off_x, _off_y = 0, 0
+        if roi_hint is not None:
+            _ds = _get_dpi_scale()
+            cx = int(round(roi_hint[0] * _ds))
+            cy = int(round(roi_hint[1] * _ds))
+            _R = 200  # 物理像素半窗：覆盖常见 UI 抖动/小位移
+            _sct = _get_mss()
+            _sw = _sct.monitors[1]['width'] if _sct else 99999
+            _sh = _sct.monitors[1]['height'] if _sct else 99999
+            left = max(0, cx - _R)
+            top = max(0, cy - _R)
+            right = min(cx + _R, _sw)
+            bottom = min(cy + _R, _sh)
+            screenshot = _mss_grab_roi_array(left, top, right - left, bottom - top)
+            _off_x, _off_y = left, top
+        else:
+            screenshot = _mss_grab_array()
         if screenshot is None:
             return None
         if consider_color:
@@ -1066,7 +1085,10 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         _, max_val, _, max_loc = cv2.minMaxLoc(result)
         if max_val >= confidence:
             h, w = arr.shape[:2]
-            return (max_loc[0], max_loc[1], w, h)
+            # ★ turbo 路径（timeout<=0.01 时走这里）命中后记录真实分数，否则上层读到的是 0.0 假象
+            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(max_val)
+            # 局部坐标 → 全屏物理坐标
+            return (max_loc[0] + _off_x, max_loc[1] + _off_y, w, h)
     except:
         pass
     return None
@@ -1098,7 +1120,13 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
         return p.replace('\\', '/').split('/')[-1] if p else ''
 
     if timeout <= 0.01:
-        return _find_image_flash(image_path, confidence, consider_color, stop_check)
+        loc = _find_image_flash(image_path, confidence, consider_color, stop_check, roi_hint=roi_hint)
+        if loc is None and roi_hint is not None:
+            # ★ 局部 ROI 未命中：图标漂移 / 屏幕有多个相似图标 / ROI 偏出屏幕
+            # → 全屏兜底一次，保证不失败（代价仅多一次全屏截图）
+            debug_print("[匹配诊断] ⚠️ 局部ROI未命中，回退全屏兜底匹配")
+            loc = _find_image_flash(image_path, confidence, consider_color, stop_check, roi_hint=None)
+        return loc
 
     _func_start = time.time()
     start_time = time.time()

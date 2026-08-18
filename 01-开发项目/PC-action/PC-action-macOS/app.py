@@ -5653,8 +5653,6 @@ class AutoRecorderApp(QMainWindow):
         self.register_record_hotkey()
         self.register_stop_replay_hotkey()
         self._start_hotkey_health_check()
-        # ★ 启动即检测管理员权限；非管理员时弹窗提醒，避免全局热键/回放在部分电脑上失效
-        self._check_admin_and_warn()
         self.load_font_size_setting()
         if hasattr(self, 'status_label') and self.current_user:
             self.status_label.setText(f"当前用户: {self.current_user}")
@@ -7535,13 +7533,20 @@ class AutoRecorderApp(QMainWindow):
             else:
                 self.append_log(f"[回放] 检测为含图像/键盘录制，使用 replay_coordinate_operations")
                 from image_recognition import replay_coordinate_operations
+                # ★ 极速/高速档下启用 turbo_match（与组合技路径 app.py:11308 一致）：
+                # 单次 0.005s 闪匹配 + Win32 直点，跳过稳定检测/轮询/点击后剪贴板读取，
+                # 单步从普通模式的 ~100-500ms 降到 ~10ms 量级。
+                # 判定依据用本路径可靠的 replay_interval / replay_timeout（随速度档更新），
+                # 不引用组合技路径专属的 _turbo_mode/_speed_scale，避免属性未定义。
+                _turbo = (self.replay_interval <= 0.01) or (self.replay_timeout <= 0.15)
                 replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
                     replay_interval=folder_interval,
                     consider_color=False,
                     region_center=None,
-                    match_timeout=self.replay_timeout
+                    match_timeout=self.replay_timeout,
+                    turbo_match=_turbo
                 )
                 if len(replay_result) == 3:
                     success_count, total_count, _ = replay_result
@@ -10193,32 +10198,6 @@ class AutoRecorderApp(QMainWindow):
         except Exception as e:
             log_error(f"[热键] 注册F12停止快捷键失败: {e}")
             self.stop_replay_hotkey_id = None
-
-    def _check_admin_and_warn(self):
-        """检测是否以管理员权限运行；非管理员时弹窗提醒，避免全局热键/回放在部分电脑上失效。
-        仅 Windows 生效（macOS 权限模型不同，且 F1 在 mac 上是亮度键不受影响）。"""
-        if sys.platform != "win32":
-            return
-        try:
-            import ctypes
-            _is_admin = ctypes.windll.shell32.IsUserAnAdmin()
-        except Exception:
-            return
-        if not _is_admin:
-            try:
-                from PyQt5.QtWidgets import QMessageBox
-                QMessageBox.warning(
-                    self,
-                    "建议以管理员身份运行",
-                    "当前 PC-action 未以管理员权限运行。\n\n"
-                    "本程序使用的 keyboard 库需要管理员权限才能稳定拦截全局热键；"
-                    "在部分电脑（尤其公司/受管控环境）上，非管理员权限会导致回放后快捷键失效、"
-                    "怎么按都没反应。\n\n"
-                    "建议：关闭本程序后，右键它的启动图标/快捷方式 → 选择「以管理员身份运行」。",
-                    QMessageBox.Ok
-                )
-            except Exception:
-                pass
 
     def _start_hotkey_health_check(self):
         """启动全局热键健康检查定时器，自动恢复失效的热键"""

@@ -3080,7 +3080,9 @@ class CoordinateRecorder(QWidget):
         self._focus_timer = None
         self._processing_click = False  # 点击事件去重锁：True 期间忽略所有鼠标事件，防二次计数
 
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        # 注意：不要加 Qt.Tool —— Tool 窗口在 Windows 上通常拿不到键盘焦点，
+        # 会导致 keyPressEvent 收不到 Esc，录制无法用 Esc 退出（旧 bug）。
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setMouseTracking(True)
         # 合并所有屏幕的总区域 (支持多显示器)
@@ -3091,6 +3093,18 @@ class CoordinateRecorder(QWidget):
             self.setGeometry(total_geo)
         else:
             self.setGeometry(0, 0, 1920, 1080)
+
+        # 全局 Esc 兜底：即便覆盖层因焦点问题没收到键盘事件，也能退出录制
+        self._esc_hotkey_id = None
+        try:
+            import keyboard as _kb
+            self._esc_hotkey_id = _kb.add_hotkey(
+                'esc',
+                lambda: __import__('PyQt5.QtCore', fromlist=['QTimer']).QTimer.singleShot(0, self._finish_recording),
+                suppress=False,
+            )
+        except Exception:
+            self._esc_hotkey_id = None
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -3276,10 +3290,31 @@ class CoordinateRecorder(QWidget):
         super().keyPressEvent(event)
 
     def _finish_recording(self):
+        # 清理全局 Esc 钩子（避免退出后仍拦截 Esc）
+        if getattr(self, '_esc_hotkey_id', None):
+            try:
+                import keyboard as _kb
+                _kb.remove_hotkey(self._esc_hotkey_id)
+            except Exception:
+                pass
+            self._esc_hotkey_id = None
         if self._focus_timer:
             self._focus_timer.stop()
         self.closed.emit()
         self.close()
+
+    def closeEvent(self, event):
+        # close() 不一定走 _finish_recording，这里兜底清理钩子/定时器
+        if getattr(self, '_esc_hotkey_id', None):
+            try:
+                import keyboard as _kb
+                _kb.remove_hotkey(self._esc_hotkey_id)
+            except Exception:
+                pass
+            self._esc_hotkey_id = None
+        if self._focus_timer:
+            self._focus_timer.stop()
+        super().closeEvent(event)
 
 
 def start_macos_app():
