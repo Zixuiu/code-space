@@ -136,7 +136,7 @@ def push_via_token():
         return False
     https_url = f"https://oauth2:{token}@gitcode.com/weixin_58844486/codespace.git"
     log("使用 HTTPS + token 方式推送（token 不写入本地配置）...", "INFO")
-    r = run_cmd(f'git push "{https_url}" HEAD:main', timeout=90)
+    r = run_cmd(f'GIT_TERMINAL_PROMPT=0 git -c credential.helper= push "{https_url}" HEAD:main', timeout=90)
     if r.returncode == 0:
         log("🎉 推送成功（HTTPS + token）！代码已上传到 GitCode！", "SUCCESS")
         return True
@@ -210,7 +210,7 @@ def main():
     log("\n步骤 5/5: 推送到 GitCode...")
     if ssh_ok:
         log("尝试 SSH 推送...", "INFO")
-        r = run_cmd('GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=no" git push -u origin main', timeout=90)
+        r = run_cmd('GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes -o StrictHostKeyChecking=no" git -c credential.helper= push -u origin main', timeout=90)
         if r.returncode == 0:
             log("🎉 推送成功（SSH）！代码已上传到 GitCode！", "SUCCESS")
         elif "permission denied" in r.stderr.lower() or "publickey" in r.stderr.lower():
