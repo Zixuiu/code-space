@@ -5493,19 +5493,29 @@ class FolderManager(QDialog):
 
             # 规范化路径后再保存快捷键，使用小写格式确保一致性
             normalized_path = os.path.normpath(str(folder_path)).lower()
+            # 删除所有同名流程（相同文件夹名）的旧路径键，避免路径迁移后残留旧键
+            # （否则 get_folder_shortcut 的 basename 兜底匹配会误命中旧键，造成显示/注册混乱）
+            target_basename = os.path.basename(normalized_path)
+            for stored_path in list(self.parent.shortcuts.keys()):
+                if os.path.basename(os.path.normpath(stored_path).lower()) == target_basename \
+                        and os.path.normpath(stored_path).lower() != normalized_path:
+                    del self.parent.shortcuts[stored_path]
             self.parent.shortcuts[normalized_path] = shortcut
             self.parent.save_shortcut_config()
             self.parent.update_shortcuts()
             # 静默更新，不显示提示框
             self.update_shortcut_button_text(normalized_path, shortcut)
         elif result == QDialog.Accepted and not current_keys:
-            # 清除快捷键 - 使用规范化路径匹配，使用小写格式确保一致性
+            # 清除快捷键 - 同时清理所有指向同一流程（相同文件夹名）的键，
+            # 包括路径迁移后残留的旧路径键（否则 get_folder_shortcut 的 basename 兜底匹配会误命中旧键）
             normalized_path = os.path.normpath(str(folder_path)).lower()
+            target_basename = os.path.basename(normalized_path)
             keys_to_remove = []
             for stored_path in self.parent.shortcuts.keys():
-                if os.path.normpath(stored_path).lower() == normalized_path:
+                stored_normalized = os.path.normpath(stored_path).lower()
+                if stored_normalized == normalized_path or os.path.basename(stored_normalized) == target_basename:
                     keys_to_remove.append(stored_path)
-            for key in keys_to_remove:
+            for key in set(keys_to_remove):
                 del self.parent.shortcuts[key]
             self.parent.save_shortcut_config()
             self.parent.update_shortcuts()
@@ -10622,6 +10632,30 @@ class AutoRecorderApp(QMainWindow):
                     self.shortcuts = json.load(f)
                     # ★ 将快捷键字符串统一转换为小写，确保与keyboard库匹配
                     self.shortcuts = {path: shortcut.lower() for path, shortcut in self.shortcuts.items()}
+                # ★ 启动时自动清理：同一流程（相同文件夹名）只保留一条有效键，
+                #   删除路径迁移残留的旧路径键（否则 get_folder_shortcut 的 basename 兜底匹配会误命中旧键）
+                try:
+                    from collections import defaultdict
+                    from utils import get_recordings_path
+                    current_recordings_dir = os.path.normpath(get_recordings_path()).lower()
+                    groups = defaultdict(list)
+                    for stored_path in self.shortcuts.keys():
+                        groups[os.path.basename(os.path.normpath(stored_path)).lower()].append(stored_path)
+                    changed = False
+                    for paths in groups.values():
+                        if len(paths) <= 1:
+                            continue
+                        current_keys = [p for p in paths if os.path.normpath(os.path.dirname(os.path.normpath(p))).lower() == current_recordings_dir]
+                        existing_keys = [p for p in paths if os.path.exists(p)]
+                        keep = current_keys[0] if current_keys else (existing_keys[0] if existing_keys else paths[0])
+                        for p in paths:
+                            if p != keep:
+                                del self.shortcuts[p]
+                                changed = True
+                    if changed:
+                        self.save_shortcut_config()
+                except Exception:
+                    pass
             else:
                 self.shortcuts = {}
         except Exception:
