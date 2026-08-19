@@ -34,3 +34,12 @@ trash/
 
 # 本地下载/产出目录（不进 GitCode）
 musicDownload/
+
+# 本机 一键推送.py 文件系统条目异常、git 暂存失败，所产生的备份与诊断文件（不入库）
+一键推送_损坏备份.py
+_remote_base.py
+_idx_test_ascii.py
+双推脚本验证.py
+
+# 独立未跟踪脚本（用户决定不进仓库）
+推GitHub.py
