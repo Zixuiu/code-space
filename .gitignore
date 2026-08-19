@@ -43,3 +43,7 @@ _idx_test_ascii.py
 
 # 独立未跟踪脚本（用户决定不进仓库）
 推GitHub.py
+
+# ai-news-daily 并入时的本地备份（保留独立仓库 .git 原名 .git_bak_keep，只需用户自恢复时改回）
+.git_bak_keep/
+推送到GitHub.py
