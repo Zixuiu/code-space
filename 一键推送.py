@@ -160,7 +160,7 @@ def push_github_via_token():
         return True
     err = (r.stdout or "") + (r.stderr or "")
     if "permission denied" in err.lower() or "401" in err or "403" in err:
-        log("GitHub Token 认证失败：请检查 token 是否有效、是否有写权限，以及仓库 Zixuiu/codespace 是否存在", "ERROR")
+        log(f"GitHub Token 认证失败：请检查 token 是否有效、是否有【写】权限（Contents: Read+write），仓库：https://{GITHUB_URL}", "ERROR")
     else:
         err_lines = [l for l in err.split('\n')
                      if not any(x in l for x in ['SAFE_RM', 'otFound', '无法将', 'NotFound',
