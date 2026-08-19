@@ -214,7 +214,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None, turbo_grace=0.5, turbo_settle=0.08):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -697,9 +697,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 if 'x' in operation and 'y' in operation:
                     _roi_hint = (operation['x'], operation['y'])
                 if turbo_match:
-                    # 极速模式：一次闪匹配，不重试（速度最快，但要求屏幕上该时刻确实有图）
+                    # 极速模式：先做一次闪匹配；未命中则进入 turbo_grace 等待窗口
+                    # （给点击后界面过渡动画留时间），窗口内轮询闪匹配，图片一出现立即点击；
+                    # 窗口结束仍未出现才判失败/跳过。命中时零额外等待，仍是极速。
                     debug_print(f"[回放] ⚡ 步骤 {step}: turbo 闪匹配（单次 0.005s，不轮询/不重试）")
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
+                    if location is None and turbo_grace and turbo_grace > 0:
+                        debug_print(f"[回放] ⏳ 步骤 {step}: 图片未出现，等待窗口 {turbo_grace:.2f}s 内持续检测（覆盖过渡动画）")
+                        _tg_deadline = time.time() + turbo_grace
+                        while time.time() < _tg_deadline:
+                            if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
+                                break
+                            location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
+                            if location is not None:
+                                debug_print(f"[回放] ✅ 步骤 {step}: 等待窗口内图片出现，继续点击")
+                                break
                 else:
                     # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
                     # 失败判定保底 1s：图片没出现时至少轮询 1 秒才判失败（用户要求"给他 1s 期限"）
@@ -812,6 +824,14 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _fast_click('left')
             
             success_count += 1
+
+            # ★ 极速模式：点击后给目标应用一点 UI 处理时间（消息循环/重绘），
+            #   避免下一步匹配到"点击前的旧画面"（旧画面里后续图片还在原位 → 点错位置）。
+            #   命中时匹配是即时的，仅点击后多等 turbo_settle 秒。
+            if turbo_match and turbo_settle and turbo_settle > 0:
+                if _interruptible_sleep(turbo_settle, stop_check=stop_check):
+                    _step_durations.append((step, action_type, time.time() - _step_start))
+                    break
 
             _log_clipboard(f"步骤{step}后({action_type})")
 
@@ -1084,18 +1104,61 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
         if screenshot is None:
             return None
         if consider_color:
-            result = cv2.matchTemplate(screenshot, arr, cv2.TM_CCOEFF_NORMED)
+            # ⚡ 颜色模式灰度快筛：全屏彩色 matchTemplate（3通道相关）比灰度慢 5-8 倍，
+            # 是 turbo 路径的主要开销。策略：先灰度匹配（快），对分数最高的前几个候选
+            # 做小区域彩色验证（防"形状像但颜色不同"的误命中），通过才确认命中。
+            gray_s = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+            gray_t = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
+            result = cv2.matchTemplate(gray_s, gray_t, cv2.TM_CCOEFF_NORMED)
+            _h, _w = result.shape
+            _tc_h, _tc_w = gray_t.shape
+            _cand_min = max(0.5, confidence - 0.2)  # 灰度候选下限（彩色分数可能高于灰度，放宽防漏）
+            _flat = result.flatten()
+            _max_score = float(_flat.max()) if _flat.size else 0.0
+            _cands = []
+            _taken = []
+            for _idx in np.argsort(_flat)[::-1][:200]:
+                if len(_cands) >= 6:
+                    break
+                _rv = float(_flat[_idx])
+                if _rv < _cand_min:
+                    break
+                _r, _c = divmod(int(_idx), _w)
+                _dup = False
+                for (_pr, _pc) in _taken:
+                    if abs(_pr - _r) < _tc_h and abs(_pc - _c) < _tc_w:
+                        _dup = True
+                        break
+                if _dup:
+                    continue
+                _taken.append((_r, _c))
+                _cands.append((_r, _c, _rv))
+            for _r, _c, _gscore in _cands:
+                _roi_bgr = screenshot[_r:_r + _tc_h, _c:_c + _tc_w]
+                if _roi_bgr.shape[0] != _tc_h or _roi_bgr.shape[1] != _tc_w:
+                    continue
+                _cres = cv2.matchTemplate(_roi_bgr, arr, cv2.TM_CCOEFF_NORMED)
+                _, _cval, _, _ = cv2.minMaxLoc(_cres)
+                if float(_cval) >= confidence:
+                    h, w = arr.shape[:2]
+                    # ★ turbo 路径命中后记录真实分数，否则上层读到的是 0.0 假象
+                    _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_cval)
+                    # 局部坐标 → 全屏物理坐标
+                    return (_c + _off_x, _r + _off_y, w, h)
+            # 所有候选彩色验证均未通过 → 未命中（记录最高灰度分便于诊断）
+            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = _max_score
+            return None
         else:
             gray_s = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
             gray_t = cv2.cvtColor(arr, cv2.COLOR_BGR2GRAY)
             result = cv2.matchTemplate(gray_s, gray_t, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, max_loc = cv2.minMaxLoc(result)
-        if max_val >= confidence:
-            h, w = arr.shape[:2]
-            # ★ turbo 路径（timeout<=0.01 时走这里）命中后记录真实分数，否则上层读到的是 0.0 假象
-            _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(max_val)
-            # 局部坐标 → 全屏物理坐标
-            return (max_loc[0] + _off_x, max_loc[1] + _off_y, w, h)
+            _, max_val, _, max_loc = cv2.minMaxLoc(result)
+            if max_val >= confidence:
+                h, w = arr.shape[:2]
+                # ★ turbo 路径（timeout<=0.01 时走这里）命中后记录真实分数，否则上层读到的是 0.0 假象
+                _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(max_val)
+                # 局部坐标 → 全屏物理坐标
+                return (max_loc[0] + _off_x, max_loc[1] + _off_y, w, h)
     except:
         pass
     return None

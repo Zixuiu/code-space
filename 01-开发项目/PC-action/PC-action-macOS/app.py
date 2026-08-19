@@ -10831,6 +10831,131 @@ class ComboSkillRunner:
         self._current_flow_index = 0
         self._current_loop = 1
 
+    def _evaluate_flow_condition(self, flow_data, log_prefix="流程"):
+        """统一评估流程条件（主条件 / else 分支共用）
+        返回: (condition_met, elapsed_seconds)
+        flow_data: 含 condition / condition_image / wait_timeout / wait_grace 的流程 dict
+        """
+        import time as _time
+        from image_recognition import find_image_with_timeout
+        condition = flow_data.get("condition", "always")
+        condition_image = flow_data.get("condition_image", "")
+        _cond_start = _time.time()
+        condition_met = True
+
+        def _log(msg):
+            try:
+                if self._main_app is not None:
+                    self._main_app.append_log(msg)
+            except Exception:
+                pass
+
+        if condition == "image_found":
+            if not condition_image:
+                _log(f" ║  ⚠️ {log_prefix} image_found 未设置条件图片，条件视为不满足")
+                condition_met = False
+            else:
+                # ★★★ image_found 出现等待窗口：
+                # 1) 先快速探测（图在屏即秒中；图不在也快速返回，不白等窗口）
+                # 2) 未命中 → 进入 wait_grace 等待窗口（默认0.5s，可配置；真实时间，不被 speed_scale 压缩），
+                #    窗口内持续轮询，图片一出现立即满足 → 覆盖过渡动画场景
+                # 3) 窗口结束仍未出现 → 不满足，走 else 分支
+                _grace = 0.5
+                try:
+                    _grace = float(flow_data.get("wait_grace", 0.5) or 0.5)
+                    if _grace < 0:
+                        _grace = 0.5
+                except (TypeError, ValueError):
+                    _grace = 0.5
+                _t = 0.005 if self._turbo_mode else 0.04  # 快速探测：固定小超时，不再被 speed_scale 放大/压缩
+                loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                if loc is None and not self._turbo_mode and _grace > 0:
+                    # 等待窗口：窗口内持续检测，出现即满足
+                    _grace_deadline = _time.time() + _grace
+                    while self.running and _time.time() < _grace_deadline:
+                        loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.05, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                        if loc is not None:
+                            break
+                condition_met = loc is not None
+                _cond_elapsed = _time.time() - _cond_start
+                _mode_tag = ' (⚡极速)' if self._turbo_mode else f' (x{self._speed_scale:.1f})'
+                _grace_tag = '' if (self._turbo_mode or _grace <= 0) else f' 等待窗口{_grace:.1f}s'
+                _log(f" ║  🔍 {log_prefix} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}{_mode_tag}{_grace_tag}")
+        elif condition == "image_not_found":
+            if not condition_image:
+                _log(f" ║  ⚠️ {log_prefix} image_not_found 未设置条件图片，条件视为不满足")
+                condition_met = False
+            else:
+                # image_not_found 本来就是 timeout=0.01 快速检测，极速模式不变
+                loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                condition_met = loc is None
+                _cond_elapsed = _time.time() - _cond_start
+                _log(f" ║  👻 {log_prefix} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
+        elif condition == "wait_for_image":
+            def _wf_log(msg):
+                _log(f" ║  {msg}")
+            if not condition_image:
+                _wf_log(f"⚠ {log_prefix} 未设置条件图片，条件不满足")
+                condition_met = False
+            else:
+                raw_timeout = flow_data.get("wait_timeout", 30)
+                try:
+                    wait_timeout = float(raw_timeout)
+                    if wait_timeout <= 0:
+                        wait_timeout = 30.0
+                except (TypeError, ValueError):
+                    wait_timeout = 30.0
+                _wf_log(f"⏳ {log_prefix} 开始等待出现，timeout={wait_timeout}s{' (⚡极速模式)' if self._turbo_mode else ''}")
+                condition_met = False
+                _wait_deadline = _time.time() + wait_timeout
+                _poll_cnt = 0
+                _disappeared = False
+                # 速度比例缩放：step_interval=0.1→标准值, 0.05→减半, 0→极速值
+                _wf_confidence = 0.9
+                _wf_timeout = 0.08 if self._turbo_mode else max(0.04, 0.2 * self._speed_scale)
+                _wf_poll = 0.02 if self._turbo_mode else max(0.01, 0.1 * self._speed_scale)
+                _wf_confirm_count = 0 if self._turbo_mode else (0 if self._speed_scale < 0.6 else 1)
+                _wf_confirm_sleep = 0.02 if self._turbo_mode else max(0.01, 0.08 * self._speed_scale)
+                while self.running and _time.time() < _wait_deadline:
+                    _poll_cnt += 1
+                    loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
+                    if not _disappeared:
+                        if loc is None:
+                            _disappeared = True
+                            _wf_log(f"👁 {log_prefix} 图片已消失，开始等待出现")
+                        else:
+                            if _poll_cnt % 10 == 0:
+                                _wf_log(f"⏳ {log_prefix} 等待图片消失中(已轮询{_poll_cnt}次)")
+                        _time.sleep(_wf_poll)
+                        continue
+                    if loc is not None:
+                        # 极速模式：不做重复确认，1次命中即成立（避免两次间的0.08秒延迟）
+                        _confirm = 1
+                        for _ci in range(_wf_confirm_count):
+                            _time.sleep(_wf_confirm_sleep)
+                            _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
+                            if _cloc is not None:
+                                _confirm += 1
+                        _need = _wf_confirm_count + 1
+                        if _confirm >= _need:
+                            condition_met = True
+                            _wf_log(f"✅ {log_prefix} 确认图片出现！第{_poll_cnt}次检测({_need}中{_confirm})")
+                            break
+                        else:
+                            _wf_log(f"⚠ {log_prefix} 第{_poll_cnt}次检测误报({_confirm}/{_need}确认失败)，继续等待")
+                    if _poll_cnt % 10 == 0:
+                        _wf_log(f"⏳ {log_prefix} 等待图片出现中(已轮询{_poll_cnt}次，剩余{max(0,_wait_deadline-_time.time()):.1f}s)")
+                    _time.sleep(_wf_poll)
+                _cond_elapsed = _time.time() - _cond_start
+                if not _disappeared:
+                    _wf_log(f"⚠ {log_prefix} 图片始终存在(未消失)，超时{_cond_elapsed:.1f}s 结果=不满足")
+                else:
+                    _wf_log(f"📊 {log_prefix} 结束: {_cond_elapsed:.1f}s 轮询{_poll_cnt}次 结果={'满足' if condition_met else '不满足(超时)'}")
+        elif condition == "always":
+            _log(f" ║  ▶ {log_prefix} always 条件: 跳过判断")
+
+        return condition_met, _time.time() - _cond_start
+
     def run(self):
         """执行组合技的所有流程（支持条件、else分支、跳转）"""
         import time as _time
@@ -10921,132 +11046,39 @@ class ComboSkillRunner:
                     except Exception:
                         pass
 
-                    # ====== 1. 判断条件 ======
-                    condition_met = True
-                    condition_image = flow.get("condition_image", "")
-                    _cond_start = _time.time()
-
-                    if condition == "image_found":
-                        if not condition_image:
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_found 未设置条件图片，条件视为不满足")
-                            except Exception:
-                                break
-                            condition_met = False
-                        else:
-                            # ★★★ 速度优化：基准从 0.15s → 0.04s（40ms够做一次截图+模板匹配了）
-                            # 极速：0.005s / 标准(0.02s flow_gap)：0.04s → 实际执行大多在10~20ms就完成
-                            _t = 0.005 if self._turbo_mode else max(0.01, 0.04 * self._speed_scale)
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
-                            condition_met = loc is not None
-                            _cond_elapsed = _time.time() - _cond_start
-                            try:
-                                if self._main_app is not None:
-                                    _mode_tag = ' (⚡极速)' if self._turbo_mode else f' (x{self._speed_scale:.1f})'
-                                    self._main_app.append_log(f" ║  🔍 流程{flow_index+1} image_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}{_mode_tag}")
-                            except Exception:
-                                break
-                    elif condition == "image_not_found":
-                        if not condition_image:
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⚠️ 流程{flow_index+1} image_not_found 未设置条件图片，条件视为不满足")
-                            except Exception:
-                                break
-                            condition_met = False
-                        else:
-                            # image_not_found 本来就是 timeout=0.01 快速检测，极速模式不变
-                            loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
-                            condition_met = loc is None
-                            _cond_elapsed = _time.time() - _cond_start
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  👻 流程{flow_index+1} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
-                            except Exception:
-                                break
-                    elif condition == "wait_for_image":
-                        def _wf_log(msg):
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  {msg}")
-                            except Exception:
-                                pass
-                        if not condition_image:
-                            _wf_log(f"⚠ 未设置条件图片，条件不满足")
-                            condition_met = False
-                        else:
-                            raw_timeout = flow.get("wait_timeout", 30)
-                            try:
-                                wait_timeout = float(raw_timeout)
-                                if wait_timeout <= 0:
-                                    wait_timeout = 30.0
-                            except (TypeError, ValueError):
-                                wait_timeout = 30.0
-                            _wf_log(f"⏳ 开始等待出现，timeout={wait_timeout}s{' (⚡极速模式)' if self._turbo_mode else ''}")
-                            condition_met = False
-                            _wait_deadline = _time.time() + wait_timeout
-                            _poll_cnt = 0
-                            _disappeared = False
-                            # 速度比例缩放：step_interval=0.1→标准值, 0.05→减半, 0→极速值
-                            _wf_confidence = 0.9
-                            _wf_timeout = 0.08 if self._turbo_mode else max(0.04, 0.2 * self._speed_scale)
-                            _wf_poll = 0.02 if self._turbo_mode else max(0.01, 0.1 * self._speed_scale)
-                            _wf_confirm_count = 0 if self._turbo_mode else (0 if self._speed_scale < 0.6 else 1)
-                            _wf_confirm_sleep = 0.02 if self._turbo_mode else max(0.01, 0.08 * self._speed_scale)
-                            while self.running and _time.time() < _wait_deadline:
-                                _poll_cnt += 1
-                                loc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
-                                if not _disappeared:
-                                    if loc is None:
-                                        _disappeared = True
-                                        _wf_log(f"👁 图片已消失，开始等待出现")
-                                    else:
-                                        if _poll_cnt % 10 == 0:
-                                            _wf_log(f"⏳ 等待图片消失中(已轮询{_poll_cnt}次)")
-                                    _time.sleep(_wf_poll)
-                                    continue
-                                if loc is not None:
-                                    # 极速模式：不做重复确认，1次命中即成立（避免两次间的0.08秒延迟）
-                                    _confirm = 1
-                                    for _ci in range(_wf_confirm_count):
-                                        _time.sleep(_wf_confirm_sleep)
-                                        _cloc = find_image_with_timeout(condition_image, confidence=_wf_confidence, timeout=_wf_timeout, consider_color=False, stop_check=lambda: not self.running, strict=True, skip_small_match=True)
-                                        if _cloc is not None:
-                                            _confirm += 1
-                                    _need = _wf_confirm_count + 1
-                                    if _confirm >= _need:
-                                        condition_met = True
-                                        _wf_log(f"✅ 确认图片出现！第{_poll_cnt}次检测({_need}中{_confirm})")
-                                        break
-                                    else:
-                                        _wf_log(f"⚠ 第{_poll_cnt}次检测误报({_confirm}/{_need}确认失败)，继续等待")
-                                if _poll_cnt % 10 == 0:
-                                    _wf_log(f"⏳ 等待图片出现中(已轮询{_poll_cnt}次，剩余{max(0,_wait_deadline-_time.time()):.1f}s)")
-                                _time.sleep(_wf_poll)
-                            _cond_elapsed = _time.time() - _cond_start
-                            if not _disappeared:
-                                _wf_log(f"⚠ 图片始终存在(未消失)，超时{_cond_elapsed:.1f}s 结果=不满足")
-                            else:
-                                _wf_log(f"📊 结束: {_cond_elapsed:.1f}s 轮询{_poll_cnt}次 结果={'满足' if condition_met else '不满足(超时)'}")
-                    elif condition == "always":
-                        try:
-                            if self._main_app is not None:
-                                self._main_app.append_log(f" ║  ▶ 流程{flow_index+1} always 条件: 跳过判断")
-                        except Exception:
-                            break
+                    # ====== 1. 判断条件（主条件，含等待窗口；else 分支在步骤2再判断） ======
+                    condition_met, _cond_elapsed = self._evaluate_flow_condition(flow, log_prefix=f"流程{flow_index+1}")
 
                     # ====== 2. 决定执行哪个分支的动作 ======
-                    use_branch = "main" if condition_met else "else"
+                    # ★ else 分支条件现在也参与判断：主条件不满足时先看 else 条件，
+                    #   else 满足 → 执行 else 动作；else 也不满足 → 跳过当前流程执行下一个
                     branch_label = "主分支" if condition_met else "Else分支"
-                    target_action = action if condition_met else else_branch.get("action", "")
-                    target_else_branch = else_branch if not condition_met else None
-                    # 取当前被执行分支的 delay_after（动作执行完后等待多久再进入下一个流程）
+                    target_action = ""
+                    target_else_branch = None
                     delay_after = 0.0
                     if condition_met:
+                        target_action = action
                         delay_after = flow.get("delay_after", 0) or 0
+                    elif else_branch and else_branch.get("action"):
+                        target_else_branch = else_branch
+                        else_met, _ = self._evaluate_flow_condition(else_branch, log_prefix=f"流程{flow_index+1} else")
+                        if else_met:
+                            target_action = else_branch.get("action", "")
+                            delay_after = else_branch.get("delay_after", 0) or 0
+                        else:
+                            # else 条件也不满足 → 跳过本流程，执行下一个
+                            try:
+                                if self._main_app is not None:
+                                    self._main_app.append_log(f" ║  ⏭️ 流程{flow_index+1} 主/else 条件均不满足，跳过本流程")
+                            except Exception:
+                                break
                     else:
-                        delay_after = (else_branch or {}).get("delay_after", 0) or 0
+                        # 无 else 分支 → 跳过本流程，执行下一个
+                        try:
+                            if self._main_app is not None:
+                                self._main_app.append_log(f" ║  ⏭️ 流程{flow_index+1} 主条件不满足且无 else，跳过本流程")
+                        except Exception:
+                            break
                     delay_after = max(0.0, float(delay_after))
 
                     step_info = {
@@ -11356,6 +11388,24 @@ class ComboSkillRunner:
                 # ★ 速度优化：speed_scale>=1.0（含 25x 这类"想快"的配置）启用 turbo 闪匹配
                 #   （局部 ROI 截图 + 全屏兜底，又快又不易 miss）；仅极慢配置才走标准重试
                 _turbo = self._turbo_mode or self._speed_scale >= 1.0
+                # ★ turbo 图片等待窗口：极速模式下图片未出现时（界面过渡动画），
+                #   窗口内轮询闪匹配，出现即点击；超时才判失败/跳过。默认0.5s，可配置。
+                _turbo_grace = 0.5
+                try:
+                    _tg_cfg = self.skill_data.get('turbo_grace', None)
+                    if _tg_cfg is not None:
+                        _turbo_grace = max(0.0, float(_tg_cfg))
+                except (TypeError, ValueError):
+                    _turbo_grace = 0.5
+                # ★ turbo 点击后 UI 稳定等待：极速模式点击后等一小段，让目标应用处理
+                #   点击事件/界面重绘，避免下一步匹配到点击前的旧画面。默认0.08s，可配置。
+                _turbo_settle = 0.08
+                try:
+                    _ts_cfg = self.skill_data.get('turbo_settle', None)
+                    if _ts_cfg is not None:
+                        _turbo_settle = max(0.0, float(_ts_cfg))
+                except (TypeError, ValueError):
+                    _turbo_settle = 0.08
                 replay_result = replay_coordinate_operations(
                     recording_data, folder_path,
                     replay_interval=step_interval, consider_color=False,
@@ -11364,6 +11414,8 @@ class ComboSkillRunner:
                     skip_cache_clear=True,
                     skip_on_fail=self.skip_on_fail,
                     turbo_match=_turbo,  # 极速/快速模式：一次即止不重试
+                    turbo_grace=_turbo_grace,  # 极速模式图片等待窗口（覆盖过渡动画）
+                    turbo_settle=_turbo_settle,  # 极速模式点击后UI稳定等待（防旧画面误匹配）
                     on_step_timing=self._combo_step_timing_cb
                 )
                 # 兼容新旧返回值

@@ -245,6 +245,85 @@ class ComboSkillEditDialog(QDialog):
             lambda st: self.step_interval_spin.setEnabled(not st))
         top_layout.addWidget(self.step_interval_default_cb)
 
+        # ── 图片出现等待窗口（turbo 极速模式下，图片未出现时最多等这么久再判失败）──
+        img_wait_label = QLabel("图等:")
+        img_wait_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
+        img_wait_label.setToolTip("图片出现等待窗口(秒)\n极速模式下点击后界面过渡动画期间，图片未出现会等这么久，期间图片出现立即点击；超时才跳过/失败。默认0.5s")
+        top_layout.addWidget(img_wait_label)
+
+        self.turbo_grace_spin = QDoubleSpinBox()
+        self.turbo_grace_spin.setRange(0, 10.0)
+        self.turbo_grace_spin.setDecimals(1)
+        self.turbo_grace_spin.setSingleStep(0.1)
+        _tg_val = self.skill_data.get('turbo_grace', 0.5)
+        self.turbo_grace_spin.setValue(float(_tg_val) if _tg_val is not None else 0.5)
+        self.turbo_grace_spin.setSuffix(" 秒")
+        self.turbo_grace_spin.setFixedWidth(70)
+        self.turbo_grace_spin.setToolTip("图片出现等待窗口(秒)\n极速模式下点击后界面过渡动画期间，图片未出现会等这么久，期间图片出现立即点击；超时才跳过/失败。默认0.5s")
+        self.turbo_grace_spin.setStyleSheet(f"""
+            QDoubleSpinBox {{
+                background-color: #FFFFFF;
+                color: {T['text_primary']};
+                border: 1px solid {T['border']};
+                border-radius: 7px;
+                padding: 2px 8px;
+                font-size: 12px;
+            }}
+            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
+                background-color: #FFFFFF;
+                border: none;
+                width: 14px;
+            }}
+            QDoubleSpinBox QLineEdit {{
+                background-color: #FFFFFF;
+                border: none;
+                color: {T['text_primary']};
+            }}
+            QDoubleSpinBox:focus {{
+                border-color: {T['primary']};
+            }}
+        """)
+        top_layout.addWidget(self.turbo_grace_spin)
+
+        # ── turbo 点击后 UI 稳定等待（毫秒）：防止点击后立即匹配到旧画面 ──
+        settle_label = QLabel("点后:")
+        settle_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
+        settle_label.setToolTip("点击后UI稳定等待(毫秒)\n极速模式下点击后等一小段，让目标应用处理点击/重绘，避免下一步匹配到点击前的旧画面。默认80ms")
+        top_layout.addWidget(settle_label)
+
+        self.turbo_settle_spin = QSpinBox()
+        self.turbo_settle_spin.setRange(0, 1000)
+        self.turbo_settle_spin.setSingleStep(10)
+        _ts_val = self.skill_data.get('turbo_settle', 80)
+        self.turbo_settle_spin.setValue(int(float(_ts_val) * 1000) if _ts_val is not None else 80)
+        self.turbo_settle_spin.setSuffix(" ms")
+        self.turbo_settle_spin.setFixedWidth(70)
+        self.turbo_settle_spin.setToolTip("点击后UI稳定等待(毫秒)\n极速模式下点击后等一小段，让目标应用处理点击/重绘，避免下一步匹配到点击前的旧画面。默认80ms")
+        self.turbo_settle_spin.setStyleSheet(f"""
+            QSpinBox {{
+                background-color: #FFFFFF;
+                color: {T['text_primary']};
+                border: 1px solid {T['border']};
+                border-radius: 7px;
+                padding: 2px 8px;
+                font-size: 12px;
+            }}
+            QSpinBox::up-button, QSpinBox::down-button {{
+                background-color: #FFFFFF;
+                border: none;
+                width: 14px;
+            }}
+            QSpinBox QLineEdit {{
+                background-color: #FFFFFF;
+                border: none;
+                color: {T['text_primary']};
+            }}
+            QSpinBox:focus {{
+                border-color: {T['primary']};
+            }}
+        """)
+        top_layout.addWidget(self.turbo_settle_spin)
+
         note_btn = QPushButton("备注")
         note_btn.setStyleSheet(self._bar_btn_style())
         note_btn.clicked.connect(self.show_note_page)
@@ -719,6 +798,21 @@ class ComboSkillEditDialog(QDialog):
         wait_time_spin.blockSignals(False)
         condition_layout.addWidget(wait_time_spin)
 
+        # 图片出现等待窗口(秒)：image_found 条件显示（主/else 分支均生效，执行器会判断 else 条件）
+        grace_spin = QDoubleSpinBox()
+        grace_spin.blockSignals(True)
+        grace_spin.setRange(0.1, 10.0)
+        grace_spin.setSingleStep(0.1)
+        grace_spin.setDecimals(1)
+        _wg = flow_data.get('wait_grace', 0.5)
+        grace_spin.setValue(float(_wg) if _wg is not None else 0.5)
+        grace_spin.setFixedWidth(55)
+        grace_spin.setToolTip("图片出现等待窗口(秒)\n未检测到条件图片时先等这么久，期间图片出现立即继续；超时才走else分支")
+        grace_spin.setVisible(condition == "image_found")
+        grace_spin.valueChanged.connect(lambda val, i=index, ie=is_else: self.on_grace_changed(i, val, ie))
+        grace_spin.blockSignals(False)
+        condition_layout.addWidget(grace_spin)
+
         condition_layout.addStretch()
         self.tree_widget.setItemWidget(tree_item, 0, condition_widget)
 
@@ -848,6 +942,7 @@ class ComboSkillEditDialog(QDialog):
             'image_preview': image_preview,
             'img_btn': img_btn,
             'wait_time_spin': wait_time_spin,
+            'grace_spin': grace_spin,
             'action_type_combo': action_type_combo,
             'action_detail_combo': action_detail_combo,
             'delay_spin': delay_spin,
@@ -949,6 +1044,12 @@ class ComboSkillEditDialog(QDialog):
                 # wait_time_spin 同步当前值
                 if is_wait_for_image and 'wait_time_spin' in widget_data:
                     widget_data['wait_time_spin'].setValue(self.flows[index].get('wait_timeout', 30))
+                # grace_spin 仅 image_found 显示，同步当前值
+                is_grace_visible = (condition == "image_found")
+                widget_data['grace_spin'].setVisible(is_grace_visible)
+                if is_grace_visible and 'grace_spin' in widget_data:
+                    _cg = self.flows[index].get('wait_grace', 0.5)
+                    widget_data['grace_spin'].setValue(float(_cg) if _cg is not None else 0.5)
                 if 'else_btn' in widget_data:
                     widget_data['else_btn'].setVisible(need_image)
                 break
@@ -1062,6 +1163,12 @@ class ComboSkillEditDialog(QDialog):
                     # wait_time_spin 同步当前值
                     if is_wait_for_image and 'wait_time_spin' in widget_data:
                         widget_data['wait_time_spin'].setValue(self.flows[index]['else_branch'].get('wait_timeout', 30))
+                    # grace_spin 仅 image_found 显示，同步当前值
+                    is_grace_visible = (condition == "image_found")
+                    widget_data['grace_spin'].setVisible(is_grace_visible)
+                    if is_grace_visible and 'grace_spin' in widget_data:
+                        _eg = self.flows[index]['else_branch'].get('wait_grace', 0.5)
+                        widget_data['grace_spin'].setValue(float(_eg) if _eg is not None else 0.5)
                     break
 
     def on_wait_time_changed(self, index, value, is_else=False):
@@ -1070,6 +1177,13 @@ class ComboSkillEditDialog(QDialog):
                 self.flows[index]['else_branch']['wait_timeout'] = value
         else:
             self.flows[index]['wait_timeout'] = value
+
+    def on_grace_changed(self, index, value, is_else=False):
+        if is_else:
+            if self.flows[index].get('else_branch'):
+                self.flows[index]['else_branch']['wait_grace'] = value
+        else:
+            self.flows[index]['wait_grace'] = value
 
     def on_delay_changed(self, index, value, is_else=False):
         if is_else:
@@ -1793,6 +1907,12 @@ class ComboSkillEditDialog(QDialog):
         # step_interval: 录制流程内每个操作步骤之间的统一间隔（秒），None表示用系统默认(0.1秒)
         step_interval = self._get_effective_step_interval() if hasattr(self, 'step_interval_default_cb') \
             else self.skill_data.get('step_interval', None)
+        # turbo_grace: 极速模式下图片出现等待窗口（秒），默认0.5
+        turbo_grace = self.turbo_grace_spin.value() if hasattr(self, 'turbo_grace_spin') \
+            else self.skill_data.get('turbo_grace', 0.5)
+        # turbo_settle: 极速模式下点击后UI稳定等待（秒），默认0.08
+        turbo_settle = self.turbo_settle_spin.value() / 1000.0 if hasattr(self, 'turbo_settle_spin') \
+            else self.skill_data.get('turbo_settle', 0.08)
 
         result = {
             "name": name,
@@ -1803,6 +1923,8 @@ class ComboSkillEditDialog(QDialog):
             "stop_shortcut": stop_shortcut,
             "note": note,
             "skip_on_fail": skip_on_fail,
+            "turbo_grace": turbo_grace,
+            "turbo_settle": turbo_settle,
         }
         # step_interval: None 表示默认，不存（省空间）；具体数值才保存
         if step_interval is not None:
