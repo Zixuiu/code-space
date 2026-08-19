@@ -127,14 +127,57 @@ def push_via_token():
     return False
 
 
+GITHUB_URL = "github.com/Zixuiu/code-space.git"
+
+
+def get_github_token():
+    """读取 GitHub personal access token：环境变量 GITHUB_TOKEN > 本地文件 ~/.ssh/github_token（不入库）"""
+    env_tok = os.environ.get("GITHUB_TOKEN", "").strip()
+    if env_tok:
+        return env_tok
+    tok_file = os.path.join(os.path.expanduser("~"), ".ssh", "github_token")
+    try:
+        if os.path.exists(tok_file):
+            with open(tok_file, "r", encoding="utf-8") as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return None
+
+
+def push_github_via_token():
+    """HTTPS + GitHub PAT 推送到 GitHub；token 仅在本次命令的 URL 中，不写入 git config"""
+    token = get_github_token()
+    if not token:
+        log("未找到 GitHub token：请设置环境变量 GITHUB_TOKEN，或在 ~/.ssh/github_token 写入 token", "ERROR")
+        return False
+    os.environ['GIT_TERMINAL_PROMPT'] = '0'
+    https_url = f"https://{token}@{GITHUB_URL}"
+    log("使用 HTTPS + token 方式推送到 GitHub ...", "INFO")
+    r = run_cmd(f'git -c credential.helper= push "{https_url}" HEAD:main', timeout=180)
+    if r.returncode == 0:
+        log("🎉 推送成功（GitHub HTTPS + token）！代码已上传到 GitHub！", "SUCCESS")
+        return True
+    err = (r.stdout or "") + (r.stderr or "")
+    if "permission denied" in err.lower() or "401" in err or "403" in err:
+        log("GitHub Token 认证失败：请检查 token 是否有效、是否有写权限，以及仓库 Zixuiu/codespace 是否存在", "ERROR")
+    else:
+        err_lines = [l for l in err.split('\n')
+                     if not any(x in l for x in ['SAFE_RM', 'otFound', '无法将', 'NotFound',
+                                                  '所在位置', 'CategoryInfo', 'FullyQualifiedErrorId'])]
+        clean_err = '\n'.join(err_lines).strip()
+        log(f"GitHub 推送失败: {clean_err[:400] or ('返回码 ' + str(r.returncode))}", "WARNING")
+    return False
+
+
 def main():
     print("=" * 70)
-    print("🚀 GitCode 一键推送工具（保护本地组合技/快捷键/录制数据不被上传）")
+    print("🚀 GitCode + GitHub 一键推送工具（保护本地组合技/快捷键/录制数据不被上传）")
     print("=" * 70)
     print(f"📁 工作目录: {BASE_DIR}")
 
     # Step 1+2: 配置 SSH 并检查私钥 + 认证
-    log("\n步骤 1-2/5: 配置 SSH 公钥 / 私钥 / 客户端...")
+    log("\n步骤 1-2/6: 配置 SSH 公钥 / 私钥 / 客户端...")
     ssh_ok, pub_key_file, config_file = setup_ssh_and_check()
     use_token = not ssh_ok
     if ssh_ok:
@@ -146,7 +189,7 @@ def main():
     # 用 `git diff --cached --quiet` 的退出码作为唯一判断依据（最可靠，不解析文本输出）：
     #   退出码 0 = 暂存区无差异（无需提交）
     #   退出码 1 = 暂存区有差异（需要提交）
-    log("\n步骤 3/5: 暂存并提交改动...")
+    log("\n步骤 3/6: 暂存并提交改动...")
     run_cmd("git add -A")
     r_diff = run_cmd("git diff --cached --quiet")
     if r_diff.returncode == 0:
@@ -169,7 +212,7 @@ def main():
             log("提交失败，错误信息: " + (r.stderr.strip() or r.stdout.strip())[:400], "ERROR")
 
     # Step 4: 设置远程仓库为 SSH
-    log("\n步骤 4/5: 配置远程仓库为 SSH 协议...")
+    log("\n步骤 4/6: 配置远程仓库为 SSH 协议...")
     r = run_cmd(f'git remote set-url origin "{SSH_URL}"')
     if r.returncode == 0:
         log(f"远程仓库已设置为: {SSH_URL}", "SUCCESS")
@@ -182,7 +225,7 @@ def main():
                 print(f"   {line.strip()}")
 
     # Step 5: 推送代码
-    log("\n步骤 5/5: 推送到 GitCode...")
+    log("\n步骤 5/6: 推送到 GitCode...")
     if ssh_ok:
         os.environ['GIT_SSH_COMMAND'] = 'ssh -o BatchMode=yes -o StrictHostKeyChecking=no'
         os.environ['GIT_TERMINAL_PROMPT'] = '0'
@@ -209,6 +252,11 @@ def main():
         if not ok:
             sys.exit(1)
 
+    # Step 6: 推送到 GitHub
+    log("\n步骤 6/6: 推送到 GitHub...")
+    if not push_github_via_token():
+        sys.exit(1)
+
     # 摘要
     print("\n" + "=" * 70)
     print("📋 操作总结")
@@ -217,6 +265,7 @@ def main():
     print(f"✅ SSH 配置: {config_file}")
     print(f"✅ 项目目录: {BASE_DIR}")
     print(f"✅ 远程仓库: {SSH_URL if ssh_ok else 'https://gitcode.com/weixin_58844486/codespace.git'}")
+    print(f"✅ GitHub: https://{GITHUB_URL}")
     print(f"ℹ️  注意: 本地组合技、快捷键、录制文件夹、*.db 数据库不会被推送（已受保护）")
     print("=" * 70)
 
