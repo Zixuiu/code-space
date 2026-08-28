@@ -3747,6 +3747,8 @@ class FolderManager(QDialog):
         line = QFrame()
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
+        line.setFixedHeight(1)
+        line.setStyleSheet("background-color:#d9d9d9;")
         layout.addWidget(line)
         
         # 操作步骤

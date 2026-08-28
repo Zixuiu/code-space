@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>教程卡片 · 10 种样式选型</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=LXGW+WenKai&family=Cascadia+Code:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:#eceef2; color:#1d2129; padding:48px 32px 90px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  header{margin-bottom:40px;}
+  .kicker{letter-spacing:.25em;font-size:12px;color:#8a93a3;font-weight:700;}
+  h1{font-size:30px;margin:8px 0 6px;}
+  .sub{color:#697180;font-size:14px;line-height:1.7;}
+  .item{
+    background:#fff;border:1px solid #e3e6ec;border-radius:14px;
+    margin-bottom:34px;overflow:hidden;box-shadow:0 2px 10px rgba(20,30,60,.05);
+  }
+  .bar{
+    display:flex;align-items:center;gap:10px;padding:12px 18px;
+    border-bottom:1px solid #eef0f4;background:#fafbfc;
+  }
+  .bar .no{
+    width:26px;height:26px;border-radius:50%;background:#1d2129;color:#fff;
+    display:grid;place-items:center;font-weight:700;font-size:13px;
+  }
+  .bar h3{font-size:14px;}
+  .bar .tag{margin-left:auto;font-size:11px;color:#8a93a3;background:#f0f2f6;border:1px solid #e3e6ec;padding:3px 10px;border-radius:20px;}
+  .stage{padding:26px;display:flex;justify-content:center;}
+  .card{width:560px;border-radius:10px;}
+
+  /* ============ 01 极简清单 ============ */
+  .s1{background:#fff;border:1px solid #e8eaf0;padding:30px 34px;}
+  .s1 .step{font-size:11px;font-weight:700;letter-spacing:.2em;color:#0a84ff;margin-bottom:10px;}
+  .s1 h2{font-size:20px;color:#111;margin-bottom:4px;}
+  .s1 .ask{font-size:14px;color:#0a84ff;font-weight:600;margin-bottom:18px;}
+  .s1 ul{list-style:none;border-top:1px solid #eef0f4;}
+  .s1 li{display:flex;align-items:baseline;gap:10px;padding:9px 2px;border-bottom:1px solid #eef0f4;font-size:13.5px;color:#333;}
+  .s1 li b{color:#111;font-weight:600;white-space:nowrap;}
+  .s1 .arrow{color:#b8bec9;font-size:12px;margin:0 1px;}
+  .s1 .pain{margin-top:18px;font-size:14px;color:#111;font-weight:700;}
+  .s1 .gray{font-size:12.5px;color:#98a0ad;margin-top:4px;}
+  .s1 .point{
+    margin-top:18px;background:#f2f8ff;border-left:3px solid #0a84ff;
+    padding:10px 14px;font-size:13.5px;color:#0a5fd0;font-weight:600;border-radius:0 8px 8px 0;
+  }
+
+  /* ============ 02 终端风 ============ */
+  .s2{
+    background:#161b22;border:1px solid #2d333b;padding:0;overflow:hidden;
+    font-family:"Cascadia Code","Consolas",monospace;
+  }
+  .s2 .titlebar{display:flex;gap:6px;padding:10px 14px;background:#1c2128;border-bottom:1px solid #2d333b;}
+  .s2 .dot{width:10px;height:10px;border-radius:50%;}
+  .s2 .body{padding:20px 24px 24px;font-size:13px;line-height:1.9;color:#c9d1d9;}
+  .s2 .cmd{color:#7ee787;}
+  .s2 .cmd::before{content:"$ ";color:#58a6ff;}
+  .s2 h2{color:#f2f6fa;font-size:15px;margin:12px 0 8px;}
+  .s2 h2 .cursor{display:inline-block;width:8px;height:15px;background:#7ee787;vertical-align:-2px;margin-left:4px;}
+  .s2 .line{padding-left:18px;position:relative;color:#adbac7;}
+  .s2 .line::before{content:">";position:absolute;left:0;color:#58a6ff;}
+  .s2 .warn{margin-top:14px;color:#e3b341;}
+  .s2 .dim{color:#6e7681;font-size:12px;}
+  .s2 .green{margin-top:12px;color:#7ee787;font-weight:700;}
+  .s2 .green::before{content:"[✓] ";}
+
+  /* ============ 03 杂志编辑风 ============ */
+  .s3{background:#fbf9f4;border:1px solid #e7e1d3;padding:34px 38px;font-family:"Noto Serif SC","SimSun",serif;}
+  .s3 .kicker{display:flex;align-items:center;gap:12px;font-size:11px;letter-spacing:.35em;color:#a4352a;font-weight:700;}
+  .s3 .kicker::after{content:"";flex:1;height:1px;background:#d8d0bd;}
+  .s3 h2{font-size:26px;font-weight:900;color:#1c1a16;margin:12px 0 2px;line-height:1.35;}
+  .s3 h2 em{font-style:normal;color:#a4352a;}
+  .s3 .ask{font-size:14px;color:#6d675a;margin-bottom:18px;}
+  .s3 ol{list-style:none;counter-reset:m;}
+  .s3 li{
+    counter-increment:m;display:flex;gap:14px;padding:10px 0;
+    border-bottom:1px solid #e8e2d2;font-size:13.5px;color:#33302a;align-items:baseline;
+  }
+  .s3 li::before{content:counter(m,cjk-ideographic);font-weight:900;color:#a4352a;font-size:14px;}
+  .s3 .arrow{color:#b5ad99;margin:0 2px;}
+  .s3 .pain{margin-top:20px;font-size:16px;font-weight:900;color:#1c1a16;}
+  .s3 .gray{font-size:12.5px;color:#8d8676;margin-top:5px;}
+  .s3 .point{
+    margin-top:18px;text-align:center;font-size:14.5px;font-weight:900;color:#a4352a;
+    border-top:2px solid #1c1a16;border-bottom:2px solid #1c1a16;padding:12px 0;
+  }
+
+  /* ============ 04 便签手作风 ============ */
+  .s4{
+    background:#fffdf5;border:1px solid #ece4cf;padding:30px 32px 26px;position:relative;
+    font-family:"LXGW WenKai","KaiTi",serif;box-shadow:0 6px 18px rgba(160,140,90,.15);
+  }
+  .s4::before{
+    content:"";position:absolute;top:-10px;left:50%;transform:translateX(-50%) rotate(-2deg);
+    width:110px;height:22px;background:repeating-linear-gradient(45deg,#f9c6d0 0 6px,#f7b8c5 6px 12px);
+    opacity:.85;border-radius:2px;
+  }
+  .s4 .step{font-size:13px;color:#c2703e;font-weight:700;margin-bottom:6px;}
+  .s4 h2{font-size:21px;color:#4a3f2f;margin-bottom:2px;}
+  .s4 .ask{font-size:14.5px;color:#c2703e;margin-bottom:16px;}
+  .s4 ul{list-style:none;}
+  .s4 li{font-size:14px;color:#5a5142;padding:6px 0 6px 26px;position:relative;}
+  .s4 li::before{content:"✎";position:absolute;left:2px;color:#d4a94e;}
+  .s4 .arrow{color:#c9b98c;margin:0 2px;}
+  .s4 .pain{margin-top:14px;font-size:16px;color:#4a3f2f;font-weight:700;}
+  .s4 .pain .mark{background:linear-gradient(transparent 62%,#fde697 62%);}
+  .s4 .gray{font-size:13px;color:#a89a7e;margin-top:4px;}
+  .s4 .point{
+    margin-top:16px;background:#fff7e0;border:1.5px dashed #d4a94e;border-radius:10px;
+    padding:10px 14px;font-size:14px;color:#a2662a;font-weight:700;
+  }
+
+  /* ============ 05 对话气泡风 ============ */
+  .s5{background:#f2f3f7;border:1px solid #e4e6ee;padding:26px 26px 22px;}
+  .s5 .head{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+  .s5 .avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#0a84ff,#5ac8fa);display:grid;place-items:center;font-size:17px;}
+  .s5 .head .t{font-size:15px;font-weight:700;color:#111;}
+  .s5 .head .d{font-size:11px;color:#98a0ad;}
+  .s5 .bubble{
+    background:#fff;border-radius:14px 14px 14px 4px;padding:10px 14px;
+    font-size:13.5px;color:#222;box-shadow:0 1px 3px rgba(0,0,0,.06);
+    margin-bottom:10px;max-width:86%;
+  }
+  .s5 .bubble.q{font-weight:700;color:#0a84ff;}
+  .s5 .bubble .arrow{color:#b8bec9;margin:0 1px;}
+  .s5 .bubble.sys{background:#e6e9f0;color:#555;border-radius:14px 14px 4px 14px;margin-left:auto;max-width:80%;}
+  .s5 .bubble.warn{background:#fff4e5;color:#8a5a00;}
+  .s5 .bubble.key{
+    background:linear-gradient(135deg,#0a84ff,#3e6fff);color:#fff;font-weight:700;
+    border-radius:14px 14px 14px 4px;box-shadow:0 4px 12px rgba(10,90,255,.3);
+  }
+
+  /* ============ 06 渐变横幅风 ============ */
+  .s6{background:#fff;border:1px solid #e8eaf0;overflow:hidden;}
+  .s6 .banner{
+    background:linear-gradient(120deg,#0a84ff 0%,#3e6fff 55%,#5ac8fa 100%);
+    padding:22px 30px;color:#fff;position:relative;overflow:hidden;
+  }
+  .s6 .banner::after{
+    content:"⌨️";position:absolute;right:18px;bottom:-14px;font-size:74px;opacity:.18;
+  }
+  .s6 .step{font-size:11px;font-weight:700;letter-spacing:.22em;opacity:.85;margin-bottom:6px;}
+  .s6 h2{font-size:20px;margin-bottom:3px;}
+  .s6 .ask{font-size:13px;opacity:.92;}
+  .s6 .body{padding:20px 30px 24px;}
+  .s6 .row{display:flex;gap:12px;align-items:center;padding:9px 0;border-bottom:1px dashed #e8eaf0;font-size:13.5px;color:#333;}
+  .s6 .row:last-of-type{border-bottom:none;}
+  .s6 .chip{
+    width:24px;height:24px;border-radius:7px;background:#eef4ff;color:#0a84ff;
+    display:grid;place-items:center;font-size:12px;font-weight:700;flex-shrink:0;
+  }
+  .s6 .arrow{color:#b8bec9;margin:0 1px;}
+  .s6 .pain{margin-top:14px;font-size:14.5px;color:#111;font-weight:700;}
+  .s6 .gray{font-size:12.5px;color:#98a0ad;margin-top:3px;}
+  .s6 .point{
+    margin-top:16px;background:#111;color:#7ee787;border-radius:10px;
+    padding:12px 16px;font-size:13.5px;font-weight:600;
+  }
+
+  /* ============ 07 暗色霓虹风 ============ */
+  .s7{
+    background:#12141c;border:1px solid #262a3a;padding:30px 32px;position:relative;overflow:hidden;
+  }
+  .s7::before{
+    content:"";position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;
+    background:radial-gradient(circle,rgba(94,92,230,.35),transparent 70%);
+  }
+  .s7 .step{font-size:11px;font-weight:700;letter-spacing:.25em;color:#8b8ff8;margin-bottom:10px;}
+  .s7 h2{
+    font-size:21px;color:#f2f3fa;margin-bottom:4px;
+    background:linear-gradient(90deg,#a5b4fc,#67e8f9);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  .s7 .ask{font-size:13.5px;color:#9aa1b5;margin-bottom:18px;}
+  .s7 ul{list-style:none;}
+  .s7 li{
+    font-size:13.5px;color:#c6cadd;padding:8px 12px;margin-bottom:7px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:9px;
+  }
+  .s7 li b{color:#e8eaf5;font-weight:600;}
+  .s7 .arrow{color:#5d6478;margin:0 2px;}
+  .s7 .pain{margin-top:16px;font-size:15px;color:#f2f3fa;font-weight:700;}
+  .s7 .gray{font-size:12.5px;color:#767e93;margin-top:4px;}
+  .s7 .point{
+    margin-top:16px;padding:11px 15px;border-radius:10px;font-size:13.5px;font-weight:700;
+    background:linear-gradient(90deg,rgba(139,143,248,.18),rgba(103,232,249,.14));
+    border:1px solid rgba(139,143,248,.35);color:#c7cbff;
+  }
+
+  /* ============ 08 大数字留白风 ============ */
+  .s8{background:#fff;border:1px solid #e8eaf0;padding:34px 40px;position:relative;overflow:hidden;}
+  .s8 .big{
+    position:absolute;right:14px;top:-26px;font-size:150px;font-weight:900;
+    color:transparent;-webkit-text-stroke:1.5px #eef0f5;line-height:1;user-select:none;
+  }
+  .s8 .step{font-size:11px;font-weight:700;letter-spacing:.22em;color:#98a0ad;margin-bottom:12px;}
+  .s8 h2{font-size:22px;color:#111;font-weight:800;margin-bottom:6px;position:relative;}
+  .s8 .ask{font-size:14px;color:#0a84ff;font-weight:600;margin-bottom:22px;position:relative;}
+  .s8 ul{list-style:none;position:relative;}
+  .s8 li{
+    font-size:13.5px;color:#444;padding:7px 0;display:flex;align-items:baseline;gap:12px;
+  }
+  .s8 li b{color:#111;font-weight:600;white-space:nowrap;}
+  .s8 li::before{content:"";width:5px;height:5px;background:#0a84ff;border-radius:50%;flex-shrink:0;align-self:center;}
+  .s8 .arrow{color:#c6ccd6;margin:0 1px;}
+  .s8 hr{border:none;border-top:1px solid #eef0f4;margin:18px 0 14px;}
+  .s8 .pain{font-size:15px;color:#111;font-weight:700;}
+  .s8 .gray{font-size:12.5px;color:#98a0ad;margin-top:5px;}
+  .s8 .point{margin-top:16px;font-size:14px;color:#0a84ff;font-weight:700;}
+
+  /* ============ 09 荧光笔强调风 ============ */
+  .s9{
+    background:#fffdf7;border:1px solid #f0e6cf;border-top:5px solid #f5b800;
+    padding:28px 32px;box-shadow:0 8px 22px rgba(200,160,40,.12);
+  }
+  .s9 .step{display:inline-block;background:#f5b800;color:#3d2e00;font-size:11px;font-weight:800;letter-spacing:.12em;padding:4px 12px;border-radius:5px;margin-bottom:12px;}
+  .s9 h2{font-size:21px;color:#241c05;margin-bottom:4px;}
+  .s9 .ask{font-size:15px;color:#6b5a1e;font-weight:700;margin-bottom:18px;}
+  .s9 ul{list-style:none;}
+  .s9 li{font-size:14px;color:#3c3418;padding:6px 0 6px 24px;position:relative;}
+  .s9 li::before{content:"▸";position:absolute;left:4px;color:#f5b800;font-weight:900;}
+  .s9 .arrow{color:#cbb87a;margin:0 2px;}
+  .s9 .pain{margin-top:16px;font-size:17px;color:#241c05;font-weight:900;}
+  .s9 .pain .hl{background:linear-gradient(transparent 55%,#ffe066 55%);padding:0 2px;}
+  .s9 .gray{font-size:13px;color:#a1935e;margin-top:5px;}
+  .s9 .point{
+    margin-top:18px;background:#241c05;color:#ffd43b;border-radius:9px;
+    padding:13px 16px;font-size:14px;font-weight:700;display:flex;gap:9px;align-items:center;
+  }
+
+  /* ============ 10 网格卡片风 ============ */
+  .s10{background:#f7f8fb;border:1px solid #e6e9f0;padding:26px 28px;}
+  .s10 .step{font-size:11px;font-weight:700;letter-spacing:.2em;color:#98a0ad;margin-bottom:8px;}
+  .s10 h2{font-size:19px;color:#111;margin-bottom:3px;}
+  .s10 .ask{font-size:13.5px;color:#0a84ff;font-weight:600;margin-bottom:16px;}
+  .s10 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+  .s10 .g{
+    background:#fff;border:1px solid #e6e9f0;border-radius:11px;padding:12px 13px;
+    box-shadow:0 1px 3px rgba(20,30,60,.04);
+  }
+  .s10 .g .t{font-size:13px;font-weight:700;color:#111;margin-bottom:5px;display:flex;gap:7px;align-items:center;}
+  .s10 .g .ic{font-size:15px;}
+  .s10 .g .d{font-size:11.5px;color:#98a0ad;line-height:1.65;}
+  .s10 .g .arrow{color:#c6ccd6;margin:0 1px;}
+  .s10 .pain{font-size:14.5px;color:#111;font-weight:700;}
+  .s10 .gray{font-size:12px;color:#98a0ad;margin-top:3px;margin-bottom:12px;}
+  .s10 .point{
+    background:#0a84ff;color:#fff;border-radius:10px;padding:12px 15px;
+    font-size:13px;font-weight:600;display:flex;gap:9px;align-items:center;
+    box-shadow:0 4px 14px rgba(10,90,255,.28);
+  }
+
+  footer{text-align:center;color:#9aa3b2;font-size:13px;margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Style Selection</div>
+    <h1>教程卡片 · 10 种样式</h1>
+    <p class="sub">同一段「第一步」内容，10 种视觉方向的真实大小预览。挑一个编号告诉我，我把它实现进程序（其余四步会用同一风格套用）。</p>
+  </header>
+
+  <!-- 01 -->
+  <div class="item">
+    <div class="bar"><span class="no">1</span><h3>极简清单</h3><span class="tag">白底 · 分隔线列表 · 蓝色引言条</span></div>
+    <div class="stage">
+      <div class="card s1">
+        <div class="step">STEP 1 / 5</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ul>
+          <li><b>早上开工</b><span><span class="arrow">→</span> Chrome <span class="arrow">→</span> 微信 <span class="arrow">→</span> 钉钉 <span class="arrow">→</span> 邮箱 <span class="arrow">→</span> 办公软件</span></li>
+          <li><b>填日报</b><span><span class="arrow">→</span> 复制粘贴 <span class="arrow">→</span> 改日期 <span class="arrow">→</span> 改数据 <span class="arrow">→</span> 发送</span></li>
+          <li><b>登录系统</b><span><span class="arrow">→</span> 输账号 <span class="arrow">→</span> 输密码 <span class="arrow">→</span> 点登录</span></li>
+          <li><b>导出数据</b><span><span class="arrow">→</span> 点菜单 <span class="arrow">→</span> 点导出 <span class="arrow">→</span> 选格式 <span class="arrow">→</span> 保存</span></li>
+        </ul>
+        <div class="pain">一天两天没什么，但一年两年呢？</div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 -->
+  <div class="item">
+    <div class="bar"><span class="no">2</span><h3>终端极客风</h3><span class="tag">深色 · 等宽字体 · 命令行隐喻（跟软件主题最搭）</span></div>
+    <div class="stage">
+      <div class="card s2">
+        <div class="titlebar">
+          <span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+        </div>
+        <div class="body">
+          <div class="cmd">check 每日日常 --repeat=每天</div>
+          <h2>你每天在当机器人吗？<span class="cursor"></span></h2>
+          <div class="line">早上开工 <span style="color:#58a6ff">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</div>
+          <div class="line">填日报 <span style="color:#58a6ff">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</div>
+          <div class="line">登录系统 <span style="color:#58a6ff">→</span> 输账号 → 输密码 → 点登录</div>
+          <div class="line">导出数据 <span style="color:#58a6ff">→</span> 点菜单 → 点导出 → 选格式 → 保存</div>
+          <div class="warn">⚠ 一天两天没什么，但一年两年呢？</div>
+          <div class="dim">// 这些动作你重复了成千上万次，浪费了几百个小时。</div>
+          <div class="green">这个软件的意义：你只需要做一次，以后它替你干。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 03 -->
+  <div class="item">
+    <div class="bar"><span class="no">3</span><h3>杂志编辑风</h3><span class="tag">衬线大标题 · 中文序号 · 红黑配色</span></div>
+    <div class="stage">
+      <div class="card s3">
+        <div class="kicker">第一步 · STEP ONE</div>
+        <h2>你每天在<em>当机器人</em>吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ol>
+          <li><span>早上开工 <span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</span></li>
+          <li><span>填日报 <span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</span></li>
+          <li><span>登录系统 <span class="arrow">→</span> 输账号 → 输密码 → 点登录</span></li>
+          <li><span>导出数据 <span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</span></li>
+        </ol>
+        <div class="pain">一天两天没什么，但一年两年呢？</div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 04 -->
+  <div class="item">
+    <div class="bar"><span class="no">4</span><h3>手账便签风</h3><span class="tag">米色纸感 · 楷体 · 荧光笔划重点</span></div>
+    <div class="stage">
+      <div class="card s4">
+        <div class="step">📌 第一步</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ul>
+          <li>早上开工 <span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</li>
+          <li>填日报 <span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</li>
+          <li>登录系统 <span class="arrow">→</span> 输账号 → 输密码 → 点登录</li>
+          <li>导出数据 <span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</li>
+        </ul>
+        <div class="pain"><span class="mark">一天两天没什么，但一年两年呢？</span></div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05 -->
+  <div class="item">
+    <div class="bar"><span class="no">5</span><h3>对话气泡风</h3><span class="tag">聊天气泡 · 拟人化助手 · 轻松</span></div>
+    <div class="stage">
+      <div class="card s5">
+        <div class="head">
+          <div class="avatar">🤖</div>
+          <div><div class="t">自动化助手</div><div class="d">第一步 · 先聊五毛钱的</div></div>
+        </div>
+        <div class="bubble q">你每天在当机器人吗？—— 这些事情是不是每天都在做？</div>
+        <div class="bubble">早上打开 Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</div>
+        <div class="bubble">填日报：复制粘贴 → 改日期 → 改数据 → 发送</div>
+        <div class="bubble">登录系统：输账号 → 输密码 → 点登录</div>
+        <div class="bubble">导出数据：点菜单 → 点导出 → 选格式 → 保存</div>
+        <div class="bubble sys">一天两天没什么，但一年两年呢……这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="bubble warn">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06 -->
+  <div class="item">
+    <div class="bar"><span class="no">6</span><h3>渐变横幅 + 编号行</h3><span class="tag">蓝色渐变头图 · 大图标水印 · 层次分明</span></div>
+    <div class="stage">
+      <div class="card s6">
+        <div class="banner">
+          <div class="step">STEP 1 / 5</div>
+          <h2>你每天在当机器人吗？</h2>
+          <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        </div>
+        <div class="body">
+          <div class="row"><span class="chip">1</span><span>早上开工 <span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</span></div>
+          <div class="row"><span class="chip">2</span><span>填日报 <span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</span></div>
+          <div class="row"><span class="chip">3</span><span>登录系统 <span class="arrow">→</span> 输账号 → 输密码 → 点登录</span></div>
+          <div class="row"><span class="chip">4</span><span>导出数据 <span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</span></div>
+          <div class="pain">一天两天没什么，但一年两年呢？</div>
+          <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+          <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 07 -->
+  <div class="item">
+    <div class="bar"><span class="no">7</span><h3>暗色渐变玻璃风</h3><span class="tag">深空底 · 渐变标题 · 半透明卡片行</span></div>
+    <div class="stage">
+      <div class="card s7">
+        <div class="step">STEP 1 / 5</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ul>
+          <li><b>早上开工</b> <span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</li>
+          <li><b>填日报</b> <span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</li>
+          <li><b>登录系统</b> <span class="arrow">→</span> 输账号 → 输密码 → 点登录</li>
+          <li><b>导出数据</b> <span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</li>
+        </ul>
+        <div class="pain">一天两天没什么，但一年两年呢？</div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 08 -->
+  <div class="item">
+    <div class="bar"><span class="no">8</span><h3>大数字留白风</h3><span class="tag">超大「01」水印 · 极简排版 · 呼吸感</span></div>
+    <div class="stage">
+      <div class="card s8">
+        <div class="big">01</div>
+        <div class="step">第一步 / 共五步</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ul>
+          <li><b>早上开工</b><span><span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</span></li>
+          <li><b>填日报</b><span><span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</span></li>
+          <li><b>登录系统</b><span><span class="arrow">→</span> 输账号 → 输密码 → 点登录</span></li>
+          <li><b>导出数据</b><span><span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</span></li>
+        </ul>
+        <hr>
+        <div class="pain">一天两天没什么，但一年两年呢？</div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 09 -->
+  <div class="item">
+    <div class="bar"><span class="no">9</span><h3>荧光笔警示风</h3><span class="tag">琥珀色顶条 · 荧光划重点 · 强冲击</span></div>
+    <div class="stage">
+      <div class="card s9">
+        <div class="step">第一步</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">问问自己 —— 这些事情是不是每天都在做？</div>
+        <ul>
+          <li>早上开工 <span class="arrow">→</span> Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</li>
+          <li>填日报 <span class="arrow">→</span> 复制粘贴 → 改日期 → 改数据 → 发送</li>
+          <li>登录系统 <span class="arrow">→</span> 输账号 → 输密码 → 点登录</li>
+          <li>导出数据 <span class="arrow">→</span> 点菜单 → 点导出 → 选格式 → 保存</li>
+        </ul>
+        <div class="pain"><span class="hl">一天两天没什么，但一年两年呢？</span></div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡&nbsp;这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10 -->
+  <div class="item">
+    <div class="bar"><span class="no">10</span><h3>网格卡片风</h3><span class="tag">2×2 场景小卡 · 蓝色结论条 · 信息密度高</span></div>
+    <div class="stage">
+      <div class="card s10">
+        <div class="step">STEP 1 / 5</div>
+        <h2>你每天在当机器人吗？</h2>
+        <div class="ask">这些事情是不是每天都在做？</div>
+        <div class="grid">
+          <div class="g"><div class="t"><span class="ic">🌅</span>早上开工</div><div class="d">Chrome <span class="arrow">→</span> 微信 <span class="arrow">→</span> 钉钉 <span class="arrow">→</span> 邮箱 <span class="arrow">→</span> 办公软件</div></div>
+          <div class="g"><div class="t"><span class="ic">📝</span>填日报</div><div class="d">复制粘贴 <span class="arrow">→</span> 改日期 <span class="arrow">→</span> 改数据 <span class="arrow">→</span> 发送</div></div>
+          <div class="g"><div class="t"><span class="ic">🔑</span>登录系统</div><div class="d">输账号 <span class="arrow">→</span> 输密码 <span class="arrow">→</span> 点登录</div></div>
+          <div class="g"><div class="t"><span class="ic">📤</span>导出数据</div><div class="d">点菜单 <span class="arrow">→</span> 点导出 <span class="arrow">→</span> 选格式 <span class="arrow">→</span> 保存</div></div>
+        </div>
+        <div class="pain">一天两天没什么，但一年两年呢？</div>
+        <div class="gray">这些动作你重复了成千上万次，浪费了几百个小时。</div>
+        <div class="point">💡 这个软件的意义：你只需要做一次，以后它替你干。</div>
+      </div>
+    </div>
+  </div>
+
+  <header style="margin-top:56px;">
+    <div class="kicker">Step 2 · Copy Selection</div>
+    <h1 style="font-size:24px;">第二步内容 · 10 个文案版本</h1>
+    <p class="sub">已按真实机制重写：左键框选=左击、右键框选=右击、K=模拟按键、T=模拟输入文本、ESC=结束保存。只比较<b>内容本身</b>，回复「V几」即可。</p>
+  </header>
+
+  <!-- V1 四种指令 -->
+  <div class="item">
+    <div class="bar"><span class="no">V1</span><h3>四种指令</h3><span class="tag">核心机制 · 一屏记全</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">录制时只有 4 个指令，记住就会用</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">�️</span>左键框选</div><div class="d">视为【左键单击】</div></div>
+        <div class="g"><div class="t"><span class="ic">🖱️</span>右键框选</div><div class="d">视为【右键单击】</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>按 K 键</div><div class="d">模拟【键盘按键】</div></div>
+        <div class="g"><div class="t"><span class="ic">🅣</span>按 T 键</div><div class="d">模拟【输入文本】</div></div>
+      </div>
+      <div class="pain">按 ESC 结束录制，流程自动保存。</div>
+      <div class="point">✔ 就这 4 个指令 + ESC，你已经都会了。</div>
+    </div></div>
+  </div>
+
+  <!-- V2 时间线 -->
+  <div class="item">
+    <div class="bar"><span class="no">V2</span><h3>30 秒时间线</h3><span class="tag">强调「很快学会」</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">从点击到保存，只要 30 秒</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">⏱️</span>第 0 秒</div><div class="d">点〈录制〉，按钮变红</div></div>
+        <div class="g"><div class="t"><span class="ic">🖱️</span>第 10 秒</div><div class="d">左键框选=左击，右键框选=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>第 20 秒</div><div class="d">按 K 模拟按键，按 T 输入文本</div></div>
+        <div class="g"><div class="t"><span class="ic">💾</span>第 30 秒</div><div class="d">按 ESC，自动保存进〈流程管理〉</div></div>
+      </div>
+      <div class="pain">点击、右键、打字、按键 —— 它全都学得会。</div>
+      <div class="point">⏱️ 30 秒换一辈子，这笔账怎么算都值。</div>
+    </div></div>
+  </div>
+
+  <!-- V3 新旧对比 -->
+  <div class="item">
+    <div class="bar"><span class="no">V3</span><h3>新旧对比</h3><span class="tag">痛点共鸣 · 强动机</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">你每天的操作，它样样都能学</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">�️</span>鼠标点击</div><div class="d">左键框选=左击，右键框选=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>敲键盘</div><div class="d">按 K 键，模拟任意按键</div></div>
+        <div class="g"><div class="t"><span class="ic">�</span>打字填表</div><div class="d">按 T 键，模拟输入文本</div></div>
+      </div>
+      <div class="pain">差别不是今天省几分钟，而是以后每天都不用做。</div>
+      <div class="point">✔ ESC 保存后，一次录制 = 永久下班。</div>
+    </div></div>
+  </div>
+
+  <!-- V4 手把手 -->
+  <div class="item">
+    <div class="bar"><span class="no">V4</span><h3>手把手带做</h3><span class="tag">最保姆 · 跟着做一遍</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">现在就跟我做，试一次就懂</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">�</span>点〈录制〉变红</div><div class="d">红色 = 正在录制</div></div>
+        <div class="g"><div class="t"><span class="ic">�️</span>随便框一个按钮</div><div class="d">左键框=左击，右键框=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>按 K 或 T</div><div class="d">模拟按键 / 输入文本</div></div>
+        <div class="g"><div class="t"><span class="ic">⎋</span>按 ESC 结束</div><div class="d">自动保存，立刻能用</div></div>
+      </div>
+      <div class="pain">不用装任何东西，录完立刻回放。</div>
+      <div class="point">🎉 你刚学会了这个软件 80% 的功能。</div>
+    </div></div>
+  </div>
+
+  <!-- V5 规则表 -->
+  <div class="item">
+    <div class="bar"><span class="no">V5</span><h3>操作规则表</h3><span class="tag">零步骤记忆 · 查表即会</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">别背步骤，看懂这张对照表就行</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">⬅️</span>左键框选</div><div class="d">= 左键单击</div></div>
+        <div class="g"><div class="t"><span class="ic">➡️</span>右键框选</div><div class="d">= 右键单击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>按 K 键</div><div class="d">= 模拟键盘按键</div></div>
+        <div class="g"><div class="t"><span class="ic">🅣</span>按 T 键</div><div class="d">= 模拟输入文本</div></div>
+      </div>
+      <div class="pain">按 ESC 结束并自动保存，〈回放〉立刻验证。</div>
+      <div class="point">✔ 没有菜单要翻、没有参数要配，就是这么笨。</div>
+    </div></div>
+  </div>
+
+  <!-- V6 Q&A -->
+  <div class="item">
+    <div class="bar"><span class="no">V6</span><h3>疑问预解答</h3><span class="tag">信息最全面 · 4 问 4 答</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">先回答你最关心的 4 个问题</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">❓</span>怎么模拟点击？</div><div class="d">左键框选=左击，右键框选=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">❓</span>怎么模拟打字？</div><div class="d">按 T 键，输入要打的文本</div></div>
+        <div class="g"><div class="t"><span class="ic">❓</span>怎么模拟按键？</div><div class="d">按 K 键（Ctrl+C/V 等也支持）</div></div>
+        <div class="g"><div class="t"><span class="ic">❓</span>怎么结束？</div><div class="d">按 ESC，自动保存</div></div>
+      </div>
+      <div class="pain">看完了吗？其实动手只要 30 秒。</div>
+      <div class="point">✔ 录一次，这个操作你一辈子不用再亲手干。</div>
+    </div></div>
+  </div>
+
+  <!-- V7 教徒弟比喻 -->
+  <div class="item">
+    <div class="bar"><span class="no">V7</span><h3>教徒弟比喻</h3><span class="tag">有画面感 · 好理解</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">就像带徒弟：你做一遍，它看一遍</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">�️</span>教它点鼠标</div><div class="d">左键框选=左击，右键框选=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">🅣</span>教它打字</div><div class="d">按 T 键，演示输入文本</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>教它敲键盘</div><div class="d">按 K 键，演示按键</div></div>
+        <div class="g"><div class="t"><span class="ic">🧑‍💻</span>让它出师</div><div class="d">按 ESC，〈回放〉替你干</div></div>
+      </div>
+      <div class="pain">去〈流程管理〉点〈回放〉，看它第一次上岗。</div>
+      <div class="point">✔ 教会一次，终身打工。</div>
+    </div></div>
+  </div>
+
+  <!-- V8 验收清单 -->
+  <div class="item">
+    <div class="bar"><span class="no">V8</span><h3>录后验收清单</h3><span class="tag">结果导向 · 教怎么算成功</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">录制时用对指令，录完 3 条自检</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">🖱️</span>点击用框选</div><div class="d">左键框=左击，右键框=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>键盘用 K / T</div><div class="d">K=按键，T=输入文本</div></div>
+        <div class="g"><div class="t"><span class="ic">✅</span>回放能跑完</div><div class="d">ESC 保存后去〈流程管理〉验收</div></div>
+      </div>
+      <div class="pain">三条都过 = 录制成功。</div>
+      <div class="point">✔ 从此这个操作和你再无关系。</div>
+    </div></div>
+  </div>
+
+  <!-- V9 避坑 -->
+  <div class="item">
+    <div class="bar"><span class="no">V9</span><h3>新手避坑</h3><span class="tag">预防翻车 · 实用主义</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">3 个常见翻车点，提前避开</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">🎯</span>框小一点、框准点</div><div class="d">只框目标本身，左框=左击、右框=右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>打字别用鼠标点</div><div class="d">输入文本按 T，模拟按键按 K</div></div>
+        <div class="g"><div class="t"><span class="ic">⎋</span>别忘了 ESC</div><div class="d">不按 ESC 流程不会保存</div></div>
+      </div>
+      <div class="pain">避开这三点，一次就能录成功。</div>
+      <div class="point">✔ 万一录错也不用重来，改那一步就行。</div>
+    </div></div>
+  </div>
+
+  <!-- V10 全指令一屏 -->
+  <div class="item">
+    <div class="bar"><span class="no">V10</span><h3>全指令一屏</h3><span class="tag">全面 + 精简 · 推荐作为默认</span></div>
+    <div class="stage"><div class="card s10">
+      <div class="step">STEP 2 / 6</div>
+      <h2>录一遍，以后就再也不用干了</h2>
+      <div class="ask">录制时的全部指令，就这一屏</div>
+      <div class="grid">
+        <div class="g"><div class="t"><span class="ic">🖱️</span>左键框选 = 左击</div><div class="d">右键框选 = 右击</div></div>
+        <div class="g"><div class="t"><span class="ic">⌨️</span>按 K = 模拟按键</div><div class="d">按 T = 模拟输入文本</div></div>
+        <div class="g"><div class="t"><span class="ic">⎋</span>按 ESC = 结束并自动保存</div><div class="d">流程进入〈流程管理〉</div></div>
+        <div class="g"><div class="t"><span class="ic">▶️</span>点〈回放〉验收</div><div class="d">F12 随时叫停</div></div>
+      </div>
+      <div class="pain">左键、右键、按键、打字 —— 它全都学得会。</div>
+      <div class="point">✔ 录完这一次，这个操作从此归它管。</div>
+    </div></div>
+  </div>
+
+  <footer>回复「V几」即可，我会把对应文案写进 app_macos.py（其余步骤风格统一）</footer>
+</div>
+</body>
+</html>

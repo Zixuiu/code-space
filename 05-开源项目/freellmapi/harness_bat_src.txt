@@ -1,0 +1,40 @@
+@echo off
+setlocal
+set "WB_NODE_DIR=C:\Users\stk_gb\.workbuddy\binaries\node\versions\22.22.2"
+set "PATH=%WB_NODE_DIR%;%PATH%"
+set "FL=D:\codespace\05-开源项目\freellmapi"
+set "DSH=C:\Users\stk_gb\dsh-deploy"
+set "PATH=%DSH%\node_modules\.bin;%PATH%"
+set "LOG=D:\codespace\05-开源项目\freellmapi\harness_launcher.log"
+echo [%time%] === FreeHarness 启动 === > "%LOG%"
+echo [FreeHarness] 检查端口 3001 (freellmapi 后端) ...
+echo [%time%] 检查 3001 >> "%LOG%"
+powershell -NoProfile -Command "if(-not (Test-NetConnection -ComputerName 127.0.0.1 -Port 3001 -WarningAction SilentlyContinue -InformationLevel Quiet)){ exit 1 }" || (
+  echo [FreeHarness] 后端未运行，正在恢复并启动 freellmapi ...
+  echo [%time%] 后端未起，调用 recover >> "%LOG%"
+  start "" "%FL%\recover_freellmapi.bat"
+)
+echo [FreeHarness] 检查端口 3080 (harness 界面) ...
+echo [%time%] 检查 3080 >> "%LOG%"
+powershell -NoProfile -Command "if(-not (Test-NetConnection -ComputerName 127.0.0.1 -Port 3080 -WarningAction SilentlyContinue -InformationLevel Quiet)){ exit 1 }" || (
+  echo [FreeHarness] 正在启动 DeepSeek Harness (dsh web) ...
+  echo [%time%] 启动 dsh web >> "%LOG%"
+  start "" /min dsh web --no-open
+)
+echo [FreeHarness] 等待服务就绪 (最多约 10 分钟，首次需装依赖) ...
+set "OK=0"
+for /l %%i in (1,1,200) do (
+  powershell -NoProfile -Command "if((Test-NetConnection -ComputerName 127.0.0.1 -Port 3001 -WarningAction SilentlyContinue -InformationLevel Quiet) -and (Test-NetConnection -ComputerName 127.0.0.1 -Port 3080 -WarningAction SilentlyContinue -InformationLevel Quiet)){ exit 0 } else { exit 1 }" && set "OK=1" && goto :open
+  timeout /t 3 /nobreak >nul
+)
+:open
+if "%OK%"=="1" (
+  echo [FreeHarness] 服务已就绪，打开浏览器 ...
+  echo [%time%] 就绪，打开浏览器 >> "%LOG%"
+) else (
+  echo [FreeHarness] 等待超时，详见日志: %LOG%
+  echo [%time%] 超时 >> "%LOG%"
+)
+start "" "http://127.0.0.1:3080"
+echo [%time%] 完成 >> "%LOG%"
+pause

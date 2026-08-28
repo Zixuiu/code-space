@@ -1,4 +1,4 @@
-﻿"""macOS Design System - Based on Apple Human Interface Guidelines"""
+"""macOS Design System - Based on Apple Human Interface Guidelines"""
 
 import sys
 
@@ -77,12 +77,11 @@ def get_table_stylesheet(bg_color=ColorPalette.BG_CARD,header_bg=ColorPalette.BG
             padding: {max(cell_padding_v-2,8)}px {cell_padding_h}px;
             border: none;
             border-bottom: 1px solid {border_color};
-            border-top-left-radius: {border_radius}px;
-            border-top-right-radius: {border_radius}px;
             font-weight: 600;
             font-size: {header_font_size}px;
             font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
         }}
+        QHeaderView::section:first {{ border-top-left-radius: {border_radius}px; }}
         QHeaderView::section:last {{ border-top-right-radius: {border_radius}px; }}
         QScrollBar:vertical {{ width: 8px; background: transparent; border-radius: 4px; }}
         QScrollBar::handle:vertical {{ background: {ColorPalette.GRAY_300}; border-radius: 4px; min-height: 20px; }}

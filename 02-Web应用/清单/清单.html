@@ -879,7 +879,7 @@ body {
         <button class="btn" onclick="openTextEditor()">📝 编辑TXT</button>
         <button class="btn" onclick="openApiKeyDialog()">🔑 AI密钥</button>
         <button class="btn" id="copyTitleBtn" onclick="toggleCopyTitle()" style="background:#e2e8f0;color:#64748b;">📋 标题</button>
-        <button class="btn" onclick="confirmClearCurrentPage()" title="清空当前页面所有内容（保留空行）" style="background:linear-gradient(135deg,#fef2f2,#fee2e2);color:#b91c1c;border:1px solid #fecaca;">🗑️ 清空页面</button>
+        <button class="btn" onclick="confirmClearCurrentPage()" title="清空当前页面所有内容（保留空行）">🗑️ 清空页面</button>
         <input type="file" id="importFile" accept=".txt" style="display:none" onchange="importData(event)">
       </div>
 
@@ -948,7 +948,7 @@ let currentPageIndex = 0; // 当前激活的页面索引
 let selectedIndex = -1;
 let isRenaming = false; // 是否正在重命名状态
 let aiApiKey = ''; // AI API密钥（请自行填入）
-let copyWithPageTitle = true; // 复制时是否带页面标题
+let copyWithPageTitle = false; // 复制时是否带页面标题
 
 // 搜索相关变量
 let searchMatches = []; // 匹配的单元格索引列表

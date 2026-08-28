@@ -294,7 +294,7 @@ class ComboSkillEditDialog(QDialog):
         self.turbo_settle_spin = QSpinBox()
         self.turbo_settle_spin.setRange(0, 1000)
         self.turbo_settle_spin.setSingleStep(10)
-        _ts_val = self.skill_data.get('turbo_settle', 80)
+        _ts_val = self.skill_data.get('turbo_settle', 0.08)
         self.turbo_settle_spin.setValue(int(float(_ts_val) * 1000) if _ts_val is not None else 80)
         self.turbo_settle_spin.setSuffix(" ms")
         self.turbo_settle_spin.setFixedWidth(70)

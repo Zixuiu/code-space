@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import (
     Qt, QTimer, QEventLoop, pyqtSignal, pyqtProperty, QPropertyAnimation, QEasingCurve,
-    QPoint, QSize, QRect, QRectF
+    QPoint, QSize, QRect, QRectF, QObject, QEvent
 )
 from PyQt5.QtGui import (
     QGuiApplication,
@@ -2076,12 +2076,28 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         _apply_saved_column_widths(combo_table, "combo_table", _combo_default_widths)
         combo_table.horizontalHeader().setStretchLastSection(True)
 
+        # 拦截第0列的鼠标点击：由我们自己切换勾选，避免与 Qt 原生勾选切换叠加导致状态紊乱
+        class _ComboCheckFilter(QObject):
+            def __init__(self, table):
+                super().__init__(table)
+                self._table = table
+
+            def eventFilter(self, obj, event):
+                if event.type() == QEvent.MouseButtonRelease and event.button() == Qt.LeftButton:
+                    index = self._table.indexAt(event.pos())
+                    if index.isValid() and index.column() == 0:
+                        item = self._table.item(index.row(), 0)
+                        if item:
+                            item.setCheckState(Qt.Unchecked if item.checkState() == Qt.Checked else Qt.Checked)
+                            return True  # 吞掉事件，Qt 不再做原生勾选切换
+                return False
+
+        combo_table.viewport().installEventFilter(_ComboCheckFilter(combo_table))
+
         def on_combo_table_click(row, column):
             combo_table.setCurrentCell(row, column)
             if column == 0:
-                check_item = combo_table.item(row, 0)
-                if check_item:
-                    check_item.setCheckState(Qt.Unchecked if check_item.checkState() == Qt.Checked else Qt.Checked)
+                pass  # 勾选切换已由事件过滤器统一处理
             elif column == 1:
                 item = combo_table.item(row, column)
                 if item:
@@ -2132,7 +2148,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab.stop_selected_btn = stop_selected_btn
 
         self._combo_refresh_timer = QTimer(self)
-        self._combo_refresh_timer.timeout.connect(lambda: self.load_combo_skills_to_table(combo_table))
+        self._combo_refresh_timer.timeout.connect(lambda: self.refresh_combo_table_status(combo_table))
         self._combo_refresh_timer.start(3000)
 
         return tab
@@ -2193,7 +2209,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(24, 0, 24, 16)
+        layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(0)
 
         steps = []
@@ -2201,55 +2217,90 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         total_steps = len(steps)
         current_step = [0]
 
-        # 顶部标签导航
-        tab_bar = QWidget()
-        tab_bar.setFixedHeight(36)
-        tab_bar.setStyleSheet("background: white; border-radius: 12px;")
-        tl = QHBoxLayout(tab_bar)
-        tl.setContentsMargins(6, 0, 6, 0)
-        tl.setSpacing(0)
-        tl.setAlignment(Qt.AlignVCenter)
-        tab_btns = []
-        for i in range(total_steps):
-            btn = QPushButton(f"0{i+1}")
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet(
-                "QPushButton { font-size: 13px; font-weight: %s; color: %s; "
-                "background: %s; border: none; border-radius: 6px; padding: 0px; margin: 0px; }"
-                "QPushButton:hover { color: #007AFF; }"
-                % ('700' if i==0 else '400',
-                   '#007AFF' if i==0 else '#8E8E93',
-                   'white' if i==0 else 'transparent')
-            )
-            tl.addWidget(btn, 1)
-            tab_btns.append(btn)
-        layout.addWidget(tab_bar)
-        layout.addSpacing(10)
-
-        # 分割线
-        sep = QFrame()
-        sep.setFrameShape(QFrame.HLine)
-        sep.setStyleSheet("color: %s; margin: 0 4px;" % MacOSColors.SEPARATOR)
-        sep.setFixedHeight(1)
-        layout.addWidget(sep)
-        layout.addSpacing(10)
-
         # 内容卡片
         card = MacOSCard()
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(20, 4, 20, 10)
-        cl.setSpacing(4)
+        cl.setContentsMargins(28, 20, 28, 16)
+        cl.setSpacing(10)
 
-        sh = QHBoxLayout()
-        icon_lbl = QLabel(steps[0]["icon"])
-        icon_lbl.setStyleSheet("font-size: 24px; background-color: transparent;")
-        sh.addWidget(icon_lbl)
-        title_lbl = QLabel(steps[0]["title"])
-        title_lbl.setTextFormat(Qt.RichText)
-        title_lbl.setStyleSheet("color: %s; font-size: 17px; font-weight: bold; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
-        sh.addWidget(title_lbl)
-        sh.addStretch()
-        cl.addLayout(sh)
+        stack = QStackedWidget()
+        for idx, s in enumerate(steps):
+            page = QWidget()
+            page.setStyleSheet("background-color: transparent;")
+            pl = QVBoxLayout(page)
+            pl.setContentsMargins(0, 0, 0, 0)
+            pl.setSpacing(6)
+
+            kicker = QLabel("STEP %d / %d" % (idx + 1, total_steps))
+            kicker.setStyleSheet("color: %s; font-size: 11px; font-weight: 700; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
+            pl.addWidget(kicker)
+
+            tr = QHBoxLayout()
+            tr.setSpacing(10)
+            icon_lbl = QLabel(s["icon"])
+            icon_lbl.setStyleSheet("font-size: 26px; background-color: transparent;")
+            tr.addWidget(icon_lbl)
+            title_lbl = QLabel(s["title"])
+            title_lbl.setWordWrap(True)
+            title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+            tr.addWidget(title_lbl, 1)
+            pl.addLayout(tr)
+
+            ask_lbl = QLabel(s["ask"])
+            ask_lbl.setWordWrap(True)
+            ask_lbl.setStyleSheet("color: %s; font-size: 14px; font-weight: 700; background-color: transparent;" % MacOSColors.ACCENT)
+            pl.addWidget(ask_lbl)
+            pl.addSpacing(6)
+
+            # 2×2 场景小卡
+            grid = QGridLayout()
+            grid.setSpacing(12)
+            for ci, (gicon, gtitle, gdesc) in enumerate(s["cards"]):
+                g = QFrame()
+                g.setObjectName("tutCard")
+                g.setStyleSheet(
+                    "#tutCard { background-color: %s; border: 1px solid %s; border-radius: 11px; }"
+                    % (MacOSColors.WINDOW_BG, MacOSColors.SEPARATOR)
+                )
+                gl = QVBoxLayout(g)
+                gl.setContentsMargins(16, 14, 16, 14)
+                gl.setSpacing(6)
+                gt = QLabel("%s  %s" % (gicon, gtitle))
+                gt.setStyleSheet("color: %s; font-size: 15px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+                gd = QLabel(gdesc)
+                gd.setWordWrap(True)
+                gd.setStyleSheet("color: %s; font-size: 14px; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
+                gl.addWidget(gt)
+                gl.addWidget(gd)
+                grid.addWidget(g, ci // 2, ci % 2)
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(1, 1)
+            pl.addLayout(grid)
+
+            pl.addSpacing(4)
+            pain_lbl = QLabel(s["pain"])
+            pain_lbl.setWordWrap(True)
+            pain_lbl.setStyleSheet("color: %s; font-size: 14px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+            pl.addWidget(pain_lbl)
+
+            if s["gray"]:
+                gray_lbl = QLabel(s["gray"])
+                gray_lbl.setWordWrap(True)
+                gray_lbl.setStyleSheet("color: %s; font-size: 12px; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
+                pl.addWidget(gray_lbl)
+
+            pl.addStretch()
+
+            # 蓝色结论条
+            point_lbl = QLabel(s["point"])
+            point_lbl.setWordWrap(True)
+            point_lbl.setStyleSheet(
+                "background-color: %s; color: #FFFFFF; font-size: 13px; font-weight: 700;"
+                "border: none; border-radius: 10px; padding: 12px 15px;" % MacOSColors.ACCENT
+            )
+            pl.addWidget(point_lbl)
+
+            stack.addWidget(page)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -2257,16 +2308,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         scroll.setStyleSheet("background-color: transparent; border: none;")
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.viewport().setStyleSheet("margin:0;padding:0;background:transparent;")
-        body_lbl = QLabel(steps[0]["content"])
-        body_lbl.setWordWrap(True)
-        body_lbl.setAlignment(Qt.AlignTop)
-        body_lbl.setStyleSheet("background-color: transparent; margin:0; padding:0;")
-        bf = body_lbl.font()
-        bf.setBold(True)
-        body_lbl.setFont(bf)
-        scroll.setWidget(body_lbl)
-        cl.addWidget(scroll)
+        scroll.viewport().setStyleSheet("background: transparent;")
+        scroll.setWidget(stack)
+        cl.addWidget(scroll, 1)
         layout.addWidget(card)
 
         # 底部导航
@@ -2294,95 +2338,99 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         # 辅助函数
         def go_to_step(idx):
             current_step[0] = idx
-            s = steps[idx]
-            icon_lbl.setText(s["icon"])
-            title_lbl.setText(s["title"])
-            body_lbl.setText(s["content"])
-            for j, b in enumerate(tab_btns):
-                b.setStyleSheet(
-                    "QPushButton { font-size: 14px; font-weight: %s; color: %s; "
-                    "background: %s; border: none; border-radius: 8px; padding: 0; }"
-                    "QPushButton:hover { color: #007AFF; }"
-                    % ('700' if j==idx else '400',
-                       '#007AFF' if j==idx else '#8E8E93',
-                       'white' if j==idx else 'transparent')
-                )
+            stack.setCurrentIndex(idx)
             prev_btn.setEnabled(idx > 0)
             if idx == total_steps - 1:
                 next_btn.setText("重新开始 ↺")
             else:
                 next_btn.setText("下一步 →")
 
-        for i, b in enumerate(tab_btns):
-            b.clicked.connect(lambda checked=False, idx=i: go_to_step(idx))
         prev_btn.clicked.connect(lambda: current_step[0] > 0 and go_to_step(current_step[0] - 1))
         next_btn.clicked.connect(lambda: go_to_step(0) if current_step[0] == total_steps - 1 else go_to_step(current_step[0] + 1))
 
         return tab
 
     def _build_tutorial_steps(self, steps):
-        tc = MacOSColors.TEXT_PRIMARY
-        ac = MacOSColors.ACCENT
-        sc = MacOSColors.SYSTEM_GREEN
-        def h(b): return "<div style='font-size:17px;line-height:1.8;color:%s;font-family:Microsoft YaHei,sans-serif;'>%s</div>" % (tc, b)
+        steps.extend([
+            dict(
+                icon="⌨️", title="你每天在当机器人吗？",
+                ask="问问自己 —— 这些事情是不是每天都在做？",
+                cards=[
+                    ("🌅", "早上开工", "Chrome → 微信 → 钉钉 → 邮箱 → 办公软件"),
+                    ("📝", "填日报", "复制粘贴 → 改日期 → 改数据 → 发送"),
+                    ("🔑", "登录系统", "输账号 → 输密码 → 点登录"),
+                    ("📤", "导出数据", "点菜单 → 点导出 → 选格式 → 保存"),
+                ],
+                pain="一天两天没什么，但一年两年呢？",
+                gray="这些动作你重复了成千上万次，浪费了几百个小时。",
+                point="💡 这个软件的意义：你只需要做一次，以后它替你干。",
+            ),
+            dict(
+                icon="🎬", title="录一遍，以后就再也不用干了",
+                ask="录制时只有 4 个指令，记住就会用",
+                cards=[
+                    ("🖱️", "左键框选", "视为【左键单击】"),
+                    ("🖱️", "右键框选", "视为【右键单击】"),
+                    ("⌨️", "按 K 键", "模拟【键盘按键】"),
+                    ("🅣", "按 T 键", "模拟【输入文本】"),
+                ],
+                pain="按 ESC 结束录制，流程自动保存。",
+                gray="",
+                point="✔ 就这 4 个指令 + ESC，你已经都会了。",
+            ),
+            dict(
+                icon="🔧", title="看它替你干活，很爽",
+                ask="点一下回放，它就开始「模仿」你",
+                cards=[
+                    ("📂", "自动打开软件", "你不用动手，它自己找"),
+                    ("⌨️", "自动输入文字", "账号、内容都能填"),
+                    ("🖱️", "自动点击按钮", "菜单、导出都能点"),
+                    ("🤖", "自动完成所有操作", "你只管看着就行"),
+                ],
+                pain="而你只需要 —— 喝杯咖啡，看着它干 ☕",
+                gray="",
+                point="这种感觉，试过一次就回不去了。",
+            ),
+            dict(
+                icon="✏️", title="不怕录错，改就完了",
+                ask="录错了也不用重新来",
+                cards=[
+                    ("⌨️", "改按键", "按错了键？改成正确的就行"),
+                    ("📝", "改文字", "输错了内容？直接改掉"),
+                    ("↕️", "调顺序", "步骤顺序不对？拖拽调整"),
+                    ("✖️", "删多余", "某一步不需要？点 × 删除"),
+                ],
+                pain="以前录错要重头再录，现在找到那一步直接修改。",
+                gray="",
+                point="✔ 修改后自动保存，再回放就是完美版本。",
+            ),
+            dict(
+                icon="⚙️", title="让电脑替你 7×24 工作",
+                ask="组合技：把多个流程串起来，一次跑完",
+                cards=[
+                    ("🅰️", "流程 A", "打开日报系统 → 导出昨日数据"),
+                    ("🅱️", "流程 B", "打开邮箱 → 填入数据 → 发送晨会报告"),
+                    ("🆎", "流程 C", "打开项目看板 → 刷新状态 → 截图保存"),
+                ],
+                pain="想象一下：每天早上到公司，点一下，它自己全部搞定。",
+                gray="比如一个「每日晨会准备」的组合：",
+                point="💡 而你只需要坐下来，喝口热水，开始真正有意义的工作。",
+            ),
+            dict(
+                icon="🎉", title="不再做重复劳动的奴隶",
+                ask="从今天起，告别「低效重复」！你学会了：",
+                cards=[
+                    ("✅", "录一次", "它记住你的操作"),
+                    ("✅", "无限回放", "以后不用再亲手干"),
+                    ("✅", "随意修改", "录错了直接改，不重录"),
+                    ("✅", "组合串联", "复杂任务一键搞定"),
+                ],
+                pain="你每天省下来的时间，可以做更重要的事。",
+                gray="祝你早点下班，把时间留给值得的人和事 🚀",
+                point="🎉 把重复的事交给电脑，把时间留给自己。",
+            ),
+        ])
 
-        data = [
-            ("⌨️", "<b>第一步</b>：你每天在当机器人吗？",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🤖 问问自己 —— 这些事情是不是每天都在做？</b></p>"
-             "<p style='margin:6px 0;'>• 早上打开 Chrome → 微信 → 钉钉 → 邮箱 → 办公软件</p>"
-             "<p style='margin:6px 0;'>• 填日报：复制粘贴 → 改日期 → 改数据 → 发送</p>"
-             "<p style='margin:6px 0;'>• 登录系统：输账号 → 输密码 → 点登录</p>"
-             "<p style='margin:6px 0;'>• 导出数据：点菜单 → 点导出 → 选格式 → 保存</p>"
-             "<p style='margin:10px 0;'><b>一天两天没什么，但一年两年呢？</b></p>"
-             "<p style='margin:4px 0;color:#8E8E93;'>这些动作你重复了成千上万次，浪费了几百个小时。</p>"
-             "<p style='margin:10px 0 0 0;color:%s;'><b>💡 这个软件的意义：你只需要做一次，以后它替你干。</b></p>" % (ac, sc)),
-            ("🎬", "<b>第二步</b>：录一遍，以后就再也不用干了",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎯 就三步，让你彻底告别重复劳动</b></p>"
-             "<p style='margin:8px 0;'>❶ <b>点击〈录制〉</b><span style='color:#8E8E93;'> —— 按钮变红，框选视作点击</span></p>"
-             "<p style='margin:8px 0;'>❷ <b>框选要操作的位置</b><span style='color:#8E8E93;'> —— 框选视为点击，自动执行</span></p>"
-             "<p style='margin:8px 0;'>❸ <b>按 ESC 退出录制</b><span style='color:#8E8E93;'> —— 录制完毕，自动保存</span></p>"
-             "<p style='margin:12px 0 0 0;'>👇 去〈<b>流程管理</b>〉点〈回放〉，看它自动完成一遍</p>"
-             "<p style='margin:4px 0 0 0;color:%s;'><b>✔ 录一次，这个操作你一辈子都不用再亲手干了。</b></p>" % (ac, sc)),
-            ("🔧", "<b>第三步</b>：看它替你干活，很爽",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎥 点一下回放，它就开始「模仿」你</b></p>"
-             "<p style='margin:6px 0;color:#8E8E93;'>你坐在旁边看着它：</p>"
-             "<p style='margin:6px 0;'>• <b>自动打开软件</b> ✓</p>"
-             "<p style='margin:6px 0;'>• <b>自动输入文字</b> ✓</p>"
-             "<p style='margin:6px 0;'>• <b>自动点击按钮</b> ✓</p>"
-             "<p style='margin:6px 0;'>• <b>自动完成所有操作</b> ✓</p>"
-             "<p style='margin:8px 0;'>而你只需要 —— <b>喝杯咖啡，看着它干</b> ☕</p>"
-             "<p style='margin:6px 0;'>💡 <b>F12 键</b>可以随时叫停，完全由你控制</p>"
-             "<p style='margin:10px 0 0 0;color:%s;'><b>这种感觉，试过一次就回不去了。</b></p>" % (ac, sc)),
-            ("✏️", "<b>第四步</b>：不怕录错，改就完了",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🛠️ 录错了也不用重新来</b></p>"
-             "<p style='margin:6px 0;color:#8E8E93;'>以前录错了 → 重头再录一遍 → 浪费时间还烦躁</p>"
-             "<p style='margin:6px 0;'>现在录错了 → 在操作列表里找到那一步 → <b>直接修改</b></p>"
-             "<p style='margin:8px 0 4px 0;'>• <b>改按键</b><span style='color:#8E8E93;'>：按错了键？改成正确的就行</span></p>"
-             "<p style='margin:4px 0;'>• <b>改文字</b><span style='color:#8E8E93;'>：输错了内容？直接改掉</span></p>"
-             "<p style='margin:4px 0;'>• <b>调顺序</b><span style='color:#8E8E93;'>：步骤顺序不对？拖拽调整</span></p>"
-             "<p style='margin:4px 0 8px 0;'>• <b>删多余</b><span style='color:#8E8E93;'>：某一步不需要？点×删除</span></p>"
-             "<p style='margin:8px 0 0 0;color:%s;'><b>修改后自动保存，再回放就是完美版本。</b></p>" % (ac, sc)),
-            ("⚙️", "<b>第五步</b>：让电脑替你 7×24 工作",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>⏰ 组合技：把多个流程串起来，一次跑完</b></p>"
-             "<p style='margin:6px 0;color:#8E8E93;'>比如一个「每日晨会准备」的组合：</p>"
-             "<p style='margin:6px 0;'>• 流程A：打开日报系统 → 导出昨日数据</p>"
-             "<p style='margin:4px 0;'>• 流程B：打开邮箱 → 填入数据 → 发送晨会报告</p>"
-             "<p style='margin:4px 0;'>• 流程C：打开项目看板 → 刷新状态 → 截图保存</p>"
-             "<p style='margin:10px 0;'><b>想象一下：每天早上到公司，点一下，它自己全部搞定。</b></p>"
-             "<p style='margin:8px 0 0 0;color:%s;'><b>而你只需要坐下来，喝口热水，开始真正有意义的工作。</b></p>" % (ac, sc)),
-            ("🎉", "<b>第六步</b>：不再做重复劳动的奴隶",
-             "<p style='margin:8px 0;font-size:18px;color:%s;'><b>🎊 从今天起，告别「低效重复」！</b></p>"
-             "<p style='margin:6px 0;color:#8E8E93;'>你学会了：</p>"
-             "<p style='margin:6px 0;'>✅ <b>录一次</b><span style='color:#8E8E93;'> —— 它记住你的操作</span></p>"
-             "<p style='margin:4px 0;'>✅ <b>无限回放</b><span style='color:#8E8E93;'> —— 以后不用再亲手干</span></p>"
-             "<p style='margin:4px 0;'>✅ <b>随意修改</b><span style='color:#8E8E93;'> —— 录错了直接改，不重录</span></p>"
-             "<p style='margin:4px 0 10px 0;'>✅ <b>组合串联</b><span style='color:#8E8E93;'> —— 复杂任务一键搞定</span></p>"
-
-             "<p style='margin:10px 0 0 0;color:%s;'><b>💡 你每天省下来的时间，可以做更重要的事。</b></p>"
-             "<p style='margin:6px 0 0 0;color:#8E8E93;'>祝你早点下班，把时间留给值得的人和事 🚀🎊</p>" % (ac, sc)),
-        ]
-        for icon, title, body in data:
-            steps.append({"icon": icon, "title": title, "content": h(body)})
     def create_tray_icon(self):
         """创建系统托盘图标"""
         if hasattr(self, "tray_icon") and self.tray_icon:
@@ -2581,6 +2629,120 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
 
 
+    def _update_combo_status_bar(self, running_count, running_skill_names):
+        """更新组合技页顶部的运行状态栏"""
+        if hasattr(self, 'combo_tab'):
+            tab = self.combo_tab
+            if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
+                if running_count > 0:
+                    tab.status_text.setText(f"运行中（{running_count}个组合技）")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
+                    tab.running_names_label.setText("  ".join(running_skill_names))
+                    tab.running_names_label.setVisible(True)
+                    tab.stop_all_btn.setVisible(True)
+                else:
+                    tab.status_text.setText("组合技运行状态：空闲")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
+                    tab.running_names_label.setText("")
+                    tab.running_names_label.setVisible(False)
+                    tab.stop_all_btn.setVisible(False)
+
+    def refresh_combo_table_status(self, table_widget):
+        """定时刷新：仅原地更新各行的运行状态，不重建表格，避免吞掉用户的点击"""
+        combo_skills = self._get_combo_manager().combo_skills
+        names = [s.get('name', '未命名') for s in combo_skills]
+
+        running_skill_ids = set()
+        running_skill_names = []
+        if hasattr(self, 'runners'):
+            for skill_id, runner in self.runners.items():
+                if runner.isRunning():
+                    running_skill_ids.add(skill_id)
+                    if hasattr(runner, 'skill_data'):
+                        running_skill_names.append(runner.skill_data.get('name', ''))
+
+        # 行数或行顺序与当前技能列表不一致时（新增/删除/编辑过），退化为完整重建
+        need_full_reload = (table_widget.rowCount() != len(combo_skills))
+        if not need_full_reload:
+            for row in range(table_widget.rowCount()):
+                name_item = table_widget.item(row, 1)
+                if not name_item or not isinstance(name_item.data(Qt.UserRole), dict) \
+                        or name_item.data(Qt.UserRole).get('name', '未命名') != names[row]:
+                    need_full_reload = True
+                    break
+        if need_full_reload:
+            self.load_combo_skills_to_table(table_widget)
+            return
+
+        running_count = len(running_skill_ids)
+        self._update_combo_status_bar(running_count, running_skill_names)
+
+        for row, skill in enumerate(combo_skills):
+            name = skill.get('name', '未命名')
+            is_running = (name in running_skill_ids)
+            is_monitor = skill.get('monitor_mode', False)
+
+            row_font = QFont()
+            row_font.setBold(is_running)
+
+            # 第1列：名称（颜色/加粗/监控前缀）
+            name_item = table_widget.item(row, 1)
+            display = f"{'🏃 ' if is_monitor else ''}{name}"
+            if name_item.text() != display:
+                name_item.setText(display)
+            name_item.setForeground(QColor(MacOSColors.SYSTEM_GREEN if is_running else MacOSColors.TEXT_PRIMARY))
+            name_item.setFont(row_font)
+
+            # 第3列：状态
+            status_item = table_widget.item(row, 3)
+            if is_running:
+                status_text, status_color, status_bold = "▶ 运行中", MacOSColors.SYSTEM_GREEN, True
+            elif is_monitor:
+                status_text, status_color, status_bold = "🏃 监控", MacOSColors.ACCENT, False
+            else:
+                status_text, status_color, status_bold = "空闲", MacOSColors.TEXT_SECONDARY, False
+            if status_item.text() != status_text:
+                status_item.setText(status_text)
+            status_item.setForeground(QColor(status_color))
+            status_font = QFont()
+            status_font.setBold(status_bold)
+            status_item.setFont(status_font)
+
+            # 第4列：操作（运行/停止）
+            op_item = table_widget.item(row, 4)
+            want_op = "stop" if is_running else "run"
+            cur_op = op_item.data(Qt.UserRole)
+            if not (isinstance(cur_op, tuple) and len(cur_op) == 2 and cur_op[0] == want_op):
+                if is_running:
+                    op_new = QTableWidgetItem("⏹ 停止")
+                    op_new.setForeground(QColor(MacOSColors.SYSTEM_RED))
+                    btn_font = QFont()
+                    btn_font.setBold(True)
+                    op_new.setFont(btn_font)
+                else:
+                    op_new = QTableWidgetItem("▶ 运行")
+                    op_new.setForeground(QColor(MacOSColors.SYSTEM_GREEN))
+                op_new.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+                op_new.setData(Qt.UserRole, (want_op, skill))
+                table_widget.setItem(row, 4, op_new)
+
+            # 第6列：删除按钮（运行中禁用）
+            del_item = table_widget.item(row, 6)
+            if is_running and del_item.data(Qt.UserRole) is not None:
+                del_new = QTableWidgetItem("运行中")
+                del_new.setForeground(QColor(MacOSColors.SYSTEM_GRAY3))
+                del_new.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+                table_widget.setItem(row, 6, del_new)
+            elif not is_running and del_item.data(Qt.UserRole) is None:
+                del_new = QTableWidgetItem("🗑️ 删除")
+                del_new.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+                del_new.setData(Qt.UserRole, skill)
+                del_new.setForeground(QColor(MacOSColors.SYSTEM_RED))
+                del_font = QFont()
+                del_font.setBold(True)
+                del_new.setFont(del_font)
+                table_widget.setItem(row, 6, del_new)
+
     def load_combo_skills_to_table(self, table_widget):
         checked_names = set()
         for row in range(table_widget.rowCount()):
@@ -2607,22 +2769,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                         running_skill_names.append(runner.skill_data.get('name', ''))
 
         running_count = len(running_skill_ids)
-
-        if hasattr(self, 'combo_tab'):
-            tab = self.combo_tab
-            if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
-                if running_count > 0:
-                    tab.status_text.setText(f"运行中（{running_count}个组合技）")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
-                    tab.running_names_label.setText("  ".join(running_skill_names))
-                    tab.running_names_label.setVisible(True)
-                    tab.stop_all_btn.setVisible(True)
-                else:
-                    tab.status_text.setText("组合技运行状态：空闲")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
-                    tab.running_names_label.setText("")
-                    tab.running_names_label.setVisible(False)
-                    tab.stop_all_btn.setVisible(False)
+        self._update_combo_status_bar(running_count, running_skill_names)
 
         table_widget.setRowCount(len(combo_skills))
         for row, skill in enumerate(combo_skills):
