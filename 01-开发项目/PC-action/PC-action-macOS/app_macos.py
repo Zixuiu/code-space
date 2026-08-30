@@ -1,4 +1,4 @@
-import os
+﻿import os
 import json
 import sys
 import time
@@ -330,12 +330,11 @@ class MacOSButton(QPushButton):
     
     @staticmethod
     def _adjust_color_opacity(color_hex, opacity):
-        """调整颜色透明度，返回有效的8位十六进制颜色值"""
+        """调整颜色透明度，返回 Qt 样式表要求的 #AARRGGBB 格式（透明度在最前）"""
         color_hex = color_hex.lstrip('#')
         if len(color_hex) == 6:
-            # 标准6位颜色，添加透明度
             alpha = hex(int(opacity * 255))[2:].upper().zfill(2)
-            return f"#{color_hex}{alpha}"
+            return f"#{alpha}{color_hex}"
         return color_hex
     
 
@@ -416,6 +415,79 @@ class MacOSSecondaryButton(QPushButton):
         """)
 
 
+class ApplePillButton(QPushButton):
+    """苹果官网风药丸按钮 - paintEvent 自绘圆角，保证任何环境下都是完整药丸形"""
+
+    def __init__(self, text="", bg="#0071E3", fg="#FFFFFF",
+                 hover="#0077ED", pressed="#006EDB",
+                 font_size=14, bold=True, arrow=False, parent=None):
+        super().__init__(text, parent)
+        self.setCursor(Qt.PointingHandCursor)
+        self._bg = bg
+        self._fg = fg
+        self._hover = hover
+        self._pressed = pressed
+        self._font_size = font_size
+        self._bold = bold
+        self._show_arrow = arrow
+        self._hovered = False
+        self._down = False
+        self.setMinimumHeight(48)
+
+    def enterEvent(self, event):
+        self._hovered = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self._down = False
+        self.update()
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._down = True
+            self.update()
+        super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._down = False
+        self.update()
+        super().mouseReleaseEvent(event)
+
+    def setText(self, text):
+        super().setText(text)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing, True)
+
+        r = self.height() / 2.0
+        color = self._pressed if self._down else (self._hover if self._hovered else self._bg)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(QColor(color)))
+        painter.drawRoundedRect(QRectF(self.rect()), r, r)
+
+        # 文字（整体居中；带箭头时文字略偏左，箭头固定在右侧）
+        text = self.text().replace('\t', ' ')
+        font = painter.font()
+        font.setPixelSize(self._font_size + 2)
+        font.setBold(self._bold)
+        painter.setFont(font)
+        painter.setPen(QColor(self._fg))
+        rect = self.rect()
+        if self._show_arrow:
+            text_rect = QRectF(rect.x() + 10, rect.y(), rect.width() - 44, rect.height())
+            painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, text)
+            painter.drawText(QRectF(rect.right() - 30, rect.y(), 22, rect.height()),
+                             Qt.AlignCenter, "▾")
+        else:
+            painter.drawText(QRectF(rect), Qt.AlignCenter, text)
+        painter.end()
+
+
 def _hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     if len(hex_color) == 8:
@@ -489,9 +561,9 @@ class RoundedRecordButton(QPushButton):
         self._is_recording = False
         self._t = 0.0
 
-        # 旋转/脉冲动画
+        # 旋转/脉冲动画（转一圈 3 秒）
         self._anim = QPropertyAnimation(self, b"_anim_progress")
-        self._anim.setDuration(2000)
+        self._anim.setDuration(3000)
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(1.0)
         self._anim.setLoopCount(-1)
@@ -752,7 +824,7 @@ class MacOSToolbar(QWidget):
         self.title_label.setStyleSheet(f"""
             color: {MacOSColors.TEXT_PRIMARY};
             font-size: {TypographySystem.SIZE_MD}px;
-            font-weight: {TypographySystem.WEIGHT_SEMIBOLD};
+            font-weight: {TypographySystem.WEIGHT_MEDIUM};
             font-family: {TypographySystem.FONT_FAMILY};
         """)
         layout.addWidget(self.title_label)
@@ -1160,7 +1232,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         record_title.setStyleSheet(f"""
             color: {MacOSColors.TEXT_PRIMARY};
             font-size: 20px;
-            font-weight: 600;
+            font-weight: 700;
             background-color: transparent;
             border: none;
         """)
@@ -1194,11 +1266,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         mode_layout.addWidget(mode_label)
 
         # ── 自定义 macOS 风格下拉框 ──
-        self.record_mode_combo = QPushButton("📷	图像录制")
+        self.record_mode_combo = QPushButton("📷\t图像录制")
         self.record_mode_combo.setFixedWidth(200)
         self.record_mode_combo.setCursor(Qt.PointingHandCursor)
         # 兼容父类 currentText() 调用
-        self.record_mode_combo.currentText = lambda: self.record_mode_combo.text().replace("📷	", "").replace("📍	", "")
+        self.record_mode_combo.currentText = lambda: self.record_mode_combo.text().replace("📷\t", "").replace("📍\t", "")
         self.record_mode_combo.setStyleSheet(f"""
             QPushButton {{
                 background-color: {MacOSColors.CARD_BG};
@@ -1233,7 +1305,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             QMenu {{
                 background-color: {MacOSColors.CARD_BG};
                 border: 1px solid {ColorPalette.GRAY_200};
-                border-radius: 0px;
+                border-radius: 14px;
                 padding: 6px;
             }}
             QMenu::item {{
@@ -1248,8 +1320,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 color: white;
             }}
         """)
-        self._record_menu.addAction("📷	图像录制")
-        self._record_menu.addAction("📍	坐标录制")
+        self._record_menu.addAction("📷\t图像录制")
+        self._record_menu.addAction("📍\t坐标录制")
         self._record_menu.triggered.connect(
             lambda action: self.record_mode_combo.setText(action.text())
         )
@@ -1335,8 +1407,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         folder_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
 
         def on_folder_table_click(row, column):
-            if column == 1:
-                item = folder_table.item(row, column)
+            if column in (0, 1):
+                # 点击"时间"或"流程名称"单元格都进入流程（路径存在名称列的 UserRole 里）
+                item = folder_table.item(row, 1)
                 if item:
                     folder_path = item.data(Qt.UserRole)
                     if folder_path and os.path.exists(folder_path):
@@ -1512,7 +1585,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         shortcut_font_size = int(screen_height * 0.03)
         shortcut_label.setStyleSheet(f"""
             font-size: {shortcut_font_size}px;
-            font-weight: 600;
+            font-weight: 700;
             padding: 14px;
             border: 2px solid {MacOSColors.ACCENT};
             border-radius: 12px;
@@ -1604,7 +1677,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             shortcut_label.setText("未设置")
             shortcut_label.setStyleSheet(f"""
                 font-size: {shortcut_font_size}px;
-                font-weight: 600;
+                font-weight: 700;
                 padding: 14px;
                 border: 2px solid {MacOSColors.SEPARATOR};
                 border-radius: 12px;
@@ -2027,7 +2100,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         status_layout.setContentsMargins(16, 10, 16, 10)
 
         status_text = QLabel("组合技运行状态：空闲")
-        status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
+        status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
         status_layout.addWidget(status_text)
 
         running_names_label = QLabel("")
@@ -2185,7 +2258,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             text_container = QVBoxLayout()
             text_container.setSpacing(2)
             name_label = QLabel(name)
-            name_label.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 15px; font-weight: 600; background-color: transparent;")
+            name_label.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 15px; font-weight: 700; background-color: transparent;")
             desc_label = QLabel(desc)
             desc_label.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 12px; background-color: transparent;")
             text_container.addWidget(name_label)
@@ -2320,7 +2393,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         prev_btn.setFixedSize(130, 42)
         prev_btn.setEnabled(False)
         prev_btn.setStyleSheet(
-            "QPushButton { background: %s; color: %s; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; }"
+            "QPushButton { background: %s; color: %s; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; }"
             "QPushButton:hover:!disabled { background: %s; }"
             "QPushButton:disabled { opacity: 0.5; }"
             % (MacOSColors.SEPARATOR, MacOSColors.TEXT_PRIMARY, MacOSColors.ACCENT_BG)
@@ -2328,7 +2401,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         next_btn = QPushButton("下一步 →")
         next_btn.setFixedSize(130, 42)
         next_btn.setStyleSheet(
-            "QPushButton { background: %s; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; }"
+            "QPushButton { background: %s; color: white; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; }"
             "QPushButton:hover { background: #0056CC; }"
             % MacOSColors.ACCENT
         )
@@ -2620,8 +2693,106 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def delete_combo_skill_in_tab(self, skill, combo_table):
         """在组合技tab页中删除组合技"""
         skill_name = skill.get('name', '')
-        reply = QMessageBox.question(None, '确认删除', f'确定要删除组合技 \"{skill_name}\" 吗？', QMessageBox.Yes | QMessageBox.No)
-        if reply == QMessageBox.Yes:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("确认删除")
+        dialog.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)
+        width, height = get_screen_size(0.2)
+        dialog.resize(width, int(height * 0.15))
+        dialog.setWindowModality(Qt.WindowModal)
+        dialog.setStyleSheet(f"""
+            QDialog {{
+                background-color: {MacOSColors.WINDOW_BG};
+                border-radius: 12px;
+            }}
+        """)
+
+        layout = QVBoxLayout()
+        layout.setSpacing(20)
+        layout.setContentsMargins(24, 20, 24, 20)
+
+        msg_label = QLabel(f"确定要删除组合技「{skill_name}」吗？")
+        msg_label.setStyleSheet(f"""
+            font-size: 15px;
+            color: {MacOSColors.TEXT_PRIMARY};
+            font-weight: 500;
+            background-color: transparent;
+        """)
+        msg_label.setWordWrap(True)
+        layout.addWidget(msg_label)
+
+        hint_label = QLabel("删除后该组合技的录制流程将无法恢复")
+        hint_label.setStyleSheet(f"""
+            font-size: 12px;
+            color: {MacOSColors.TEXT_SECONDARY};
+            background-color: transparent;
+        """)
+        layout.addWidget(hint_label)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(12)
+        btn_layout.addStretch()
+
+        delete_btn = QPushButton("删除")
+        delete_btn.setFixedHeight(ButtonSize.HEIGHT_REGULAR)
+        delete_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
+        delete_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {MacOSColors.SYSTEM_RED};
+                color: white;
+                border: none;
+                border-radius: {BorderRadiusSystem.MD}px;
+                font-weight: 500;
+                font-size: 13px;
+                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
+            }}
+            QPushButton:hover {{
+                background-color: {MacOSColors.SYSTEM_RED}DD;
+            }}
+            QPushButton:pressed {{
+                background-color: {MacOSColors.SYSTEM_RED}BB;
+                padding-top: 2px;
+            }}
+        """)
+        delete_btn.setCursor(Qt.PointingHandCursor)
+
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
+        cancel_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {MacOSColors.CARD_BG};
+                color: {MacOSColors.TEXT_PRIMARY};
+                border: 1px solid {MacOSColors.SEPARATOR};
+                border-radius: {BorderRadiusSystem.MD}px;
+                font-weight: 500;
+                font-size: 13px;
+                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
+            }}
+            QPushButton:hover {{
+                background-color: {MacOSColors.ACCENT_BG};
+                border-color: {MacOSColors.ACCENT};
+                color: {MacOSColors.ACCENT};
+            }}
+        """)
+        cancel_btn.setCursor(Qt.PointingHandCursor)
+
+        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(delete_btn)
+        layout.addLayout(btn_layout)
+        dialog.setLayout(layout)
+
+        confirmed = False
+
+        def _do_delete():
+            nonlocal confirmed
+            confirmed = True
+            dialog.accept()
+
+        delete_btn.clicked.connect(_do_delete)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        dialog.exec_()
+        if confirmed:
             combo_manager = ComboSkillManager(self)
             combo_manager.combo_skills = [s for s in combo_manager.combo_skills if s.get('name') != skill.get('name')]
             combo_manager.save_combo_skills()
@@ -2636,13 +2807,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
                 if running_count > 0:
                     tab.status_text.setText(f"运行中（{running_count}个组合技）")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
                     tab.running_names_label.setText("  ".join(running_skill_names))
                     tab.running_names_label.setVisible(True)
                     tab.stop_all_btn.setVisible(True)
                 else:
                     tab.status_text.setText("组合技运行状态：空闲")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 600; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
+                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
                     tab.running_names_label.setText("")
                     tab.running_names_label.setVisible(False)
                     tab.stop_all_btn.setVisible(False)

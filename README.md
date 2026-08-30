@@ -1,32 +1,34 @@
 # 🚀 Code Space 工作区
 
-> **最后更新**: 2026-06-28
+> **最后更新**: 2026-08-30
 >
-> **状态**: 🔄 正在整理中...
+> **状态**: ✅ 已整理
 
 ## 📂 目录结构
 
 ```
-code-space/
+codespace/
 ├── 01-开发项目/          # 主要开发项目
-│   ├── PC-action/       # ⭐ macOS风格桌面应用 (WiFi手机控制器)
+│   ├── PC-action/PC-action-macOS/  # ⭐ macOS风格桌面应用 (WiFi手机控制器)
 │   ├── ai-news-daily/   # AI新闻每日更新
-│   └── map/             # 地图应用
+│   ├── harmony-clipboard-tool/ # 鸿蒙剪贴板工具
+│   ├── 简历助手/          # 简历匹配助手
+│   ├── map/             # 地图应用
+│   └── 股票筛选/         # 股票筛选策略与邮件推送
 │
 ├── 02-Web应用/           # Web应用和网页
-│   ├── 销售系统/         # 销售管理系统
-│   └── 清单/             # 清单管理
+│   ├── 各种速成html/     # FDE、LangChain 等速成页面
+│   ├── 清单/             # 清单管理
+│   └── 销售系统/         # 销售管理系统
 │
 ├── 03-移动应用/          # 移动端应用
 │   └── wo-laibang-app/  # UniApp应用
 │
-├── 04-工具脚本/          # 常用工具
-├── 05-文档资源/          # 文档和资源
-├── 06-临时文件/          # 待整理文件
-│
-├── .gitignore            # Git忽略规则
-├── README.md             # 本文件
-└── 整理方案.md            # 详细整理指南
+├── 04-工具脚本/          # 常用工具（git工具、系统工具等）
+└── 05-开源项目/          # 第三方开源项目
+    ├── coze-studio/     # 开源项目（独立仓库）
+    ├── freellmapi/      # ⭐ LLM 代理网关（独立git仓库）
+    └── go-music-dl/     # 音乐下载工具
 ```
 
 ## 🎯 核心项目
@@ -55,9 +57,13 @@ python main.py
 
 | 项目 | 类型 | 说明 |
 |------|------|------|
-| ai-news-daily | Python | AI新闻自动更新 |
-| map | Python | 地图应用 |
+| 股票筛选 | Python | 股票策略筛选与邮件推送 |
+| freellmapi | Node.js | LLM 代理网关（独立仓库） |
+| coze-studio | Go/React | 开源项目（独立仓库） |
+| harmony-clipboard-tool | ArkTS | 鸿蒙剪贴板工具 |
+| 简历助手 | Python | 简历匹配助手 |
 | wo-laibang-app | UniApp | 移动端应用 |
+| map | Python | 地图应用 |
 | 销售系统 | HTML | 销售管理系统 |
 | 清单 | HTML+JS | 清单管理工具 |
 
@@ -69,7 +75,7 @@ python main.py
 - Android SDK Platform Tools (ADB)
 
 ### 可选
-- Node.js (用于wo-laibang-app)
+- Node.js (用于freellmapi前端)
 - HBuilderX (用于UniApp开发)
 
 ## 📦 安装依赖
@@ -94,7 +100,7 @@ git add -A
 git commit -m "update: 描述更改内容"
 
 # 推送到远程
-python 推送git.py  # 或使用脚本
+python 04-工具脚本/git工具/一键推送.py
 ```
 
 ### 项目操作
@@ -185,7 +191,7 @@ chore: 构建/工具
 
 ## ⚠️ 注意事项
 
-1. **node_modules已忽略** - wo-laibang-app需要单独执行 `npm install`
+1. **node_modules已忽略** - freellmapi 需要单独执行 `npm install`
 2. **录制文件较大** - 定期清理recordings目录
 3. **路径引用** - 移动项目后检查配置文件中的路径
 4. **备份重要数据** - 整理前务必备份

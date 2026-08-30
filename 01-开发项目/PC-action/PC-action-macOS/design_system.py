@@ -77,7 +77,7 @@ def get_table_stylesheet(bg_color=ColorPalette.BG_CARD,header_bg=ColorPalette.BG
             padding: {max(cell_padding_v-2,8)}px {cell_padding_h}px;
             border: none;
             border-bottom: 1px solid {border_color};
-            font-weight: 600;
+            font-weight: 700;
             font-size: {header_font_size}px;
             font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
         }}
@@ -100,6 +100,8 @@ def configure_table(table,style=None):
     table.setSelectionBehavior(QAbstractItemView.SelectRows)
     table.setEditTriggers(QAbstractItemView.NoEditTriggers)
     table.horizontalHeader().setStretchLastSection(True)
+    # 选中行时表头不再自动变粗（Qt 默认会加粗高亮被选中列的表头）
+    table.horizontalHeader().setHighlightSections(False)
     table.verticalHeader().setVisible(False)
     table.setAlternatingRowColors(True)
 

@@ -101,6 +101,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QRectF, QEvent, QObject, QSize, QPropertyAnimation, QRect, QAbstractAnimation, QThread, QEasingCurve, QMimeData, pyqtSignal
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QStyle
+from PyQt5.QtWidgets import QStyledItemDelegate
 
 # image_recognition模块已导入
 
@@ -1276,11 +1277,23 @@ class FolderManager(QDialog):
         _cl.setSpacing(0)
         # ── 交通灯（macOS 三色点）──
         _dot_bar = QWidget()
-        _dot_bar.setFixedHeight(38)
+        _dot_bar.setFixedHeight(40)
         _dot_bar.setStyleSheet("background:transparent; border:none;")
         _dot_lo = QHBoxLayout(_dot_bar)
-        _dot_lo.setContentsMargins(16, 10, 16, 0)
+        _dot_lo.setContentsMargins(16, 8, 16, 6)
         _dot_lo.addStretch()
+        # 标题（与红点同一行，整体垂直居中）
+        icon_label = QLabel("📁")
+        icon_label.setStyleSheet("font-size:13px; background:transparent; border:none;")
+        icon_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        text_label = QLabel(os.path.basename(str(folder_path)))
+        text_label.setStyleSheet("font-size:14px; font-weight:500; color:#1D1D1F; background:transparent; border:none;")
+        text_label.setAttribute(Qt.WA_TransparentForMouseEvents)
+        _dot_lo.addWidget(icon_label)
+        _dot_lo.addSpacing(6)
+        _dot_lo.addWidget(text_label)
+        _dot_lo.addStretch()
+        _dot_lo.addSpacing(12)
         def _closeD(ev):
             if ev.button()==Qt.LeftButton: dialog.close()
         _red_dot = QFrame()
@@ -1298,29 +1311,6 @@ class FolderManager(QDialog):
         _dot_bar.mousePressEvent=_dot_start_drag
         _dot_bar.mouseMoveEvent=_dot_do_drag
         _cl.addWidget(_dot_bar)
-        # ── 标题栏 ──
-        title_bar = QWidget()
-        title_bar.setFixedHeight(30)
-        title_bar.setStyleSheet("background:transparent; border:none;")
-        title_layout = QHBoxLayout(title_bar)
-        title_layout.setContentsMargins(16, 0, 16, 0)
-        title_label = QLabel(f"📁 {os.path.basename(str(folder_path))}")
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet("font-size:14px; font-weight:600; color:#1D1D1F; background:transparent; border:none;")
-        title_label.setAttribute(Qt.WA_TransparentForMouseEvents)
-        title_layout.addStretch()
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-        # 标题栏拖动窗口
-        def _start_drag(ev):
-            if ev.button() == Qt.LeftButton:
-                dialog._drag_pos = ev.globalPos() - dialog.pos()
-        def _do_drag(ev):
-            if getattr(dialog, '_drag_pos', None) is not None and ev.buttons() & Qt.LeftButton:
-                dialog.move(ev.globalPos() - dialog._drag_pos)
-        title_bar.mousePressEvent = _start_drag
-        title_bar.mouseMoveEvent = _do_drag
-        _cl.addWidget(title_bar)
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setStyleSheet("QScrollArea { background: transparent; border: none; padding: 0; margin: 0; }")
@@ -1908,23 +1898,25 @@ class FolderManager(QDialog):
                     _pl.addWidget(_lb, 0, Qt.AlignCenter)
                 row_layout.addWidget(_pw, 0, Qt.AlignTop)
 
-                # ── ⑤ 延迟 ⏱ ──
+                # ── ⑤ 延迟（本步执行完后等待 N 秒再执行下一步）──
                 delay_w = QWidget()
-                delay_w.setFixedWidth(72)
+                delay_w.setFixedWidth(92)
+                delay_w.setToolTip("执行完这一步后，等待 N 秒再执行下一步")
                 dl = QHBoxLayout(delay_w)
                 dl.setContentsMargins(0, 0, 0, 0)
-                dl.setSpacing(2)
-                dl2 = QLabel("⏱")
-                dl2.setStyleSheet("QLabel { color: #999; font-size: 12px; }")
+                dl.setSpacing(3)
+                dl2 = QLabel("等待")
+                dl2.setStyleSheet("QLabel { color: #999; font-size: 11px; }")
                 dl.addWidget(dl2)
                 ds = QDoubleSpinBox()
                 ds.setSingleStep(0.1); ds.setDecimals(1)
                 ds.setValue(record.get('delay', 0.1))
                 ds.valueChanged.connect(lambda v, idx=i: _update_delay(idx, v))
-                ds.setFixedSize(40, control_height)
+                ds.setFixedSize(44, control_height)
+                ds.setToolTip("执行完这一步后，等待 N 秒再执行下一步")
                 ds.setStyleSheet("QDoubleSpinBox { background: #FFFFFF; border: 1px solid rgba(0,0,0,0.06); border-radius: 8px; font-size: 11px; color: black; padding: 0; } QDoubleSpinBox:focus { border-color: #0A84FF; }")
                 dl.addWidget(ds)
-                du = QLabel("s")
+                du = QLabel("秒")
                 du.setStyleSheet("QLabel { color: #999; font-size: 10px; }")
                 dl.addWidget(du)
                 row_layout.addWidget(delay_w, 0, Qt.AlignTop)
@@ -4423,15 +4415,15 @@ class FolderManager(QDialog):
         dialog.setMinimumSize(int(screen_width * 0.35), int(screen_height * 0.5))
         center_window(dialog)
 
-        container = QWidget(dialog)
+        container = QFrame(dialog)
         container.setObjectName("trashContainer")
         container.setStyleSheet("""
-            QWidget#trashContainer {
+            QFrame#trashContainer {
                 background: #F5F5F7;
-                border: 1px solid #1C1C1E;
+                border: 1px solid #9A9AA2;
                 border-radius: 16px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                color: black;
+                color: #1D1D1F;
             }
         """)
         layout.addWidget(container)
@@ -4441,13 +4433,13 @@ class FolderManager(QDialog):
 
         _header = QWidget()
         _header.setFixedHeight(44)
-        _header.setStyleSheet("background-color: #1C1C1E; border-top-left-radius: 13px; border-top-right-radius: 13px; border: none;")
+        _header.setStyleSheet("background-color: #FFFFFF; border-top-left-radius: 13px; border-top-right-radius: 13px; border: none; border-bottom: 1px solid #E8E8ED;")
         _hdr_lo = QHBoxLayout(_header)
         _hdr_lo.setContentsMargins(16, 0, 16, 0)
         _hdr_lo.setSpacing(8)
         _hdr_title = QLabel("回收站")
         _hdr_title.setAttribute(Qt.WA_TransparentForMouseEvents)
-        _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
+        _hdr_title.setStyleSheet("color: #1D1D1F; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
         def _closeD(ev):
@@ -5552,13 +5544,15 @@ class FolderManager(QDialog):
 
 class RoundedPillButton(QPushButton):
     """自绘 iOS 药丸形按钮 - paintEvent 保证完美胶囊形状"""
-    def __init__(self, text="", bg_color="#0A84FF", text_color="white", parent=None):
+    def __init__(self, text="", bg_color="#0A84FF", text_color="white", parent=None, font_size=None):
         super().__init__(text, parent)
         self.setCursor(Qt.PointingHandCursor)
         self._hovered = False
         self._pressed = False
         self._bg_color = bg_color
         self._text_color = text_color
+        # font_size: 像素字号（传了就用像素，避免 DPI 缩放下 pointSize 被放大）
+        self._font_size = font_size
         self.setAttribute(Qt.WA_TranslucentBackground, True)
 
     def enterEvent(self, event):
@@ -5574,6 +5568,7 @@ class RoundedPillButton(QPushButton):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.TextAntialiasing, True)
         r = QRectF(2, 2, self.width() - 4, self.height() - 4)
         radius = r.height() / 2.0
         col = QColor(self._bg_color)
@@ -5583,13 +5578,139 @@ class RoundedPillButton(QPushButton):
         painter.setBrush(QBrush(col))
         painter.drawRoundedRect(r, radius, radius)
         painter.setPen(QColor(self._text_color))
-        f = QFont("PingFang SC", 13)
+        f = QFont("Microsoft YaHei")
+        if self._font_size:
+            # 像素字号：不随系统 DPI 缩放而变大，显示大小可控
+            f.setPixelSize(int(self._font_size))
+        else:
+            f.setPointSize(max(11, min(13, int(self.height() * 0.34))))
         f.setWeight(QFont.Medium)
         painter.setFont(f)
-        f2 = QFont("PingFang SC", 9)
-        f2.setWeight(QFont.Normal)
-        painter.setFont(f2)
         painter.drawText(r, Qt.AlignCenter, self.text())
+
+
+class TrashButtonDelegate(QStyledItemDelegate):
+    """回收站表格里"恢复 / 删除"按钮的自绘委托。
+
+    为什么不用 setCellWidget：
+      QTableWidget **不会**把 cell widget 的几何同步成单元格尺寸。实测单元格
+      77x39，而 cell widget 无论套不套容器都被设成 57x27（四周固定内缩 10/6px），
+      按钮底部必然被裁掉一块。委托每次 paint 都拿最新的 option.rect，
+      几何永远等于单元格，也就不存在裁剪。
+
+    用法：
+      d = TrashButtonDelegate(table)
+      d.add_button(col, "恢复", bg, hover, pressed, handler)   # handler(row)
+      table.setItemDelegateForColumn(col, d)
+    """
+
+    MARGIN_X = 8
+    MARGIN_Y = 5
+    RADIUS = 4
+    SEL_BG = "#DCE9FB"   # 与 QTableWidget::item:selected 保持一致
+
+    def __init__(self, view=None):
+        super().__init__(view)
+        self._view = view
+        self._specs = {}      # column -> (text, bg, hover_bg, pressed_bg)
+        self._handlers = {}   # column -> handler(row)
+        self._hover = (-1, -1)
+        self._pressed = False
+
+    def add_button(self, column, text, bg, hover_bg, pressed_bg, handler):
+        self._specs[int(column)] = (text, bg, hover_bg, pressed_bg)
+        self._handlers[int(column)] = handler
+
+    def attach(self, column):
+        if self._view is not None:
+            self._view.setItemDelegateForColumn(int(column), self)
+
+    def _btn_rect(self, rect):
+        return QRectF(rect).adjusted(self.MARGIN_X, self.MARGIN_Y,
+                                     -self.MARGIN_X, -self.MARGIN_Y)
+
+    def clear_hover(self):
+        if self._hover != (-1, -1):
+            self._hover = (-1, -1)
+            self._pressed = False
+            self._update()
+
+    def _update(self):
+        if self._view is not None and hasattr(self._view, 'viewport'):
+            self._view.viewport().update()
+
+    def paint(self, painter, option, index):
+        # 单元格底色（选中态淡蓝），保证按钮列和其它列观感一致
+        painter.fillRect(option.rect,
+                         QColor(self.SEL_BG) if (option.state & QStyle.State_Selected) else QColor("#FFFFFF"))
+        spec = self._specs.get(index.column())
+        if not spec:
+            return
+        text, bg, hover_bg, pressed_bg = spec
+        r = self._btn_rect(option.rect)
+        hovered = (self._hover == (index.row(), index.column()))
+        color = QColor(pressed_bg if (hovered and self._pressed)
+                       else (hover_bg if hovered else bg))
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing, True)
+        painter.setRenderHint(QPainter.TextAntialiasing, True)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(color))
+        painter.drawRoundedRect(r, self.RADIUS, self.RADIUS)
+        painter.setPen(QColor("#FFFFFF"))
+        f = QFont("Microsoft YaHei")
+        f.setPixelSize(11)          # 像素字号，不受系统 DPI 缩放影响
+        f.setWeight(QFont.Medium)
+        painter.setFont(f)
+        painter.drawText(r, Qt.AlignCenter, text)
+        painter.restore()
+
+    def editorEvent(self, event, model, option, index):
+        if index.column() not in self._specs:
+            return False
+        et = event.type()
+        if et == QEvent.MouseMove:
+            pos = (index.row(), index.column())
+            if pos != self._hover:
+                self._hover = pos
+                self._update()
+            return False    # 不拦截，表格自身的 hover/选择照常
+        if et == QEvent.MouseButtonPress:
+            if self._btn_rect(option.rect).contains(event.pos()):
+                self._pressed = True
+                self._update()
+                return True
+            return False
+        if et == QEvent.MouseButtonRelease:
+            was_pressed = self._pressed
+            self._pressed = False
+            inside = self._btn_rect(option.rect).contains(event.pos())
+            if was_pressed and inside:
+                handler = self._handlers.get(index.column())
+                if handler is not None:
+                    row = index.row()
+                    # 延迟一拍执行，避免在事件派发过程中重建表格
+                    QTimer.singleShot(0, lambda r=row: handler(r))
+                self._update()
+                return True
+            self._update()
+            return False
+        return False
+
+
+class TrashViewportLeaveFilter(QObject):
+    """鼠标移出表格时清掉委托的 hover 态，避免按钮一直停在 hover 颜色。"""
+
+    def __init__(self, delegate, view):
+        super().__init__(view)
+        self._delegate = delegate
+        view.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Leave:
+            self._delegate.clear_hover()
+        return False
+
 
 class _FolderTableCtxFilter(QObject):
     """右键事件过滤器：直接拦截 folder_table 的右键事件并弹出菜单。
@@ -6659,6 +6780,8 @@ class AutoRecorderApp(QMainWindow):
         self.log_window = QDialog(self)
         self.log_window.setWindowTitle("运行日志")
         self.log_window.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+        self.log_window.setAttribute(Qt.WA_TranslucentBackground)
+        self.log_window.setStyleSheet("background: transparent;")
         self.log_window.setMinimumSize(700, 500)
         center_window(self.log_window)
 
@@ -6670,9 +6793,9 @@ class AutoRecorderApp(QMainWindow):
         _outer.setObjectName("logOuter")
         _outer.setStyleSheet("""
             QFrame#logOuter {
-                background-color: #1C1C1E;
+                background-color: #F5F5F7;
                 border-radius: 14px;
-                border: 1px solid #1C1C1E;
+                border: 1px solid #D1D1D6;
             }
         """)
         _cl = QVBoxLayout(_outer)
@@ -6680,15 +6803,32 @@ class AutoRecorderApp(QMainWindow):
         _cl.setSpacing(0)
 
         _header = QWidget()
+        # 外框 14px 圆角 + 1px 边框 + 1px 内边距 => 内侧圆角 12px，子控件对齐 12px
         _header.setFixedHeight(44)
-        _header.setStyleSheet("background-color: #1C1C1E; border-top-left-radius: 11px; border-top-right-radius: 11px; border: none;")
+        _header.setStyleSheet("background-color: #FFFFFF; border-top-left-radius: 12px; border-top-right-radius: 12px; border: none; border-bottom: 1px solid #E8E8ED;")
         _hdr_lo = QHBoxLayout(_header)
         _hdr_lo.setContentsMargins(16, 0, 16, 0)
         _hdr_lo.setSpacing(8)
         _hdr_title = QLabel("运行日志")
-        _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
+        _hdr_title.setStyleSheet("color: #1D1D1F; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
+        # 清空按钮放在标题栏右侧，做成 macOS 风格小胶囊按钮，不占用日志区高度
+        clear_btn = QPushButton("清空")
+        clear_btn.setObjectName("clearLogBtn")
+        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setFixedHeight(24)
+        clear_btn.setStyleSheet("""
+            QPushButton#clearLogBtn {
+                background-color: #E9E9EE; color: #1D1D1F; border: none; border-radius: 12px;
+                padding: 0 14px; font-weight: 500; font-size: 12px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            }
+            QPushButton#clearLogBtn:hover { background-color: #DCDCE1; }
+            QPushButton#clearLogBtn:pressed { background-color: #CFCFD4; }
+        """)
+        clear_btn.clicked.connect(self.clear_log)
+        _hdr_lo.addWidget(clear_btn)
         def _closeD(ev):
             if ev.button() == Qt.LeftButton: self.log_window.close()
         _red_dot = QFrame()
@@ -6708,28 +6848,10 @@ class AutoRecorderApp(QMainWindow):
         _cl.addWidget(_header)
 
         content = QWidget()
-        content.setStyleSheet("background-color: #FFFFFF; border: none; border-bottom-left-radius: 11px; border-bottom-right-radius: 11px;")
+        content.setStyleSheet("background-color: #FFFFFF; border: none; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px;")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(16, 12, 16, 16)
         content_layout.setSpacing(10)
-
-        clear_btn = QPushButton("清空")
-        clear_btn.setObjectName("clearLogBtn")
-        clear_btn.setCursor(Qt.PointingHandCursor)
-        clear_btn.setStyleSheet("""
-            QPushButton#clearLogBtn {
-                background-color: #0A84FF; color: white; border: none; border-radius: 4px;
-                padding: 6px 16px; font-weight: bold; font-size: 12px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton#clearLogBtn:hover { background-color: #006AE0; }
-            QPushButton#clearLogBtn:pressed { background-color: #004DB3; }
-        """)
-        clear_btn.clicked.connect(self.clear_log)
-        btn_row = QHBoxLayout()
-        btn_row.addStretch()
-        btn_row.addWidget(clear_btn)
-        content_layout.addLayout(btn_row)
 
         self.log_text_edit = QTextEdit()
         self.log_text_edit.setReadOnly(True)
@@ -6743,6 +6865,28 @@ class AutoRecorderApp(QMainWindow):
                 font-family: "Consolas", "Courier New", monospace;
                 font-size: 14px;
             }
+            QScrollBar:vertical {
+                background: transparent; width: 8px; margin: 2px; border: none;
+            }
+            QScrollBar::handle:vertical {
+                background: #C7C7CC; border-radius: 4px; min-height: 30px;
+            }
+            QScrollBar::handle:vertical:hover { background: #AEAEB2; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0px; background: none; border: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+            QScrollBar:horizontal {
+                background: transparent; height: 8px; margin: 2px; border: none;
+            }
+            QScrollBar::handle:horizontal {
+                background: #C7C7CC; border-radius: 4px; min-width: 30px;
+            }
+            QScrollBar::handle:horizontal:hover { background: #AEAEB2; }
+            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                width: 0px; background: none; border: none;
+            }
+            QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: none; }
         """)
         content_layout.addWidget(self.log_text_edit)
 
@@ -9786,7 +9930,7 @@ class AutoRecorderApp(QMainWindow):
         from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout,
             QLabel, QPushButton, QHeaderView, QWidget,
             QTableWidget, QTableWidgetItem, QAbstractItemView,
-            QMessageBox, QFrame)
+            QMessageBox, QFrame, QSizePolicy)
         from PyQt5.QtCore import Qt
         from PyQt5.QtGui import QColor
 
@@ -9812,15 +9956,15 @@ class AutoRecorderApp(QMainWindow):
         dialog.mouseMoveEvent   = _mm
         dialog.mouseReleaseEvent = _mr
 
-        container = QWidget(dialog)
+        container = QFrame(dialog)
         container.setObjectName("tdContainer")
         container.setStyleSheet("""
-            QWidget#tdContainer {
+            QFrame#tdContainer {
                 background: #F5F5F7;
-                border: 1px solid #1C1C1E;
+                border: 1px solid #8E8E93;
                 border-radius: 16px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                color: black;
+                color: #1D1D1F;
             }
         """)
 
@@ -9834,12 +9978,14 @@ class AutoRecorderApp(QMainWindow):
 
         _header = QWidget()
         _header.setFixedHeight(44)
-        _header.setStyleSheet("background-color: #1C1C1E; border-top-left-radius: 13px; border-top-right-radius: 13px; border: none;")
+        # 容器圆角 16px + 1px 边框 => 内侧圆角 15px。子控件圆角必须等于 15px，
+        # 小于 15 时白色方角会盖住容器四角的边框弧线（表现为四角比四边淡）。
+        _header.setStyleSheet("background-color: #FFFFFF; border-top-left-radius: 15px; border-top-right-radius: 15px; border: none; border-bottom: 1px solid #E8E8ED;")
         _hdr_lo = QHBoxLayout(_header)
         _hdr_lo.setContentsMargins(16, 0, 16, 0)
         _hdr_lo.setSpacing(8)
         _hdr_title = QLabel("回收站")
-        _hdr_title.setStyleSheet("color: #FFFFFF; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
+        _hdr_title.setStyleSheet("color: #1D1D1F; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
         count_label = QLabel("")
@@ -9866,22 +10012,25 @@ class AutoRecorderApp(QMainWindow):
         cl.addWidget(_header)
 
         content = QWidget()
-        content.setStyleSheet("background-color: #FFFFFF; border: none; border-bottom-left-radius: 13px; border-bottom-right-radius: 13px;")
+        # 同 header：底部圆角也要对齐容器内侧的 15px
+        content.setStyleSheet("background-color: #FFFFFF; border: none; border-bottom-left-radius: 15px; border-bottom-right-radius: 15px;")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(16, 12, 16, 16)
         content_layout.setSpacing(10)
 
         trash_table = QTableWidget()
-        trash_table.setColumnCount(5)
-        trash_table.setHorizontalHeaderLabels(["", "流程名称", "删除时间", "恢复", "删除"])
+        trash_table.setColumnCount(4)
+        trash_table.setHorizontalHeaderLabels(["流程名称", "删除时间", "恢复", "删除"])
+        trash_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
         trash_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        trash_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        trash_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
         trash_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-        trash_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
-        trash_table.setColumnWidth(0, 80)
-        trash_table.setColumnWidth(3, 80)
-        trash_table.setColumnWidth(4, 80)
+        trash_table.setColumnWidth(2, 78)
+        trash_table.setColumnWidth(3, 78)
         trash_table.verticalHeader().setVisible(False)
+        # 行高固定，保证单元格里的按钮完整落在行内（不会因为行太矮被裁/溢出）
+        trash_table.verticalHeader().setDefaultSectionSize(40)
+        trash_table.verticalHeader().setMinimumSectionSize(40)
         trash_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         trash_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         trash_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -9889,67 +10038,47 @@ class AutoRecorderApp(QMainWindow):
         trash_table.setStyleSheet("""
             QTableWidget { border: none; border-radius: 8px; gridline-color: #E8E8ED; background-color: #FFFFFF; }
             QTableWidget::item { padding: 6px 10px; }
-            QTableWidget::item:selected { background-color: #0A84FF; color: white; }
+            QTableWidget::item:selected { background-color: #DCE9FB; color: #1D1D1F; }
             QHeaderView::section { background: #F5F5F7; color: black; font-weight: 600; padding: 8px 12px; border: none; border-bottom: 1px solid #E8E8ED; font-size: 12px; }
         """)
         content_layout.addWidget(trash_table)
 
-        def _load_trash_data():
-            from utils import get_recordings_path
-            recordings_dir = get_recordings_path()
-            trash_dir = os.path.join(recordings_dir, 'trash')
-            index_file = os.path.join(trash_dir, 'trash_index.json')
-            index_data = []
-            if os.path.exists(index_file):
-                try:
-                    with open(index_file, 'r', encoding='utf-8') as f:
-                        index_data = json.load(f)
-                except:
-                    pass
-            trash_table.setRowCount(len(index_data))
-            for i, item in enumerate(index_data):
-                check_item = QTableWidgetItem("")
-                check_item.setData(Qt.UserRole, item)
-                check_item.setTextAlignment(Qt.AlignCenter)
-                trash_table.setItem(i, 0, check_item)
-                name_item = QTableWidgetItem(item.get('original_name', ''))
-                name_item.setTextAlignment(Qt.AlignCenter)
-                name_item.setData(Qt.UserRole, item)
-                trash_table.setItem(i, 1, name_item)
-                time_item = QTableWidgetItem(item.get('deleted_time', ''))
-                time_item.setTextAlignment(Qt.AlignCenter)
-                trash_table.setItem(i, 2, time_item)
+        # "恢复 / 删除" 用自绘委托（不用 setCellWidget —— 见 TrashButtonDelegate 注释），
+        # 几何每帧都取最新的单元格 rect，不会被裁。
+        trash_delegate = TrashButtonDelegate(trash_table)
+        trash_delegate.add_button(
+            2, "恢复", "#0A84FF", "#006AE0", "#004DB3",
+            lambda row: (trash_table.selectRow(row), self.restore_selected_trash(trash_table, count_label)))
+        trash_delegate.add_button(
+            3, "删除", "#FF3B30", "#D62820", "#B01A10",
+            lambda row: (trash_table.selectRow(row), self.delete_selected_trash(trash_table, count_label)))
+        trash_delegate.attach(2)
+        trash_delegate.attach(3)
+        trash_table.setMouseTracking(True)
+        trash_table._trash_leave_filter = TrashViewportLeaveFilter(trash_delegate, trash_table)
+        # 保持引用，避免被 GC 后委托/过滤器失效
+        trash_table._trash_delegate = trash_delegate
 
-                btn_r = QPushButton("恢复")
-                btn_r.setStyleSheet("QPushButton{background:#0A84FF;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#006AE0;} QPushButton:pressed{background:#004DB3;}")
-                btn_r.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.restore_selected_trash(trash_table, count_label)))
-                trash_table.setCellWidget(i, 3, btn_r)
-
-                btn_d = QPushButton("删除")
-                btn_d.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#D62820;} QPushButton:pressed{background:#B01A10;}")
-                btn_d.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.delete_selected_trash(trash_table, count_label)))
-                trash_table.setCellWidget(i, 4, btn_d)
-            count_label.setText(f"{len(index_data)} \u9879")
-        _load_trash_data()
+        # 首次加载与后续刷新统一走 _reload_trash_table，避免两处样式不一致
+        self._reload_trash_table(trash_table, count_label)
 
         btn_row = QHBoxLayout()
         btn_row.setContentsMargins(0, 12, 0, 0)
         btn_row.setSpacing(16)
 
-        _icon_font = "font-size: 14px;"
-
-        restore_btn = RoundedPillButton("🔄 恢复选中", bg_color="#0A84FF")
-        restore_btn.setFixedSize(130, 40)
+        # font_size 用像素单位（11px），不用 pointSize —— 后者会被系统 DPI 放大成 ~16px，看着过大
+        restore_btn = RoundedPillButton("恢复选中", bg_color="#007AFF", font_size=11)
+        restore_btn.setFixedSize(112, 32)
         restore_btn.clicked.connect(lambda: self.restore_selected_trash(trash_table, count_label))
         btn_row.addWidget(restore_btn)
 
-        delete_btn = RoundedPillButton("✖ 永久删除", bg_color="#FF3B30")
-        delete_btn.setFixedSize(130, 40)
+        delete_btn = RoundedPillButton("永久删除", bg_color="#FF3B30", font_size=11)
+        delete_btn.setFixedSize(112, 32)
         delete_btn.clicked.connect(lambda: self.delete_selected_trash(trash_table, count_label))
         btn_row.addWidget(delete_btn)
 
-        clear_btn = RoundedPillButton("🗑 清空回收站", bg_color="#8E8E93")
-        clear_btn.setFixedSize(150, 40)
+        clear_btn = RoundedPillButton("清空回收站", bg_color="#8E8E93", font_size=11)
+        clear_btn.setFixedSize(112, 32)
         clear_btn.clicked.connect(lambda: self.clear_trash_dialog(trash_table, count_label))
         btn_row.addWidget(clear_btn)
 
@@ -10109,27 +10238,20 @@ class AutoRecorderApp(QMainWindow):
                 pass
         trash_table.setRowCount(len(index_data))
         for i, item in enumerate(index_data):
-            check_item = QTableWidgetItem("")
-            check_item.setData(Qt.UserRole, item)
-            check_item.setTextAlignment(Qt.AlignCenter)
-            trash_table.setItem(i, 0, check_item)
+            # 第 0 列即"流程名称"，行数据挂在它的 UserRole 上（不再有空的占位列）
             name_item = QTableWidgetItem(item.get('original_name', ''))
             name_item.setTextAlignment(Qt.AlignCenter)
             name_item.setData(Qt.UserRole, item)
-            trash_table.setItem(i, 1, name_item)
+            trash_table.setItem(i, 0, name_item)
             time_item = QTableWidgetItem(item.get('deleted_time', ''))
             time_item.setTextAlignment(Qt.AlignCenter)
-            trash_table.setItem(i, 2, time_item)
-
-            btn_r = QPushButton("恢复")
-            btn_r.setStyleSheet("QPushButton{background:#0A84FF;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#006AE0;} QPushButton:pressed{background:#004DB3;}")
-            btn_r.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.restore_selected_trash(trash_table, count_label)))
-            trash_table.setCellWidget(i, 3, btn_r)
-
-            btn_d = QPushButton("删除")
-            btn_d.setStyleSheet("QPushButton{background:#FF3B30;color:white;border:none;border-radius:4px;padding:4px 6px;font-size:11px;} QPushButton:hover{background:#D62820;} QPushButton:pressed{background:#B01A10;}")
-            btn_d.clicked.connect(lambda _, row=i: (trash_table.selectRow(row), self.delete_selected_trash(trash_table, count_label)))
-            trash_table.setCellWidget(i, 4, btn_d)
+            trash_table.setItem(i, 1, time_item)
+            # 按钮两列也要放 item：委托只在有 item 的单元格上才会被调用绘制
+            for _c in (2, 3):
+                _it = QTableWidgetItem("")
+                _it.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                trash_table.setItem(i, _c, _it)
+            trash_table.setRowHeight(i, 40)
         count_label.setText(f"{len(index_data)} \u9879")
         # 同步刷新主流程列表
         if hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):

@@ -80,7 +80,7 @@ class ComboSkillEditDialog(QDialog):
             QFrame {
                 background: #FFFFFF;
                 border-radius: 18px;
-                border: 2px solid #8E8E93;
+                border: 1px solid #D1D1D6;
             }
         """)
         _cl = QVBoxLayout(_card)
@@ -364,10 +364,10 @@ class ComboSkillEditDialog(QDialog):
                 font-size: 12px;
             }}
         """)
-        self.tree_widget.setColumnWidth(0, 250)
-        self.tree_widget.setColumnWidth(1, 180)
+        self.tree_widget.setColumnWidth(0, 320)
+        self.tree_widget.setColumnWidth(1, 160)
         self.tree_widget.setColumnWidth(2, 280)
-        self.tree_widget.setColumnWidth(3, 90)
+        self.tree_widget.setColumnWidth(3, 80)
 
         self.tree_widget.setFrameShape(QFrame.NoFrame)
         self.tree_widget.setSelectionMode(QTreeWidget.SingleSelection)

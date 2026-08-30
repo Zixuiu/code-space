@@ -1,4 +1,4 @@
-﻿"""
+"""
 文件: styles.py
 用途: 提供统一的UI样式管理，避免在各个文件中重复定义样式
 """
@@ -412,6 +412,14 @@ def generate_dynamic_styles(screen_width=None, screen_height=None):
         QScrollBar::handle:vertical:hover {{
             background: #b0b0b0;
         }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+            height: 0px;
+            background: none;
+            border: none;
+        }}
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+            background: none;
+        }}
         QScrollBar:horizontal {{
             background: #fafafa;
             height: 8px;
@@ -424,6 +432,14 @@ def generate_dynamic_styles(screen_width=None, screen_height=None):
         }}
         QScrollBar::handle:horizontal:hover {{
             background: #b0b0b0;
+        }}
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+            width: 0px;
+            background: none;
+            border: none;
+        }}
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {{
+            background: none;
         }}
     """
 

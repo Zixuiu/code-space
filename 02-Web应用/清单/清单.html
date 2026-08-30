@@ -1001,21 +1001,22 @@ function updateAddButtonPosition() {
 
   // 优先使用已渲染的最后一个单元格定位
   const lastCell = getCellElement(totalCells - 1);
-  const app = document.querySelector('.app');
-  const appRect = app.getBoundingClientRect();
+  // 按钮是 absolute 定位，基准是它的 offsetParent（.main-content），不能用 .app
+  const offsetParent = btn.offsetParent || document.body;
+  const parentRect = offsetParent.getBoundingClientRect();
 
   if (lastCell) {
     const cellRect = lastCell.getBoundingClientRect();
-    const top = cellRect.top - appRect.top + cellRect.height / 2 - 25;
-    const left = cellRect.left - appRect.left - 55;
+    const top = cellRect.top - parentRect.top + cellRect.height / 2 - 25;
+    const left = Math.max(cellRect.left - parentRect.left - 55, 8);
     btn.style.left = left + 'px';
     btn.style.top = top + 'px';
   } else {
     // 最后一个单元格未渲染，用估算位置定位
     const container = document.getElementById('container');
     const containerRect = container.getBoundingClientRect();
-    const lastCellTop = containerRect.top - appRect.top + (totalCells - 1) * CELL_HEIGHT;
-    btn.style.left = (containerRect.left - appRect.left - 55) + 'px';
+    const lastCellTop = containerRect.top - parentRect.top + (totalCells - 1) * CELL_HEIGHT;
+    btn.style.left = Math.max(containerRect.left - parentRect.left - 55, 8) + 'px';
     btn.style.top = (lastCellTop + CELL_HEIGHT / 2 - 25) + 'px';
   }
   btn.style.right = 'auto';

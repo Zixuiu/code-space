@@ -195,7 +195,6 @@ register(new OpenAICompatProvider({
   platform: 'llm7',
   name: 'LLM7',
   baseUrl: 'https://api.llm7.io/v1',
-  keyless: true,
 }));
 
 // OpenCode Zen — OpenAI-compatible gateway (https://opencode.ai/zen/v1), same
