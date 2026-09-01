@@ -3,11 +3,11 @@ import os
 import sys
 import subprocess
 
-# 当前目录（d:\codespace）
-root = os.path.dirname(os.path.abspath(__file__))
+# 当前仓库根目录（d:\codespace）：本脚本位于 04-工具脚本\系统工具\，上三级即为仓库根
+root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # app.py 的路径
-app_dir = os.path.join(root, "01-开发项目", "PC-action", "PC-action-macOS")
+app_dir = os.path.join(root, "01-space", "PC-action", "PC-action-macOS")
 app_path = os.path.join(app_dir, "app.py")
 
 if not os.path.exists(app_path):

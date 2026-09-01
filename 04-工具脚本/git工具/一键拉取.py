@@ -20,6 +20,8 @@ if sys.platform.startswith("win"):
 # 动态获取当前脚本所在目录作为 BASE_DIR，避免写死 d:\codespace
 # 新电脑放到任意路径都能直接跑
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# 脚本位于 04-工具脚本/git工具/，仓库根为上两级目录
+REPO_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
 REMOTE = "origin"
 BRANCH = "main"
 SSH_URL = "git@gitcode.com:weixin_58844486/codespace.git"
@@ -32,7 +34,7 @@ SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4
 #   因此把它们统一列在保护清单中。
 # 重要：扫描范围严格限制在 APP_DIR（PC-action-macOS 应用目录）下，避免误备份
 #       其他项目（如 go-music-dl/webview 的浏览器数据库）或测试副本目录的数据。
-APP_DIR = "01-开发项目/PC-action/PC-action-macOS"
+APP_DIR = os.path.join(REPO_ROOT, "01-space", "PC-action", "PC-action-macOS")
 PROTECTED_EXPLICIT = [
     f"{APP_DIR}/data",          # 组合技（data/combo_skills.json）及快捷键/键位配置
     f"{APP_DIR}/user_data",     # 快捷键、录制顺序、UI 偏好等全部用户配置

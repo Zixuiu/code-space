@@ -271,4 +271,18 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except SystemExit:
+        # 推送失败分支会走 sys.exit(1)（错误信息已打印），这里不拦截，让下方暂停生效
+        pass
+    except Exception:
+        # 任何未预期异常都打印出来，避免双击时一闪而过看不到原因
+        import traceback
+        traceback.print_exc()
+    # ★ 双击运行时控制台会在脚本结束后立即关闭，加暂停让用户看清结果/报错
+    try:
+        input("\n✅ 操作完成，按回车键关闭窗口...")
+    except Exception:
+        # pythonw（无控制台）场景下 input 会触发 EOFError，忽略即可
+        pass
