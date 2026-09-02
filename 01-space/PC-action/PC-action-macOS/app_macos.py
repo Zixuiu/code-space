@@ -2363,7 +2363,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             tr.addWidget(icon_lbl)
             title_lbl = QLabel(s["title"])
             title_lbl.setWordWrap(True)
-            title_lbl.setStyleSheet("color: %s; font-size: 20px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+            title_lbl.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 4px 0px; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
             tr.addWidget(title_lbl, 1)
             pl.addLayout(tr)
 

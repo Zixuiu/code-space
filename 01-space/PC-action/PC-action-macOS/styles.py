@@ -447,17 +447,22 @@ def generate_dynamic_styles(screen_width=None, screen_height=None):
 
 def apply_dialog_style(dialog, screen_width=None, screen_height=None):
     """为对话框应用样式 - macOS风格"""
-    if not screen_width or not screen_height:
+    # 调用方普遍把「屏幕比例」(如 0.3 / 0.32) 当像素尺寸传进来，
+    # 这会让下面所有 int(screen_height * 0.012) 之类的圆角被算成 0px，
+    # 对话框变成直角方盒。检测到过小的值就回退到真实屏幕尺寸。
+    if not screen_width or not screen_height or screen_width < 100 or screen_height < 100:
         screen_width, screen_height = get_screen_size()
 
-    # 设置窗口标志：移除帮助按钮，添加最小化按钮
+    # 窗口标志：在调用方原有 flags 基础上「叠加」无边框，不能整体覆盖。
+    # 覆盖会把调用方设置的 WindowStaysOnTopHint 抹掉，导致对话框无法置顶，
+    # 被主窗口或坐标录制覆盖层(WindowStaysOnTopHint)遮挡。
     from PyQt5.QtCore import Qt
-    dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
+    dialog.setWindowFlags(dialog.windowFlags() | Qt.Dialog | Qt.FramelessWindowHint)
     dialog.setAttribute(Qt.WA_TranslucentBackground)
     dialog.setStyleSheet("QDialog{background-color:#FFFFFF;border-radius:12px;}")
 
     # 添加 macOS 三点点（红 关闭 / 黄 最小化 / 绿 最大化）
-    from PyQt5.QtWidgets import QFrame as _DF, QWidget as _DW, QHBoxLayout as _DL
+    from PyQt5.QtWidgets import QFrame as _DF, QWidget as _DW, QHBoxLayout as _DL, QDialog as _QD
     _bw = _DW(dialog)
     _bw.setGeometry(dialog.width()-78, 12, 66, 14)
     _bw.setStyleSheet("background:transparent;")
@@ -481,11 +486,17 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
             def eventFilter(self,o,e):
                 if e.type()==_QC.QEvent.MouseButtonPress and e.button()==_QC.Qt.LeftButton:
                     p=o.parent()
-                    while p and not isinstance(p,_QC.QDialog): p=p.parent()
+                    while p and not isinstance(p,_QD): p=p.parent()
                     if p: self.fn(p)
                     return True
                 return super().eventFilter(o,e)
-        _d.installEventFilter(_Filt(_action))
+        # 必须保持 Python 引用：installEventFilter 不持有引用，
+        # 否则 _Filt 会被 GC，事件过滤器失效，导致三个圆点点了没反应（关不掉对话框）
+        if not hasattr(dialog, '_macos_dot_filters'):
+            dialog._macos_dot_filters = []
+        _f = _Filt(_action)
+        dialog._macos_dot_filters.append(_f)
+        _d.installEventFilter(_f)
     
     _bw.show()
     _bw.raise_()

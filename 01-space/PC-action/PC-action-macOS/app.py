@@ -103,6 +103,8 @@ from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QStyle
 from PyQt5.QtWidgets import QStyledItemDelegate
 
+from macos_dialog import MacOSDialog
+
 # image_recognition模块已导入
 
 # 本地 SVG 图标加载（与 app_macos 同实现，避免循环导入）
@@ -919,6 +921,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
                 padding: 0 14px;
             }}
@@ -3871,6 +3874,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3897,6 +3901,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -3989,6 +3994,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -4013,6 +4019,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -4924,15 +4931,19 @@ class FolderManager(QDialog):
 
         from PyQt5.QtWidgets import QDoubleSpinBox
 
-        dialog = QDialog(self)
+        # 用 MacOSDialog 替代旧的 QDialog + apply_dialog_style 组合：
+        # - 旧的 WA_TranslucentBackground + QSS 在 Windows 上根本不画白底（layered window
+        #   必须 paintEvent 手动画），导致主窗口内容透到对话框里
+        # - 旧版三个圆点用绝对定位 + eventFilter，引用易被 GC，事件不可靠
+        # MacOSDialog 内部 paintEvent 自绘圆角白底，三个圆点用真正的 QPushButton
+        dialog = MacOSDialog(self)
         dialog.setWindowTitle("设置默认间隔")
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        # 不再 setWindowFlags 也不再调 apply_dialog_style —— MacOSDialog 已配好
 
-        width, height = get_screen_size(0.3)
-        dialog.resize(width, int(height * 0.32))
+        # 宽度固定为屏幕的 22%（1080p 下约 422px），高度按内容自适应
+        _sw, _sh = get_screen_size()
+        dialog.setFixedWidth(int(_sw * 0.22))
         dialog.setWindowModality(Qt.WindowModal)
-        dialog.activateWindow()
-        apply_dialog_style(dialog, 0.3, 0.32)
 
         layout = QVBoxLayout()
         layout.setSpacing(15)
@@ -4942,8 +4953,9 @@ class FolderManager(QDialog):
 
         instruction_label = QLabel(f"设置流程「{folder_name}」的默认操作间隔")
         instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_font_size = int(screen_height * 0.025)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        instruction_label.setWordWrap(True)  # 窄宽度下长标题要自动换行，否则会左右被裁切
+        instruction_font_size = int(screen_height * 0.015)
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 4px 0px 2px 0px; line-height: 1.25; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(instruction_label)
 
         spin = QDoubleSpinBox()
@@ -4955,15 +4967,15 @@ class FolderManager(QDialog):
         except (TypeError, ValueError):
             spin.setValue(0.001)
         spin.setSuffix(" 秒")
-        spin_font_size = int(screen_height * 0.03)
+        spin_font_size = int(screen_height * 0.022)
         spin.setStyleSheet(f"""
             QDoubleSpinBox {{
                 font-size: {spin_font_size}px;
-                padding: 8px;
+                padding: 6px 8px;
                 border: 2px solid #4CAF50;
                 border-radius: 8px;
                 background-color: white;
-                min-height: 35px;
+                min-height: 40px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QDoubleSpinBox:focus {{ border-color: #5A6069; }}
@@ -4974,7 +4986,7 @@ class FolderManager(QDialog):
                             "若某个操作单独设置了延迟，会优先使用它单独的值。")
         hint_label.setWordWrap(True)
         hint_label.setAlignment(Qt.AlignCenter)
-        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.018)}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.013)}px; color: #666; padding: 4px 0px 0px 0px; line-height: 1.3; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(hint_label)
 
         button_layout = QHBoxLayout()
@@ -4989,6 +5001,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover { background-color: #5A6069; }
@@ -5004,6 +5017,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover { background-color: #5A6069; }
@@ -5024,6 +5038,10 @@ class FolderManager(QDialog):
         ok_btn.clicked.connect(on_ok)
         cancel_btn.clicked.connect(dialog.reject)
 
+        # 必须把 layout 挂到 dialog 上，否则里面所有控件都不会显示，
+        # 对话框只剩一个空白背景和右上角三个圆点。
+        dialog.setLayout(layout)
+        dialog.adjustSize()  # 宽度已固定，这里只让高度贴合内容，避免留大片空白
         dialog.exec_()
 
     def on_table_show(self, event):
@@ -5143,7 +5161,7 @@ class FolderManager(QDialog):
         instruction_label.setAlignment(Qt.AlignCenter)
         # 按屏幕比例设置字体大小
         instruction_font_size = int(screen_height * 0.025)  # 屏幕高度的2.5%
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 8px 0px; line-height: 1.4; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
         layout.addWidget(instruction_label)
 
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
@@ -5174,6 +5192,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -5195,6 +5214,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -5216,6 +5236,7 @@ class FolderManager(QDialog):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover {
@@ -7804,11 +7825,16 @@ class AutoRecorderApp(QMainWindow):
 
         # 更新悬浮窗口按钮文字和样式（floating_replay_btn 是普通 QPushButton）
         if hasattr(self, 'floating_replay_btn'):
+            # 注意：之前 _open_style 跟 _closed_style 几乎完全一样（都是 #F2F2F7 灰底
+            # + #8E8E93 灰字），结果点击切换"开启"后只有文字+图标变化，背景完全没动，
+            # 用户反馈"变化前后不对"。现在让开启态用主绿色高亮，跟主窗口的"激活"语义一致。
             _closed_style = """
                 QPushButton {
                     background-color: #F2F2F7;
                     color: #8E8E93;
-                    border-border-radius: 8px               padding: 0 24px;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 0 24px;
                     font-size: 14px;
                     font-weight: 500;
                 }
@@ -7823,18 +7849,21 @@ class AutoRecorderApp(QMainWindow):
             """
             _open_style = """
                 QPushButton {
-                    background-color: #F2F2F7;
-                    color: #8E8E93;
-                    border-rborder-radius: 8px              padding: 0 24px;
+                    background-color: #34C759;
+                    color: #FFFFFF;
+                    border: none;
+                    border-radius: 8px;
+                    padding: 0 24px;
                     font-size: 14px;
-                    font-weight: 500;
+                    font-weight: 600;
                 }
                 QPushButton:hover {
-                    background-color: #E5E5EA;
-                    color: #636366;
+                    background-color: #2BA847;
+                    color: #FFFFFF;
                 }
                 QPushButton:pressed {
-                    background-color: #D1D1D6;
+                    background-color: #1F8C36;
+                    color: #FFFFFF;
                     padding-top: 2px;
                 }
             """
@@ -9294,15 +9323,19 @@ class AutoRecorderApp(QMainWindow):
 
         from PyQt5.QtWidgets import QDoubleSpinBox
 
-        dialog = QDialog(self)
+        # 用 MacOSDialog 替代旧的 QDialog + apply_dialog_style 组合：
+        # - 旧的 WA_TranslucentBackground + QSS 在 Windows 上根本不画白底（layered window
+        #   必须 paintEvent 手动画），导致主窗口内容透到对话框里
+        # - 旧版三个圆点用绝对定位 + eventFilter，引用易被 GC，事件不可靠
+        # MacOSDialog 内部 paintEvent 自绘圆角白底，三个圆点用真正的 QPushButton
+        dialog = MacOSDialog(self)
         dialog.setWindowTitle("设置默认间隔")
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        # 不再 setWindowFlags 也不再调 apply_dialog_style —— MacOSDialog 已配好
 
-        width, height = get_screen_size(0.3)
-        dialog.resize(width, int(height * 0.32))
+        # 宽度固定为屏幕的 22%（1080p 下约 422px），高度按内容自适应
+        _sw, _sh = get_screen_size()
+        dialog.setFixedWidth(int(_sw * 0.22))
         dialog.setWindowModality(Qt.WindowModal)
-        dialog.activateWindow()
-        apply_dialog_style(dialog, 0.3, 0.32)
 
         layout = QVBoxLayout()
         layout.setSpacing(15)
@@ -9312,8 +9345,9 @@ class AutoRecorderApp(QMainWindow):
 
         instruction_label = QLabel(f"设置流程「{folder_name}」的默认操作间隔")
         instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_font_size = int(screen_height * 0.025)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        instruction_label.setWordWrap(True)  # 窄宽度下长标题要自动换行，否则会左右被裁切
+        instruction_font_size = int(screen_height * 0.015)
+        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 4px 0px 2px 0px; line-height: 1.25; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(instruction_label)
 
         spin = QDoubleSpinBox()
@@ -9325,15 +9359,15 @@ class AutoRecorderApp(QMainWindow):
         except (TypeError, ValueError):
             spin.setValue(0.001)
         spin.setSuffix(" 秒")
-        spin_font_size = int(screen_height * 0.03)
+        spin_font_size = int(screen_height * 0.022)
         spin.setStyleSheet(f"""
             QDoubleSpinBox {{
                 font-size: {spin_font_size}px;
-                padding: 8px;
+                padding: 6px 8px;
                 border: 2px solid #4CAF50;
                 border-radius: 8px;
                 background-color: white;
-                min-height: 35px;
+                min-height: 40px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }}
             QDoubleSpinBox:focus {{ border-color: #5A6069; }}
@@ -9344,7 +9378,7 @@ class AutoRecorderApp(QMainWindow):
                             "若某个操作单独设置了延迟，会优先使用它单独的值。")
         hint_label.setWordWrap(True)
         hint_label.setAlignment(Qt.AlignCenter)
-        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.018)}px; color: #666; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
+        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.013)}px; color: #666; padding: 4px 0px 0px 0px; line-height: 1.3; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
         layout.addWidget(hint_label)
 
         button_layout = QHBoxLayout()
@@ -9359,6 +9393,7 @@ class AutoRecorderApp(QMainWindow):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover { background-color: #5A6069; }
@@ -9374,6 +9409,7 @@ class AutoRecorderApp(QMainWindow):
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+                padding: 0px;
                 text-align: center;
             }
             QPushButton:hover { background-color: #5A6069; }
@@ -9393,6 +9429,10 @@ class AutoRecorderApp(QMainWindow):
         ok_btn.clicked.connect(on_ok)
         cancel_btn.clicked.connect(dialog.reject)
 
+        # 必须把 layout 挂到 dialog 上，否则里面所有控件都不会显示，
+        # 对话框只剩一个空白背景和右上角三个圆点。
+        dialog.setLayout(layout)
+        dialog.adjustSize()  # 宽度已固定，这里只让高度贴合内容，避免留大片空白
         dialog.exec_()
     
     def get_folder_shortcut(self, folder_path):
