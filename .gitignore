@@ -41,6 +41,11 @@ _remote_base.py
 _idx_test_ascii.py
 双推脚本验证.py
 
+# PC-action 调试临时产物（验证截图/失败匹配样本，非项目文件）
+01-space/PC-action/PC-action-macOS/_debug_failed_match/
+01-space/PC-action/PC-action-macOS/_dialog_v2.png
+01-space/PC-action/PC-action-macOS/_interval_fixed.png
+
 # 独立未跟踪脚本（用户决定不进仓库）
 推GitHub.py
 
