@@ -133,6 +133,8 @@ class MacOSSidebarItem(QFrame):
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(44)
         self.setMaximumHeight(44)
+        # 去掉 QFrame 默认可能带的面板边框/阴影
+        self.setFrameStyle(QFrame.NoFrame)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
@@ -183,15 +185,12 @@ class MacOSSidebarItem(QFrame):
                 border: none;
             """)
         else:
-            self.setStyleSheet(f"""
-                QFrame {{
+            self.setStyleSheet("""
+                QFrame {
                     background-color: transparent;
                     border: none;
                     outline: none;
-                }}
-                QFrame:hover {{
-                    background-color: {MacOSColors.ACCENT_BG};
-                }}
+                }
             """)
             self.icon_label.setStyleSheet(f"""
                 color: {MacOSColors.TEXT_SECONDARY};
@@ -1372,8 +1371,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 text-align: left;
             }}
             QPushButton:hover {{
-                border-color: {MacOSColors.ACCENT};
-                background-color: {ColorPalette.BG_HOVER};
+                border: 1.5px solid {MacOSColors.SEPARATOR};
+                background-color: {MacOSColors.CARD_BG};
             }}
             QPushButton:pressed {{
                 background-color: {ColorPalette.GRAY_200};

@@ -8975,8 +8975,8 @@ class AutoRecorderApp(QMainWindow):
         # 上一步按钮
         prev_btn = QPushButton("上一步")
         prev_btn.setIcon(load_svg_icon("arrow_left", 16))
-        prev_btn.setIconSize(QSize(24, 24))
-        prev_btn.setFixedSize(120, 32)
+        prev_btn.setIconSize(QSize(18, 18))
+        prev_btn.setFixedSize(88, 32)
         prev_btn.setEnabled(False)  # 第一步时禁用
         prev_btn.setStyleSheet("""
             QPushButton {
@@ -8984,6 +8984,7 @@ class AutoRecorderApp(QMainWindow):
                 color: #5A6069;
                 border: 1px solid #D1D1D6;
                 border-radius: 8px;
+                padding: 0px 10px;
                 font-size: 13px;
                 font-weight: 600;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -8997,17 +8998,18 @@ class AutoRecorderApp(QMainWindow):
         """)
         nav_layout.addWidget(prev_btn)
 
-        nav_layout.addSpacing(20)
+        nav_layout.addSpacing(16)
 
         # 下一步按钮
         next_btn = QPushButton("下一步 →")
-        next_btn.setFixedSize(120, 32)
+        next_btn.setFixedSize(88, 32)
         next_btn.setStyleSheet("""
             QPushButton {
                 background-color: #5A6069;
                 color: white;
                 border: none;
                 border-radius: 8px;
+                padding: 0px 10px;
                 font-size: 13px;
                 font-weight: 600;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
