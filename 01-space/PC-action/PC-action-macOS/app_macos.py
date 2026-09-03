@@ -2436,25 +2436,25 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         # 底部导航
         nav = QHBoxLayout()
         nav.setSpacing(16)
-        prev_btn = QPushButton("上一步")
+        prev_btn = QPushButton()
         prev_btn.setIcon(load_svg_icon("arrow_left", 16))
-        prev_btn.setIconSize(QSize(24, 24))
-        prev_btn.setFixedSize(130, 34)
+        prev_btn.setIconSize(QSize(18, 18))
+        prev_btn.setFixedSize(32, 32)
         prev_btn.setEnabled(False)
         prev_btn.setStyleSheet(
-            "QPushButton { background: %s; color: %s; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }"
+            "QPushButton { background: %s; border: none; border-radius: 8px; }"
             "QPushButton:disabled { opacity: 0.5; }"
-            % (MacOSColors.SEPARATOR, MacOSColors.TEXT_PRIMARY)
+            % (MacOSColors.SEPARATOR,)
         )
-        next_btn = QPushButton("下一步")
+        next_btn = QPushButton()
         next_btn.setIcon(load_svg_icon("arrow_right", 16))
-        next_btn.setIconSize(QSize(24, 24))
-        next_btn.setFixedSize(130, 34)
+        next_btn.setIconSize(QSize(18, 18))
+        next_btn.setFixedSize(32, 32)
         next_btn.setStyleSheet(
-            "QPushButton { background: %s; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }"
+            "QPushButton { background: %s; border: none; border-radius: 8px; }"
             % (MacOSColors.ACCENT,)
         )
-        nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(20); nav.addWidget(next_btn); nav.addStretch()
+        nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(12); nav.addWidget(next_btn); nav.addStretch()
         cl.addLayout(nav)
 
         # 辅助函数
@@ -2462,10 +2462,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             current_step[0] = idx
             stack.setCurrentIndex(idx)
             prev_btn.setEnabled(idx > 0)
-            if idx == total_steps - 1:
-                next_btn.setText("重新开始")
-            else:
-                next_btn.setText("下一步")
 
         prev_btn.clicked.connect(lambda: current_step[0] > 0 and go_to_step(current_step[0] - 1))
         next_btn.clicked.connect(lambda: go_to_step(0) if current_step[0] == total_steps - 1 else go_to_step(current_step[0] + 1))
