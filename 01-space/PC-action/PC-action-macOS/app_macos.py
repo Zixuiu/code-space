@@ -1075,9 +1075,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def run_combo_skill_in_tab(self, skill):
         """在macOS组合技tab页中运行单个组合技"""
-        # ★ 商业化付费墙：试用过期且非VIP则拦截
-        if not self._access_guard():
-            return
         try:
             skill_name = skill.get('name', '未命名')
             skill_id = skill.get('name', '')
@@ -1280,29 +1277,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         if hasattr(self, "_border_overlay") and self._border_overlay:
             self._border_overlay.setGeometry(self.centralWidget().rect())
         super().resizeEvent(e)
-
-    def _access_guard(self):
-        """商业化付费墙：试用过期且非VIP则拦截并提示升级。返回True=放行。
-        定义在子类，父类 replay_folder_operations 通过实例 MRO 亦可调用。"""
-        if not getattr(self, 'current_user', None):
-            return True
-        try:
-            from entitlement import has_full_access
-            if has_full_access(self.current_user):
-                return True
-        except Exception:
-            return True
-        try:
-            from PyQt5.QtWidgets import QMessageBox
-            QMessageBox.information(self, "试用已结束",
-                "免费试用已结束，升级会员可继续使用录制 / 回放 / 组合技 / 流程等全部功能。\n\n"
-                "前往「设置 → 会员中心」输入激活码即可开通。")
-            opener = getattr(self, '_open_membership_dialog', None)
-            if opener:
-                opener()
-        except Exception as e:
-            print(f"付费墙提示失败: {e}")
-        return False
 
     def on_macos_tab_changed(self, index):
         if self.macos_stack.currentIndex() == index:
@@ -2344,136 +2318,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 card.mousePressEvent = lambda e, h=handler: h()
             layout.addWidget(card)
 
-        # ===== 会员中心区块（商业化付费系统入口） =====
-        self._build_membership_card(layout)
-
         layout.addStretch()
         return tab
-
-    def _build_membership_card(self, layout):
-        """设置页会员中心：状态 + 两档价格 + 升级入口（商业化）"""
-        try:
-            from entitlement import get_pricing, get_entitlement, trial_remaining_days
-            pricing = get_pricing()
-            member_card = MacOSCard()
-            mcl = QVBoxLayout(member_card)
-            mcl.setContentsMargins(20, 18, 20, 18)
-            mcl.setSpacing(10)
-
-            mtitle = QLabel("会员中心")
-            mtitle.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 16px; font-weight: 700; background-color: transparent;")
-            mcl.addWidget(mtitle)
-
-            ent = get_entitlement(self.current_user) if self.current_user else {"has_access": True, "is_vip": False, "trial_valid": False}
-            status_text = "您已拥有全功能权限"
-            if self.current_user and not ent.get('has_access', True):
-                status_text = "试用已结束，升级会员解锁全部功能"
-            elif self.current_user and ent.get('trial_valid'):
-                rd = trial_remaining_days(self.current_user)
-                status_text = f"试用中，剩余 {rd} 天" if rd is not None else "试用中"
-            elif ent.get('is_vip'):
-                status_text = f"会员有效至 {ent.get('vip_end')}"
-            self.member_status_label = QLabel(status_text)
-            self.member_status_label.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 13px; background-color: transparent;")
-            mcl.addWidget(self.member_status_label)
-
-            price_row = QHBoxLayout()
-            price_row.setSpacing(12)
-            for pk in ('plan_1', 'plan_2'):
-                p = pricing.get(pk, {})
-                pc = QWidget()
-                pc.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG}; border-radius: 8px;")
-                pcl = QVBoxLayout(pc)
-                pcl.setContentsMargins(14, 12, 14, 12)
-                pcl.setSpacing(4)
-                pn = QLabel(p.get('name', pk))
-                pn.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 14px; font-weight: 700; background-color: transparent;")
-                pcl.addWidget(pn)
-                pp = QLabel(f"¥{p.get('price')} / {p.get('desc', '')}")
-                pp.setStyleSheet(f"color: {MacOSColors.ACCENT}; font-size: 15px; font-weight: 700; background-color: transparent;")
-                pcl.addWidget(pp)
-                price_row.addWidget(pc)
-            mcl.addLayout(price_row)
-
-            upgrade_btn = MacOSButton("升级 / 激活会员")
-            upgrade_btn.setMinimumWidth(180)
-            upgrade_btn.clicked.connect(lambda: self._open_membership_dialog())
-            mcl.addWidget(upgrade_btn)
-
-            layout.addWidget(member_card)
-        except Exception as e:
-            print(f"会员区块构建失败(跳过): {e}")
-
-    def _refresh_member_status(self):
-        """激活成功后刷新设置页会员状态文案"""
-        try:
-            if not hasattr(self, 'member_status_label'):
-                return
-            from entitlement import get_entitlement, trial_remaining_days
-            ent = get_entitlement(self.current_user) if self.current_user else {"has_access": True}
-            if ent.get('is_vip'):
-                self.member_status_label.setText(f"会员有效至 {ent.get('vip_end')}")
-            elif ent.get('trial_valid'):
-                rd = trial_remaining_days(self.current_user)
-                self.member_status_label.setText(f"试用中，剩余 {rd} 天" if rd is not None else "试用中")
-            elif not ent.get('has_access'):
-                self.member_status_label.setText("试用已结束，升级会员解锁全部功能")
-            else:
-                self.member_status_label.setText("您已拥有全功能权限")
-        except Exception as e:
-            print(f"刷新会员状态失败: {e}")
-
-    def _open_membership_dialog(self):
-        """升级/激活对话框：展示渠道 + 输入激活码（商业化）"""
-        try:
-            from entitlement import get_pricing, activate_code
-            from PyQt5.QtCore import QUrl
-            from PyQt5.QtGui import QDesktopServices
-            from PyQt5.QtWidgets import QMessageBox, QLineEdit, QDialog
-            pricing = get_pricing()
-            ch_name = pricing.get('channel_name', '购买渠道')
-            ch_url = pricing.get('channel_url', '')
-            dlg = QDialog(self)
-            dlg.setWindowTitle("升级 / 激活会员")
-            dlg.setMinimumWidth(440)
-            dl = QVBoxLayout(dlg)
-            dl.setContentsMargins(22, 22, 22, 22)
-            dl.setSpacing(12)
-
-            tip = QLabel(f"1. 在「{ch_name}」完成付款，获取激活码\n2. 在下方输入激活码，立即开通会员")
-            tip.setWordWrap(True)
-            tip.setStyleSheet("color: #595959; font-size: 13px; background-color: transparent;")
-            dl.addWidget(tip)
-
-            if ch_url:
-                buy_btn = MacOSButton(f"前往 {ch_name} 购买")
-                buy_btn.setMinimumWidth(220)
-                buy_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(ch_url)))
-                dl.addWidget(buy_btn)
-
-            code_edit = QLineEdit()
-            code_edit.setPlaceholderText("请输入12位激活码")
-            code_edit.setMinimumHeight(36)
-            dl.addWidget(code_edit)
-
-            act_btn = MacOSButton("激活会员")
-            act_btn.setMinimumWidth(220)
-
-            def _do_activate():
-                ok, msg = activate_code(code_edit.text(), self.current_user)
-                if ok:
-                    QMessageBox.information(dlg, "激活成功", msg)
-                    self._refresh_member_status()
-                    dlg.accept()
-                else:
-                    QMessageBox.warning(dlg, "激活失败", msg)
-
-            act_btn.clicked.connect(_do_activate)
-            dl.addWidget(act_btn)
-            dl.addStretch()
-            dlg.exec_()
-        except Exception as e:
-            print(f"打开会员对话框失败: {e}")
 
     def create_feedback_tab(self):
         """反馈页：bug 报告与功能建议的联系方式"""
@@ -3370,9 +3216,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def toggle_recording(self):
         """切换录制状态"""
-        # ★ 商业化付费墙：仅拦截"开始录制"，停止不受限
-        if not self.is_recording and not self._access_guard():
-            return
         if self.is_recording:
             # 正在录制 → 停止（关闭坐标录制覆盖层）
             if hasattr(self, 'coord_recorder') and self.coord_recorder is not None:

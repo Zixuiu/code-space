@@ -7425,9 +7425,6 @@ class AutoRecorderApp(QMainWindow):
     
     def replay_folder_operations(self, folder_path):
         """执行指定文件夹中的操作回放"""
-        # ★ 商业化付费墙：试用过期且非VIP则拦截
-        if not self._access_guard():
-            return
         # ★ 线程安全锁：防止多线程并发回放
         if not self._replay_lock.acquire(blocking=False):
             self.debug_print("[回放] 检测到回放已在执行中，跳过本次请求")
