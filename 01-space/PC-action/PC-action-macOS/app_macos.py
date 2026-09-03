@@ -2187,7 +2187,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.setSectionResizeMode(6, QHeaderView.Fixed)
         combo_table.setColumnWidth(0, 50)
         combo_table.setColumnWidth(6, 52)
-        combo_table.setIconSize(QSize(43, 43))
+        combo_table.setIconSize(QSize(20, 20))
 
         # 拦截第0列的鼠标点击：由我们自己切换勾选，避免与 Qt 原生勾选切换叠加导致状态紊乱
         class _ComboCheckFilter(QObject):
@@ -2847,7 +2847,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 op_new.setData(Qt.UserRole, (want_op, skill))
                 table_widget.setItem(row, 4, op_new)
                 icon_name = "stop" if is_running else "play"
-                _set_table_icon_centered(table_widget, row, 4, icon_name, 24)
+                _set_table_icon_centered(table_widget, row, 4, icon_name, 16)
 
             # 第6列：删除按钮（运行中禁用）
             del_item = table_widget.item(row, 6)
@@ -2862,7 +2862,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 del_new = QTableWidgetItem()
                 del_new.setData(Qt.UserRole, skill)
                 table_widget.setItem(row, 6, del_new)
-                _set_table_icon_centered(table_widget, row, 6, "trash", 18)
+                _set_table_icon_centered(table_widget, row, 6, "trash", 14)
 
     def load_combo_skills_to_table(self, table_widget):
         checked_names = set()
@@ -2945,7 +2945,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 op_item.setData(Qt.UserRole, ("run", skill))
                 icon_name = "play"
             table_widget.setItem(row, 4, op_item)
-            _set_table_icon_centered(table_widget, row, 4, icon_name, 24)
+            _set_table_icon_centered(table_widget, row, 4, icon_name, 16)
 
             stop_shortcut = skill.get('stop_shortcut', '')
             shortcut_display = stop_shortcut if stop_shortcut else "点击设置"
@@ -2966,7 +2966,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 delete_item = QTableWidgetItem()
                 delete_item.setData(Qt.UserRole, skill)
                 table_widget.setItem(row, 6, delete_item)
-                _set_table_icon_centered(table_widget, row, 6, "trash", 18)
+                _set_table_icon_centered(table_widget, row, 6, "trash", 14)
 
     def _get_combo_manager(self):
         return ComboSkillManager(self)
