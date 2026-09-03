@@ -245,7 +245,7 @@ class MacOSSidebar(QWidget):
         nav_items = [
             ("camera", "录制控制"),
             ("folder", "流程管理"),
-            ("loop", "组合技"),
+            ("layers", "组合技"),
             ("gear", "设置"),
             ("book", "使用帮助"),
         ]
@@ -2437,9 +2437,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         nav = QHBoxLayout()
         nav.setSpacing(16)
         prev_btn = QPushButton()
-        prev_btn.setIcon(load_svg_icon("arrow_left", 16))
-        prev_btn.setIconSize(QSize(18, 18))
-        prev_btn.setFixedSize(32, 32)
+        prev_btn.setIcon(load_svg_icon("arrow_left", 14))
+        prev_btn.setIconSize(QSize(16, 16))
+        prev_btn.setFixedSize(44, 26)
         prev_btn.setEnabled(False)
         prev_btn.setStyleSheet(
             "QPushButton { background: %s; border: none; border-radius: 8px; }"
@@ -2447,9 +2447,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             % (MacOSColors.SEPARATOR,)
         )
         next_btn = QPushButton()
-        next_btn.setIcon(load_svg_icon("arrow_right", 16))
-        next_btn.setIconSize(QSize(18, 18))
-        next_btn.setFixedSize(32, 32)
+        next_btn.setIcon(load_svg_icon("arrow_right", 14))
+        next_btn.setIconSize(QSize(16, 16))
+        next_btn.setFixedSize(44, 26)
         next_btn.setStyleSheet(
             "QPushButton { background: %s; border: none; border-radius: 8px; }"
             % (MacOSColors.ACCENT,)
