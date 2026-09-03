@@ -262,7 +262,7 @@ body {
 /* 主内容区域 */
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 80px; /* left:80 给 + 按钮腾出 cell 外侧的固定位置（按钮宽50 + 缝5 = 55） */
   overflow-y: auto;
   border-radius: 0 16px 16px 0;
   scroll-padding-bottom: 200px;
@@ -1008,8 +1008,9 @@ function updateAddButtonPosition() {
   if (lastCell) {
     const cellRect = lastCell.getBoundingClientRect();
     const top = cellRect.top - parentRect.top + cellRect.height / 2 - 25;
-    const left = Math.max(cellRect.left - parentRect.left - 55, 8);
-    btn.style.left = left + 'px';
+    // + 按钮固定在 cell 左侧外 55px（即 button.right 与 cell.left 留 5px 缝）
+    // 不再 clamp 到 8：依赖 .main-content padding-left: 80px 保证永远有 55px+余量
+    btn.style.left = (cellRect.left - parentRect.left - 55) + 'px';
     btn.style.top = top + 'px';
   } else {
     // 最后一个单元格未渲染，用估算位置定位
@@ -1774,6 +1775,11 @@ function createCellElement(i, currentPage) {
         r.onload = ev => {
           currentPage.cellImages[i] = ev.target.result;
           save();
+          // 粘贴图片属于数据/外观变更，与滚动无关，需要强制重渲染一次：
+          // renderVisibleCells() 是虚拟滚动，窗口未变会直接 early-return 不刷 DOM。
+          // 重置缓存后才会真正走到 container.innerHTML = '' 重建单元格。
+          currentRenderStart = -1;
+          currentRenderEnd = -1;
           renderVisibleCells();
           show('图片粘贴成功');
           selectCell(i, true);

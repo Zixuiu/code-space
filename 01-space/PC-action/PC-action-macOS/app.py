@@ -4427,37 +4427,39 @@ class FolderManager(QDialog):
             self.show_beautiful_message('critical', '错误', f"删除失败: {str(e)}")
     
     def update_trash_index(self, trash_folder_name, original_name, original_path):
-        """更新回收站索引文件"""
+        """更新回收站索引文件（orphan 防护：仅当 trash 文件夹真存在时才记录）"""
         from utils import get_recordings_path
         recordings_dir = get_recordings_path()
         trash_dir = os.path.join(recordings_dir, 'trash')
         index_file = os.path.join(trash_dir, 'trash_index.json')
-        
-        # 加载现有索引
+
+        # orphan 防护：如果对应的 trash 文件夹根本不存在，就别再写一条假索引了。
+        # 这能避免「目录被占 / move 失败」时索引与文件夹脱钩。
+        trash_folder_path = os.path.join(trash_dir, trash_folder_name)
+        if not os.path.exists(trash_folder_path):
+            log_warning(f"[回收站] trash 文件夹不存在，跳过写索引: {trash_folder_path}")
+            return
+
         index_data = []
         if os.path.exists(index_file):
             try:
                 with open(index_file, 'r', encoding='utf-8') as f:
                     index_data = json.load(f)
             except Exception as e:
-                # print(f"加载回收站索引失败: {e}")  # [日志已禁用]
-                pass
-        
-        # 添加新条目
+                log_warning(f"[回收站] 加载索引失败: {e}")
+
         index_data.append({
             'trash_folder_name': trash_folder_name,
             'original_name': original_name,
             'original_path': original_path,
             'deleted_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
-        
-        # 保存索引
+
         try:
             with open(index_file, 'w', encoding='utf-8') as f:
                 json.dump(index_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            # print(f"保存回收站索引失败: {e}")  # [日志已禁用]
-            pass
+            log_error(f"[回收站] 保存索引失败: {e}")
     
     def open_trash(self):
         """打开回收站窗口"""
@@ -6621,11 +6623,11 @@ class AutoRecorderApp(QMainWindow):
             }
         """)
         _cl = QVBoxLayout(_outer)
-        _cl.setContentsMargins(1, 1, 1, 1)
+        _cl.setContentsMargins(2, 2, 2, 2)
         _cl.setSpacing(0)
 
         _header = QWidget()
-        # 外框 14px 圆角 + 1px 边框 + 1px 内边距 => 内侧圆角 12px，子控件对齐 12px
+        # 外框 14px 圆角 + 1px 边框 + 2px 内边距 => 内侧圆角约 11px，子控件取 12px 对齐
         _header.setFixedHeight(44)
         _header.setStyleSheet("background-color: #FFFFFF; border-top-left-radius: 12px; border-top-right-radius: 12px; border: none; border-bottom: 1px solid #E8E8ED;")
         _hdr_lo = QHBoxLayout(_header)
@@ -9966,6 +9968,7 @@ class AutoRecorderApp(QMainWindow):
 
 
     def restore_selected_trash(self, trash_table, count_label):
+        """恢复选中行（同步执行）"""
         try:
             rows = set()
             for item in trash_table.selectedItems():
@@ -9976,8 +9979,10 @@ class AutoRecorderApp(QMainWindow):
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil, threading
-            items = []
+            import shutil
+
+            restored = []
+            failed = []
             for row in sorted(rows, reverse=True):
                 item_data = trash_table.item(row, 0).data(Qt.UserRole)
                 if not item_data:
@@ -9987,36 +9992,46 @@ class AutoRecorderApp(QMainWindow):
                 original_name = item_data['original_name']
                 trash_folder_path = os.path.join(trash_dir, trash_folder_name)
                 if not os.path.exists(trash_folder_path):
+                    failed.append(f"{original_name}: 回收站源文件夹已不在")
                     continue
                 restore_path = original_path
                 if os.path.exists(original_path):
                     from datetime import datetime as _dt
                     timestamp = _dt.now().strftime('_%Y%m%d_%H%M%S')
                     restore_path = os.path.join(os.path.dirname(original_path), original_name + timestamp)
-                items.append((trash_folder_path, restore_path, trash_folder_name))
-            if not items:
-                return
+                try:
+                    shutil.move(trash_folder_path, restore_path)
+                    self.remove_from_trash_index(trash_folder_name)
+                    restored.append(original_name)
+                except Exception as e:
+                    failed.append(f"{original_name}: {e}")
+                    log_error(f"[回收站] 恢复失败 name={trash_folder_name} err={e}")
 
-            class _TrashUISignal(QObject):
-                reload = pyqtSignal()
-                message = pyqtSignal(str, str)
-            ui_signal = _TrashUISignal()
-            ui_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
-            ui_signal.message.connect(lambda title, text: self.show_beautiful_message('information', title, text, parent=trash_table.window()))
+            self._reload_trash_table(trash_table, count_label)
 
-            def _bg():
-                for path, restore_path, name in items:
-                    try:
-                        shutil.move(path, restore_path)
-                        self.remove_from_trash_index(name)
-                    except Exception:
-                        pass
-                ui_signal.reload.emit()
-                ui_signal.message.emit('恢复成功', f'成功恢复 {len(items)} 个流程')
-            threading.Thread(target=_bg, daemon=True).start()
+            if restored and not failed:
+                self.show_beautiful_message(
+                    'information', '恢复成功',
+                    f'成功恢复 {len(restored)} 个流程',
+                    parent=trash_table.window()
+                )
+            elif restored and failed:
+                self.show_beautiful_message(
+                    'warning', '部分失败',
+                    f"成功 {len(restored)} 个，失败 {len(failed)} 个。\n失败明细：\n" + "\n".join(failed[:5]),
+                    parent=trash_table.window()
+                )
+            elif failed:
+                self.show_beautiful_message(
+                    'critical', '恢复失败',
+                    "全部恢复失败：\n" + "\n".join(failed[:5]),
+                    parent=trash_table.window()
+                )
         except Exception as e:
+            log_exception(f"[回收站] restore_selected_trash 异常: {e}")
             self.show_beautiful_message('critical', '错误', f"恢复失败: {e}", parent=trash_table.window())
     def delete_selected_trash(self, trash_table, count_label):
+        """永久删除选中行（同步执行，避免 reload/message 跨信号排队时序坑）"""
         try:
             rows = set()
             for item in trash_table.selectedItems():
@@ -10024,81 +10039,118 @@ class AutoRecorderApp(QMainWindow):
             if not rows:
                 self.show_beautiful_message('information', '提示', '请先选择要永久删除的流程', parent=trash_table.window())
                 return
-            reply = self.show_beautiful_message('question', '确认', '确定要永久删除选中的流程吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No, parent=trash_table.window())
+            reply = self.show_beautiful_message(
+                'question', '确认',
+                '确定要永久删除选中的流程吗？此操作不可撤销！',
+                buttons=QMessageBox.Yes | QMessageBox.No,
+                default_button=QMessageBox.No,
+                parent=trash_table.window()
+            )
             if reply != QMessageBox.Yes:
                 return
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil, threading
-            items = []
+            import shutil
+
+            deleted = []
+            failed = []
             for row in sorted(rows, reverse=True):
                 item_data = trash_table.item(row, 0).data(Qt.UserRole)
                 if not item_data:
                     continue
-                items.append((item_data['trash_folder_name'], os.path.join(trash_dir, item_data['trash_folder_name'])))
-            if not items:
-                return
+                name = item_data['trash_folder_name']
+                path = os.path.join(trash_dir, name)
+                try:
+                    if os.path.exists(path):
+                        shutil.rmtree(path)
+                    self.remove_from_trash_index(name)
+                    deleted.append(item_data.get('original_name', name))
+                except Exception as e:
+                    failed.append(f"{item_data.get('original_name', name)}: {e}")
+                    log_error(f"[回收站] 永久删除失败 name={name} err={e}")
 
-            class _TrashUISignal(QObject):
-                reload = pyqtSignal()
-                message = pyqtSignal(str, str)
-            ui_signal = _TrashUISignal()
-            ui_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
-            ui_signal.message.connect(lambda title, text: self.show_beautiful_message('information', title, text, parent=trash_table.window()))
+            # 立刻刷新 UI（不再走 signal 排队）
+            self._reload_trash_table(trash_table, count_label)
 
-            def _bg():
-                for name, path in items:
-                    try:
-                        if os.path.exists(path):
-                            shutil.rmtree(path)
-                        self.remove_from_trash_index(name)
-                    except Exception:
-                        pass
-                ui_signal.reload.emit()
-                ui_signal.message.emit('删除成功', f'成功删除 {len(items)} 个流程')
-            threading.Thread(target=_bg, daemon=True).start()
+            # 给用户明确反馈：成功 / 部分失败 / 全部失败
+            if deleted and not failed:
+                self.show_beautiful_message(
+                    'information', '删除成功',
+                    f'成功删除 {len(deleted)} 个流程',
+                    parent=trash_table.window()
+                )
+            elif deleted and failed:
+                self.show_beautiful_message(
+                    'warning', '部分失败',
+                    f"成功 {len(deleted)} 个，失败 {len(failed)} 个。\n失败明细：\n" + "\n".join(failed[:5]),
+                    parent=trash_table.window()
+                )
+            elif failed:
+                self.show_beautiful_message(
+                    'critical', '删除失败',
+                    "全部删除失败：\n" + "\n".join(failed[:5]),
+                    parent=trash_table.window()
+                )
         except Exception as e:
-            self.show_beautiful_message('critical', '错误', f"删除失败: {e}")
+            log_exception(f"[回收站] delete_selected_trash 异常: {e}")
+            self.show_beautiful_message('critical', '错误', f"删除失败: {e}", parent=trash_table.window())
     def clear_trash_dialog(self, trash_table, count_label):
+        """清空回收站（同步执行）"""
         try:
-            reply = self.show_beautiful_message('question', '确认', '确定要清空回收站吗？此操作不可撤销！', buttons=QMessageBox.Yes | QMessageBox.No, default_button=QMessageBox.No, parent=trash_table.window())
+            reply = self.show_beautiful_message(
+                'question', '确认',
+                '确定要清空回收站吗？此操作不可撤销！',
+                buttons=QMessageBox.Yes | QMessageBox.No,
+                default_button=QMessageBox.No,
+                parent=trash_table.window()
+            )
             if reply != QMessageBox.Yes:
                 return
             from utils import get_recordings_path
             recordings_dir = get_recordings_path()
             trash_dir = os.path.join(recordings_dir, 'trash')
-            import shutil, threading
-            all_items = []
+            import shutil
+
+            failed = []
+            removed = 0
             if os.path.exists(trash_dir):
-                all_items = [(n, os.path.join(trash_dir, n)) for n in os.listdir(trash_dir)]
-            if not all_items:
-                return
-
-            class _ReloadSignal(QObject):
-                reload = pyqtSignal()
-            reload_signal = _ReloadSignal()
-            reload_signal.reload.connect(lambda: self._reload_trash_table(trash_table, count_label))
-
-            def _bg():
-                for name, p in all_items:
+                for name in os.listdir(trash_dir):
+                    p = os.path.join(trash_dir, name)
                     try:
                         if os.path.isdir(p):
                             shutil.rmtree(p)
                         else:
                             os.remove(p)
-                    except Exception:
-                        pass
-                import json
+                        removed += 1
+                    except Exception as e:
+                        failed.append(f"{name}: {e}")
+                        log_error(f"[回收站] 清空时删除失败 {p}: {e}")
+                # 索引文件也单独清掉（兜底）
                 idx_f = os.path.join(trash_dir, 'trash_index.json')
                 try:
                     if os.path.exists(idx_f):
                         os.remove(idx_f)
-                except:
-                    pass
-                reload_signal.reload.emit()
-            threading.Thread(target=_bg, daemon=True).start()
+                except Exception as e:
+                    failed.append(f"trash_index.json: {e}")
+                    log_error(f"[回收站] 清空时索引失败: {e}")
+
+            self._reload_trash_table(trash_table, count_label)
+
+            if not failed:
+                self.show_beautiful_message(
+                    'information', '成功',
+                    f'回收站已清空（{removed} 项）',
+                    parent=trash_table.window()
+                )
+            else:
+                self.show_beautiful_message(
+                    'warning', '部分失败',
+                    f"成功 {removed} 项，失败 {len(failed)} 项：\n" + "\n".join(failed[:5]),
+                    parent=trash_table.window()
+                )
         except Exception as e:
+            log_exception(f"[回收站] clear_trash_dialog 异常: {e}")
             self.show_beautiful_message('critical', '错误', f"清空失败: {e}", parent=trash_table.window())
     def _reload_trash_table(self, trash_table, count_label):
         from utils import get_recordings_path
@@ -10112,6 +10164,18 @@ class AutoRecorderApp(QMainWindow):
                     index_data = json.load(f)
             except:
                 pass
+        # 自愈：剔除"索引有但 trash 目录里实际文件夹不在"的孤儿条目并写回
+        cleaned = [it for it in index_data if isinstance(it, dict)
+                   and it.get('trash_folder_name')
+                   and os.path.exists(os.path.join(trash_dir, it['trash_folder_name']))]
+        if len(cleaned) != len(index_data):
+            try:
+                with open(index_file, 'w', encoding='utf-8') as f:
+                    json.dump(cleaned, f, ensure_ascii=False, indent=2)
+                log_info(f"[回收站] 自愈清理孤儿索引 {len(index_data)-len(cleaned)} 条")
+            except Exception as e:
+                log_warning(f"[回收站] 写回清理后的索引失败: {e}")
+            index_data = cleaned
         trash_table.setRowCount(len(index_data))
         for i, item in enumerate(index_data):
             # 第 0 列即"流程名称"，行数据挂在它的 UserRole 上（不再有空的占位列）
