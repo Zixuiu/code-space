@@ -2113,57 +2113,46 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(12)
 
-        status_bar = QWidget()
-        status_bar.setStyleSheet(f"background-color: {MacOSColors.CARD_BG}; border-radius: 10px;")
-        status_layout = QHBoxLayout(status_bar)
-        status_layout.setContentsMargins(16, 10, 16, 10)
+        # 白色卡片容器，与流程管理页风格一致
+        card = MacOSCard()
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        card_layout.setSpacing(16)
 
-        status_text = QLabel("组合技运行状态：空闲")
-        status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
-        status_layout.addWidget(status_text)
-
-        running_names_label = QLabel("")
-        running_names_label.setStyleSheet(f"font-size: 12px; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
-        status_layout.addWidget(running_names_label)
-        status_layout.addStretch()
-
-        status_bar.setVisible(True)
-        layout.addWidget(status_bar)
-
-        top_layout = QHBoxLayout()
-        top_layout.setSpacing(10)
+        header = QHBoxLayout()
+        header.setSpacing(10)
 
         new_btn = MacOSSecondaryButton("+ 新建组合技")
         new_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE)
-        top_layout.addWidget(new_btn)
+        header.addWidget(new_btn)
 
         refresh_btn = MacOSSecondaryButton("刷新")
         refresh_btn.setIcon(load_svg_icon("refresh", 16))
         refresh_btn.setIconSize(QSize(24, 24))
         refresh_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        top_layout.addWidget(refresh_btn)
+        header.addWidget(refresh_btn)
 
         run_selected_btn = MacOSSecondaryButton("启动选中")
         run_selected_btn.setIcon(load_svg_icon("play", 16))
         run_selected_btn.setIconSize(QSize(24, 24))
         run_selected_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        top_layout.addWidget(run_selected_btn)
+        header.addWidget(run_selected_btn)
 
         stop_selected_btn = MacOSSecondaryButton("停止选中")
         stop_selected_btn.setIcon(load_svg_icon("stop", 16))
         stop_selected_btn.setIconSize(QSize(24, 24))
         stop_selected_btn.setCursor(Qt.PointingHandCursor)
-        top_layout.addWidget(stop_selected_btn)
+        header.addWidget(stop_selected_btn)
 
         stop_all_btn = MacOSSecondaryButton("全部停止")
         stop_all_btn.setIcon(load_svg_icon("stop", 16))
         stop_all_btn.setIconSize(QSize(24, 24))
         stop_all_btn.setCursor(Qt.PointingHandCursor)
         stop_all_btn.setVisible(False)
-        top_layout.addWidget(stop_all_btn)
+        header.addWidget(stop_all_btn)
 
-        top_layout.addStretch()
-        layout.addLayout(top_layout)
+        header.addStretch()
+        card_layout.addLayout(header)
 
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
@@ -2242,7 +2231,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         combo_table.cellClicked.connect(on_combo_table_click)
         _connect_column_width_saver(combo_table, "combo_table")
-        layout.addWidget(combo_table)
+        card_layout.addWidget(combo_table, 1)
+        layout.addWidget(card, 1)
 
         new_btn.clicked.connect(self.open_combo_skill_editor)
         refresh_btn.clicked.connect(lambda: self.load_combo_skills_to_table(combo_table))
@@ -2253,9 +2243,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.load_combo_skills_to_table(combo_table)
 
         tab.combo_table = combo_table
-        tab.status_text = status_text
-        tab.running_names_label = running_names_label
-        tab.status_bar = status_bar
         tab.stop_all_btn = stop_all_btn
         tab.run_selected_btn = run_selected_btn
         tab.stop_selected_btn = stop_selected_btn
@@ -2753,22 +2740,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
 
     def _update_combo_status_bar(self, running_count, running_skill_names):
-        """更新组合技页顶部的运行状态栏"""
+        """更新组合技页工具栏中「全部停止」按钮的显隐"""
         if hasattr(self, 'combo_tab'):
             tab = self.combo_tab
-            if hasattr(tab, 'status_text') and hasattr(tab, 'running_names_label') and hasattr(tab, 'stop_all_btn'):
-                if running_count > 0:
-                    tab.status_text.setText(f"运行中（{running_count}个组合技）")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.SYSTEM_GREEN}; background-color: transparent;")
-                    tab.running_names_label.setText("  ".join(running_skill_names))
-                    tab.running_names_label.setVisible(True)
-                    tab.stop_all_btn.setVisible(True)
-                else:
-                    tab.status_text.setText("组合技运行状态：空闲")
-                    tab.status_text.setStyleSheet(f"font-size: 13px; font-weight: 700; color: {MacOSColors.TEXT_SECONDARY}; background-color: transparent;")
-                    tab.running_names_label.setText("")
-                    tab.running_names_label.setVisible(False)
-                    tab.stop_all_btn.setVisible(False)
+            if hasattr(tab, 'stop_all_btn'):
+                tab.stop_all_btn.setVisible(running_count > 0)
 
     def refresh_combo_table_status(self, table_widget):
         """定时刷新：仅原地更新各行的运行状态，不重建表格，避免吞掉用户的点击"""
