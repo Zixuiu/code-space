@@ -2443,9 +2443,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         prev_btn.setEnabled(False)
         prev_btn.setStyleSheet(
             "QPushButton { background: %s; color: %s; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }"
-            "QPushButton:hover:!disabled { background: %s; }"
             "QPushButton:disabled { opacity: 0.5; }"
-            % (MacOSColors.SEPARATOR, MacOSColors.TEXT_PRIMARY, MacOSColors.ACCENT_BG)
+            % (MacOSColors.SEPARATOR, MacOSColors.TEXT_PRIMARY)
         )
         next_btn = QPushButton("下一步")
         next_btn.setIcon(load_svg_icon("arrow_right", 16))
@@ -2453,8 +2452,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         next_btn.setFixedSize(130, 34)
         next_btn.setStyleSheet(
             "QPushButton { background: %s; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; }"
-            "QPushButton:hover { background: %s; }"
-            % (MacOSColors.ACCENT, MacOSColors.ACCENT_BG)
+            % (MacOSColors.ACCENT,)
         )
         nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(20); nav.addWidget(next_btn); nav.addStretch()
         cl.addLayout(nav)
