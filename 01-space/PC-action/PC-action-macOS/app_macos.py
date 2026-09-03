@@ -248,6 +248,7 @@ class MacOSSidebar(QWidget):
             ("layers", "组合技"),
             ("gear", "设置"),
             ("book", "使用帮助"),
+            ("feedback", "反馈"),
         ]
 
         for i, (icon, text) in enumerate(nav_items):
@@ -1210,6 +1211,12 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.settings_tab = self.create_settings_tab()
         self.macos_stack.addWidget(self.settings_tab)
         self.macos_stack.addWidget(self.help_tab)
+        try:
+            self.feedback_tab = self.create_feedback_tab()
+        except Exception as e:
+            traceback.print_exc()
+            self.feedback_tab = QLabel(f"加载失败: {e}")
+        self.macos_stack.addWidget(self.feedback_tab)
 
         body_layout.addWidget(self.macos_stack, 1)
         main_layout.addWidget(body, 1)
@@ -1219,7 +1226,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self._macos_titles = [
             "录制控制", "流程管理", "组合技",
             "设置",
-            "使用帮助"
+            "使用帮助",
+            "反馈"
         ]
 
         self.fade_animation = None
@@ -2309,6 +2317,70 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             if handler:
                 card.mousePressEvent = lambda e, h=handler: h()
             layout.addWidget(card)
+        layout.addStretch()
+        return tab
+
+    def create_feedback_tab(self):
+        """反馈页：bug 报告与功能建议的联系方式"""
+        tab = QWidget()
+        tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(24, 24, 24, 24)
+        layout.setSpacing(16)
+        layout.setAlignment(Qt.AlignTop)
+
+        card = MacOSCard()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(24, 24, 24, 24)
+        cl.setSpacing(12)
+
+        icon_label = QLabel()
+        icon_label.setFixedSize(48, 48)
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_label.setStyleSheet("background-color: transparent; font-size: 28px;")
+        _svg = load_svg_icon("feedback", 24)
+        if not _svg.isNull():
+            icon_label.setPixmap(_svg.pixmap(int(round(24 * ICON_SCALE)), int(round(24 * ICON_SCALE))))
+        else:
+            icon_label.setText("\U0001f4e7")
+        cl.addWidget(icon_label, 0, Qt.AlignLeft)
+
+        title = QLabel("反馈与建议")
+        title.setStyleSheet(f"color: {MacOSColors.TEXT_PRIMARY}; font-size: 16px; font-weight: 700; background-color: transparent;")
+        cl.addWidget(title)
+
+        desc = QLabel("遇到 bug，或者有新的功能建议？欢迎随时联系我们，我们会尽快处理并回复。")
+        desc.setWordWrap(True)
+        desc.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 13px; background-color: transparent;")
+        cl.addWidget(desc)
+
+        cl.addSpacing(6)
+
+        email_row = QHBoxLayout()
+        email_row.setSpacing(10)
+        email_hint = QLabel("联系邮箱")
+        email_hint.setStyleSheet(f"color: {MacOSColors.TEXT_SECONDARY}; font-size: 12px; background-color: transparent;")
+        email_row.addWidget(email_hint)
+
+        email_label = QLabel("iikya@foxmail.com")
+        email_label.setStyleSheet(f"color: {MacOSColors.ACCENT}; font-size: 14px; font-weight: 600; background-color: transparent;")
+        email_row.addWidget(email_label)
+
+        copy_btn = MacOSSecondaryButton("复制")
+        copy_btn.setMinimumWidth(64)
+        copy_btn.setCursor(Qt.PointingHandCursor)
+
+        def _copy_email():
+            QApplication.clipboard().setText("iikya@foxmail.com")
+            copy_btn.setText("已复制")
+            QTimer.singleShot(1500, lambda: copy_btn.setText("复制"))
+
+        copy_btn.clicked.connect(_copy_email)
+        email_row.addWidget(copy_btn)
+        email_row.addStretch()
+        cl.addLayout(email_row)
+
+        layout.addWidget(card)
         layout.addStretch()
         return tab
 
