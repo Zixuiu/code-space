@@ -858,6 +858,9 @@ body {
 </head>
 <body>
 
+<!-- 数据内嵌块：清单内容保存在这里（本文件自身就是数据），git pull/push 同步此文件即可 -->
+<script type="application/json" id="embedded-data">null</script>
+
 <div class="app">
   <!-- 左侧导航栏 -->
   <div class="sidebar">
@@ -958,9 +961,58 @@ let currentSearchIndex = -1; // 当前匹配的索引（在searchMatches中的�
 let lastEnterTime = 0;
 let lastEnterCellIndex = -1;
 const DOUBLE_ENTER_DELAY = 300; // 300ms内算连续两次回车
+let _dataSavedAt = 0; // 数据时间戳：内嵌块 vs localStorage vs 内存三方同步用
 
 document.addEventListener('DOMContentLoaded', () => {
-  loadFromStorage();
+  // 启动合并：内嵌数据块（html 自身，git pull 下来的）vs localStorage（本机浏览器）
+  // 比较 savedAt 时间戳，谁新用谁。两边都新就等价；localStorage 旧格式（纯数组）视为 savedAt=0
+  const emb = loadEmbedded();
+  const loc = loadLocal();
+  if (loc && (!emb || (loc.savedAt || 0) >= (emb.savedAt || 0))) {
+    pagesData = normalizePages(loc.pages);
+    _dataSavedAt = loc.savedAt || 0;
+  } else if (emb) {
+    pagesData = normalizePages(emb.pages);
+    _dataSavedAt = emb.savedAt || 0;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt: _dataSavedAt, pages: pagesData }));
+  }
+  afterInit();
+  initSelfSave(); // 初始化"写回 html 自身"能力（File System Access API）
+});
+
+function normalizePages(arr) {
+  return (arr || []).map((page, index) => ({
+    name: page.name || `页面${index + 1}`,
+    cellsData: page.cellsData && page.cellsData.length > 0 ? page.cellsData : [''],
+    cellImages: page.cellImages || {},
+    cellSummaries: page.cellSummaries || {}
+  }));
+}
+
+// 读取 html 内嵌数据块（null = 尚无数据）
+function loadEmbedded() {
+  try {
+    const el = document.getElementById('embedded-data');
+    const t = el ? el.textContent.trim() : '';
+    if (!t || t === 'null') return null;
+    const d = JSON.parse(t);
+    return (d && Array.isArray(d.pages)) ? d : null;
+  } catch (e) { return null; }
+}
+
+// 读取 localStorage（兼容旧格式：纯数组）
+function loadLocal() {
+  try {
+    const t = localStorage.getItem(STORAGE_KEY);
+    if (!t) return null;
+    const d = JSON.parse(t);
+    if (Array.isArray(d)) return { savedAt: 0, pages: d };
+    return (d && Array.isArray(d.pages)) ? d : null;
+  } catch (e) { return null; }
+}
+
+function afterInit() {
+  // 数据加载已在 DOMContentLoaded 的合并逻辑中完成（内嵌块 vs localStorage 按 savedAt 取新）
   renderPageTabs(); // 渲染页面标签
   renderAllCells(); // 渲染当前页面的单元格
   // 默认选中最后一个单元格并聚焦
@@ -985,7 +1037,11 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRenderEnd = -1;
     renderVisibleCells();
   });
-});
+
+  // 打开页面即主动保存一次：旧 localStorage 数据迁移成新格式，
+  // 已授权句柄时把浏览器里的内容写回 html 自身（未授权则仅更新 localStorage）
+  setTimeout(() => save(), 500);
+}
 
 function updateAddButtonPosition() {
   const btn = document.getElementById('addCellBtn');
@@ -1889,38 +1945,168 @@ let _saveTimer = null;
 function save() {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(pagesData));
+    _dataSavedAt = Date.now();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt: _dataSavedAt, pages: pagesData }));
+    writeSelfHtml(); // 有授权句柄时自动写回 html 自身（无则静默跳过，数据仍在浏览器）
     _saveTimer = null;
   }, 500);
 }
 
-function loadFromStorage() {
-  try {
-    const d = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    // 兼容旧数据结构
-    if (d && !Array.isArray(d)) {
-      // 旧数据：单页面结构，转换为多页面
-      pagesData = [{
-        name: '页面1',
-        cellsData: d.cellsData && d.cellsData.length > 0 ? d.cellsData : [''],
-        cellImages: d.cellImages || {}
-      }];
-    } else if (Array.isArray(d)) {
-      // 新数据：多页面结构（补全name字段和cellSummaries）
-      pagesData = d.map((page, index) => ({
-        name: page.name || `页面${index + 1}`,
-        cellsData: page.cellsData && page.cellsData.length > 0 ? page.cellsData : [''],
-        cellImages: page.cellImages || {},
-        cellSummaries: page.cellSummaries || {}
-      }));
-    } else {
-      pagesData = [{ name: '页面1', cellsData: [''], cellImages: {}, cellSummaries: {} }];
-    }
-  } catch {
-    pagesData = [{ name: '页面1', cellsData: [''], cellImages: {}, cellSummaries: {} }];
-  }
-  currentPageIndex = 0; // 默认显示第一个页面
+/* ================= 数据写回 html 自身（File System Access API） =================
+   双击 file:// 打开即可用：数据同步进本文件源码的 embedded-data 块，
+   git pull/push 同步这一个文件，多终端共享，无需任何服务/自启。
+   仅首次（或权限过期时）需点一次授权；Edge/Chrome 支持，其它浏览器自动降级为仅浏览器存储。 */
+const EMBED_TAG_START = '<script type="application/json" id="embedded-data">';
+const EMBED_TAG_END = '<\/script>'; // ← JS 里不能写脚本块结束标签的字面量，会提前终止脚本块（注释里也不行！）
+let _fileHandle = null;   // 指向清单.html 自身的句柄（存 IndexedDB 跨会话复用）
+let _writingSelf = false; // 写回中标志，防重入
+
+function fsaSupported() { return 'showOpenFilePicker' in window; }
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('qingdan_kv', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('kv');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
 }
+async function idbGet(key) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('kv').objectStore('kv').get(key);
+    tx.onsuccess = () => resolve(tx.result);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function idbSet(key, val) {
+  const db = await idbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('kv', 'readwrite');
+    tx.objectStore('kv').put(val, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function initSelfSave() {
+  if (!fsaSupported()) { showAuthBar('⚠️ 当前浏览器不支持写回文件，请用 Edge/Chrome 打开以启用自动保存'); return; }
+  try {
+    const h = await idbGet('selfHandle');
+    if (!h) { showAuthBar(); return; }
+    _fileHandle = h;
+    const perm = await _fileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm === 'granted') {
+      hideAuthBar();
+      await syncFromFile();       // 静默读文件：git pull 下来的新数据直接采用
+      setTimeout(() => save(), 300); // 打开即同步一次（本地比文件新时把编辑写回去）
+    } else {
+      showAuthBar();              // 需要点一下恢复授权（浏览器安全要求）
+    }
+  } catch (e) { showAuthBar(); }
+}
+
+// 授权流程：有句柄 → requestPermission；无句柄 → 让用户选中本文件（选中哪个 html 就绑定哪个）
+async function requestSelfAccess() {
+  try {
+    if (!_fileHandle) {
+      const [h] = await window.showOpenFilePicker({
+        types: [{ description: '清单文件', accept: { 'text/html': ['.html'] } }],
+        multiple: false
+      });
+      _fileHandle = h;
+      await idbSet('selfHandle', h);
+    } else {
+      const p = await _fileHandle.requestPermission({ mode: 'readwrite' });
+      if (p !== 'granted') { show('未授权，内容暂存浏览器中'); return; }
+    }
+    hideAuthBar();
+    await syncFromFile();
+    setTimeout(() => save(), 300);
+    show('✅ 自动保存已启用：内容将写回清单.html');
+  } catch (e) { /* 用户取消选择 */ }
+}
+
+// 读文件内嵌块：文件比内存新（git pull 过）→ 采用文件数据并刷新界面
+async function syncFromFile() {
+  if (!_fileHandle) return;
+  try {
+    const file = await _fileHandle.getFile();
+    const text = await file.text();
+    const s = text.indexOf(EMBED_TAG_START), e2 = text.indexOf(EMBED_TAG_END, s);
+    if (s < 0 || e2 < 0) return;
+    const raw = text.slice(s + EMBED_TAG_START.length, e2).trim();
+    if (!raw || raw === 'null') return;
+    let d = null;
+    try { d = JSON.parse(raw); } catch (err) { return; }
+    const fSavedAt = (d && d.savedAt) || 0;
+    if (fSavedAt > _dataSavedAt && Array.isArray(d.pages)) {
+      pagesData = normalizePages(d.pages);
+      _dataSavedAt = fSavedAt;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ savedAt: _dataSavedAt, pages: pagesData }));
+      currentPageIndex = 0;
+      renderPageTabs();
+      renderAllCells();
+      const totalCells = getCurrentPageData().cellsData.length;
+      if (totalCells > 0) selectCell(totalCells - 1, false);
+      show('已从清单.html 加载最新内容');
+    }
+  } catch (e) { /* 文件暂不可读，忽略 */ }
+}
+
+// 写回：读全文 → 原位替换数据块 → 写回同一路径
+async function writeSelfHtml() {
+  if (!_fileHandle || _writingSelf) return;
+  _writingSelf = true;
+  try {
+    const perm = await _fileHandle.queryPermission({ mode: 'readwrite' });
+    if (perm !== 'granted') { hideAuthBar(); showAuthBar(); return; }
+    const file = await _fileHandle.getFile();
+    const text = await file.text();
+    const s = text.indexOf(EMBED_TAG_START), e2 = text.indexOf(EMBED_TAG_END, s);
+    if (s < 0 || e2 < 0) return;
+    // 冲突保护：文件比内存新（多半 git pull 过）→ 不写，提示刷新
+    const cur = text.slice(s + EMBED_TAG_START.length, e2).trim();
+    let fSavedAt = 0;
+    try { fSavedAt = (JSON.parse(cur) || {}).savedAt || 0; } catch (err) {}
+    if (fSavedAt > _dataSavedAt) {
+      show('⚠️ 清单.html 已被更新（git pull?），请刷新页面加载最新，避免覆盖');
+      return;
+    }
+    // 数据里所有 < 全部转义为 \u003c：HTML 解析器在数据块里看不到任何标签字符，
+    // 杜绝脚本块被提前截断、假开标签等一切注入（JSON.parse 时自动还原）
+    const payload = JSON.stringify({ savedAt: _dataSavedAt, pages: pagesData }).replace(/</g, '\\u003c');
+    const newText = text.slice(0, s + EMBED_TAG_START.length) + payload + text.slice(e2);
+    const w = await _fileHandle.createWritable();
+    await w.write(newText);
+    await w.close();
+  } catch (e) {
+    // 写失败（文件被占用等）：内容仍在 localStorage，不丢
+  } finally {
+    _writingSelf = false;
+  }
+}
+
+// 授权提示条（常驻，点击授权后隐藏）
+function showAuthBar(msg) {
+  let bar = document.getElementById('selfSaveBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'selfSaveBar';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;padding:8px 16px;' +
+      'background:#fffbeb;border-bottom:1px solid #fcd34d;color:#92400e;font-size:13px;' +
+      'cursor:pointer;text-align:center;user-select:none;';
+    bar.onclick = requestSelfAccess;
+    document.body.appendChild(bar);
+  }
+  bar.textContent = msg || '🔗 点击授权"自动保存到清单.html"（一次即可，内容将写进文件随 git 同步）';
+  bar.style.display = 'block';
+}
+function hideAuthBar() {
+  const bar = document.getElementById('selfSaveBar');
+  if (bar) bar.style.display = 'none';
+}
+// （旧 loadFromStorage 已移除：数据加载统一走 DOMContentLoaded 的 savedAt 合并逻辑 + loadLocal/loadEmbedded）
 
 function show(text) {
   const n = document.getElementById('notice');
