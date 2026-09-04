@@ -80,3 +80,5 @@ node_modules/
 
 # HarmonyOS/DevEco 本地工具链（JDK/SDK/签名文件，体量大且不入库）
 05-开源项目/.tools/
+# 鸿蒙 scrcpy 本地工程（204MB，不入库）
+05-开源项目/HOScrcpy/
