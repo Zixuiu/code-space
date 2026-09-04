@@ -1613,13 +1613,39 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     count = usage_counts.get(folder_name, 0)
 
                     menu = QMenu(self)
+                    menu.setStyleSheet("""
+                        QMenu {
+                            background: #FFFFFF;
+                            border: 1px solid #E5E7EC;
+                            border-radius: 10px;
+                            padding: 5px;
+                            min-width: 190px;
+                        }
+                        QMenu::item {
+                            color: #374151;
+                            padding: 7px 24px 7px 10px;
+                            border-radius: 6px;
+                            font-size: 13px;
+                        }
+                        QMenu::item:disabled {
+                            color: #6B7280;
+                            background: #F3F4F6;
+                            font-weight: 600;
+                        }
+                        QMenu::item:selected {
+                            background: #E8F0FE;
+                            color: #111827;
+                        }
+                        QMenu::separator {
+                            height: 1px;
+                            background: #E5E7EC;
+                            margin: 4px 10px;
+                        }
+                    """)
 
                     count_action = menu.addAction(f"已执行 {count} 次")
                     count_action.setEnabled(False)
                     menu.addSeparator()
-
-                    interval_action = menu.addAction("设置默认间隔")
-                    interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
 
                     rename_action = menu.addAction(load_svg_icon("edit", 16), "重命名")
                     rename_action.triggered.connect(lambda: self.rename_folder_in_tab(folder_path, table_widget))

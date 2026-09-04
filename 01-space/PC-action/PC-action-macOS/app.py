@@ -7,6 +7,10 @@
 import os
 import sys
 
+# 普通动作"等待出现"模式的图片等待超时（秒）：步间最多等待这么久让下一张目标图片出现，
+# 超时即判执行失败。替代原来的"固定间隔(傻等)"。组合技不受影响，仍走固定间隔。
+IMAGE_WAIT_TIMEOUT = 2.0
+
 # 尽早隐藏控制台窗口并设置Windows环境变量
 if sys.platform == "win32":
     try:
@@ -1212,7 +1216,7 @@ class FolderManager(QDialog):
 
             # ★ 修复：右键落在"快捷键/重命名"单元格（cellWidget 容器或按钮）上时，
             # 这些子控件默认 DefaultContextMenu 会吞掉右键事件，导致表格的右键菜单
-            # （含"设置默认间隔"）弹不出来。给容器和按钮都挂上 CustomContextMenu，
+            # （流程右键菜单）弹不出来。给容器和按钮都挂上 CustomContextMenu，
             # 并把坐标转换回表格 viewport 坐标系转发给 show_context_menu。
             for _cw in (shortcut_container, rename_container, shortcut_btn, rename_btn):
                 if _cw is None:
@@ -4976,140 +4980,17 @@ class FolderManager(QDialog):
                     count = usage_counts.get(folder_name, 0)
                     
                     menu = QMenu(self)
-                    
+
                     count_action = menu.addAction(f"已执行 {count} 次")
                     count_action.setEnabled(False)
                     menu.addSeparator()
-                    
-                    interval_action = QAction("设置默认间隔", self)
-                    interval_action.triggered.connect(lambda: self.set_folder_interval(folder_path))
-                    menu.addAction(interval_action)
-                    
+
                     delete_action = QAction("删除", self)
                     delete_action.triggered.connect(lambda: self.delete_folder(folder_path))
                     menu.addAction(delete_action)
-                    
+
                     menu.exec_(self.table.viewport().mapToGlobal(position))
 
-    def set_folder_interval(self, folder_path):
-        """设置流程文件夹的默认操作间隔（秒）"""
-        folder_name = os.path.basename(folder_path)
-        current_interval = self.parent.folder_intervals.get(folder_path, self.parent.replay_interval)
-
-        from PyQt5.QtWidgets import QDoubleSpinBox
-
-        # 用 MacOSDialog 替代旧的 QDialog + apply_dialog_style 组合：
-        # - 旧的 WA_TranslucentBackground + QSS 在 Windows 上根本不画白底（layered window
-        #   必须 paintEvent 手动画），导致主窗口内容透到对话框里
-        # - 旧版三个圆点用绝对定位 + eventFilter，引用易被 GC，事件不可靠
-        # MacOSDialog 内部 paintEvent 自绘圆角白底，三个圆点用真正的 QPushButton
-        dialog = MacOSDialog(self)
-        dialog.setWindowTitle("设置默认间隔")
-        # 不再 setWindowFlags 也不再调 apply_dialog_style —— MacOSDialog 已配好
-
-        # 宽度固定为屏幕的 22%（1080p 下约 422px），高度按内容自适应
-        _sw, _sh = get_screen_size()
-        dialog.setFixedWidth(int(_sw * 0.22))
-        dialog.setWindowModality(Qt.WindowModal)
-
-        layout = QVBoxLayout()
-        layout.setSpacing(15)
-        layout.setContentsMargins(25, 20, 25, 20)
-
-        screen_width, screen_height = get_screen_size()
-
-        instruction_label = QLabel(f"设置流程「{folder_name}」的默认操作间隔")
-        instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_label.setWordWrap(True)  # 窄宽度下长标题要自动换行，否则会左右被裁切
-        instruction_font_size = int(screen_height * 0.015)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 4px 0px 2px 0px; line-height: 1.25; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
-        layout.addWidget(instruction_label)
-
-        spin = QDoubleSpinBox()
-        spin.setRange(0.0, 10.0)
-        spin.setSingleStep(0.01)
-        spin.setDecimals(3)
-        try:
-            spin.setValue(float(current_interval))
-        except (TypeError, ValueError):
-            spin.setValue(0.001)
-        spin.setSuffix(" 秒")
-        spin_font_size = int(screen_height * 0.022)
-        spin.setStyleSheet(f"""
-            QDoubleSpinBox {{
-                font-size: {spin_font_size}px;
-                padding: 6px 8px;
-                border: 2px solid #4CAF50;
-                border-radius: 8px;
-                background-color: white;
-                min-height: 40px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QDoubleSpinBox:focus {{ border-color: #5A6069; }}
-        """)
-        layout.addWidget(spin)
-
-        hint_label = QLabel("每个操作之间默认等待的秒数。设为 0 表示几乎无间隔；"
-                            "若某个操作单独设置了延迟，会优先使用它单独的值。")
-        hint_label.setWordWrap(True)
-        hint_label.setAlignment(Qt.AlignCenter)
-        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.013)}px; color: #666; padding: 4px 0px 0px 0px; line-height: 1.3; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
-        layout.addWidget(hint_label)
-
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedSize(100, 32)
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover { background-color: #5A6069; }
-            QPushButton:pressed { background-color: #5A6069; }
-        """)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedSize(100, 32)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover { background-color: #5A6069; }
-            QPushButton:pressed { background-color: #5A6069; }
-        """)
-        button_layout.addStretch(1)
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        button_layout.addStretch(1)
-        layout.addLayout(button_layout)
-
-        def on_ok():
-            val = round(float(spin.value()), 3)
-            self.parent.folder_intervals[folder_path] = val
-            self.parent.save_interval_config()
-            dialog.accept()
-
-        ok_btn.clicked.connect(on_ok)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        # 必须把 layout 挂到 dialog 上，否则里面所有控件都不会显示，
-        # 对话框只剩一个空白背景和右上角三个圆点。
-        dialog.setLayout(layout)
-        dialog.adjustSize()  # 宽度已固定，这里只让高度贴合内容，避免留大片空白
-        dialog.exec_()
 
     def on_table_show(self, event):
         """表格显示事件处理，确保按钮正确对齐"""
@@ -5696,7 +5577,6 @@ class AutoRecorderApp(QMainWindow):
         self._hotkeys_temporarily_disabled = False  # ★ 回放期间临时禁用热键标志（不清空字典）
         self.replay_enabled = False  # 回放功能开关（默认关闭）
         self.shortcuts = {}
-        self.folder_intervals = {}  # 文件夹默认操作间隔(秒): folder_path -> interval
         self.shortcut_objects = []
         self.alt_press_count = 0  # ALT键按下次数
         self.alt_press_time = 0  # ALT键按下时间
@@ -5719,7 +5599,6 @@ class AutoRecorderApp(QMainWindow):
     def _lazy_init(self):
         """延后初始化：窗口显示后再加载配置和注册热键"""
         self.load_shortcut_config()
-        self.load_interval_config()
         # 修复：加载快捷键后立即刷新流程表格
         if hasattr(self, "manager_tab") and hasattr(self.manager_tab, "folder_table"):
             self.load_folders_to_table(self.manager_tab.folder_table)
@@ -7016,16 +6895,11 @@ class AutoRecorderApp(QMainWindow):
         
         menu = QMenu(self)
         pin_action = menu.addAction("置顶")
-        interval_action = menu.addAction("设置默认间隔")
-        if not os.path.exists(folder_path):
-            interval_action.setEnabled(False)
-        
+
         action = menu.exec_(item_widget.mapToGlobal(pos))
-        
+
         if action == pin_action:
             self.pin_recording_to_top(recording_name)
-        elif action == interval_action:
-            self.set_folder_interval(folder_path)
     
     def pin_recording_to_top(self, recording_name):
         """将指定的流程置顶到列表最上面"""
@@ -7144,7 +7018,7 @@ class AutoRecorderApp(QMainWindow):
         
         # ★ 修复：右键落在行内子控件（名称标签/播放按钮）上时，子控件默认策略
         # （Qt.DefaultContextMenu）会把右键事件吞掉，父容器收不到 customContextMenuRequested，
-        # 导致"右键流程文件夹没弹出菜单/看不到设置默认间隔"。
+        # 导致"右键流程文件夹没弹出菜单"。
         # 给子控件也挂上 CustomContextMenu，且用子控件自身的坐标系做 mapToGlobal。
         for _child in (name_label, play_btn):
             _child.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -7561,22 +7435,14 @@ class AutoRecorderApp(QMainWindow):
 
             # 执行回放
             self.append_log(f"[回放] 开始执行回放: {folder_path}")
-            # ★ 文件夹默认操作间隔：若该文件夹设置了默认间隔则使用，否则用全局默认
-            folder_interval = self.folder_intervals.get(folder_path, self.replay_interval)
-            if folder_interval is None:
-                folder_interval = self.replay_interval
-            try:
-                folder_interval = float(folder_interval)
-            except (TypeError, ValueError):
-                folder_interval = self.replay_interval
-            self.append_log(f"[回放] 使用操作间隔: {folder_interval}s（文件夹默认: {self.folder_intervals.get(folder_path, '未设置')}）")
-
+            # ★ 普通动作统一改为"等待出现"模式：不再使用固定间隔(傻等)。
+            #   步间轮询下一张目标图片，最多等待 IMAGE_WAIT_TIMEOUT 秒，超时即判执行失败。
             if is_coord_only:
                 self.append_log(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
                 from image_recognition import replay_coordinates_only
                 success_count, total_count = replay_coordinates_only(
                     recording_data=recording_data,
-                    replay_interval=folder_interval
+                    replay_interval=0.5
                 )
             else:
                 self.append_log(f"[回放] 检测为含图像/键盘录制，使用 replay_coordinate_operations")
@@ -7584,17 +7450,16 @@ class AutoRecorderApp(QMainWindow):
                 # ★ 极速/高速档下启用 turbo_match（与组合技路径 app.py:11308 一致）：
                 # 单次 0.005s 闪匹配 + Win32 直点，跳过稳定检测/轮询/点击后剪贴板读取，
                 # 单步从普通模式的 ~100-500ms 降到 ~10ms 量级。
-                # 判定依据用本路径可靠的 replay_interval / replay_timeout（随速度档更新），
-                # 不引用组合技路径专属的 _turbo_mode/_speed_scale，避免属性未定义。
                 _turbo = (self.replay_interval <= 0.01) or (self.replay_timeout <= 0.15)
                 replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
-                    replay_interval=folder_interval,
+                    replay_interval=IMAGE_WAIT_TIMEOUT,
                     consider_color=False,
                     region_center=None,
                     match_timeout=self.replay_timeout,
-                    turbo_match=_turbo
+                    turbo_match=_turbo,
+                    wait_for_image=True
                 )
                 if len(replay_result) == 3:
                     success_count, total_count, _ = replay_result
@@ -9243,7 +9108,7 @@ class AutoRecorderApp(QMainWindow):
                         self.delete_folder_in_tab(data[1], folder_table)
         
         folder_table.cellClicked.connect(on_folder_table_click)
-        # ★ 流程管理Tab 右键菜单（已执行次数 / 设置默认间隔 / 删除）
+        # ★ 流程管理Tab 右键菜单（已执行次数 / 删除）
         # 用事件过滤器直接拦截右键，比 customContextMenuRequested 信号更可靠
         folder_table.setContextMenuPolicy(Qt.CustomContextMenu)
         _folder_ctx_filter = _FolderTableCtxFilter(
@@ -9334,7 +9199,7 @@ class AutoRecorderApp(QMainWindow):
 
 
     def show_folder_table_context_menu(self, position, folder_table):
-        """流程管理Tab的表格右键菜单：已执行次数 / 设置默认间隔 / 删除"""
+        """流程管理Tab的表格右键菜单：已执行次数 / 删除"""
         try:
             row = folder_table.rowAt(position.y())
             # 点到空白/表头区域时 rowAt 返回 -1，兜底选最接近的一行，保证菜单一定能弹出
@@ -9366,9 +9231,6 @@ class AutoRecorderApp(QMainWindow):
             count_action = menu.addAction(f"已执行 {count} 次")
             count_action.setEnabled(False)
             menu.addSeparator()
-            interval_action = QAction("设置默认间隔", self)
-            interval_action.triggered.connect(lambda: self.set_folder_interval_in_tab(folder_path))
-            menu.addAction(interval_action)
             delete_action = QAction("删除", self)
             delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, folder_table))
             menu.addAction(delete_action)
@@ -9377,124 +9239,6 @@ class AutoRecorderApp(QMainWindow):
             import traceback
             traceback.print_exc()
 
-    def set_folder_interval_in_tab(self, folder_path):
-        """流程管理Tab：设置流程文件夹的默认操作间隔（秒）"""
-        folder_name = os.path.basename(folder_path)
-        current_interval = self.folder_intervals.get(folder_path, self.replay_interval)
-
-        from PyQt5.QtWidgets import QDoubleSpinBox
-
-        # 用 MacOSDialog 替代旧的 QDialog + apply_dialog_style 组合：
-        # - 旧的 WA_TranslucentBackground + QSS 在 Windows 上根本不画白底（layered window
-        #   必须 paintEvent 手动画），导致主窗口内容透到对话框里
-        # - 旧版三个圆点用绝对定位 + eventFilter，引用易被 GC，事件不可靠
-        # MacOSDialog 内部 paintEvent 自绘圆角白底，三个圆点用真正的 QPushButton
-        dialog = MacOSDialog(self)
-        dialog.setWindowTitle("设置默认间隔")
-        # 不再 setWindowFlags 也不再调 apply_dialog_style —— MacOSDialog 已配好
-
-        # 宽度固定为屏幕的 22%（1080p 下约 422px），高度按内容自适应
-        _sw, _sh = get_screen_size()
-        dialog.setFixedWidth(int(_sw * 0.22))
-        dialog.setWindowModality(Qt.WindowModal)
-
-        layout = QVBoxLayout()
-        layout.setSpacing(15)
-        layout.setContentsMargins(25, 20, 25, 20)
-
-        screen_width, screen_height = get_screen_size()
-
-        instruction_label = QLabel(f"设置流程「{folder_name}」的默认操作间隔")
-        instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_label.setWordWrap(True)  # 窄宽度下长标题要自动换行，否则会左右被裁切
-        instruction_font_size = int(screen_height * 0.015)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 4px 0px 2px 0px; line-height: 1.25; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
-        layout.addWidget(instruction_label)
-
-        spin = QDoubleSpinBox()
-        spin.setRange(0.0, 10.0)
-        spin.setSingleStep(0.01)
-        spin.setDecimals(3)
-        try:
-            spin.setValue(float(current_interval))
-        except (TypeError, ValueError):
-            spin.setValue(0.001)
-        spin.setSuffix(" 秒")
-        spin_font_size = int(screen_height * 0.022)
-        spin.setStyleSheet(f"""
-            QDoubleSpinBox {{
-                font-size: {spin_font_size}px;
-                padding: 6px 8px;
-                border: 2px solid #4CAF50;
-                border-radius: 8px;
-                background-color: white;
-                min-height: 40px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QDoubleSpinBox:focus {{ border-color: #5A6069; }}
-        """)
-        layout.addWidget(spin)
-
-        hint_label = QLabel("每个操作之间默认等待的秒数。设为 0 表示几乎无间隔；"
-                            "若某个操作单独设置了延迟，会优先使用它单独的值。")
-        hint_label.setWordWrap(True)
-        hint_label.setAlignment(Qt.AlignCenter)
-        hint_label.setStyleSheet(f"font-size: {int(screen_height*0.013)}px; color: #666; padding: 4px 0px 0px 0px; line-height: 1.3; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
-        layout.addWidget(hint_label)
-
-        button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedSize(100, 32)
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover { background-color: #5A6069; }
-            QPushButton:pressed { background-color: #5A6069; }
-        """)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedSize(100, 32)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover { background-color: #5A6069; }
-            QPushButton:pressed { background-color: #5A6069; }
-        """)
-        button_layout.addStretch(1)
-        button_layout.addWidget(ok_btn)
-        button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
-
-        def on_ok():
-            val = round(float(spin.value()), 3)
-            self.folder_intervals[folder_path] = val
-            self.save_interval_config()
-            dialog.accept()
-
-        ok_btn.clicked.connect(on_ok)
-        cancel_btn.clicked.connect(dialog.reject)
-
-        # 必须把 layout 挂到 dialog 上，否则里面所有控件都不会显示，
-        # 对话框只剩一个空白背景和右上角三个圆点。
-        dialog.setLayout(layout)
-        dialog.adjustSize()  # 宽度已固定，这里只让高度贴合内容，避免留大片空白
-        dialog.exec_()
     
     def get_folder_shortcut(self, folder_path):
         """获取流程的快捷键"""
@@ -10799,33 +10543,6 @@ class AutoRecorderApp(QMainWindow):
                 self.shortcuts = {}
         except Exception:
             self.shortcuts = {}
-
-    def save_interval_config(self):
-        """保存文件夹默认操作间隔配置"""
-        if not self.current_user:
-            return
-        config_path = os.path.join(self.user_data_dir, f'intervals_{self.current_user}.json')
-        try:
-            with open(config_path, 'w', encoding='utf-8') as f:
-                json.dump(self.folder_intervals, f, indent=2, ensure_ascii=False)
-        except Exception:
-            pass
-
-    def load_interval_config(self):
-        """加载文件夹默认操作间隔配置"""
-        try:
-            if not hasattr(self, 'folder_intervals'):
-                self.folder_intervals = {}
-            config_path = os.path.join(self.user_data_dir, f'intervals_{self.current_user}.json')
-            if os.path.exists(config_path):
-                with open(config_path, 'r', encoding='utf-8') as f:
-                    self.folder_intervals = json.load(f)
-                # 转为 float，容错非法值
-                self.folder_intervals = {k: float(v) for k, v in self.folder_intervals.items()}
-            else:
-                self.folder_intervals = {}
-        except Exception:
-            self.folder_intervals = {}
 
     def update_shortcuts(self):
         """更新快捷键 - 移除旧的并添加新的"""

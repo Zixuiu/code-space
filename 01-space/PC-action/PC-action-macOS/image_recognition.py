@@ -214,7 +214,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None, turbo_grace=0.5, turbo_settle=0.08):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None, turbo_grace=0.5, turbo_settle=0.08, wait_for_image=None):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -374,6 +374,26 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
             pass
 
     _step_durations = []
+
+    # ── 普通动作"等待出现"模式 ──
+    # 默认：非组合技（无 stop_check）走"等待出现"；组合技走"固定间隔(傻等)"（保持原行为）。
+    if wait_for_image is None:
+        wait_for_image = (stop_check is None)
+
+    def _wait_next_image(next_image, timeout):
+        """轮询下一张目标图片是否在 timeout 秒内出现；返回 (是否出现, 原因)。"""
+        _np = os.path.join(folder_path, next_image)
+        if not os.path.exists(_np):
+            return False, "missing"
+        _deadline = time.time() + max(timeout, 0.1)
+        while time.time() < _deadline:
+            if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
+                return False, "stop"
+            if find_image_with_timeout(_np, confidence=0.8, timeout=0.05,
+                                       consider_color=False, region_center=region_center,
+                                       stop_check=stop_check, skip_small_match=True):
+                return True, "found"
+        return False, "timeout"
     for i, operation in enumerate(recording_data):
         _step_start = time.time()
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
@@ -642,16 +662,30 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _log_clipboard(f"步骤{step}后({action_type})")
                 # 剪贴板锁定只应在 Ctrl+C 后更新，点击操作不更新锁定内容
 
-                # 操作间隔 - 优先用每个操作单独的delay，否则用统一的 replay_interval（由调用方传入，含图片操作也生效）
+                # 步间等待策略：
+                #  - 普通动作(wait_for_image)：不傻等，改为轮询"下一张目标图片"是否在 timeout 内出现，
+                #    超时即判执行失败；若下一步没有图片（纯文本/键盘/滚动）则不等待直接继续。
+                #  - 组合技(非 wait_for_image)：保持原固定间隔（傻等），含 delay / replay_interval。
                 if i < total_operations - 1:  # 不是最后一个操作
-                    if delay and delay > 0:
-                        # 操作有单独设置延迟 → 用单独的
-                        if _interruptible_sleep(delay, stop_check=stop_check):
-                            break
-                    elif replay_interval and replay_interval > 0:
-                        # 无单独delay → 用组合技统一设置的步间间隔（图片操作也生效，之前是跳过的）
-                        if _interruptible_sleep(replay_interval, stop_check=stop_check):
-                            break
+                    _next_op = recording_data[i + 1]
+                    _next_image = _next_op.get('image', '') if isinstance(_next_op, dict) else ''
+                    if wait_for_image:
+                        if _next_image:
+                            _ok, _why = _wait_next_image(_next_image, replay_interval)
+                            if not _ok:
+                                image_match_fail_count += 1
+                                debug_print(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {replay_interval:.2f}s 内未出现（{_why}），执行失败")
+                                break
+                        # 下一步无图片：不傻等，直接继续
+                    else:
+                        if delay and delay > 0:
+                            # 操作有单独设置延迟 → 用单独的
+                            if _interruptible_sleep(delay, stop_check=stop_check):
+                                break
+                        elif replay_interval and replay_interval > 0:
+                            # 无单独delay → 用固定步间间隔（傻等）
+                            if _interruptible_sleep(replay_interval, stop_check=stop_check):
+                                break
                 else:
                     # 最后一个操作，如果有单独delay则等待
                     if delay and delay > 0:
@@ -746,7 +780,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         debug_print(f"[回放] ⚠️ 步骤 {step}: 图片匹配失败 '{image_name}'，跳过此步骤继续执行")
                         if delay > 0:
                             if _interruptible_sleep(delay, stop_check=stop_check): break
-                        elif replay_interval > 0:
+                        elif (not wait_for_image) and replay_interval > 0:
                             if _interruptible_sleep(replay_interval, stop_check=stop_check): break
                         continue
                     else:
@@ -879,10 +913,32 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     except Exception:
                         pass
 
-            # 如果设置了延迟时间，等待指定时间后再执行下一步（让界面有时间更新）
-            if delay > 0:
-                if _interruptible_sleep(delay, stop_check=stop_check):
-                    break
+            # 步间等待（图片动作成功路径）：
+            #  - 普通动作(wait_for_image)：不傻等，改为轮询"下一张目标图片"是否在 timeout 内出现，
+            #    超时即判执行失败；若下一步无图片则不等待。仅最后一步尊重显式 delay。
+            #  - 组合技(非 wait_for_image)：保持原固定间隔（傻等），含 delay。
+            if i < total_operations - 1:
+                _next_op = recording_data[i + 1]
+                _next_image = _next_op.get('image', '') if isinstance(_next_op, dict) else ''
+                if wait_for_image:
+                    if _next_image:
+                        _ok, _why = _wait_next_image(_next_image, replay_interval)
+                        if not _ok:
+                            image_match_fail_count += 1
+                            debug_print(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {replay_interval:.2f}s 内未出现（{_why}），执行失败")
+                            _step_durations.append((step, action_type, time.time() - _step_start))
+                            break
+                    # 下一步无图片：不傻等
+                else:
+                    if delay and delay > 0:
+                        if _interruptible_sleep(delay, stop_check=stop_check):
+                            _step_durations.append((step, action_type, time.time() - _step_start))
+                            break
+            else:
+                if delay and delay > 0:
+                    if _interruptible_sleep(delay, stop_check=stop_check):
+                        _step_durations.append((step, action_type, time.time() - _step_start))
+                        break
 
             # 极小延迟（1ms+stop_check）— 极速模式下完全跳过（turbo_match 本来就要求响应快）
             if not turbo_match and _interruptible_sleep(0.001, stop_check=stop_check):
