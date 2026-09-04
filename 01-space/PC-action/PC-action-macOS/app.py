@@ -7435,8 +7435,11 @@ class AutoRecorderApp(QMainWindow):
 
             # 执行回放
             self.append_log(f"[回放] 开始执行回放: {folder_path}")
-            # ★ 普通动作统一改为"等待出现"模式：不再使用固定间隔(傻等)。
-            #   步间轮询下一张目标图片，最多等待 IMAGE_WAIT_TIMEOUT 秒，超时即判执行失败。
+            # ★ 普通动作（含图片的录制）改为"等待出现"模式，但仅作用于图片识别步骤：
+            #   - 图片识别步骤之间：轮询下一张目标图片，最多等待 image_wait_timeout(=IMAGE_WAIT_TIMEOUT=2s) 秒，
+            #     超时即判执行失败；
+            #   - 非图片步骤（键盘/文本/滚动）以及坐标录制：仍用原来的正常盲等间隔(replay_interval)，不动。
+            # 组合技路径不传 wait_for_image（默认 None → False），保持原来的固定间隔傻等，不受影响。
             if is_coord_only:
                 self.append_log(f"[回放] 检测为坐标录制（无图像），使用 replay_coordinates_only")
                 from image_recognition import replay_coordinates_only
@@ -7454,12 +7457,13 @@ class AutoRecorderApp(QMainWindow):
                 replay_result = replay_coordinate_operations(
                     recording_data=recording_data,
                     folder_path=folder_path,
-                    replay_interval=IMAGE_WAIT_TIMEOUT,
+                    replay_interval=self.replay_interval,
                     consider_color=False,
                     region_center=None,
                     match_timeout=self.replay_timeout,
                     turbo_match=_turbo,
-                    wait_for_image=True
+                    wait_for_image=True,
+                    image_wait_timeout=IMAGE_WAIT_TIMEOUT
                 )
                 if len(replay_result) == 3:
                     success_count, total_count, _ = replay_result

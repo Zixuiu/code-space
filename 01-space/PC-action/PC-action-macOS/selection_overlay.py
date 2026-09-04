@@ -180,27 +180,8 @@ class SelectionOverlay(QWidget):
         if self.screen_pixmap:
             painter.drawPixmap(0, 0, self.screen_pixmap)
         
-        # 只在第一次录制时显示引导提示文字
-        if self.operation_count == 0:
-            font = QFont("Arial", 18)
-            painter.setFont(font)
-            painter.setPen(QPen(QColor(255, 255, 255), 3))
-            
-            # 在屏幕中央显示提示
-            text = "点击鼠标左键选择区域进行录制 | ESC键取消 | T键添加文本 | K键添加按键"
-            metrics = painter.fontMetrics()
-            text_width = metrics.width(text)
-            text_height = metrics.height()
-            
-            center_x = self.width() // 2
-            center_y = self.height() // 2
-            
-            # 绘制文字背景以提高可读性
-            painter.fillRect(center_x - text_width // 2 - 10, center_y - text_height, 
-                            text_width + 20, text_height + 10, QColor(0, 0, 0, 200))
-            
-            painter.drawText(center_x - text_width // 2, center_y, text)
-        
+        # （录制开始不再显示任何引导提示文字）
+
         # 如果有选择区域，绘制它
         if self.selection_start and self.selection_end:
             # 计算选择区域
@@ -270,10 +251,11 @@ class SelectionOverlay(QWidget):
                     # 保存选择区域
                     self.save_selection(x1, y1, x2, y2, button=event.button())
                 else:
-                    # 选择区域太小，忽略
+                    # 选择区域太小（用户只是单击，未框选）→ 弹出操作提醒
                     self.selection_start = None
                     self.selection_end = None
                     self.update()
+                    self._show_click_hint()
         elif event.button() == Qt.RightButton:
             self.right_click_pressed = False
             
@@ -302,6 +284,70 @@ class SelectionOverlay(QWidget):
                 # 右键单击直接退出
                 self.close()
     
+    def _show_click_hint(self):
+        """图片录制状态下单击（未框选）时，显示自动消失的浮层提示（约 1.2s 后淡出）"""
+        from PyQt5.QtWidgets import QLabel, QGraphicsOpacityEffect
+        from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation
+
+        # 已有提示在显示中 → 先销毁旧的，避免叠加
+        old = getattr(self, '_hint_label', None)
+        if old is not None:
+            try:
+                old.close()
+                old.deleteLater()
+            except Exception:
+                pass
+            self._hint_label = None
+
+        hint = QLabel("左右框选，或者 T，或者 K！", self)
+        hint.setAlignment(Qt.AlignCenter)
+        # 不接收鼠标/键盘事件：点击穿透回覆盖层，不抢焦点，无需暂停 focus_timer / grabKeyboard
+        hint.setAttribute(Qt.WA_TransparentForMouseEvents)
+        hint.setStyleSheet("""
+            QLabel {
+                background: rgba(30, 32, 38, 220);
+                color: #FFFFFF;
+                font-size: 17px;
+                font-weight: 600;
+                padding: 14px 34px;
+                border: 1px solid rgba(255, 255, 255, 40);
+                border-radius: 12px;
+            }
+        """)
+        hint.adjustSize()
+        # 屏幕水平居中、略偏上（约 40% 高度处），不挡视野中心
+        hx = (self.width() - hint.width()) // 2
+        hy = int(self.height() * 0.38)
+        hint.move(hx, hy)
+        hint.show()
+        self._hint_label = hint
+
+        # 1.2s 后开始 0.4s 淡出，结束后销毁
+        effect = QGraphicsOpacityEffect(hint)
+        hint.setGraphicsEffect(effect)
+        anim = QPropertyAnimation(effect, b"opacity", hint)
+        anim.setDuration(400)
+        anim.setStartValue(1.0)
+        anim.setEndValue(0.0)
+
+        def _fadeout():
+            try:
+                anim.start()
+            except Exception:
+                pass
+
+        def _cleanup():
+            try:
+                if self._hint_label is hint:
+                    self._hint_label = None
+                hint.close()
+                hint.deleteLater()
+            except Exception:
+                pass
+
+        anim.finished.connect(_cleanup)
+        QTimer.singleShot(1200, _fadeout)
+
     def show_context_menu(self, position):
         """显示右键上下文菜单"""
         from PyQt5.QtWidgets import QMenu, QAction
@@ -1012,74 +1058,101 @@ class SelectionOverlay(QWidget):
                     # 设置窗口标志：Dialog 才能正确模态 + 置顶
                     self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
                     self.setAttribute(Qt.WA_TranslucentBackground)
-                    
-                    # 应用统一的对话框样式
-                    from styles import apply_dialog_style
-                    apply_dialog_style(self)
+
+                    # ★ 极简线框风格（样式5）：白底细边框，无三点按钮
+                    self.setStyleSheet("""
+                        QDialog { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; }
+                    """)
                     self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
-                    
+
                     layout = QVBoxLayout()
-                    
-                    self.hint_label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作:\n(已支持 Alt+Tab 切换窗口)")
+
+                    self.hint_label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作\n(已支持 Alt+Tab 切换窗口)")
+                    self.hint_label.setAlignment(Qt.AlignCenter)
+                    self.hint_label.setStyleSheet("""
+                        QLabel {
+                            color: #374151;
+                            font-size: 14px;
+                            font-weight: 500;
+                            font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+                            background: none;
+                            border: none;
+                            line-height: 150%;
+                        }
+                    """)
                     layout.addWidget(self.hint_label)
-                    
+
                     self.line_edit = QLineEdit()
-                    self.line_edit.setClearButtonEnabled(True)
                     self.line_edit.setReadOnly(True)
+                    self.line_edit.setAlignment(Qt.AlignCenter)
+                    self.line_edit.setPlaceholderText("按下按键，或滚动滚轮…")
+                    self.line_edit.setFixedHeight(40)
+                    self.line_edit.setStyleSheet("""
+                        QLineEdit {
+                            background: transparent;
+                            border: none;
+                            border-bottom: 2px solid #D1D5DB;
+                            border-radius: 0;
+                            color: #111827;
+                            font-size: 16px;
+                            font-weight: 600;
+                            font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+                            padding: 2px 4px;
+                        }
+                        QLineEdit:focus { border-bottom: 2px solid #111827; }
+                    """)
                     layout.addWidget(self.line_edit)
-                    
+
                     button_layout = QHBoxLayout()
-                    
+                    button_layout.setSpacing(12)
+
                     self.ok_btn = QPushButton("确定")
                     self.ok_btn.setFocusPolicy(Qt.StrongFocus)
                     self.ok_btn.setDefault(True)
                     self.ok_btn.clicked.connect(self.accept)
-                    self.ok_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: #5A6069;
-                            color: white;
+                    self.ok_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: #111827;
+                            color: #FFFFFF;
                             border: none;
-                            border-radius: 8px;
+                            border-radius: 9px;
                             font-size: 13px;
                             font-weight: 600;
                             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
-                            padding: 0 12px;
-                            min-height: 32px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: #6B7178;
-                        }}
-                        QPushButton:pressed {{
-                            background-color: #474C54;
-                        }}
+                            padding: 0 18px;
+                            min-height: 34px;
+                        }
+                        QPushButton:hover { background-color: #1F2937; }
+                        QPushButton:pressed { background-color: #0B1220; }
                     """)
                     button_layout.addWidget(self.ok_btn)
 
                     self.cancel_btn = QPushButton("取消")
                     self.cancel_btn.setFocusPolicy(Qt.StrongFocus)
                     self.cancel_btn.clicked.connect(self.reject)
-                    self.cancel_btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: #FFFFFF;
-                            color: #5A6069;
-                            border: 1px solid #D1D1D6;
-                            border-radius: 8px;
+                    self.cancel_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: transparent;
+                            color: #6B7280;
+                            border: 1px solid #D1D5DB;
+                            border-radius: 9px;
                             font-weight: 600;
                             font-size: 13px;
                             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
-                            padding: 0 12px;
-                            min-height: 32px;
-                        }}
-                        QPushButton:hover {{
-                            background-color: #F0F0F2;
-                            color: #474C54;
-                        }}
+                            padding: 0 18px;
+                            min-height: 34px;
+                        }
+                        QPushButton:hover { border-color: #9CA3AF; color: #111827; }
+                        QPushButton:pressed { background-color: #F3F4F6; }
                     """)
                     button_layout.addWidget(self.cancel_btn)
                     
                     layout.addLayout(button_layout)
+                    layout.setContentsMargins(28, 24, 28, 22)
+                    layout.setSpacing(16)
                     self.setLayout(layout)
-                    
+                    self.setFixedSize(400, 236)
+
                     self.current_keys = []
                     self.key_map = {
                         Qt.Key_Return: 'enter',
