@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="hsvJ2LhZOEY8BSaXBUK6om">
+<head data-page-node-id="F60fkGquphZFsPCDQAdV35">
+<meta charset="UTF-8" data-page-node-id="Zwf7DxqpKh74cVwECUZyoR">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="ADTw4RH46m1zsaXzHdKx9H">
+<title>流程管理表格 · 10 风格对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, sans-serif;
+    background: #eef0f4;
+    padding: 32px 24px 80px;
+    color: #333;
+  }
+  h1 { text-align: center; font-size: 22px; margin-bottom: 6px; }
+  .sub { text-align: center; color: #888; font-size: 13px; margin-bottom: 36px; }
+
+  .style-block {
+    max-width: 980px;
+    margin: 0 auto 44px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px 24px 28px;
+    box-shadow: 0 2px 10px rgba(0,0,0,.05);
+  }
+  .style-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 600; margin-bottom: 4px;
+  }
+  .style-tag .num {
+    background: #4f6ef2; color: #fff; border-radius: 6px;
+    font-size: 12px; padding: 2px 8px;
+  }
+  .style-desc { font-size: 12px; color: #999; margin-bottom: 16px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .icon-btn { cursor: pointer; font-size: 14px; }
+
+  /* ========== 0. 原样式（基准） ========== */
+  .t-origin th, .t-origin td {
+    border: 1px solid #e8e8e8; padding: 10px 12px; text-align: center;
+  }
+  .t-origin th { background: #fafafa; font-weight: 500; color: #555; }
+  .t-origin tbody tr:nth-child(even) { background: #fafafa; }
+
+  /* ========== 1. SaaS 现代风 ========== */
+  .t-saas { border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+  .t-saas th {
+    background: #f4f6fb; color: #667085; font-weight: 600; font-size: 12px;
+    letter-spacing: .5px; padding: 12px 16px; text-align: left;
+    border-bottom: 1px solid #e5e9f2;
+  }
+  .t-saas td { padding: 13px 16px; text-align: left; border-bottom: 1px solid #f0f2f7; }
+  .t-saas tbody tr { transition: background .15s; }
+  .t-saas tbody tr:hover { background: #f5f8ff; }
+  .t-saas .badge {
+    display: inline-block; background: #eef2ff; color: #4f6ef2;
+    border-radius: 999px; padding: 2px 10px; font-size: 12px; font-family: Consolas, monospace;
+  }
+  .t-saas .badge.none { background: #f2f3f5; color: #a0a4ad; }
+
+  /* ========== 2. 极简留白 ========== */
+  .t-minimal th { border: none; border-bottom: 2px solid #222; padding: 12px 14px; text-align: left; font-weight: 600; }
+  .t-minimal td { border: none; border-bottom: 1px solid #ececec; padding: 15px 14px; text-align: left; }
+  .t-minimal tbody tr:hover { background: #fcfcfc; }
+
+  /* ========== 3. 暗黑模式 ========== */
+  .dark-wrap { background: #17181c; border-radius: 12px; padding: 8px; }
+  .t-dark { color: #d6d8de; }
+  .t-dark th {
+    background: #22242a; color: #8b90a0; font-weight: 600; font-size: 12px;
+    padding: 11px 14px; text-align: left; border-bottom: 1px solid #2e3138;
+  }
+  .t-dark td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #24262c; }
+  .t-dark tbody tr:hover { background: #1f2127; }
+  .t-dark .badge {
+    background: #2a2f45; color: #7c93ff; border-radius: 6px; padding: 2px 9px;
+    font-size: 12px; font-family: Consolas, monospace;
+  }
+  .t-dark .badge.none { background: #26272c; color: #5c5f6a; }
+
+  /* ========== 4. 渐变表头强调 ========== */
+  .t-gradient { border-radius: 10px; overflow: hidden; }
+  .t-gradient th {
+    background: linear-gradient(135deg, #4f6ef2, #7c5cf0);
+    color: #fff; padding: 12px 14px; text-align: center; font-weight: 600;
+  }
+  .t-gradient td { padding: 12px 14px; text-align: center; border-bottom: 1px solid #eef0f6; }
+  .t-gradient tbody tr:nth-child(even) { background: #f7f8ff; }
+  .t-gradient tbody tr:hover { background: #eef1ff; }
+
+  /* ========== 5. 玻璃拟态 ========== */
+  .glass-wrap {
+    background: linear-gradient(135deg, #a8c0ff 0%, #c2a8ff 50%, #ffc2e0 100%);
+    border-radius: 12px; padding: 26px;
+  }
+  .t-glass {
+    background: rgba(255,255,255,.45); backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,.6); border-radius: 14px; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(80,80,160,.15);
+  }
+  .t-glass th {
+    background: rgba(255,255,255,.5); padding: 12px 14px; text-align: center;
+    font-weight: 600; color: #4a4a68; border-bottom: 1px solid rgba(255,255,255,.7);
+  }
+  .t-glass td { padding: 12px 14px; text-align: center; color: #3d3d55; border-bottom: 1px solid rgba(255,255,255,.4); }
+  .t-glass tbody tr:hover { background: rgba(255,255,255,.4); }
+
+  /* ========== 6. 紧凑高密度 ========== */
+  .t-compact { font-size: 12px; }
+  .t-compact th { background: #f2f3f5; padding: 6px 10px; text-align: left; font-weight: 600; border-bottom: 1px solid #ddd; }
+  .t-compact td { padding: 5px 10px; text-align: left; border-bottom: 1px solid #eee; }
+  .t-compact tbody tr:hover { background: #f0f6ff; }
+
+  /* ========== 7. Neo-Brutalism 硬朗风 ========== */
+  .t-brutal { border: 3px solid #111; font-weight: 500; }
+  .t-brutal th {
+    background: #ffd83d; color: #111; padding: 11px 14px; text-align: left;
+    border-bottom: 3px solid #111; border-right: 2px solid #111; text-transform: uppercase; font-size: 12px;
+  }
+  .t-brutal td { padding: 11px 14px; text-align: left; border-bottom: 2px solid #111; border-right: 2px solid #111; background: #fff; }
+  .t-brutal tbody tr:nth-child(even) td { background: #f3f1ea; }
+  .t-brutal tbody tr:hover td { background: #dbe7ff; }
+  .brutal-box { box-shadow: 6px 6px 0 #111; border-radius: 4px; overflow: hidden; }
+
+  /* ========== 8. 行卡片式 ========== */
+  .t-card-row { border-spacing: 0 8px; border-collapse: separate; }
+  .t-card-row th { background: transparent; color: #98a0ad; font-size: 12px; font-weight: 600; padding: 4px 16px; text-align: left; }
+  .t-card-row td {
+    background: #fff; padding: 13px 16px; text-align: left;
+    box-shadow: 0 1px 3px rgba(0,0,0,.07); border-left: 4px solid transparent;
+  }
+  .t-card-row td:first-child { border-radius: 10px 0 0 10px; }
+  .t-card-row td:last-child { border-radius: 0 10px 10px 0; }
+  .t-card-row tbody tr:hover td { border-left-color: #4f6ef2; background: #fafbff; }
+  .t-card-row .badge {
+    background: #eef2ff; color: #4f6ef2; border-radius: 6px; padding: 2px 9px;
+    font-size: 12px; font-family: Consolas, monospace;
+  }
+  .t-card-row .badge.none { background: #f2f3f5; color: #a0a4ad; }
+
+  /* ========== 9. 终端风 ========== */
+  .term-wrap { background: #0c1016; border-radius: 10px; padding: 16px; font-family: Consolas, "Courier New", monospace; }
+  .term-title { color: #3ddc84; font-size: 12px; margin-bottom: 10px; }
+  .term-title::before { content: "$ "; color: #566; }
+  .t-term { color: #c8d3de; font-size: 13px; }
+  .t-term th {
+    color: #3ddc84; text-align: left; padding: 7px 12px; font-weight: 400;
+    border-bottom: 1px dashed #233; white-space: nowrap;
+  }
+  .t-term td { padding: 7px 12px; text-align: left; border-bottom: 1px solid #12181f; }
+  .t-term tbody tr:hover { background: #131a23; }
+  .t-term .key { color: #ffd866; }
+
+  /* ========== 10. 柔和大圆角（软 UI） ========== */
+  .soft-wrap { background: #e9edf5; border-radius: 16px; padding: 18px; }
+  .t-soft { border-collapse: separate; border-spacing: 0; background: #f5f7fb; border-radius: 14px; overflow: hidden; }
+  .t-soft th { background: #eef1f8; color: #7a8399; font-size: 12px; font-weight: 600; padding: 12px 14px; text-align: center; }
+  .t-soft td { padding: 13px 14px; text-align: center; color: #4a5568; background: #fff; border-bottom: 6px solid #f5f7fb; }
+  .t-soft td:first-child { border-radius: 12px 0 0 12px; }
+  .t-soft td:last-child { border-radius: 0 12px 12px 0; }
+  .t-soft .badge {
+    background: #e8f0fe; color: #3a6ff0; border-radius: 8px; padding: 3px 10px;
+    font-size: 12px; font-family: Consolas, monospace;
+  }
+  .t-soft .badge.none { background: #f0f1f4; color: #a5abb8; }
+</style>
+</head>
+<body data-page-node-id="3ipxKFlEEaWGz3dLcFitU6">
+
+<h1 data-page-node-id="n35ZOEwD6LKiDgTB6reYY8">流程管理 · 表格样式 10 风格对比</h1>
+<p class="sub" data-page-node-id="G0WKxxJwK0BprQPejfXYWM">每块上方为风格名称，数据均为截图中的 5 条真实流程记录，可直接对照挑选</p>
+
+<!-- 0 原样式 -->
+<div class="style-block" data-page-node-id="KqGYjXCRgPKSwAU3rlTal7">
+  <div class="style-tag" data-page-node-id="AXj0yYmG37pe6vfKmwXc96"><span class="num" data-page-node-id="rAI3xlEOFrc5uLYNPoDezu">基准</span>原样式（当前版本）</div>
+  <p class="style-desc" data-page-node-id="1f8Oad4SOTwjgcxRMQbM8N">全边框 + 表头浅灰底 + 偶数行斑马纹，风格偏传统 Excel</p>
+  <table class="t-origin" data-page-node-id="NNTqC1hG1a35gAKpn9NK6A">
+    <thead data-page-node-id="soSF9IuXhWh0PpSjcADhlb"><tr data-page-node-id="GCESCZwXDUlNnj8Iec4BWp"><th style="width:14%" data-page-node-id="nqMrcgByCYnN2gxXEBbHSF">时间</th><th style="width:36%" data-page-node-id="sEv84kk8zD26BQXCh59jj9">流程名称</th><th style="width:14%" data-page-node-id="9jBc4VDl1RvQltMveHWnAS">快捷键</th><th style="width:10%" data-page-node-id="AUz4Dyvl3l2SNaTaPUePQ3">重命名</th><th style="width:10%" data-page-node-id="MqJ2PRS7cyQTTR6q8Qty5V">删除</th></tr></thead>
+    <tbody data-page-node-id="ASSvjS3eMGHW76Y9Khe3xG">
+      <tr data-page-node-id="8zImjkadIljiFSCAgnoZjX"><td data-page-node-id="cvEadakDzQnn65Nf9cP0Dw">09-03 16:02</td><td data-page-node-id="jD5nZiMQPrR2U4RVq23SPk">流程_20260903_160225_317</td><td data-page-node-id="sFUOrGF0dpDlmMUscsQFL9">alt+c</td><td data-page-node-id="CF4SqJ8lGXW51kW5YHLgkl"><span class="icon-btn" data-page-node-id="tZt03973vmFAusPi4kfseA">✏️</span></td><td data-page-node-id="gG6T3H0iS7l6q5fgvBAjQo"><span class="icon-btn" data-page-node-id="QGWvmxeyggGn84uyjoEHK4">🗑️</span></td></tr>
+      <tr data-page-node-id="5OMfHqmKRReXnDL1xpU6BT"><td data-page-node-id="W6qwO0NgQODa6FqN67bXqQ">09-02 17:52</td><td data-page-node-id="2mElGUn2dhFEGwq1BU2xQi">往左</td><td data-page-node-id="kCFbMYfTD0wFRz1PIyajve">未设置</td><td data-page-node-id="EwmDJ1zJtwqykOG28CI2dy"><span class="icon-btn" data-page-node-id="c4HvcHySmPupG8T8jPtBhV">✏️</span></td><td data-page-node-id="xGGu96RoWcdvMBGxXXZYNi"><span class="icon-btn" data-page-node-id="0wQALOXUTDZkR1kDVOazGY">🗑️</span></td></tr>
+      <tr data-page-node-id="lWnAmZEO53w6v2vZaZpe3F"><td data-page-node-id="G4QCN3xu0HHQ8Avl0eZI8h">09-03 14:06</td><td data-page-node-id="PDI0zeP2Qczp8O25nlqmdE">流程_20260903_140615_023</td><td data-page-node-id="OIQwc9Ma7YrKDTCr9xFwXF">未设置</td><td data-page-node-id="BpD6AZBBqCUSbvSxG7PJAC"><span class="icon-btn" data-page-node-id="EmIDXp2eQ2bviGLgEKBYjE">✏️</span></td><td data-page-node-id="CAoKKp2Xzauh5kpqzTEp63"><span class="icon-btn" data-page-node-id="SSE5nhPVokZmoF7FQFMsbw">🗑️</span></td></tr>
+      <tr data-page-node-id="Zm8lBJhCgOc30tB5jHLdM6"><td data-page-node-id="fBra8mNgLs4cMZKKKQjfd7">09-03 10:39</td><td data-page-node-id="Cues7x3ZbcvGY8TJi0CR3p">往右</td><td data-page-node-id="b6Avl4SiCfoFvSqqwBFKGp">未设置</td><td data-page-node-id="YLkVdEXfRv7huTU3sWBkzj"><span class="icon-btn" data-page-node-id="g7bZxH6W7FOJ6tOKobq63T">✏️</span></td><td data-page-node-id="wGbI6mdOw9tn6XM1qUsNbz"><span class="icon-btn" data-page-node-id="VIZ2GeOY9YeQASdACj61wn">🗑️</span></td></tr>
+      <tr data-page-node-id="H6HEXtFR42tCIWJokM8zel"><td data-page-node-id="014P9Em4qDXYc8vOREYf9O">09-04 11:04</td><td data-page-node-id="5gWqbcQa3sKKjEKekHMxVD">流程_20260904_110448_762</td><td data-page-node-id="Qs1G3JndWC5QZZabcPDCpY">alt+x</td><td data-page-node-id="WSikVogB63FAYbzxI7PPQx"><span class="icon-btn" data-page-node-id="HcPErQHns3P21oNC5n0xhj">✏️</span></td><td data-page-node-id="WrmBFNyqyOKRiCPt75jLhw"><span class="icon-btn" data-page-node-id="08yAreGpT525ZVY7XQfhs7">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 1 SaaS 现代风 -->
+<div class="style-block" data-page-node-id="CdXfZwSyYrb87CgcQz5mEE">
+  <div class="style-tag" data-page-node-id="og59GxvCnRvz45ectLTHBc"><span class="num" data-page-node-id="Ql7lKq56ASuiaZktX9vk5m">1</span>SaaS 现代风 ⭐ 推荐</div>
+  <p class="style-desc" data-page-node-id="QxmsA2VMlIb6H9PQyY9HPB">整表圆角卡片 + 轻阴影、去竖线、左对齐、快捷键做成胶囊徽章、行悬浮淡蓝高亮 —— 目前主流桌面软件做法（Notion / Linear 风格）</p>
+  <table class="t-saas" data-page-node-id="0Yrn5lnR4qkgy7VojpXw0A">
+    <thead data-page-node-id="hP8TSRGkQfVjNnoyYDBiYs"><tr data-page-node-id="dRSws2GWEWG0CgCVTMokAN"><th data-page-node-id="vyOYAyqyWKTA2h9BHPHA4Y">时间</th><th data-page-node-id="o3YAp8zpquurEavHFgXel5">流程名称</th><th data-page-node-id="yMSxwUjHrXufGB5brCMoMC">快捷键</th><th style="text-align:center" data-page-node-id="FOdFCNHHWTlkhjbQFmHt4y">重命名</th><th style="text-align:center" data-page-node-id="gDALMjBzPUiYI9UzclD13z">删除</th></tr></thead>
+    <tbody data-page-node-id="M4dRsWZRPyIylO2OvKSUK7">
+      <tr data-page-node-id="qY3wWNtLdDEoPbIvHUiUmq"><td data-page-node-id="trjRGiWlz5N5cWZyHSYvDH">09-03 16:02</td><td data-page-node-id="EMCege8B0kPE0ahEFa9OyY">流程_20260903_160225_317</td><td data-page-node-id="ZnJNJjEiH0RD67ND3rf5cN"><span class="badge" data-page-node-id="IrBUzKeOe7HiJ3NW0haRM0">alt+c</span></td><td style="text-align:center" data-page-node-id="avdcjC6HKbiIubfwZEjFcy"><span class="icon-btn" data-page-node-id="KTPYIqVN3b30yXVhTmNoqa">✏️</span></td><td style="text-align:center" data-page-node-id="DJyMU2zsRozZDH3o8CUJ6d"><span class="icon-btn" data-page-node-id="cr9ZGuFkKF5ov2JNL0rlG6">🗑️</span></td></tr>
+      <tr data-page-node-id="9TPHMY7djEgQk31s9TcBD6"><td data-page-node-id="oVZag2cLUvuDGDcbqSCpHB">09-02 17:52</td><td data-page-node-id="BP5ckpDlogax7O9g6unDfi">往左</td><td data-page-node-id="zqZkoKTPYnq6UkEnTCXgI3"><span class="badge none" data-page-node-id="2orCA28O53xI0LdASI8Ej2">未设置</span></td><td style="text-align:center" data-page-node-id="ft5ZG5Fo3i0tHInt78kw7Z"><span class="icon-btn" data-page-node-id="k8oSNxztIrzGN5O7TRo9r7">✏️</span></td><td style="text-align:center" data-page-node-id="X5E8IpKGKzD7VauDEuPtr0"><span class="icon-btn" data-page-node-id="TIbFFP9rmp9Ui6KjBG6tMp">🗑️</span></td></tr>
+      <tr data-page-node-id="qFQvX1MmAsP9IsErGHRCjf"><td data-page-node-id="BSFLuTtqsLn7yknQgdp7W5">09-03 14:06</td><td data-page-node-id="sMD6F1n5k4NTaSXaUUL8KX">流程_20260903_140615_023</td><td data-page-node-id="yFBKR8QxYmoekV9aozoVWR"><span class="badge none" data-page-node-id="egT1AfC7e8rmCvsqnNcbs4">未设置</span></td><td style="text-align:center" data-page-node-id="uuve24DJECbOiHvqCGw8sp"><span class="icon-btn" data-page-node-id="GjUBAnFMNd6yE8rlUhIREX">✏️</span></td><td style="text-align:center" data-page-node-id="mvrbPlQyOiXXaiGyoXLev4"><span class="icon-btn" data-page-node-id="qFhexvWRyKaYvQEUDaAmqN">🗑️</span></td></tr>
+      <tr data-page-node-id="PDgemvLZe1mZf5MD3hkUO0"><td data-page-node-id="dwZs4KKdjwSRlDzhJOdQem">09-03 10:39</td><td data-page-node-id="Y5QZjNbccVR3BnsNwgpkil">往右</td><td data-page-node-id="UoH6jyeohcSwRGFkwzRaxI"><span class="badge none" data-page-node-id="lLCKGs1SA7fxuSGqZZs1yR">未设置</span></td><td style="text-align:center" data-page-node-id="ap2GanG2R9RpQOF5kJ4Zoe"><span class="icon-btn" data-page-node-id="qjvGpt1BZCvEsBnQHZSH61">✏️</span></td><td style="text-align:center" data-page-node-id="IciI7Ynav7oLDFIgZ0MECj"><span class="icon-btn" data-page-node-id="8KY3D6TowFjhhfB8Yw9l14">🗑️</span></td></tr>
+      <tr data-page-node-id="l31LdipI9FEvVHzz894Y0P"><td data-page-node-id="D7yAkUfpUBzjgOztbDWAPj">09-04 11:04</td><td data-page-node-id="6Lk0cEhMH12V0UaBrJnkdt">流程_20260904_110448_762</td><td data-page-node-id="HwtV8og6NZVXSDAEOxAX7N"><span class="badge" data-page-node-id="v4cdrNgbUAFX9g2eoXeiOa">alt+x</span></td><td style="text-align:center" data-page-node-id="c0FtEDMxRqqpiXO3ygDj66"><span class="icon-btn" data-page-node-id="qFkbvjJEpkdGzZQjMtzEmF">✏️</span></td><td style="text-align:center" data-page-node-id="hFdtT1akKxK2EuOqZQ4WQT"><span class="icon-btn" data-page-node-id="rAfuTk6YNRvBfiur6CQkom">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 2 极简留白 -->
+<div class="style-block" data-page-node-id="0O8uI2eKisJzjobasJf6F5">
+  <div class="style-tag" data-page-node-id="BmYE7nhxLlDOi2WGRjRYqL"><span class="num" data-page-node-id="N2TpZHEy1X7k4aDJYmDdhz">2</span>极简留白</div>
+  <p class="style-desc" data-page-node-id="Cl2ETzaQFRu4rQlQyrAgKL">无任何背景填充，仅表头下一条粗线 + 行间细线，大间距，安静克制</p>
+  <table class="t-minimal" data-page-node-id="td6mD2np6XGSJnJU9CZbgU">
+    <thead data-page-node-id="iTKTKgBtkj6EI7rghDA8TK"><tr data-page-node-id="Zic7HsI2nqkcx8zb48B0xh"><th data-page-node-id="bq4VKPaK2dEsgysgNpXOdJ">时间</th><th data-page-node-id="bkDenBDbUYLRxp7jAjzkHI">流程名称</th><th data-page-node-id="njTJIH0JiXGTPJHazrhjS8">快捷键</th><th data-page-node-id="591GvV223Mj7zI32QA8Npr">重命名</th><th data-page-node-id="TAIXffhEgUtjlLlplG3T4z">删除</th></tr></thead>
+    <tbody data-page-node-id="jSpxVBlK2H7COl3LYXAGVr">
+      <tr data-page-node-id="v7a4vCYozP1CWqCBIx0mMi"><td data-page-node-id="5M2nKR4PGYJh2MoldodTz4">09-03 16:02</td><td data-page-node-id="Q8A0fKwGCOuQtX5GEh1Vi9">流程_20260903_160225_317</td><td data-page-node-id="MrVIhS0IAF6LHyirB6S9BN">alt+c</td><td data-page-node-id="xPoWHxMSUl51DYEhUsFWcX"><span class="icon-btn" data-page-node-id="n8ULsGpjqW4knHMqUcYQAl">✏️</span></td><td data-page-node-id="M5fLAfsb3Wa4F3CAqXxFrY"><span class="icon-btn" data-page-node-id="yRPWPGIWylrfDhLWFBxcyC">🗑️</span></td></tr>
+      <tr data-page-node-id="Mtu9L3PfSG7KtKHFmxK1AA"><td data-page-node-id="ko3366IjFZTHFosQke5L9Q">09-02 17:52</td><td data-page-node-id="wlWZegtPU6DeHnvubHzQG8">往左</td><td data-page-node-id="DGYHQpMS33OzjfiGN9bP7b">未设置</td><td data-page-node-id="1ge0px7N5pRGuKuuQbKwgc"><span class="icon-btn" data-page-node-id="hZQ7pWAkUnMlAjFQrZ1d0T">✏️</span></td><td data-page-node-id="GuhVj1MihXHzBWHAk8Jkmp"><span class="icon-btn" data-page-node-id="wQ5CEYGKRv3pHxHUHVSYxx">🗑️</span></td></tr>
+      <tr data-page-node-id="m5pZlkCBzo74qDrrWdhwOY"><td data-page-node-id="ujegLvL9trlSiWWEB2yG8V">09-03 14:06</td><td data-page-node-id="iQMdsBglQXhAbDh69ZsW9m">流程_20260903_140615_023</td><td data-page-node-id="cYUvNSDagh6AAqlBKUFuXe">未设置</td><td data-page-node-id="m24xkApYekWYj43KJRpQY8"><span class="icon-btn" data-page-node-id="MUyhpdgvegVI58qe1qbEmA">✏️</span></td><td data-page-node-id="6EybaUqGX5Limsv4wK6pYE"><span class="icon-btn" data-page-node-id="MGA5afhU0inB9gOkqOA1sL">🗑️</span></td></tr>
+      <tr data-page-node-id="BOoFgtrdx1zY1Dp9o6Raru"><td data-page-node-id="Gu5BZlrCbJetIDj4uMPRrF">09-03 10:39</td><td data-page-node-id="VheJ1KMTBPqscSSfJ2xa48">往右</td><td data-page-node-id="CyZacgq9LxWgrR8attpHFd">未设置</td><td data-page-node-id="tDgpfusHcRDaOu7e3rHJKX"><span class="icon-btn" data-page-node-id="2X8FzCL3D8ACSWb8Sa8jHN">✏️</span></td><td data-page-node-id="HEBGRaHrGmk2t0gOGWvIzI"><span class="icon-btn" data-page-node-id="EnobwPpzpAqEF0ptpXil84">🗑️</span></td></tr>
+      <tr data-page-node-id="GRgmPh8PGjDXI8c6CCaTLP"><td data-page-node-id="QeUBL3kmD1OZcwwbobMwKr">09-04 11:04</td><td data-page-node-id="SvpCCmmEF0k5kRwxIgkqqk">流程_20260904_110448_762</td><td data-page-node-id="FbHykI5YyW1q8TAYOzOB0q">alt+x</td><td data-page-node-id="fqmx7uqzVTb1U8O1Gn7387"><span class="icon-btn" data-page-node-id="PaUmsfgjyUQc59aMNmPUS0">✏️</span></td><td data-page-node-id="WKRKd7RJ5gvzDJDMbil3D0"><span class="icon-btn" data-page-node-id="r1UPIFEExBFxK7p9jtcl20">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 3 暗黑模式 -->
+<div class="style-block" data-page-node-id="J7HapwQiCzOwsjUwnio0Hz">
+  <div class="style-tag" data-page-node-id="BfnTYLIOlMxpfEypKG0CdB"><span class="num" data-page-node-id="JQzE9ysPDQW48w4QXlqiln">3</span>暗黑模式</div>
+  <p class="style-desc" data-page-node-id="7qAdkDi3k5d80SiL8DKcJr">深色底 + 柔和分隔线 + 发光蓝徽章，适合夜间使用 / 配合应用深色主题</p>
+  <div class="dark-wrap" data-page-node-id="ND4CHgdvrBT1KAuUpVOpqB">
+    <table class="t-dark" data-page-node-id="dLSi8lS5N9uAu52y1yVQ23">
+      <thead data-page-node-id="k4MlUGvUksV5tEoVqn8m23"><tr data-page-node-id="21VDfWoR32Oh06hnVne7Fg"><th data-page-node-id="ffsU780R6RLcbtE6XHYR6C">时间</th><th data-page-node-id="O43L3lTD3lmS8gyDDqlE7x">流程名称</th><th data-page-node-id="6JNEvdBy9xJxLXk6fPgr6g">快捷键</th><th data-page-node-id="4WNzIPKUzZp4cTM6hR1k5K">重命名</th><th data-page-node-id="onPE7r1yKgPi5Xvrn8dGiG">删除</th></tr></thead>
+      <tbody data-page-node-id="zUWOrHgk5thCQUsmqPgVqI">
+        <tr data-page-node-id="FkAjZgCKXGZEbcXaVI62EX"><td data-page-node-id="DDHtXF2khFldkbVzhApQLO">09-03 16:02</td><td data-page-node-id="5S6O8OgHxD1i7xCXFb8OJt">流程_20260903_160225_317</td><td data-page-node-id="SbHbeu4fT5wbVn3qqiXbmj"><span class="badge" data-page-node-id="yyY14briVOdxKc2s4sCGnc">alt+c</span></td><td data-page-node-id="fO4jimFuYk3De2frrsAFWb"><span class="icon-btn" data-page-node-id="pQCWX6HkA4ABFqNAvhjJ7w">✏️</span></td><td data-page-node-id="veND7lcTKflZjIbnjGutNr"><span class="icon-btn" data-page-node-id="LqRcBJ0CW0k4qpP5ud9iBi">🗑️</span></td></tr>
+        <tr data-page-node-id="6fROC8nhEoCQoOdzEJOY7I"><td data-page-node-id="E3xkJRPC8oU0ninHB0id5W">09-02 17:52</td><td data-page-node-id="4bPf9HLdrECmU30g5wvisD">往左</td><td data-page-node-id="XTnp7YMpmnJKwZMZ92RL0H"><span class="badge none" data-page-node-id="cHDsan28b4rvudNB621YeD">未设置</span></td><td data-page-node-id="LQxwfdAWuiFQQwZTVYiEen"><span class="icon-btn" data-page-node-id="IO4Wcbciw7bvYPJgmVTIgD">✏️</span></td><td data-page-node-id="tkgGOwu7RUv1U79ETvHW01"><span class="icon-btn" data-page-node-id="dtt4MJSITB5ciEBLzRNdDX">🗑️</span></td></tr>
+        <tr data-page-node-id="GPS3J64lL3JAvnvxgJ0DqR"><td data-page-node-id="6293rM7J7CWqxH6siME7pP">09-03 14:06</td><td data-page-node-id="TCwI2QhAduYR3tqlaB2jGv">流程_20260903_140615_023</td><td data-page-node-id="5DQANhoQEyv9mRDqbGfvUc"><span class="badge none" data-page-node-id="izHRpDWZUAcK2vFzy7H7F1">未设置</span></td><td data-page-node-id="d1JhGdrV3dA12iTBo3Cvt9"><span class="icon-btn" data-page-node-id="iQIhtE0GCSwnvJLBLTGkiS">✏️</span></td><td data-page-node-id="OwXncbnaiOuaNaLyDcQ4GZ"><span class="icon-btn" data-page-node-id="Ui55ahBku3Yb1w2q5286zn">🗑️</span></td></tr>
+        <tr data-page-node-id="OWGK5EzFZelAULH0iWDFyF"><td data-page-node-id="N5PL4hesbaWsfCFnyqTmxX">09-03 10:39</td><td data-page-node-id="U9XCcMs2isW6rnsFWxfPtT">往右</td><td data-page-node-id="GtyD0mZjyBHBI8QDx1Y0W4"><span class="badge none" data-page-node-id="fF2USlZGHjTfF0MKTCMHU4">未设置</span></td><td data-page-node-id="WzCCGXTDxPC7yr3An3odx5"><span class="icon-btn" data-page-node-id="pVNBaxWrv1rCJRN8wpVbYw">✏️</span></td><td data-page-node-id="2FywKJTBiF7wRYmf5y0BBC"><span class="icon-btn" data-page-node-id="PjsdOXvFzUr09NNDfnvC0N">🗑️</span></td></tr>
+        <tr data-page-node-id="N5GBNsrzj1k8AB9ftGAS3c"><td data-page-node-id="4kdTTEv42qEAKZ73W5E1Lz">09-04 11:04</td><td data-page-node-id="r9D9rOFCjlFFBGSkrMazuG">流程_20260904_110448_762</td><td data-page-node-id="93U7czAeB5XNA1LIUoiDMB"><span class="badge" data-page-node-id="UvCFCQx1bwCjsXOL1ACtRS">alt+x</span></td><td data-page-node-id="YAAC72fG5BgEM33YYfqwJj"><span class="icon-btn" data-page-node-id="9rqQzGABSkTamArM2NGKij">✏️</span></td><td data-page-node-id="kyCO9HKhXiBzZseDBcodol"><span class="icon-btn" data-page-node-id="02iO788FF6hGHuC04Hf8PN">🗑️</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 4 渐变表头 -->
+<div class="style-block" data-page-node-id="FZCvYxUfdtF1gPfA3A2KIY">
+  <div class="style-tag" data-page-node-id="lcTScGbDrztYD1CV4wAtTJ"><span class="num" data-page-node-id="xWmb0ns3zAA45gC97uDTcp">4</span>渐变表头强调</div>
+  <p class="style-desc" data-page-node-id="f4cyNd9xeLYhiAWMJkjevx">蓝紫渐变表头 + 居中排版 + 淡紫斑马纹，视觉层级鲜明，偏运营后台风</p>
+  <table class="t-gradient" data-page-node-id="aYsh7nJvfFxfeWCNPUl9FL">
+    <thead data-page-node-id="Itvu0G62E4PxsXx7oHdgd1"><tr data-page-node-id="Sew4HplGO2K1wxgtCPAHVS"><th data-page-node-id="JTUXwwoOBBAswGpt8lo6e7">时间</th><th data-page-node-id="xLT7ttFvLSWfzCEcwo3JcU">流程名称</th><th data-page-node-id="uDz6c6OOh3V01EToPiLehe">快捷键</th><th data-page-node-id="4LrZ2nSQvekGU9BzS4if1f">重命名</th><th data-page-node-id="ZbGcwIEJjKDSMM8UM9sW5r">删除</th></tr></thead>
+    <tbody data-page-node-id="GYKvyzArZ4Y2AyG4Ijsfh9">
+      <tr data-page-node-id="FZmQ3qxcnx72NNKcQackNA"><td data-page-node-id="62mwdD8okjz9QcX6ZdkQDC">09-03 16:02</td><td data-page-node-id="tGkcJsZulHB7Am6Y8KDQex">流程_20260903_160225_317</td><td data-page-node-id="9uKTt1hCftBg2AfzO31swz">alt+c</td><td data-page-node-id="OUyYWNzbGwRgAR1N15gooP"><span class="icon-btn" data-page-node-id="ryRpEZ6LcGeUKZd80dQJjk">✏️</span></td><td data-page-node-id="G89OQW4EIvefZaW8yFniIp"><span class="icon-btn" data-page-node-id="Sd8RinjRJgQb9vW8871BEK">🗑️</span></td></tr>
+      <tr data-page-node-id="AXriZLBOfjRDhgr4V5wOia"><td data-page-node-id="7YZppwFjNIpESC4np1FDCw">09-02 17:52</td><td data-page-node-id="JAwkc7ZWNcfHopZKxF5txF">往左</td><td data-page-node-id="m3mw6IjFWvBchreNTtyb0H">未设置</td><td data-page-node-id="BGTCjFi43j3j0Sb6CKEIxt"><span class="icon-btn" data-page-node-id="hXTUs4ygHOvIhMqsPanpod">✏️</span></td><td data-page-node-id="4cRdoEY2vAOBYPXFhGGi6f"><span class="icon-btn" data-page-node-id="GK2NKScYeSO6xVYEKS8fGB">🗑️</span></td></tr>
+      <tr data-page-node-id="v1zvI27Gs1lNmSd8S7HIqL"><td data-page-node-id="47Rct7HCAmB7e2GAtXsoaa">09-03 14:06</td><td data-page-node-id="nJdW81Xq7AiAJuGNT5EOUY">流程_20260903_140615_023</td><td data-page-node-id="8ariMlrw2KHI4Ey1zK2VLY">未设置</td><td data-page-node-id="6HisfCI90JovYZHOzl4ul1"><span class="icon-btn" data-page-node-id="siZOihEf5zoKAdJooJR8Cf">✏️</span></td><td data-page-node-id="PfGuaBwF9U2Q7pjdu8KRiX"><span class="icon-btn" data-page-node-id="q8SXiKwfzuLVB2BT16JJDo">🗑️</span></td></tr>
+      <tr data-page-node-id="OSg1tMjMC3LgTUWxDHwN7b"><td data-page-node-id="mwAbeHaApknDQLgAVQcPgk">09-03 10:39</td><td data-page-node-id="mDAnbXavsFsoUzAVaGm4Pl">往右</td><td data-page-node-id="VqI7N79CwMWN5bJ92IoK8A">未设置</td><td data-page-node-id="jCPRtynZkFOTCFuGpl5mjV"><span class="icon-btn" data-page-node-id="Hb1vB43JJ6sdTfSkyYsfsi">✏️</span></td><td data-page-node-id="2EJldw7q7WH8esM0CLti90"><span class="icon-btn" data-page-node-id="9O1T5AWrHgpAfdQ6GidE6C">🗑️</span></td></tr>
+      <tr data-page-node-id="AgTBkHRhKKeYUuoJSLzL3e"><td data-page-node-id="N2CrogxP4u4TwLUDL46QR4">09-04 11:04</td><td data-page-node-id="9DqiasLVnQcepUeCJzfr4a">流程_20260904_110448_762</td><td data-page-node-id="q07g7PBxnRcKTEn4qZs4qp">alt+x</td><td data-page-node-id="CQpN7ulm5Z3er7TMFOh61W"><span class="icon-btn" data-page-node-id="8tctkp1yxE8XFWdIuVo5Gd">✏️</span></td><td data-page-node-id="oz7aKokPh3WsBKaAEIgnV2"><span class="icon-btn" data-page-node-id="rPk25DT69NYgvrvbVyEccw">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 5 玻璃拟态 -->
+<div class="style-block" data-page-node-id="2Tdixf5Rk8FvS5HCWHGLKS">
+  <div class="style-tag" data-page-node-id="WgLn0HqjfsKjtFloUIZanB"><span class="num" data-page-node-id="JKrtueVtK4RoLMFTyW0vDc">5</span>玻璃拟态 Glassmorphism</div>
+  <p class="style-desc" data-page-node-id="mtDJYy2htAaYV3aeHI5gLw">毛玻璃半透明卡片浮在彩色渐变底上，轻盈时尚，适合作为亮点页面</p>
+  <div class="glass-wrap" data-page-node-id="BFTx2UvFL4yX8MUORdkVLi">
+    <table class="t-glass" data-page-node-id="0SX5IIhyuNTsGWfonBAsac">
+      <thead data-page-node-id="Uuasiy26ibpHa4MjazySo9"><tr data-page-node-id="YLgZoqDKcUOhEoWNjLIsB1"><th data-page-node-id="f6dpWDuAnApglLEFZPm1Vl">时间</th><th data-page-node-id="FaJqGBI773Y2gmUcon4NvC">流程名称</th><th data-page-node-id="CCQMlsMCD6BOuI5J03VXbL">快捷键</th><th data-page-node-id="etPbE1RX6a7WrI6zOQrpnh">重命名</th><th data-page-node-id="AjCXao04CY9jFFfRLzSr3y">删除</th></tr></thead>
+      <tbody data-page-node-id="AhbySV3Gwc17HAUxRYalSw">
+        <tr data-page-node-id="huRPRB18srmkfBVxYcNIOF"><td data-page-node-id="USSbfAv4cG3GxbrXD0EFyL">09-03 16:02</td><td data-page-node-id="c8tgNVCv3YNWbYuhwsanzp">流程_20260903_160225_317</td><td data-page-node-id="NtumkxFv2IGc97g9PK362r">alt+c</td><td data-page-node-id="cKmp98xI0KHQTxFqQCUTuQ"><span class="icon-btn" data-page-node-id="CuHPoFAWfdqSR9JUBilcUn">✏️</span></td><td data-page-node-id="aMCdEi8Czn1JgNDHTmJmZY"><span class="icon-btn" data-page-node-id="uZKCXE5vaNYbhJJb7v1RPj">🗑️</span></td></tr>
+        <tr data-page-node-id="mv1rIwEO4OHtxDnqGcX4EQ"><td data-page-node-id="fI3t1L7ChvB8XS8Mw9Efo4">09-02 17:52</td><td data-page-node-id="gdEFNzuwel6E5aoXwlHMKz">往左</td><td data-page-node-id="08oL6BUgXSi8vKXRzwzFB9">未设置</td><td data-page-node-id="vZPYJZ9ppiUTezDPAEmV0z"><span class="icon-btn" data-page-node-id="Dz0Dz8MkDlAAwG64GmAMm0">✏️</span></td><td data-page-node-id="5PpOFLqiS6AM6ORF2x47y6"><span class="icon-btn" data-page-node-id="qbvwsASd2PIBG4K9LpNERE">🗑️</span></td></tr>
+        <tr data-page-node-id="EZ9K2tKCKuhlUvG1aHgbSt"><td data-page-node-id="bZJeDb3AvOVyMlr7iD1GUW">09-03 14:06</td><td data-page-node-id="RFZrFvqpEysZuGHJ8gmfnb">流程_20260903_140615_023</td><td data-page-node-id="YwsbrA4aNxAc3pjUcL2wbP">未设置</td><td data-page-node-id="FrrC1Vq9PWkd1rq4aUbgEj"><span class="icon-btn" data-page-node-id="RXXIlBc2oRkyK6VCG8Tmsf">✏️</span></td><td data-page-node-id="2rhpW2XATCnoMr7MxLuDbR"><span class="icon-btn" data-page-node-id="ZGy7MpZnzsHdGNiaaZ9x2g">🗑️</span></td></tr>
+        <tr data-page-node-id="XHf11FuGW3aSY65NX4zJ9k"><td data-page-node-id="CRU5u4xOzN1Nm51M1p1isU">09-03 10:39</td><td data-page-node-id="4zlaNp760z0BoSRFtceBcr">往右</td><td data-page-node-id="souAG6vAQ0ouklvPGUCeFZ">未设置</td><td data-page-node-id="KtmdDZI2RJmeKcOlUWgDjm"><span class="icon-btn" data-page-node-id="IFYwLz0A8PUxzFuN1IfU4d">✏️</span></td><td data-page-node-id="hC8ZpEGQaWbTfcJrgl0djk"><span class="icon-btn" data-page-node-id="7LfDAdAIFQ5BOPftZavYK6">🗑️</span></td></tr>
+        <tr data-page-node-id="oKs3STrsHGSua4gEtW5Cqc"><td data-page-node-id="pYHf9K1xUCmMD02t9Ssc2B">09-04 11:04</td><td data-page-node-id="gujKWeSllp103AynX6xl29">流程_20260904_110448_762</td><td data-page-node-id="EwYxIsePbZ4MjA6w1ugwEw">alt+x</td><td data-page-node-id="YT0kVtMIQZ0NCncCGvlUWE"><span class="icon-btn" data-page-node-id="b6oJ7mD1tcDfZ5tFG7k9VI">✏️</span></td><td data-page-node-id="b9JShDRtohhWdAJTijXP4D"><span class="icon-btn" data-page-node-id="6le141CIZc2D76Dvas5y0O">🗑️</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 6 紧凑高密度 -->
+<div class="style-block" data-page-node-id="Rab6JihzXQWgxX517M4zVl">
+  <div class="style-tag" data-page-node-id="350lMh5opfYVJoSsae8zFj"><span class="num" data-page-node-id="G9m2FX4VOykwYm8wopQ2KT">6</span>紧凑高密度</div>
+  <p class="style-desc" data-page-node-id="iDyLJlr9DacKxoE2rAiDYU">小字号 + 窄行高，一屏能看更多流程，适合流程数量多的重度用户</p>
+  <table class="t-compact" data-page-node-id="7NnEHCNRs6c4mtxDWbGM7E">
+    <thead data-page-node-id="w5HyAoBk2a6HC1tKsnAwpW"><tr data-page-node-id="1AAkaBckGQ44pXcI88dgoz"><th data-page-node-id="ESEZDGgNfXDqD70HCMQ0Tz">时间</th><th data-page-node-id="9xEw76YDjnYDF5nkZsVAkX">流程名称</th><th data-page-node-id="nvrcCHsDxAdfYbPzMSJ8Oo">快捷键</th><th data-page-node-id="OdFcbCjWqeGuuX52V6J9O7">重命名</th><th data-page-node-id="mEP2YoKuQ6AwfC25de3YbR">删除</th></tr></thead>
+    <tbody data-page-node-id="RHE0KCAOQE5qypFfTj1BS9">
+      <tr data-page-node-id="uZePuwJsdRZAphHPGo3DkW"><td data-page-node-id="hIv3wts957f2Tfg80hc0VO">09-03 16:02</td><td data-page-node-id="ZSKd6mqPxFYaESweiAEXDN">流程_20260903_160225_317</td><td data-page-node-id="aIFVsYcs2i6db1DEZvqbXP">alt+c</td><td data-page-node-id="1NoW2XFJYyM847PzOK2vQZ"><span class="icon-btn" data-page-node-id="Bn6RI2zxiLnh4oDNCC0qEN">✏️</span></td><td data-page-node-id="e3kIt3JoCT3HDPhD5SJeEp"><span class="icon-btn" data-page-node-id="sknCAZKGNjC2CGic2DT5Yn">🗑️</span></td></tr>
+      <tr data-page-node-id="E54Wsr1CTsVR0eFxMPqq91"><td data-page-node-id="kR87okT56eadGmp1y7cIU1">09-02 17:52</td><td data-page-node-id="jHic1yxEfeEfcJcdeGCSVX">往左</td><td data-page-node-id="QPD2c7gSHkBmksNMS5Iuc1">未设置</td><td data-page-node-id="q4cB5RF8DC88t2Sh2veONf"><span class="icon-btn" data-page-node-id="a5UwZLRQKw0eMEBMvEZMOE">✏️</span></td><td data-page-node-id="5Ovn1tcQXLc1vOq1igcoIC"><span class="icon-btn" data-page-node-id="YQ4n3BLTAQpl4X2vOFWQp8">🗑️</span></td></tr>
+      <tr data-page-node-id="WnAm11BFwSkxPsCmHkBFxP"><td data-page-node-id="YCgPSsFCujfb93crmyugio">09-03 14:06</td><td data-page-node-id="Ni2eTHBerUsBbfjXu2mz43">流程_20260903_140615_023</td><td data-page-node-id="FpaS6R5TmsCgwb5LaHf6KG">未设置</td><td data-page-node-id="59sO1tJXGcIqemD3rHKBrf"><span class="icon-btn" data-page-node-id="HFlQRKGRUpmNAtwSVITVKx">✏️</span></td><td data-page-node-id="CqDHUlpDs8szHKAIqBxnR0"><span class="icon-btn" data-page-node-id="bHr5WEr7ABgiogPanwGusu">🗑️</span></td></tr>
+      <tr data-page-node-id="iaQdCbqA2oYReVB35zXgf0"><td data-page-node-id="lmOVHw2EgCuLygCyDM8B3c">09-03 10:39</td><td data-page-node-id="v0dOF8Syqma0F8y5i4LZhh">往右</td><td data-page-node-id="NY1bpluD9re9CGJcJIQADM">未设置</td><td data-page-node-id="YJuzHDFaNGrSS70WWsB9Op"><span class="icon-btn" data-page-node-id="hrJFNTLulpZhuQYcRJYZAV">✏️</span></td><td data-page-node-id="ia5BthAz1mND27z46nJT4O"><span class="icon-btn" data-page-node-id="P3fM0qs3pIiTMKrMHTdyQM">🗑️</span></td></tr>
+      <tr data-page-node-id="DMT0aKR0gauIcVkF25fmkg"><td data-page-node-id="YgVbRIo9URp5o0plPGFTWy">09-04 11:04</td><td data-page-node-id="nllUeKf8mxEh9Mt0NdNqpm">流程_20260904_110448_762</td><td data-page-node-id="9gFR8cL2BiNu7bgCTlhGC1">alt+x</td><td data-page-node-id="pe8TAcHeFpbsZISR8EPdKt"><span class="icon-btn" data-page-node-id="TJG9AwvQpCzHymOyGjwBDt">✏️</span></td><td data-page-node-id="Jo4hSoygflrS8YedWPy2c1"><span class="icon-btn" data-page-node-id="LdXI5fzL49QwLV1LAZSBzq">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 7 Neo-Brutalism -->
+<div class="style-block" data-page-node-id="RdXtBOh38fjTghwOATI6QV">
+  <div class="style-tag" data-page-node-id="qO0efDoKbwcbQ3X6QlIhCB"><span class="num" data-page-node-id="oKpQh4gq6JREvcFdEIHOTY">7</span>Neo-Brutalism 硬朗风</div>
+  <p class="style-desc" data-page-node-id="SvIRCrZ6eWXU7d65v5246u">黑色粗边框 + 黄色表头 + 硬投影，个性强烈、过目不忘，适合走年轻化品牌</p>
+  <div class="brutal-box" data-page-node-id="tlP5zLUleBzeIv0zTAH3Pz">
+    <table class="t-brutal" data-page-node-id="uIaJMTSzUPRGqfCnaGVRm2">
+      <thead data-page-node-id="Kb12XahDkYXOJ6Zq6ZtF8U"><tr data-page-node-id="Z21f8sLUEKQLUM6F7tkxau"><th data-page-node-id="wVJFZIgrO7Yqo120G7XIKI">时间</th><th data-page-node-id="qyDSE2TnChljJl1DLV43aa">流程名称</th><th data-page-node-id="Aqts6jUFlniYplLtPHXaVy">快捷键</th><th data-page-node-id="S9PkDGnMA3aWKvtu9vVvre">重命名</th><th data-page-node-id="GpHwiruTIrvkD9zTViWUmA">删除</th></tr></thead>
+      <tbody data-page-node-id="wtENa6anwnNWwaKXxN6KuB">
+        <tr data-page-node-id="GT0kukn3erPL12JAnPayfS"><td data-page-node-id="rqTQgzUKV3BF5vQzh3B83o">09-03 16:02</td><td data-page-node-id="zdSXpxMa4KDgIRyfSBnLxW">流程_20260903_160225_317</td><td data-page-node-id="bLo7GwyNLl5JtAgD5ALi5a">alt+c</td><td data-page-node-id="OF9ifv8ZTbxwyeGlCbOI9w"><span class="icon-btn" data-page-node-id="Wzn8KVj9Hf9dd8QdPEaBuY">✏️</span></td><td data-page-node-id="LKRgNe91pYKA5FxVLnEAqD"><span class="icon-btn" data-page-node-id="WIYVfoNXvWnAUFOop1emPC">🗑️</span></td></tr>
+        <tr data-page-node-id="jNHeyKqmV0PTMoohsVXQid"><td data-page-node-id="BJbCcjGH4pItx31PcIlgow">09-02 17:52</td><td data-page-node-id="3gKYEoCw2qoWNHSGp6p1wB">往左</td><td data-page-node-id="wRj5WkseQDGHaGEcdQD1P7">未设置</td><td data-page-node-id="aHTUfMUnczg4BiZ4zsZQxr"><span class="icon-btn" data-page-node-id="unoyj6YITWM4j1UHtV1gGY">✏️</span></td><td data-page-node-id="G6tmQTUwjAk2TjLAHQ6jL3"><span class="icon-btn" data-page-node-id="8UH45Q4w0HYxKqZyDIjM1f">🗑️</span></td></tr>
+        <tr data-page-node-id="iw0M5Kx0mPtlNGOukB1TW9"><td data-page-node-id="lme5FUHlfeYA7ChFE2EBQN">09-03 14:06</td><td data-page-node-id="XxnvGgBX2EDInGhBnEkR7J">流程_20260903_140615_023</td><td data-page-node-id="yI3LxZf3oFAS6rNqBUzv4D">未设置</td><td data-page-node-id="C4dvmTlHr0vJuXDj0pBxDL"><span class="icon-btn" data-page-node-id="CTkw0w3W9qitzffFvTbyTG">✏️</span></td><td data-page-node-id="8cxbAjairtl6oDNLiRP4J4"><span class="icon-btn" data-page-node-id="7TqLFvnuAX94quABlknrt4">🗑️</span></td></tr>
+        <tr data-page-node-id="NnlXdtHYkUWa6isE9Jh946"><td data-page-node-id="wcZfABwBL2USmB3CNrCQK6">09-03 10:39</td><td data-page-node-id="ClZtT0D4tJCYYvQgbgh95O">往右</td><td data-page-node-id="HQjyMtd6JjI4sNELR5EGWN">未设置</td><td data-page-node-id="G75DEXF9Jbo7QXpFUdEysP"><span class="icon-btn" data-page-node-id="QJxxL3iOQ3PxcshNzjx2oK">✏️</span></td><td data-page-node-id="YXIF10UglZMcy9Cl7mEZdA"><span class="icon-btn" data-page-node-id="lB9ZWQ6HqXPa4zzSanTSRe">🗑️</span></td></tr>
+        <tr data-page-node-id="OD6nWUhhW5Rj6DIPuB5LUk"><td data-page-node-id="uxqk1f7Ls1WHvTLe9Jk6so">09-04 11:04</td><td data-page-node-id="BmZ1mSQmCPrTdxYEfYWfBY">流程_20260904_110448_762</td><td data-page-node-id="UHXn4jZ3grHlvlvS06Y6b8">alt+x</td><td data-page-node-id="2HvPljhXvPNjMkqA1QMkGb"><span class="icon-btn" data-page-node-id="4uA950mkIeisaMRF92bjTu">✏️</span></td><td data-page-node-id="FNamtAJBmGcvL0vfdpWWwn"><span class="icon-btn" data-page-node-id="3mdxXw2UivQP2nZYtE5WOM">🗑️</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 8 行卡片式 -->
+<div class="style-block" data-page-node-id="itq22GHpZ5NXZ3M6aJeDWB">
+  <div class="style-tag" data-page-node-id="QUbFemh9CwX5BELbIZYjPu"><span class="num" data-page-node-id="B7zvLuocemxcYDCnI5bhZq">8</span>行卡片式 ⭐ 推荐</div>
+  <p class="style-desc" data-page-node-id="e70BwsCAHBV0lqDr7xLkBP">每一行是一张独立小卡片，悬浮时左侧出现蓝色指示条，层次感和现代感兼得</p>
+  <table class="t-card-row" data-page-node-id="OED0vKEwR5ijA4d6TTd6CP">
+    <thead data-page-node-id="uggaCrUeC6yitayUlEkYMN"><tr data-page-node-id="8TWjWUXe95NR3uTpTYzmWt"><th data-page-node-id="p9Psya4HapkVx1RUHAHZNN">时间</th><th data-page-node-id="7ZFJNspkpLDJaiLqxnSp9v">流程名称</th><th data-page-node-id="kEvOvaK64HUYGaXmG7OmC9">快捷键</th><th data-page-node-id="tdIjZOpHwHtraYx3cB4VIn">重命名</th><th data-page-node-id="W7TF2uw8lB3CleFQP8fB41">删除</th></tr></thead>
+    <tbody data-page-node-id="xBoa9mD5hO2ZzncheDiwUx">
+      <tr data-page-node-id="uDym5eWlqHCquM0NxLpZbP"><td data-page-node-id="ycPBqOdBloy30vckvbFhcj">09-03 16:02</td><td data-page-node-id="vQUHwER1LnRMRVvFVI4wQ9">流程_20260903_160225_317</td><td data-page-node-id="AenvaGa4sphNDKKjSvbPA3"><span class="badge" data-page-node-id="uwpxgopo9CehFNJSL4fzl1">alt+c</span></td><td data-page-node-id="ikTuYtW0QTGJml8lSxAp00"><span class="icon-btn" data-page-node-id="drwdvnaLbrNDHYdmiwHJ1U">✏️</span></td><td data-page-node-id="jsiTF8Ex3DSNIIGjKW0cI9"><span class="icon-btn" data-page-node-id="Lq7OQYmYTC6JQRMubCzKiY">🗑️</span></td></tr>
+      <tr data-page-node-id="KnENjRdgjCEIRszt1XJMoS"><td data-page-node-id="UU6O6s6UspRCSweK9k662b">09-02 17:52</td><td data-page-node-id="pSxVakGeAAEfHTZXgWlxtD">往左</td><td data-page-node-id="9Fr57IaO6Y0Qgi09Vxc2iG"><span class="badge none" data-page-node-id="Il59BeZ6fJQLFcpTg2FlMw">未设置</span></td><td data-page-node-id="B4skhrbNxpI1iSwwNEuIbI"><span class="icon-btn" data-page-node-id="FbYEvtDq35KqlublmGDzP8">✏️</span></td><td data-page-node-id="idBt2TJkYhp42dfhqyqIL2"><span class="icon-btn" data-page-node-id="E9fZl8CivM4WV55W5gD06f">🗑️</span></td></tr>
+      <tr data-page-node-id="lSRM3Sy565BA1j7Zf3JWe2"><td data-page-node-id="nUA8ljFGoIv143zqAz7BXH">09-03 14:06</td><td data-page-node-id="SS2JBh3ZKleHSQu3S4Z4Wp">流程_20260903_140615_023</td><td data-page-node-id="AMrnQHSNyX8VYzClH0AJZi"><span class="badge none" data-page-node-id="oBH8RjyTglcp3e9uAm0eID">未设置</span></td><td data-page-node-id="9NJNWT4bjX0Rxky5SzZzQc"><span class="icon-btn" data-page-node-id="qFIDhbDTvyOE3UOR2kGBUf">✏️</span></td><td data-page-node-id="Q1xY08zGFLE0bVSROTYY2A"><span class="icon-btn" data-page-node-id="7HMGZtbMVPK8u5FTK7Y6df">🗑️</span></td></tr>
+      <tr data-page-node-id="OajlN1gr7ny8a4zvg851GX"><td data-page-node-id="RqQ7xj9uuomCNPOptQSVSR">09-03 10:39</td><td data-page-node-id="IDlkTSN6qBliRHhfG0AqHI">往右</td><td data-page-node-id="zCvRkU1rcx9gmAHc3FosaX"><span class="badge none" data-page-node-id="KjISEwynItAP29sXb0D9i0">未设置</span></td><td data-page-node-id="oxkZeQBaGo4nji2cWip59Z"><span class="icon-btn" data-page-node-id="qLKsZiddEYS0ZCLm5UcULX">✏️</span></td><td data-page-node-id="MNBgEokZm1WdhyPjzt4D9m"><span class="icon-btn" data-page-node-id="GF0CuEsFN3hsau91J7QcKH">🗑️</span></td></tr>
+      <tr data-page-node-id="aRKMInONA4SEjWTbDddsva"><td data-page-node-id="cjpsOuqLGc2RXZLXvDA4fi">09-04 11:04</td><td data-page-node-id="0AXivbSdV8HneISsY62G2z">流程_20260904_110448_762</td><td data-page-node-id="ckoUDEIDLhRfXhELBnOO6T"><span class="badge" data-page-node-id="tAlSC22YHmnFaTjgziiE9E">alt+x</span></td><td data-page-node-id="3BV1gELMS2aN1hrMkIkHMU"><span class="icon-btn" data-page-node-id="I3ApKHwAGHBpAMk86Wun0R">✏️</span></td><td data-page-node-id="Nt5zkpzCOF8A8B6lYDlqC6"><span class="icon-btn" data-page-node-id="nKeOBkuIVqWoej1iTPJHrF">🗑️</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 9 终端风 -->
+<div class="style-block" data-page-node-id="Bcu3Wxa6tlyB5fR4HS293l">
+  <div class="style-tag" data-page-node-id="ErNaFCH4ka7TWRruKjtEWJ"><span class="num" data-page-node-id="bJqugaMrPXeCcWC76rTCGK">9</span>终端极客风</div>
+  <p class="style-desc" data-page-node-id="KM5XcKcafexHqj6zvcAWtF">等宽字体 + 黑底绿字 + 虚线分隔，呼应 PC-action「自动化工具」的极客属性</p>
+  <div class="term-wrap" data-page-node-id="WPjv3xJsSoly0TAO5ZFKK0">
+    <div class="term-title" data-page-node-id="ohb02He7gUJoQoA0eJqNzk">list --flows</div>
+    <table class="t-term" data-page-node-id="ldI5Hny7xN37MZnzJBr5D2">
+      <thead data-page-node-id="jrYmUYViHVAB0O2YHANaqg"><tr data-page-node-id="SG5Ca457mwiIZiLXJGABwU"><th data-page-node-id="33Z6MSiXoN4CFYGTazkUDy">time</th><th data-page-node-id="gkPXKlGNorF7uRgJnUYaAW">flow_name</th><th data-page-node-id="FXL6a7OL3de0d1DtaK67XG">hotkey</th><th data-page-node-id="VoaH4F7fj9GggLKAZLnVzV">ops</th></tr></thead>
+      <tbody data-page-node-id="4eCIAVRPXS9gbEWj0hrbUz">
+        <tr data-page-node-id="gJuSgmLeLHEJHrkJ6zw4FZ"><td data-page-node-id="LO8IH8DJzruNR9zWUGCzO2">09-03 16:02</td><td data-page-node-id="wQkZJtzcIBy4yKZr5jjtYC">流程_20260903_160225_317</td><td class="key" data-page-node-id="jCAns7uATETFl96SsEHv1C">alt+c</td><td data-page-node-id="UXJb6PAaHXrKOzNjl97nmU">✏️ 🗑️</td></tr>
+        <tr data-page-node-id="puUUfU4RszwUJwioFDQf57"><td data-page-node-id="cljmaDUwqUurFxCPT0154P">09-02 17:52</td><td data-page-node-id="qMHFRt67OteX41LepWbDK3">往左</td><td style="color:#566" data-page-node-id="fxrstVGOLKcHFWGqkul1Us">--</td><td data-page-node-id="Qz04Z9bwNQUVYLGwoWXwp0">✏️ 🗑️</td></tr>
+        <tr data-page-node-id="rF0s0x4MFnAJ1kC6EHOwt2"><td data-page-node-id="naJJgm4bENDAekqRgnQuXo">09-03 14:06</td><td data-page-node-id="fb1ItZHUAV2GAFMhv6wpMm">流程_20260903_140615_023</td><td style="color:#566" data-page-node-id="zGYRDHrPYognIpIsdu2QWu">--</td><td data-page-node-id="mXROfijIkTtRIzAZGISFVJ">✏️ 🗑️</td></tr>
+        <tr data-page-node-id="2QjPl7owgoYCIQyuziKvn6"><td data-page-node-id="8fhid1d0YraqbbOpG2v0EZ">09-03 10:39</td><td data-page-node-id="sN2NJaPi55se1CHVmLeyOf">往右</td><td style="color:#566" data-page-node-id="8zuobAun4fErQxNrG1hR5V">--</td><td data-page-node-id="0Oj1ZxVl0yBVyXoKisQN7A">✏️ 🗑️</td></tr>
+        <tr data-page-node-id="uxH4n0OUK86MBKvDjvaO4o"><td data-page-node-id="8ekGZniLjEEJlvm3laJSig">09-04 11:04</td><td data-page-node-id="zNLYsWy9RnkLVBCxjkxHQM">流程_20260904_110448_762</td><td class="key" data-page-node-id="a3VKC1uISFyM3jgRFaUVPb">alt+x</td><td data-page-node-id="GPfGtkbAIE4M6HtkJWfbrg">✏️ 🗑️</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 10 软 UI 大圆角 -->
+<div class="style-block" data-page-node-id="20aW5IbSberel4aE9EhtP5">
+  <div class="style-tag" data-page-node-id="0SKJUgtX778aJ4Om1aQnhj"><span class="num" data-page-node-id="C1ZuG2sF8ZKdt8dNjxFAdi">10</span>软 UI 大圆角（Soft UI）</div>
+  <p class="style-desc" data-page-node-id="7lC0JyHfAEkZbLXTFrSve3">灰底容器 + 白色圆角行 + 行间隙透底色，质感柔和圆润，按键徽章彩色化</p>
+  <div class="soft-wrap" data-page-node-id="R7n9ESp0GE5I8LrdXEkO2v">
+    <table class="t-soft" data-page-node-id="R34swNHHfubAjUm9fnWAsm">
+      <thead data-page-node-id="uK83BoH7eEX6PwynDp4K35"><tr data-page-node-id="9BVSb2cS8Eer7MFihQi2O7"><th data-page-node-id="psrZyrJRMHwUtEXQvKBubX">时间</th><th data-page-node-id="GX0MUrr7DXCs9rwYLwp77c">流程名称</th><th data-page-node-id="N9MBNLYqPkAox9mX0LHaAw">快捷键</th><th data-page-node-id="SkG6f22bNkGotbOeWEVuwE">重命名</th><th data-page-node-id="RLFFi9KOQtsFtCWQsFIXMA">删除</th></tr></thead>
+      <tbody data-page-node-id="RL4j0kZ2TJNeEMRsdtuHr3">
+        <tr data-page-node-id="AA5fmtHWN7QE6hfBQXpHWU"><td data-page-node-id="SFDkCb9fdqW4bP4AlRcUlg">09-03 16:02</td><td data-page-node-id="GkEjWpe8dtwjMicjgOH2EW">流程_20260903_160225_317</td><td data-page-node-id="ZSqrTfRwWXgO0h2T7GFswZ"><span class="badge" data-page-node-id="O1MDJHGCasWhFhe1YCmzFP">alt+c</span></td><td data-page-node-id="FeYoD5rcs9TEBBBcod6QqI"><span class="icon-btn" data-page-node-id="tmn7ke1mSDGEXAWoIZfrX6">✏️</span></td><td data-page-node-id="HYRE8GwoeXTvxKfzHX76Oq"><span class="icon-btn" data-page-node-id="fIM1CZmd7aWloxCFj7oMYz">🗑️</span></td></tr>
+        <tr data-page-node-id="kasxNnDBTmaYkFSklKCeMk"><td data-page-node-id="2aQyNAex7DqC5KFHshGuw8">09-02 17:52</td><td data-page-node-id="7tsVIRzIZUTYWEw6pjplbs">往左</td><td data-page-node-id="Sv6lJ6R2vliLZ7VrlUwo65"><span class="badge none" data-page-node-id="98lzGIlpWHzEMo7rkgkh4V">未设置</span></td><td data-page-node-id="P0npaplq2ybKsGfBfqxzAK"><span class="icon-btn" data-page-node-id="yJU5PZh4g0EYSumwUTeifC">✏️</span></td><td data-page-node-id="rNOOThNG0Wv2nPJOWtEHa7"><span class="icon-btn" data-page-node-id="Z06s1qY2fcTgb8kdtYK67y">🗑️</span></td></tr>
+        <tr data-page-node-id="AVxDQii8mhurLKjV9r35wO"><td data-page-node-id="HbDthgRkMHdu5cqG4LCwSX">09-03 14:06</td><td data-page-node-id="fAMnIET2waPIgppFAmDZ1C">流程_20260903_140615_023</td><td data-page-node-id="cCNDFLSFsqr2LRRkAqycju"><span class="badge none" data-page-node-id="KsxzMY2DBvprmXjMKNXh4l">未设置</span></td><td data-page-node-id="53jH6DCASRuoOH7EZWwvmH"><span class="icon-btn" data-page-node-id="pINphvZvNSqRFNz2FhOH0f">✏️</span></td><td data-page-node-id="1YGqIPWmEEVEdusCWoDAXB"><span class="icon-btn" data-page-node-id="AskuQtKYbMj3oiYAS7SsTz">🗑️</span></td></tr>
+        <tr data-page-node-id="g6S2bEOD5gXcAn5oo9vWjP"><td data-page-node-id="tI1k1diXxmsNAouPCzE0eF">09-03 10:39</td><td data-page-node-id="FvwHyFFjUlG1HsJgf6YRap">往右</td><td data-page-node-id="X4IhL5LTLp0ENZ1tZ7B1zC"><span class="badge none" data-page-node-id="TfNPWkWzcEeZWeLx0IN7b8">未设置</span></td><td data-page-node-id="F6E9BkrPLyfSiO8Wum3ZUw"><span class="icon-btn" data-page-node-id="bZvzUpjwobWX5z54fwUDrD">✏️</span></td><td data-page-node-id="idCDq6LIVwudzZsoBo4mks"><span class="icon-btn" data-page-node-id="8FQGpns9C9gAx4dBDOPHjs">🗑️</span></td></tr>
+        <tr data-page-node-id="uHn5TNo5BRWQDB1iGKel6p"><td data-page-node-id="7l8QuddZxfsUcWRrP9ESlq">09-04 11:04</td><td data-page-node-id="KBT5HAHPqL6DPq7lBJOa1k">流程_20260904_110448_762</td><td data-page-node-id="euPkyNCvXQriIUiVa6zxT2"><span class="badge" data-page-node-id="V35J0ztCwUWviJwm2vQwPr">alt+x</span></td><td data-page-node-id="kmWI5j6zTlBwG0lZLzW8pK"><span class="icon-btn" data-page-node-id="SiDna5LGPsREYZvKS3nigh">✏️</span></td><td data-page-node-id="PR2W5PTWsABetXnApGSqoE"><span class="icon-btn" data-page-node-id="WAevU2bzuqWp90iU4bOi2p">🗑️</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</body>
+</html>

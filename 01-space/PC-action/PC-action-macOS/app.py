@@ -5550,7 +5550,7 @@ class TrashButtonDelegate(QStyledItemDelegate):
     MARGIN_X = 8
     MARGIN_Y = 5
     RADIUS = 4
-    SEL_BG = "#DCE9FB"   # 与 QTableWidget::item:selected 保持一致
+    SEL_BG = "#E8F0FE"   # 与 QTableWidget::item:selected 保持一致
 
     def __init__(self, view=None):
         super().__init__(view)
@@ -9207,14 +9207,12 @@ class AutoRecorderApp(QMainWindow):
         
         # 使用QTableWidget显示流程列表（支持更多操作）
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
-        from design_system import configure_table, get_table_stylesheet
+        from design_system import configure_soft_card_table
 
         folder_table = QTableWidget()
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
-        configure_table(folder_table, get_table_stylesheet(
-            cell_padding_v=8, cell_padding_h=12, row_height=44
-        ))
+        configure_soft_card_table(folder_table, row_height=48)
 
         # 添加单击事件 - 点击流程名称打开查看图片窗口，点击Emoji执行操作
         def on_folder_table_click(row, column):
@@ -9940,18 +9938,30 @@ class AutoRecorderApp(QMainWindow):
         trash_table.setColumnWidth(2, 78)
         trash_table.setColumnWidth(3, 78)
         trash_table.verticalHeader().setVisible(False)
-        # 行高固定，保证单元格里的按钮完整落在行内（不会因为行太矮被裁/溢出）
-        trash_table.verticalHeader().setDefaultSectionSize(40)
-        trash_table.verticalHeader().setMinimumSectionSize(40)
+        # 紧凑高密度风格（与流程管理/组合技页统一）：行高 34、字号 12
+        trash_table.verticalHeader().setDefaultSectionSize(34)
+        trash_table.verticalHeader().setMinimumSectionSize(34)
         trash_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         trash_table.setSelectionMode(QAbstractItemView.ExtendedSelection)
         trash_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        trash_table.setMouseTracking(True)
+        trash_table.setShowGrid(False)
         trash_table.setAlternatingRowColors(False)
         trash_table.setStyleSheet("""
-            QTableWidget { border: none; border-radius: 8px; gridline-color: #E8E8ED; background-color: #FFFFFF; }
-            QTableWidget::item { padding: 6px 10px; }
-            QTableWidget::item:selected { background-color: #DCE9FB; color: #1D1D1F; }
-            QHeaderView::section { background: #F5F5F7; color: black; font-weight: 600; padding: 8px 12px; border: none; border-bottom: 1px solid #E8E8ED; font-size: 12px; }
+            QTableWidget { background:#FFFFFF; border:1px solid #E5E7EC; border-radius:10px;
+                outline:none; gridline-color:transparent; font-size:12px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; color:#333333; }
+            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:5px 12px; }
+            QTableWidget::item:hover { background:#F5F8FF; }
+            QTableWidget::item:selected { background:#E8F0FE; color:#333333; }
+            QHeaderView::section { background:#F4F6FB; color:#667085; padding:6px 12px; border:none;
+                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:11px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; }
+            QHeaderView::section:first { border-top-left-radius:10px; }
+            QHeaderView::section:last { border-top-right-radius:10px; }
+            QScrollBar:vertical { width:6px; background:transparent; }
+            QScrollBar::handle:vertical { background:#D5D9E2; border-radius:3px; min-height:20px; }
+            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0px; background:transparent; }
         """)
         content_layout.addWidget(trash_table)
 

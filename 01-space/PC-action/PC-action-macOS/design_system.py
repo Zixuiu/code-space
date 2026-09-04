@@ -2,6 +2,10 @@
 
 import sys
 
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor, QPainter
+from PyQt5.QtWidgets import QStyle, QStyledItemDelegate
+
 class TypographySystem:
     """macOS 瀛椾綋绯荤粺"""
     FONT_FAMILY = '"Microsoft YaHei", "Microsoft YaHei", "Segoe UI Emoji", sans-serif' if sys.platform=="win32" else '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Apple Color Emoji", "Helvetica Neue", sans-serif'
@@ -111,3 +115,177 @@ def configure_table(table,style=None):
 
 SHADOWS=ShadowSystem()
 ANIMATIONS=AnimationTokens()
+
+
+# ==================== Soft UI 大圆角卡片表格（风格10） ====================
+
+class SoftCardDelegate(QStyledItemDelegate):
+    """软 UI 风格委托：把每个单元格画成浅灰底上的白色圆角卡片。
+
+    行与行之间通过上下留缝露出灰底，形成"每行一张小卡片"的观感；
+    悬浮淡蓝、选中浅蓝；文本颜色/对齐/字体仍尊重 item 的 ForegroundRole /
+    TextAlignmentRole / FontRole，功能行为（点击、右键）不受影响。
+    """
+
+    BASE_COLOR = "#F5F7FB"      # 表格灰底
+    CARD_COLOR = "#FFFFFF"      # 卡片白
+    HOVER_COLOR = "#F8FAFF"     # 悬浮
+    SELECTED_COLOR = "#E8F0FE"  # 选中
+    TEXT_FALLBACK = "#4A5568"
+
+    def __init__(self, radius=10, h_margin=6, v_margin=3, parent=None):
+        super().__init__(parent)
+        self._radius = radius
+        self._hm = h_margin
+        self._vm = v_margin
+
+    def paint(self, painter, option, index):
+        from PyQt5.QtCore import Qt as _Qt
+        from PyQt5.QtGui import QBrush
+
+        # 1) 画卡片底：整格内缩，行间露出灰底缝隙
+        #    注意：这里不能用 QPainterPath + drawPath（在离屏/光栅渲染下会直接崩溃），
+        #    drawRoundedRect 效果等价且稳定。
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = option.rect.adjusted(self._hm, self._vm, -self._hm, -self._vm)
+        card = QColor(self.CARD_COLOR)
+        if option.state & QStyle.State_Selected:
+            card = QColor(self.SELECTED_COLOR)
+        elif option.state & QStyle.State_MouseOver:
+            card = QColor(self.HOVER_COLOR)
+        painter.setPen(_Qt.NoPen)
+        painter.setBrush(card)
+        painter.drawRoundedRect(rect, self._radius, self._radius)
+        painter.restore()
+
+        # 2) 画文本（手动，避免默认绘制把 QSS 底色/选中色盖回卡片上）
+        text = index.data(_Qt.DisplayRole)
+        if text:
+            painter.save()
+            fg = index.data(_Qt.ForegroundRole)
+            if isinstance(fg, QBrush):
+                color = fg.color()
+            elif isinstance(fg, QColor):
+                color = fg
+            else:
+                color = QColor(self.TEXT_FALLBACK)
+            painter.setPen(color)
+            font = index.data(_Qt.FontRole)
+            painter.setFont(font if font else option.font)
+            align = index.data(_Qt.TextAlignmentRole)
+            if not align:
+                align = _Qt.AlignLeft | _Qt.AlignVCenter
+            text_rect = rect.adjusted(8, 0, -8, 0)
+            painter.drawText(text_rect, int(align), str(text))
+            painter.restore()
+
+
+def get_soft_table_stylesheet(header_font_size=12):
+    """风格10：灰底容器 + 白色圆角行 + 彩色按键徽章观感（Soft UI）"""
+    return f"""
+        QTableWidget {{
+            background: {SoftCardDelegate.BASE_COLOR};
+            border: none;
+            border-radius: 14px;
+            outline: none;
+            gridline-color: transparent;
+            font-size: 14px;
+            font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
+        }}
+        QTableWidget::item {{ border: none; }}
+        QHeaderView::section {{
+            background: #EEF1F8;
+            color: #7A8399;
+            padding: 12px 14px;
+            border: none;
+            font-weight: 600;
+            font-size: {header_font_size}px;
+            font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
+        }}
+        QHeaderView::section:first {{ border-top-left-radius: 14px; }}
+        QHeaderView::section:last {{ border-top-right-radius: 14px; }}
+        QScrollBar:vertical {{ width: 8px; background: transparent; border-radius: 4px; }}
+        QScrollBar::handle:vertical {{ background: {ColorPalette.GRAY_300}; border-radius: 4px; min-height: 20px; }}
+        QScrollBar::handle:vertical:hover {{ background: {ColorPalette.GRAY_400}; }}
+        QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {{ height: 0px; background: transparent; }}
+        QScrollBar:horizontal {{ height: 8px; background: transparent; border-radius: 4px; }}
+        QScrollBar::handle:horizontal {{ background: {ColorPalette.GRAY_300}; border-radius: 4px; min-width: 20px; }}
+        QScrollBar::handle:horizontal:hover {{ background: {ColorPalette.GRAY_400}; }}
+        QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {{ width: 0px; background: transparent; }}
+    """
+
+
+def configure_soft_card_table(table, row_height=48):
+    """把一张 QTableWidget 配置成软 UI 卡片风格（含委托/行高/悬浮/选择行为）"""
+    from PyQt5.QtWidgets import QAbstractItemView
+    table.setStyleSheet(get_soft_table_stylesheet())
+    table.setItemDelegate(SoftCardDelegate())
+    table.setSelectionBehavior(QAbstractItemView.SelectRows)
+    table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    table.setMouseTracking(True)   # 让委托能收到 State_MouseOver 实现悬浮变色
+    table.setShowGrid(False)
+    table.setAlternatingRowColors(False)
+    table.horizontalHeader().setStretchLastSection(True)
+    table.horizontalHeader().setHighlightSections(False)
+    table.verticalHeader().setVisible(False)
+    table.verticalHeader().setDefaultSectionSize(row_height)
+
+# ==================== 行卡片式表格（风格8，纯 QSS） ====================
+
+def get_row_card_table_stylesheet(header_font_size=12, cell_font_size=14):
+    """风格8：灰底容器 + 白色行卡片（行间透缝）+ 悬浮/选中高亮。
+    纯 QSS 实现，无需自定义委托，稳定且行为与默认表格完全一致。"""
+    return f"""
+        QTableWidget {{
+            background: #EEF1F7;
+            border: none;
+            border-radius: 12px;
+            outline: none;
+            gridline-color: transparent;
+            font-size: {cell_font_size}px;
+            font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
+            color: #333333;
+        }}
+        QTableWidget::item {{
+            background: #FFFFFF;
+            border-bottom: 6px solid #EEF1F7;
+            color: #333333;
+            padding: 10px 14px;
+        }}
+        QTableWidget::item:hover {{ background: #FAFBFF; }}
+        QTableWidget::item:selected {{ background: #E8F0FE; color: #333333; }}
+        QHeaderView::section {{
+            background: #E3E7F0;
+            color: #7A8399;
+            padding: 11px 14px;
+            border: none;
+            font-weight: 600;
+            font-size: {header_font_size}px;
+            font-family: "Microsoft YaHei", "Segoe UI Emoji", sans-serif;
+        }}
+        QHeaderView::section:first {{ border-top-left-radius: 12px; }}
+        QHeaderView::section:last {{ border-top-right-radius: 12px; }}
+        QScrollBar:vertical {{ width: 8px; background: transparent; border-radius: 4px; }}
+        QScrollBar::handle:vertical {{ background: {ColorPalette.GRAY_300}; border-radius: 4px; min-height: 20px; }}
+        QScrollBar::handle:vertical:hover {{ background: {ColorPalette.GRAY_400}; }}
+        QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical {{ height: 0px; background: transparent; }}
+        QScrollBar:horizontal {{ height: 8px; background: transparent; border-radius: 4px; }}
+        QScrollBar::handle:horizontal {{ background: {ColorPalette.GRAY_300}; border-radius: 4px; min-width: 20px; }}
+        QScrollBar::handle:horizontal:hover {{ background: {ColorPalette.GRAY_400}; }}
+        QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal {{ width: 0px; background: transparent; }}
+    """
+
+
+def configure_row_card_table(table, row_height=52):
+    """把一张 QTableWidget 配置成行卡片风格（纯 QSS，无自定义委托）"""
+    from PyQt5.QtWidgets import QAbstractItemView
+    table.setStyleSheet(get_row_card_table_stylesheet())
+    table.setSelectionBehavior(QAbstractItemView.SelectRows)
+    table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+    table.setMouseTracking(True)
+    table.setShowGrid(False)
+    table.setAlternatingRowColors(False)
+    table.horizontalHeader().setHighlightSections(False)
+    table.verticalHeader().setVisible(False)
+    table.verticalHeader().setDefaultSectionSize(row_height)

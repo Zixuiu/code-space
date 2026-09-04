@@ -43,7 +43,8 @@ from combo_skill_manager import ComboSkillManager
 from image_recognition import clear_image_cache, clear_replay_stop_flag, set_replay_stop_flag
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
-    ColorPalette, ShadowSystem, ButtonSize, configure_table, get_table_stylesheet
+    ColorPalette, ShadowSystem, ButtonSize, configure_table, get_table_stylesheet,
+    configure_soft_card_table, configure_row_card_table
 )
 from theme_generator import generate_macos_theme
 from beautiful_dialog import StyledMessageDialog
@@ -1470,41 +1471,61 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header = QHBoxLayout()
         header.setSpacing(10)
 
-        refresh_btn = MacOSSecondaryButton("刷新")
+        # 紧凑高密度风格：小按钮
+        _compact_btn_qss = (
+            "QPushButton { background:#FFFFFF; color:#333333; border:1px solid #E3E5EA;"
+            " border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600;"
+            ' font-family:"Microsoft YaHei","Segoe UI Emoji"; }'
+            "QPushButton:hover { background:#F2F3F6; }"
+            "QPushButton:pressed { background:#E8EAEF; }"
+        )
+        refresh_btn = QPushButton("刷新")
+        refresh_btn.setStyleSheet(_compact_btn_qss)
         refresh_btn.setIcon(load_svg_icon("refresh", 16))
-        refresh_btn.setIconSize(QSize(24, 24))
-        refresh_btn.setMinimumWidth(80)
+        refresh_btn.setIconSize(QSize(14, 14))
+        refresh_btn.setMinimumWidth(60)
+        refresh_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(refresh_btn)
 
-        trash_btn = MacOSSecondaryButton("回收站")
+        trash_btn = QPushButton("回收站")
+        trash_btn.setStyleSheet(_compact_btn_qss)
         trash_btn.setIcon(load_svg_icon("trash", 16))
-        trash_btn.setIconSize(QSize(24, 24))
-        trash_btn.setMinimumWidth(80)
+        trash_btn.setIconSize(QSize(14, 14))
+        trash_btn.setMinimumWidth(60)
         trash_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(trash_btn)
         header.addStretch()
         card_layout.addLayout(header)
 
         folder_table = QTableWidget()
-        folder_table.setIconSize(QSize(20, 20))
+        folder_table.setIconSize(QSize(16, 16))
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
-        configure_table(folder_table, get_table_stylesheet(
-            bg_color="rgba(255, 255, 255, 0.72)",
-            header_bg="rgba(255, 255, 255, 0.5)",
-            header_color="#6E6E73",
-            text_color="#1D1D1F",
-            border_color=ColorPalette.SEPARATOR,
-            hover_color="rgba(0, 122, 255, 0.06)",
-            selected_color="rgba(0, 122, 255, 0.12)",
-            alternate_color="#F0F0F0",
-            border_radius=12,
-            header_font_size=12,
-            cell_font_size=13,
-            cell_padding_v=14,
-            cell_padding_h=12,
-            row_height=50
-        ))
+        # 紧凑高密度风格：白底细边框表格 + 34px 行高 + 12px 字号
+        folder_table.setStyleSheet("""
+            QTableWidget { background:#FFFFFF; border:1px solid #E5E7EC; border-radius:10px;
+                outline:none; gridline-color:transparent; font-size:12px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; color:#333333; }
+            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:5px 12px; }
+            QTableWidget::item:hover { background:#F5F8FF; }
+            QTableWidget::item:selected { background:#E8F0FE; color:#333333; }
+            QHeaderView::section { background:#F4F6FB; color:#667085; padding:6px 12px; border:none;
+                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:11px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; }
+            QHeaderView::section:first { border-top-left-radius:10px; }
+            QHeaderView::section:last { border-top-right-radius:10px; }
+            QScrollBar:vertical { width:6px; background:transparent; }
+            QScrollBar::handle:vertical { background:#D5D9E2; border-radius:3px; min-height:20px; }
+            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0px; background:transparent; }
+        """)
+        folder_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        folder_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        folder_table.setMouseTracking(True)
+        folder_table.setShowGrid(False)
+        folder_table.setAlternatingRowColors(False)
+        folder_table.verticalHeader().setVisible(False)
+        folder_table.verticalHeader().setDefaultSectionSize(34)
+        folder_table.horizontalHeader().setHighlightSections(False)
         folder_table.horizontalHeader().setStretchLastSection(False)
         _folder_default_widths = [110, 400, 110, 90, 48]
         _apply_saved_column_widths(folder_table, "manager_table", _folder_default_widths)
@@ -2130,31 +2151,44 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header = QHBoxLayout()
         header.setSpacing(10)
 
-        new_btn = MacOSSecondaryButton("+ 新建组合技")
-        new_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_LARGE)
+        # 紧凑高密度风格：与流程管理页同款小按钮
+        _compact_btn_qss = (
+            "QPushButton { background:#FFFFFF; color:#333333; border:1px solid #E3E5EA;"
+            " border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600;"
+            ' font-family:"Microsoft YaHei","Segoe UI Emoji"; }'
+            "QPushButton:hover { background:#F2F3F6; }"
+            "QPushButton:pressed { background:#E8EAEF; }"
+        )
+        new_btn = QPushButton("+ 新建组合技")
+        new_btn.setStyleSheet(_compact_btn_qss)
+        new_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(new_btn)
 
-        refresh_btn = MacOSSecondaryButton("刷新")
+        refresh_btn = QPushButton("刷新")
+        refresh_btn.setStyleSheet(_compact_btn_qss)
         refresh_btn.setIcon(load_svg_icon("refresh", 16))
-        refresh_btn.setIconSize(QSize(24, 24))
-        refresh_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
+        refresh_btn.setIconSize(QSize(14, 14))
+        refresh_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(refresh_btn)
 
-        run_selected_btn = MacOSSecondaryButton("启动选中")
+        run_selected_btn = QPushButton("启动选中")
+        run_selected_btn.setStyleSheet(_compact_btn_qss)
         run_selected_btn.setIcon(load_svg_icon("play", 16))
-        run_selected_btn.setIconSize(QSize(24, 24))
-        run_selected_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
+        run_selected_btn.setIconSize(QSize(14, 14))
+        run_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(run_selected_btn)
 
-        stop_selected_btn = MacOSSecondaryButton("停止选中")
+        stop_selected_btn = QPushButton("停止选中")
+        stop_selected_btn.setStyleSheet(_compact_btn_qss)
         stop_selected_btn.setIcon(load_svg_icon("stop", 16))
-        stop_selected_btn.setIconSize(QSize(24, 24))
+        stop_selected_btn.setIconSize(QSize(14, 14))
         stop_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(stop_selected_btn)
 
-        stop_all_btn = MacOSSecondaryButton("全部停止")
+        stop_all_btn = QPushButton("全部停止")
+        stop_all_btn.setStyleSheet(_compact_btn_qss)
         stop_all_btn.setIcon(load_svg_icon("stop", 16))
-        stop_all_btn.setIconSize(QSize(24, 24))
+        stop_all_btn.setIconSize(QSize(14, 14))
         stop_all_btn.setCursor(Qt.PointingHandCursor)
         stop_all_btn.setVisible(False)
         header.addWidget(stop_all_btn)
@@ -2165,10 +2199,32 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         combo_table = QTableWidget()
         combo_table.setColumnCount(7)
         combo_table.setHorizontalHeaderLabels(["", "名称", "流程", "状态", "操作", "快捷键", "删除"])
-        configure_table(combo_table, get_table_stylesheet(
-            cell_padding_v=6, cell_padding_h=12, row_height=44
-        ))
-        combo_table.verticalHeader().setDefaultSectionSize(44)
+        # 紧凑高密度风格：与流程管理页同款白底细边框表格
+        combo_table.setStyleSheet("""
+            QTableWidget { background:#FFFFFF; border:1px solid #E5E7EC; border-radius:10px;
+                outline:none; gridline-color:transparent; font-size:12px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; color:#333333; }
+            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:5px 12px; }
+            QTableWidget::item:hover { background:#F5F8FF; }
+            QTableWidget::item:selected { background:#E8F0FE; color:#333333; }
+            QHeaderView::section { background:#F4F6FB; color:#667085; padding:6px 12px; border:none;
+                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:11px;
+                font-family:"Microsoft YaHei","Segoe UI Emoji"; }
+            QHeaderView::section:first { border-top-left-radius:10px; }
+            QHeaderView::section:last { border-top-right-radius:10px; }
+            QScrollBar:vertical { width:6px; background:transparent; }
+            QScrollBar::handle:vertical { background:#D5D9E2; border-radius:3px; min-height:20px; }
+            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0px; background:transparent; }
+        """)
+        combo_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        combo_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        combo_table.setMouseTracking(True)
+        combo_table.setShowGrid(False)
+        combo_table.setAlternatingRowColors(False)
+        combo_table.verticalHeader().setVisible(False)
+        combo_table.verticalHeader().setDefaultSectionSize(34)
+        combo_table.horizontalHeader().setHighlightSections(False)
+        combo_table.setIconSize(QSize(16, 16))
         # 所有列默认可交互拖动；删除列固定窄宽度。取消 Stretch 列，避免拖动时整表抖动。
         _combo_default_widths = [50, 180, 70, 80, 80, 100, 52]
         _apply_saved_column_widths(combo_table, "combo_table", _combo_default_widths)
@@ -2184,7 +2240,6 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.setSectionResizeMode(6, QHeaderView.Fixed)
         combo_table.setColumnWidth(0, 50)
         combo_table.setColumnWidth(6, 52)
-        combo_table.setIconSize(QSize(20, 20))
 
         # 拦截第0列的鼠标点击：由我们自己切换勾选，避免与 Qt 原生勾选切换叠加导致状态紊乱
         class _ComboCheckFilter(QObject):
@@ -2432,9 +2487,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             pl.addWidget(ask_lbl)
             pl.addSpacing(6)
 
-            # 2×2 场景小卡
+            # 场景小卡：单列横排（标题在左，描述在右），与渲染对比图一致
             grid = QGridLayout()
-            grid.setSpacing(12)
+            grid.setSpacing(10)
             for ci, (gicon, gtitle, gdesc) in enumerate(s["cards"]):
                 g = QFrame()
                 g.setObjectName("tutCard")
@@ -2442,19 +2497,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     "#tutCard { background-color: %s; border: 1px solid %s; border-radius: 11px; }"
                     % (MacOSColors.WINDOW_BG, MacOSColors.SEPARATOR)
                 )
-                gl = QVBoxLayout(g)
-                gl.setContentsMargins(16, 14, 16, 14)
-                gl.setSpacing(6)
+                gl = QHBoxLayout(g)
+                gl.setContentsMargins(16, 12, 16, 12)
+                gl.setSpacing(12)
                 gt = QLabel("%s  %s" % (gicon, gtitle))
                 gt.setStyleSheet("color: %s; font-size: 15px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
+                gl.addWidget(gt)
                 gd = QLabel(gdesc)
                 gd.setWordWrap(True)
                 gd.setStyleSheet("color: %s; font-size: 14px; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
-                gl.addWidget(gt)
-                gl.addWidget(gd)
-                grid.addWidget(g, ci // 2, ci % 2)
+                gl.addWidget(gd, 1)
+                grid.addWidget(g, ci, 0)
             grid.setColumnStretch(0, 1)
-            grid.setColumnStretch(1, 1)
             pl.addLayout(grid)
 
             pl.addSpacing(4)
@@ -2531,17 +2585,17 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def _build_tutorial_steps(self, steps):
         steps.extend([
             dict(
-                icon="⌨️", title="你每天在当机器人吗？",
-                ask="问问自己 —— 这些事情是不是每天都在做？",
+                icon="⚖️", title="同样的活，两种干法",
+                ask="左边是你现在的做法，右边是用了 PC-action 之后 ——",
                 cards=[
-                    ("🌅", "早上开工", "Chrome → 微信 → 钉钉 → 邮箱 → 办公软件"),
-                    ("📝", "填日报", "复制粘贴 → 改日期 → 改数据 → 发送"),
-                    ("🔑", "登录系统", "输账号 → 输密码 → 点登录"),
-                    ("📤", "导出数据", "点菜单 → 点导出 → 选格式 → 保存"),
+                    ("🌅", "早上开工", "5 个软件挨个点 ≈ 5 分钟  →  一条流程 ≈ 10 秒"),
+                    ("📝", "填日报", "复制粘贴改 4 处 ≈ 3 分钟  →  自动生成发送 ≈ 5 秒"),
+                    ("🔑", "登录系统", "账号密码逐个输 ≈ 2 分钟  →  自动登录 ≈ 3 秒"),
+                    ("📤", "导出数据", "菜单导出归档 ≈ 5 分钟  →  自动导出 ≈ 8 秒"),
                 ],
-                pain="一天两天没什么，但一年两年呢？",
-                gray="这些动作你重复了成千上万次，浪费了几百个小时。",
-                point="💡 这个软件的意义：你只需要做一次，以后它替你干。",
+                pain="每天省下约 47 分钟 —— 够喝两杯咖啡，或早点下班。",
+                gray="",
+                point="💡 不是你变快了，是你不用再干了。",
             ),
             dict(
                 icon="🎬", title="录一遍，以后就再也不用干了",
