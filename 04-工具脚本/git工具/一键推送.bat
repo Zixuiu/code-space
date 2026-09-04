@@ -16,7 +16,7 @@ if not defined PY (
 )
 
 if not defined PY (
-    if exist "C:\Users\stk_gb\.workbuddy\binaries\python\versions\3.13.12\python.exe" set "PY=C:\Users\stk_gb\.workbuddy\binaries\python\versions\3.13.12\python.exe"
+    if exist "%USERPROFILE%\.workbuddy\binaries\python\versions\3.13.12\python.exe" set "PY=%USERPROFILE%\.workbuddy\binaries\python\versions\3.13.12\python.exe"
 )
 
 if not defined PY (
@@ -30,6 +30,10 @@ echo Python found: %PY%
 echo Running push script ...
 echo.
 %PY% "Ò»¼üÍÆËÍ.py"
+if errorlevel 1 (
+    echo.
+    echo [ERROR] Script exited with code %errorlevel%. See messages above.
+)
 
 :PAUSE
 echo.
