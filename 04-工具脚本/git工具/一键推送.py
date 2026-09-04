@@ -18,7 +18,6 @@ if sys.platform.startswith("win"):
 
 # 动态 BASE_DIR：脚本所在目录即项目根（不再写死 d:\codespace，新电脑任意路径可跑）
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOex2p0CkIAkhA98M4KCpzxPL4hkZPfXc8D6In5gondh 1399972370@qq.com"
 SSH_URL = "git@gitcode.com:weixin_58844486/codespace.git"
 
 def log(msg, level="INFO"):
@@ -82,6 +81,45 @@ def pick_ssh_client():
     return False
 
 
+def ensure_pub_key(prv_key_file, pub_key_file):
+    """
+    从本地私钥导出公钥写入 .pub（私钥不存在则跳过）。
+    ★ 绝不写死公钥：旧脚本硬编码了别台机器的公钥，本机私钥与其不匹配时，
+      OpenSSH 报 'private key contents do not match public'，全部 SSH 认证直接瘫痪。
+    """
+    if not os.path.exists(prv_key_file):
+        log(f"SSH 私钥缺失（{prv_key_file} 不存在），跳过公钥导出", "WARNING")
+        return False
+    try:
+        r = subprocess.run(
+            ["ssh-keygen", "-y", "-f", prv_key_file],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
+        )
+        if r.returncode != 0:
+            log(f"从私钥导出公钥失败: {(r.stderr or r.stdout).strip()[:200]}", "ERROR")
+            return False
+        real_pub = r.stdout.strip()
+    except Exception as e:
+        log(f"导出公钥异常: {e}", "ERROR")
+        return False
+    try:
+        with open(pub_key_file, "r", encoding="utf-8") as f:
+            cur = f.read().strip()
+    except Exception:
+        cur = ""
+    try:
+        if cur != real_pub:
+            with open(pub_key_file, "w", encoding="utf-8", newline="\n") as f:
+                f.write(real_pub + "\n")
+            log(f"公钥已从私钥重新同步: {pub_key_file}", "SUCCESS")
+        else:
+            log(f"公钥已就绪（与私钥匹配）: {pub_key_file}", "INFO")
+        return True
+    except Exception as e:
+        log(f"写入公钥失败: {e}", "ERROR")
+        return False
+
+
 def setup_ssh_and_check():
     """
     写公钥 + ssh config + git sshCommand；
@@ -94,14 +132,7 @@ def setup_ssh_and_check():
     prv_key_file = os.path.join(ssh_dir, "id_ed25519")
     os.makedirs(ssh_dir, exist_ok=True)
 
-    try:
-        with open(pub_key_file, 'w', encoding='utf-8') as f:
-            f.write(SSH_PUBLIC_KEY + '\n')
-        with open(pub_key_file, 'r', encoding='utf-8') as f:
-            if f.read().strip() == SSH_PUBLIC_KEY:
-                log(f"公钥已写入: {pub_key_file}", "SUCCESS")
-    except Exception as e:
-        log(f"写入公钥失败: {e}", "ERROR")
+    ensure_pub_key(prv_key_file, pub_key_file)
 
     config_file = os.path.join(ssh_dir, "config")
     ssh_config = (
