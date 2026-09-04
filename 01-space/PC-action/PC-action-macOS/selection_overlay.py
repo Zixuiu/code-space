@@ -915,14 +915,26 @@ class SelectionOverlay(QWidget):
             time.sleep(0.1)
             
             # 在目标应用中实际执行快捷键
-            import pyautogui
-            keys = key_str.lower().split('+')
-            if len(keys) > 1:
-                pyautogui.hotkey(*keys)
+            _executed = False
+            try:
+                import key_capture as _kc
+                if _kc.is_alt_tab_key(key_str):
+                    # Alt+Tab 是系统切换热键，必须走底层 keybd_event
+                    _kc.send_alt_tab(shift=('shift' in _kc.normalize_key(key_str).split('+')))
+                    _executed = True
+            except Exception:
+                _executed = False
+            if _executed:
                 print(f"已执行快捷键: {key_str}")
             else:
-                pyautogui.press(keys[0])
-                print(f"已执行按键: {key_str}")
+                import pyautogui
+                keys = key_str.lower().split('+')
+                if len(keys) > 1:
+                    pyautogui.hotkey(*keys)
+                    print(f"已执行快捷键: {key_str}")
+                else:
+                    pyautogui.press(keys[0])
+                    print(f"已执行按键: {key_str}")
             time.sleep(0.3)
             
             # 重新截取屏幕（快捷键执行后的状态）
@@ -1008,7 +1020,7 @@ class SelectionOverlay(QWidget):
                     
                     layout = QVBoxLayout()
                     
-                    self.hint_label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作:")
+                    self.hint_label = QLabel("请按下要添加的按键(支持组合键)\n或者直接滚动鼠标滚轮记录滚动操作:\n(已支持 Alt+Tab 切换窗口)")
                     layout.addWidget(self.hint_label)
                     
                     self.line_edit = QLineEdit()
@@ -1196,7 +1208,38 @@ class SelectionOverlay(QWidget):
             if hasattr(self, 'focus_timer') and self.focus_timer:
                 self.focus_timer.stop()
             
-            if input_dialog.exec_() == QDialog.Accepted:
+            # ★ Alt+Tab 是 Windows 系统级热键，Qt 根本收不到事件（会被系统直接切走窗口）
+            #   所以这里挂一个低级键盘钩子，对话框存活期间把 Alt+Tab 拦下来识别成按键步骤
+            _alt_tab_hook_ok = False
+            try:
+                import key_capture as _key_capture
+
+                def _on_alt_tab_detected(key_str):
+                    try:
+                        input_dialog.is_scroll = False
+                        input_dialog.line_edit.setText(key_str)
+                        input_dialog.accept()
+                    except Exception:
+                        pass
+
+                _alt_tab_hook_ok = _key_capture.install_alt_tab_capture(_on_alt_tab_detected)
+            except Exception as _e:
+                try:
+                    import key_capture as _key_capture
+                except Exception:
+                    _key_capture = None
+                print(f"[Alt+Tab] 捕获钩子安装失败: {_e}")
+
+            try:
+                _dlg_ret = input_dialog.exec_()
+            finally:
+                if _alt_tab_hook_ok:
+                    try:
+                        _key_capture.uninstall_alt_tab_capture()
+                    except Exception:
+                        pass
+
+            if _dlg_ret == QDialog.Accepted:
                 # 检查是否是滚动操作
                 if input_dialog.is_scroll:
                     try:
@@ -1280,8 +1323,15 @@ class SelectionOverlay(QWidget):
                     print(f"添加按键操作: '{key}'")
                     
                     # 执行按键操作
-                    import pyautogui
-                    pyautogui.hotkey(*key.split('+'))
+                    # ★ Alt+Tab 必须用底层 keybd_event 发，pyautogui.hotkey 模拟系统切换热键经常不生效
+                    _alt_tab_sent = False
+                    if _key_capture is not None and _key_capture.is_alt_tab_key(key):
+                        _shift = 'shift' in _key_capture.normalize_key(key).split('+')
+                        _alt_tab_sent = _key_capture.send_alt_tab(shift=_shift)
+                        time.sleep(0.6)   # 等窗口切换动画结束，再截图才不会截到旧窗口
+                    if not _alt_tab_sent:
+                        import pyautogui
+                        pyautogui.hotkey(*key.split('+'))
                     print(f"执行按键操作: '{key}'")
                 
                 time.sleep(0.5)

@@ -3090,7 +3090,7 @@ class FolderManager(QDialog):
     def _show_key_input_dialog_coord(self, index, folder_path, recording_data, recording_json_path, refresh_cb):
         """坐标数据表格用的按键输入对话框（直接操作 recording_data）"""
         from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
-        from PyQt5.QtCore import Qt
+        from PyQt5.QtCore import Qt, QEvent
         current_key = ""
         if index < len(recording_data):
             current_key = recording_data[index].get('key', '')
@@ -3099,6 +3099,10 @@ class FolderManager(QDialog):
         dialog.setModal(True)
         dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         apply_dialog_style(dialog, 0.3, 0.2)
+        # QSS border-radius 对 FramelessWindow 顶层窗口只能染色，无法真正裁剪窗口四角，
+        # 需要用 QRegion 遮罩在 Show/Resize 时动态切出圆角。
+        from styles import apply_rounded_mask
+        apply_rounded_mask(dialog, 16)
         layout = QVBoxLayout()
         label = QLabel("请按下要修改的按键(支持组合键):")
         layout.addWidget(label)
@@ -3132,6 +3136,9 @@ class FolderManager(QDialog):
                 parts = modifiers + [key_name]
                 line_edit.setText("+".join(parts))
         dialog.keyPressEvent = on_key
+        # 拦截 line_edit 的方向键/导航键，避免被输入框自己消费，确保 dialog 能捕获
+        dialog.eventFilter = lambda obj, event: (on_key(event) or True) if event.type() == QEvent.KeyPress and obj is line_edit else False
+        line_edit.installEventFilter(dialog)
         btn_layout = QHBoxLayout()
         ok_btn = QPushButton("确定")
         ok_btn.setFocusPolicy(Qt.StrongFocus)
@@ -3144,7 +3151,31 @@ class FolderManager(QDialog):
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
         dialog.setLayout(layout)
-        if dialog.exec_() == QDialog.Accepted:
+        # ★ Alt+Tab 是系统级热键，Qt 收不到事件 → 挂低级键盘钩子拦下来识别
+        _alt_tab_hook_ok = False
+        _key_capture = None
+        try:
+            import key_capture as _key_capture
+
+            def _on_alt_tab_detected(k):
+                try:
+                    line_edit.setText(k)
+                    dialog.accept()
+                except Exception:
+                    pass
+
+            _alt_tab_hook_ok = _key_capture.install_alt_tab_capture(_on_alt_tab_detected)
+        except Exception as _e:
+            print(f"[Alt+Tab] 捕获钩子安装失败: {_e}")
+        try:
+            _dlg_ret = dialog.exec_()
+        finally:
+            if _alt_tab_hook_ok and _key_capture is not None:
+                try:
+                    _key_capture.uninstall_alt_tab_capture()
+                except Exception:
+                    pass
+        if _dlg_ret == QDialog.Accepted:
             new_key = line_edit.text()
             if index < len(recording_data):
                 recording_data[index]['key'] = new_key
@@ -3233,7 +3264,7 @@ class FolderManager(QDialog):
         """显示按键输入对话框，用于修改按键"""
         try:
             from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton, QHBoxLayout
-            from PyQt5.QtCore import Qt, pyqtSignal
+            from PyQt5.QtCore import Qt, pyqtSignal, QEvent
             
             class KeyInputDialog(QDialog):
                 key_pressed = pyqtSignal(str)
@@ -3247,6 +3278,8 @@ class FolderManager(QDialog):
                     
                     # 应用统一的对话框样式
                     apply_dialog_style(self, 0.3, 0.2)
+                    # QSS border-radius 对 FramelessWindow 顶层窗口只能染色，无法真正裁剪窗口四角
+                    apply_rounded_mask(self, 16)
                     
                     layout = QVBoxLayout()
                     
@@ -3257,6 +3290,7 @@ class FolderManager(QDialog):
                     self.line_edit.setClearButtonEnabled(True)
                     self.line_edit.setReadOnly(True)
                     layout.addWidget(self.line_edit)
+                    self.line_edit.installEventFilter(self)
                     
                     button_layout = QHBoxLayout()
                     
@@ -3337,6 +3371,13 @@ class FolderManager(QDialog):
                     self.activateWindow()
                     self.raise_()
                     self.setFocus()
+
+                def eventFilter(self, obj, event):
+                    # line_edit 获得焦点时，方向键/导航键会被输入框自己消费；这里拦截给对话框统一处理
+                    if obj is self.line_edit and event.type() == QEvent.KeyPress:
+                        self.keyPressEvent(event)
+                        return True
+                    return super().eventFilter(obj, event)
                     
                 def keyPressEvent(self, event):
                     key = event.key()
@@ -3400,7 +3441,31 @@ class FolderManager(QDialog):
                     event.accept()
             
             dialog = KeyInputDialog(self.parent)
-            if dialog.exec_() == QDialog.Accepted:
+            # ★ Alt+Tab 是系统级热键，Qt 收不到事件 → 挂低级键盘钩子拦下来识别
+            _alt_tab_hook_ok = False
+            _key_capture = None
+            try:
+                import key_capture as _key_capture
+
+                def _on_alt_tab_detected(k):
+                    try:
+                        dialog.line_edit.setText(k)
+                        dialog.accept()
+                    except Exception:
+                        pass
+
+                _alt_tab_hook_ok = _key_capture.install_alt_tab_capture(_on_alt_tab_detected)
+            except Exception as _e:
+                print(f"[Alt+Tab] 捕获钩子安装失败: {_e}")
+            try:
+                _dlg_ret = dialog.exec_()
+            finally:
+                if _alt_tab_hook_ok and _key_capture is not None:
+                    try:
+                        _key_capture.uninstall_alt_tab_capture()
+                    except Exception:
+                        pass
+            if _dlg_ret == QDialog.Accepted:
                 new_key = dialog.line_edit.text()
                 if new_key:
                     # 更新image_actions

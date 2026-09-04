@@ -1,0 +1,5 @@
+# Windows 批处理必须是 CRLF：cmd.exe 解析 LF 换行的 .bat 会把命令拆碎，
+# 报 "'x' 不是内部或外部命令" 这类莫名其妙的错。强制检出时转成 CRLF。
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

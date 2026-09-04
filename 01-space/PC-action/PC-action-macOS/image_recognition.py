@@ -474,8 +474,26 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     key = operation.get('key', 'enter')
                     debug_print(f"[回放] 步骤 {step}: 按键 '{key}' (action_type={action_type})")
 
+                    # ★ Alt+Tab 是 Windows 系统级窗口切换热键，pyautogui.hotkey 模拟经常不生效
+                    #   （Alt 按下后系统需要时间弹切换器），这里走底层 keybd_event 发真实按键
+                    _alt_tab_done = False
+                    try:
+                        import key_capture as _key_capture
+                        if _key_capture.is_alt_tab_key(key):
+                            _shift = 'shift' in _key_capture.normalize_key(key).split('+')
+                            if _key_capture.send_alt_tab(shift=_shift):
+                                _alt_tab_done = True
+                                success_count += 1
+                                debug_print(f"[回放] 步骤 {step}: Alt+Tab 完成（底层 keybd_event 模拟）")
+                                time.sleep(0.15)   # 等窗口切到前台，否则下一步会匹配到旧画面
+                    except Exception as _e_alt_tab:
+                        _alt_tab_done = False
+                        debug_print(f"[回放] 步骤 {step}: Alt+Tab 底层模拟失败，回退 pyautogui: {_e_alt_tab}")
+
                     # 解析组合键
-                    if '+' in key:
+                    if _alt_tab_done:
+                        pass
+                    elif '+' in key:
                         # 分割组合键
                         key_parts = key.lower().split('+')
                         

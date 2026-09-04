@@ -32,6 +32,56 @@ def run_cmd(cmd, cwd=None, timeout=30):
                        timeout=timeout)
     return r
 
+def _candidate_ssh_clients():
+    """按优先级返回可用的 ssh 客户端候选路径。"""
+    cands = []
+    git_ssh = r"C:\Program Files\Git\usr\bin\ssh.exe"
+    if os.path.exists(git_ssh):
+        cands.append(git_ssh)
+    cands.append("ssh")  # PATH 里的 ssh（Git Bash / 其他发行版）
+    sys_ssh = r"C:\Windows\System32\OpenSSH\ssh.exe"
+    if os.path.exists(sys_ssh):
+        cands.append(sys_ssh)  # 系统版放最后：本机曾出现零输出退出 255 的故障
+    return cands
+
+
+def pick_ssh_client():
+    """
+    选一个真正能连通 gitcode.com 的 ssh 客户端并写入 core.sshCommand。
+    不能只看文件存不存在就写配置 —— 系统 OpenSSH 在部分机器上连不通，
+    一旦写进 core.sshCommand，之后所有 git 操作都报 Could not read from remote repository。
+    """
+    # 先试 Git 默认（不设置 sshCommand），多数环境这一项就能通
+    r = run_cmd("git ls-remote --exit-code -h origin", timeout=45)
+    if r.returncode == 0:
+        run_cmd("git config --unset core.sshCommand", timeout=10)
+        log("Git 默认 ssh 连通远端，不强制指定客户端", "INFO")
+        return True
+
+    old = None
+    r_old = run_cmd("git config --get core.sshCommand", timeout=10)
+    if r_old.returncode == 0:
+        old = r_old.stdout.strip()
+
+    for cand in _candidate_ssh_clients():
+        quoted = f'"{cand}"'
+        if quoted == old:
+            continue
+        run_cmd(f'git config core.sshCommand {quoted}', timeout=10)
+        r = run_cmd("git ls-remote --exit-code -h origin", timeout=45)
+        if r.returncode == 0:
+            log(f"已选用 ssh 客户端: {cand}", "INFO")
+            return True
+
+    # 全部候选都不通：还原原配置，交给 HTTPS+token 兜底
+    if old:
+        run_cmd(f'git config core.sshCommand "{old}"', timeout=10)
+    else:
+        run_cmd("git config --unset core.sshCommand", timeout=10)
+    log("没有 ssh 客户端能连通远端，将回退 HTTPS+token 推送", "WARNING")
+    return False
+
+
 def setup_ssh_and_check():
     """
     写公钥 + ssh config + git sshCommand；
@@ -68,10 +118,9 @@ def setup_ssh_and_check():
     except Exception as e:
         log(f"写入SSH配置失败: {e}", "ERROR")
 
-    system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
-    if os.path.exists(system_ssh):
-        run_cmd(f'git config core.sshCommand "{system_ssh}"')
-        log("git 已配置使用系统 ssh", "INFO")
+    # 选一个真正能连通远端的 ssh 客户端（不能只看文件存在就写死，
+    # 系统 OpenSSH 在部分机器上连不通 gitcode，写进 sshCommand 会让后续 git 全挂）
+    pick_ssh_client()
 
     # 缺私钥
     if not os.path.exists(prv_key_file):

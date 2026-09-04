@@ -71,12 +71,27 @@ def log(msg, level="INFO"):
     print(f"{prefix} {msg}")
 
 
+class _CmdResult:
+    """run_cmd 异常/超时时返回的替代结果，避免异常冒到外面把整个脚本搞崩。"""
+    def __init__(self, returncode, stdout="", stderr=""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
 def run_cmd(cmd, cwd=None, timeout=60):
     # 默认在仓库根执行（关键修复：旧脚本默认 cwd=BASE_DIR 会误操作 git工具 目录）
-    return subprocess.run(
-        cmd, shell=True, cwd=cwd or REPO_ROOT, capture_output=True, text=True,
-        encoding="utf-8", errors="replace", timeout=timeout,
-    )
+    # ★ 超时/异常必须就地兜住：之前 `git clean` 超过 60s 直接抛 TimeoutExpired，
+    #   脚本崩溃退出码 1 → 界面只看到 FAILED，而且备份的数据来不及恢复。
+    try:
+        return subprocess.run(
+            cmd, shell=True, cwd=cwd or REPO_ROOT, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return _CmdResult(1, "", f"命令执行超时（>{timeout}s）: {cmd}")
+    except Exception as e:
+        return _CmdResult(1, "", f"命令执行异常: {e}")
 
 
 def check_prerequisites():
@@ -210,11 +225,81 @@ def setup_ssh():
     except Exception as e:
         log(f"写入 SSH 配置失败: {e}", "WARNING")
 
-    system_ssh = "C:/Windows/System32/OpenSSH/ssh.exe"
-    if os.path.exists(system_ssh):
-        run_cmd(f'git config --global core.sshCommand "{system_ssh}"')
+    pick_ssh_client()
 
     return os.path.exists(prv_key_file)
+
+
+# ---------------------------------------------------------------------------
+# SSH 客户端选择：实测哪个能用就用哪个
+# ---------------------------------------------------------------------------
+def _candidate_ssh_clients():
+    """候选 ssh.exe：Git 自带的优先（实测系统 OpenSSH 在很多机器上连不通 gitcode）。"""
+    cands = []
+    try:
+        r = run_cmd("where git", timeout=20)
+        if r.returncode == 0 and r.stdout.strip():
+            git_exe = r.stdout.strip().splitlines()[0].strip().strip('"')
+            # ...\Git\cmd\git.exe -> ...\Git\usr\bin\ssh.exe
+            git_root = os.path.dirname(os.path.dirname(git_exe))
+            cands.append(os.path.join(git_root, "usr", "bin", "ssh.exe"))
+    except Exception:
+        pass
+    cands.append("C:/Windows/System32/OpenSSH/ssh.exe")
+    return cands
+
+
+def _test_ssh_client(ssh_path):
+    """用 git ls-remote 实测某个 ssh 客户端能否连通远端；ssh_path 为空表示测试 Git 默认值。"""
+    old = ""
+    try:
+        r_old = run_cmd("git config --global --get core.sshCommand", timeout=20)
+        old = (r_old.stdout or "").strip()
+    except Exception:
+        old = ""
+    try:
+        if ssh_path:
+            if not os.path.exists(ssh_path):
+                return False
+            run_cmd(f'git config --global core.sshCommand "{ssh_path}"', timeout=20)
+        else:
+            run_cmd("git config --global --unset core.sshCommand", timeout=20)
+        r = run_cmd("git ls-remote --exit-code -h origin", timeout=60)
+        return r.returncode == 0
+    except Exception:
+        return False
+    finally:
+        try:
+            if old:
+                run_cmd(f'git config --global core.sshCommand "{old}"', timeout=20)
+            else:
+                run_cmd("git config --global --unset core.sshCommand", timeout=20)
+        except Exception:
+            pass
+
+
+def pick_ssh_client():
+    """
+    选一个真正能连通远端的 ssh 客户端并写入 core.sshCommand。
+
+    ★ 千万别写死 C:/Windows/System32/OpenSSH/ssh.exe —— 实测它在部分机器上连不通 gitcode
+      （零输出直接退出 255），一旦写进 core.sshCommand，之后所有 git 操作都报
+      "Could not read from remote repository"，推送/拉取全部失败。
+    """
+    # 先试 Git 默认（不设置 sshCommand），多数环境这一项就能通
+    if _test_ssh_client(None):
+        log("SSH 客户端: 使用 Git 默认（实测可连通）", "SUCCESS")
+        return "default"
+
+    for cand in _candidate_ssh_clients():
+        if _test_ssh_client(cand):
+            run_cmd(f'git config --global core.sshCommand "{cand}"', timeout=20)
+            log(f"SSH 客户端: {cand}（实测可连通）", "SUCCESS")
+            return cand
+
+    run_cmd("git config --global --unset core.sshCommand", timeout=20)
+    log("所有 SSH 客户端均连不通远端，已回退 Git 默认配置", "WARNING")
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +342,11 @@ def do_pull(token):
         return False
 
     # clean 未跟踪文件，但保留被忽略的本地数据（.workbuddy / data / user_data / recordings）
-    run_cmd("git clean -fd -e .workbuddy", timeout=60)
+    # ★ 超时给到 10 分钟：仓库里若有 node_modules 这类海量小文件，Windows 上删除极慢，
+    #   60s 根本不够（实测超时后脚本直接崩溃，界面只剩一个 FAILED）。
+    r = run_cmd("git clean -fd -e .workbuddy", timeout=600)
+    if r.returncode != 0:
+        log(f"清理未跟踪文件未完全成功（通常不影响同步结果）: {(r.stderr or '').strip()[:300]}", "WARNING")
 
     head = run_cmd("git log -1 --oneline")
     log(f"已同步到: {head.stdout.strip() or '(unknown)'}", "SUCCESS")
@@ -313,10 +402,36 @@ def do_clone(token):
 # ---------------------------------------------------------------------------
 def _write_bat(path, py_name):
     # .bat 用 GBK 编码（中文 Windows cmd 默认代码页），命令/提示保持 ASCII，文件名用 GBK 字节
+    # ★ newline="\r\n" 是关键：cmd.exe 只认 CRLF，纯 LF 会把 `cd /d` 之类的命令拆碎，
+    #   报 "'d' 不是内部或外部命令" 这种看不懂的错。
+    # ★ 带 python / py / python3 三级探测，避免换机器后 PATH 里没有 python 直接失败。
     content = (
         "@echo off\n"
-        "cd /d \"%~dp0\"\n"
-        f'python "%~dp0{py_name}"\n'
+        "cd /d \"%~dp0.\"\n"
+        "\n"
+        "set \"PY=\"\n"
+        "where python >nul 2>nul\n"
+        "if not errorlevel 1 set \"PY=python\"\n"
+        "\n"
+        "if not defined PY (\n"
+        "    where py >nul 2>nul\n"
+        "    if not errorlevel 1 set \"PY=py\"\n"
+        ")\n"
+        "\n"
+        "if not defined PY (\n"
+        "    where python3 >nul 2>nul\n"
+        "    if not errorlevel 1 set \"PY=python3\"\n"
+        ")\n"
+        "\n"
+        "if not defined PY (\n"
+        "    echo [ERROR] Python not found. Install Python and add it to PATH.\n"
+        "    echo Or double-click the .py file if it is associated with python.exe.\n"
+        "    goto :PAUSE\n"
+        ")\n"
+        "\n"
+        f"%PY% \"%~dp0{py_name}\"\n"
+        "\n"
+        ":PAUSE\n"
         "if errorlevel 1 (echo FAILED) else (echo DONE)\n"
         "pause\n"
     )
@@ -324,10 +439,39 @@ def _write_bat(path, py_name):
         f.write(content)
 
 
+def _fix_bat_eol(path):
+    """
+    自愈：把 LF 换行的 .bat 改回 CRLF。
+
+    cmd.exe 解析 LF 换行的批处理时会把命令拆碎（典型报错：'d' / 'on' 不是内部或外部命令），
+    而 git 的 autocrlf / 跨机器拷贝都可能把 CRLF 弄丢。这里每次运行时顺手修回来。
+    返回 True 表示确实修过了。
+    """
+    try:
+        if not os.path.exists(path):
+            return False
+        with open(path, "rb") as f:
+            data = f.read()
+        bare_lf = data.count(b"\n") - data.count(b"\r\n")
+        if bare_lf <= 0:
+            return False
+        fixed = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        with open(path, "wb") as f:
+            f.write(fixed)
+        log(f"已修复 {os.path.basename(path)} 换行（{bare_lf} 处 LF → CRLF）", "WARNING")
+        return True
+    except Exception as e:
+        log(f"修复 {os.path.basename(path)} 换行失败（可忽略）: {e}", "WARNING")
+        return False
+
+
 def ensure_launchers():
     git_tool = BASE_DIR
     pull_bat = os.path.join(git_tool, "一键拉取.bat")
     push_bat = os.path.join(git_tool, "一键推送.bat")
+    # 先做换行自愈（已存在但换行坏掉的 .bat 也必须修，否则脚本本身跑不起来）
+    for _p in (pull_bat, push_bat):
+        _fix_bat_eol(_p)
     try:
         if not os.path.exists(pull_bat):
             _write_bat(pull_bat, "一键拉取.py")

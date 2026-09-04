@@ -613,6 +613,37 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
         }}
     """)
 
+def apply_rounded_mask(dialog, radius=12):
+    """为无边框对话框设置圆角遮罩，使窗口四角真正被切掉。
+
+    注意：apply_dialog_style 里的 QSS border-radius 只能给背景染色，
+    对 FramelessWindowHint 顶层窗口无法真正裁剪窗口区域，因此需要此函数
+    在 Show/Resize 时动态用 QRegion 切出圆角。
+    """
+    from PyQt5.QtCore import QEvent, QRectF, QObject
+    from PyQt5.QtGui import QPainterPath, QRegion
+
+    def _set_mask(widget, r):
+        path = QPainterPath()
+        path.addRoundedRect(QRectF(widget.rect()), r, r)
+        widget.setMask(QRegion(path.toFillPolygon().toPolygon()))
+
+    class _MaskFilter(QObject):
+        def __init__(self, target, radius):
+            super().__init__(target)
+            self.target = target
+            self.radius = radius
+
+        def eventFilter(self, obj, event):
+            if obj is self.target and event.type() in (QEvent.Show, QEvent.Resize):
+                _set_mask(self.target, self.radius)
+            return super().eventFilter(obj, event)
+
+    dialog.installEventFilter(_MaskFilter(dialog, radius))
+    # 若窗口已可见，立即应用一次
+    if dialog.isVisible():
+        _set_mask(dialog, radius)
+
 def apply_app_style(app, screen_width=None, screen_height=None):
     """为应用程序应用全局样式"""
     if not screen_width or not screen_height:
