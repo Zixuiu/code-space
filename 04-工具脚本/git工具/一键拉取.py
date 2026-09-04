@@ -151,19 +151,38 @@ def _dir_nonempty(path):
 
 
 def verify_restored(entries):
-    """恢复后校验：备份过的本地数据，恢复后必须存在且（文件非空 / 目录非空）。"""
-    ok, bad = 0, []
-    for src, _dst in entries:
+    """
+    恢复后校验：按“备份里有什么”核对，而不是假设某文件必须存在。
+    修复：data/ 这类本来就空的目录（或从未生成过的 combo_skills.json）
+    会误报“恢复异常”——备份里是空，恢复回来也是空，属于正常，不算失败。
+    """
+    ok, bad, skipped = 0, [], []
+    for src, dst in entries:
+        # 备份本身就没有（备份时源已缺失/拷贝失败）→ 无从校验，跳过不报错
+        if not os.path.exists(dst):
+            skipped.append(src)
+            continue
+        backup_empty = (os.path.isfile(dst) and os.path.getsize(dst) == 0) or (
+            os.path.isdir(dst) and not _dir_nonempty(dst)
+        )
         if not os.path.exists(src):
             bad.append(src)
-        elif os.path.isfile(src) and os.path.getsize(src) == 0:
-            bad.append(src)
-        elif os.path.isdir(src) and not _dir_nonempty(src):
-            bad.append(src)
+        elif os.path.isfile(src):
+            if os.path.getsize(src) == 0 and not backup_empty:
+                bad.append(src)
+            else:
+                ok += 1
+        elif os.path.isdir(src):
+            if not _dir_nonempty(src) and not backup_empty:
+                bad.append(src)
+            else:
+                ok += 1
         else:
             ok += 1
+    if skipped:
+        log(f"跳过校验 {len(skipped)} 项（备份时即不存在，无数据可恢复）", "INFO")
     if bad:
-        log("⚠️ 以下本地数据恢复异常（不存在或为空），请立即检查：", "ERROR")
+        log("⚠️ 以下本地数据恢复异常（备份有内容但恢复后缺失/为空），请立即检查：", "ERROR")
         for b in bad:
             log(f"   - {os.path.relpath(b, REPO_ROOT)}", "ERROR")
     else:
