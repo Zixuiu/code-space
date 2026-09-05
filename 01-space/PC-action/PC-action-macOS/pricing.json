@@ -1,17 +1,11 @@
 {
   "plan_1": {
-    "name": "基础会员",
-    "price": 9.9,
+    "name": "VIP会员",
+    "price": 99.0,
     "months": 1,
-    "desc": "包月"
-  },
-  "plan_2": {
-    "name": "高级会员",
-    "price": 100.0,
-    "months": 12,
-    "desc": "包年（约合8.3/月，立省19%）"
+    "desc": "包月（全功能）"
   },
   "trial_days": 7,
-  "channel_name": "爱发电",
-  "channel_url": "https://afdian.com/a/your_id"
+  "channel_name": "PC-Action",
+  "channel_url": "https://7xo5xt180643.vicp.fun/recharge.html"
 }

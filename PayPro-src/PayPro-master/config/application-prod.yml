@@ -1,0 +1,131 @@
+# ==========================================
+# PayPro 生产环境配置
+# 请根据实际情况修改下方配置后执行 ./install.sh
+# ==========================================
+
+# ---- Spring Mail 邮件发送配置（必改） ----
+spring:
+  mail:
+    host: smtp.qq.com                        # SMTP 服务器地址（QQ邮箱）
+    port: 587                                 # SMTP 端口（QQ用587/STARTTLS 或 465/SSL）
+    username: 1399972370@qq.com              # 发件邮箱账号（须与下方 paypro.email.sender 一致）
+    password: dctsxmclaigdghbb            # QQ邮箱授权码（非登录密码）
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: "smtp.qq.com"
+
+paypro:
+  # ---- 必改项 ----
+  # 站点访问地址（改为你的域名或服务器IP）
+  site: https://7xo5xt180643.vicp.fun
+
+  # ---- 支付宝配置 ----
+  # 支付宝用户ID（用于收款）改成你自己的
+  alipayUserId: xxxx
+  # 支付宝自定义收款码链接 改成你自己的
+  alipayCustomQrUrl: https://qr.alipay.com/fkx17492eze99maemka1u81
+
+  # ---- 站点信息 ----
+  # 网站标题（浏览器标签栏） 可改可不改
+  title: PC-Action 会员充值
+  # 首页标题 可改可不改
+  indexTitle: PC-Action 会员充值
+  # 收款人姓名 改成你自己的
+  name: codewendao
+  # 联系电话 可改可不改
+  mobile: 'xxxxxx'
+
+  # ---- 邮箱配置 ----
+  email:
+    # 接收通知的邮箱 改成你自己的
+    receiver: 1399972370@qq.com
+    # 发件邮箱 改成你自己的
+    sender: 1399972370@qq.com
+  # 支持邮箱（页面展示） 改成你自己的
+  supportMail: 1399972370@qq.com
+
+  # ---- 限流配置 ----
+  rateLimit:
+    # IP访问间隔（分钟），防刷
+    ipExpire: 1
+
+  # ---- Token配置 ----
+  token:
+    # 加密密钥（务必修改为随机字符串）
+    value: 7f0c4b72a4632e4916714f23d80d9b5e
+    # Token过期天数
+    expire: 14
+
+  # ---- 开放API配置 ----
+  openapi:
+    # OPEN API签名密钥（务必修改）
+    secret: cf4001da3530bb06e5060f88d5348eabd85c680c0d36139e
+
+  # ---- 二维码配置 ----
+  # 每个金额的二维码数量
+  qrCodeNum: 1
+
+  # ---- 减额匹配配置 ----
+  decrement:
+    # 是否启用减额匹配模式（单收款码时关闭，避免引用不存在的金额目录）
+    enabled: false
+    # 最大减额槽位数 可改可不改
+    maxCount: 2
+    # 减额步长（元）可改可不改,改了要对应二维码金额
+    step: 0.01
+
+  # ---- 产品配置 ----
+  # 所有产品在此定义，修改后重启生效
+  products:
+    - id: 1
+      product-name: "PC-Action VIP会员（月）"
+      money: "99.00"
+      description: "全功能 1 个月，付款后客服发放激活码"
+      type: "CODE"
+      extend: ""
+      download-url: ""
+    # 更多产品模板：
+    # - id: 2
+    #   product-name: "游戏礼包"
+    #   money: "10.00"
+    #   description: "包含100金币+10钻石"
+    #   type: "GAME"
+    #   extend: ""
+    #   download-url: ""
+
+  # ---- 支付方式(一般不需要调整) ----
+  payMethods:
+    - id: 'alipay'
+      name: '支付宝支付'
+      description: '免输备注，手动收款'
+      icon: '🔵'
+      status: false
+      allow-night: false
+      use-local-qr-code: false
+    - id: 'wechat'
+      name: '微信支付'
+      description: '需备注，自动确认收款'
+      icon: '🟢'
+      status: true
+      allow-night: true
+      use-local-qr-code: true
+    - id: 'wechat_zs'
+      name: '微信赞赏码支付'
+      description: '需备注，自动确认收款'
+      icon: '🟢'
+      status: false
+      allow-night: false
+      use-local-qr-code: true
+    - id: 'alipay_dmf'
+      name: '支付宝当面付'
+      description: '支付宝官方产品，无需营业执照，免备注自动收款'
+      icon: '🔵'
+      status: false
+      allow-night: true
+      use-local-qr-code: false
