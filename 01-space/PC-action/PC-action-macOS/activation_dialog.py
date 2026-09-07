@@ -3,7 +3,7 @@
 PC-action 账户与激活对话框（方案 6 · 嵌套面板）
 - 展示当前权益：VIP 到期日 / 试用剩余天数 / 已过期
 - 购买引导（pricing.json 的 channel_url；PayPro 部署后回填生效）
-- 已取消激活码卡密模式：VIP 统一改为“付款自动开通到登录邮箱”方式
+- 已取消激活码卡密模式：VIP 开通 = 用户付款后提交申请 → 后台人工审核通过（非自动到账）
 """
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QUrl, pyqtSignal
 from PyQt5.QtGui import QColor, QCursor, QDesktopServices
@@ -150,8 +150,8 @@ class ActivationDialog(QDialog):
         pv.addWidget(self.status_card)
         cl.addWidget(panel)
 
-        # 付款开通引导（激活码已取消：VIP 付款后自动开通到登录邮箱）
-        hint = QLabel("开通 / 续费 VIP 请点击下方购买入口。\n付款成功后 VIP 将自动开通到您的登录邮箱")
+        # 付款开通引导（激活码已取消：付款后由后台人工审核开通，非自动到账）
+        hint = QLabel("开通 / 续费 VIP 请点击下方购买入口。\n付款完成后请返回「账户」页点击「我已充值完成」提交，等待审核通过即可开通")
         hint.setWordWrap(True)
         hint.setAlignment(Qt.AlignCenter)
         hint.setStyleSheet(

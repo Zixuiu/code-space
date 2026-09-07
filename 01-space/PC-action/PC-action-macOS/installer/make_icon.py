@@ -13,7 +13,7 @@ from PyQt5.QtSvg import QSvgRenderer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, '..'))
-SVG = os.path.join(ROOT, 'icons', 'play.svg')
+SVG = os.path.join(ROOT, 'icons', 'app_logo.svg')
 OUT = os.path.join(HERE, 'app.ico')
 
 SIZES = [16, 24, 32, 48, 64, 128, 256]

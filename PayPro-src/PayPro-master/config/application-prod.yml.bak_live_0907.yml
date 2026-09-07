@@ -86,8 +86,8 @@ paypro:
     - id: 1
       product-name: "PC-Action VIP会员（月）"
       money: "9.9"
-      description: "全功能 1 个月，付款后由平台审核开通"
-      type: "GAME"
+      description: "全功能 1 个月，付款后客服发放激活码"
+      type: "CODE"
       extend: ""
       download-url: ""
     # 更多产品模板：

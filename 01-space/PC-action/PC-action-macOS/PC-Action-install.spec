@@ -57,6 +57,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon='installer/app.ico',
 )
 
 coll = COLLECT(

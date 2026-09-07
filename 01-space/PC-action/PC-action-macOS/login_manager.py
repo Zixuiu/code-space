@@ -311,12 +311,34 @@ class LoginManager:
     def login(self, username, password):
         """用户登录"""
         users = self._load_users()
-        
-        if username in users and users[username]['password'] == self._hash_password(password):
+        password_hash = self._hash_password(password)
+
+        # 1. 本地优先：本地有此账号且密码匹配
+        if username in users and users[username]['password'] == password_hash:
             self.current_user = username
             return True, username
-        else:
-            return False, "用户名或密码错误"
+
+        # 2. 远程兜底：本地没有（或密码不符）时，反查 Supabase 认证，
+        #    支持“在他机注册后本机登录”；验证通过后把远程账号缓存回本地。
+        try:
+            _db = _get_hybrid_db()
+            if _db is not None and _db.is_connected():
+                remote = _db.get_user(username)
+                if remote and remote.get('password') == password_hash:
+                    # 写回本地缓存（含 is_admin / email），便于后续断网登录与鉴权
+                    users[username] = {
+                        'password': password_hash,
+                        'email': remote.get('email', ''),
+                        'is_admin': bool(remote.get('is_admin', False)),
+                        'created_at': remote.get('created_at') or datetime.now().isoformat(),
+                    }
+                    self._save_users(users)
+                    self.current_user = username
+                    return True, username
+        except Exception as e:
+            print(f"远程认证失败: {e}")
+
+        return False, "用户名或密码错误"
     
     def register(self, username, password, email, verification_code=None):
         """用户注册"""

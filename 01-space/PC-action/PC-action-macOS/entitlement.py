@@ -1,8 +1,8 @@
 """
 PC-action 商业化权限与激活模块
 - 定价配置：pricing.json（作者可在后台 admin_manager 修改）
-- 权限判定：has_full_access = VIP 有效期内 或 试用期内（限时全功能试用策略）
-- 激活码：卡密激活模式（用户在第三方平台付款拿码 -> 程序内输码自动开通 VIP）
+- 权限判定：has_full_access = VIP 有效期内 或 试用期内（限时全功能试用策略）；联网用服务器时间判到期
+- 开通方式：用户付款后点“我已充值完成”提交申请 → 作者在后台人工审核开通（激活码卡密模式已取消，非自动到账）
 """
 import os
 import json
@@ -32,7 +32,7 @@ CONFIG_SOURCES = [
 
 DEFAULT_PRICING = {
     "plan_1": {"name": "VIP会员", "price": 9.9, "months": 1, "desc": "包月（全功能）"},
-    "trial_days": 7,
+    "trial_days": 3,
     "channel_name": "PC-Action",
     "channel_url": "https://3e22a5a4.r8.cpolar.top/recharge.html",
 }
@@ -42,7 +42,9 @@ DEFAULT_PRICING = {
 # 背景：早期策略「离线/异常一律放行」是为了不误伤正版，但客观上让破解者靠
 # 断网/hosts 屏蔽 Supabase 就能白嫖全功能。整改为 -> 联网判定权威，仅当网络
 # 不可达时按「已签名的最近一次成功授权」给一个离线宽限期，超期即锁定。
-OFFLINE_GRACE_DAYS = 7          # 离线宽限期（天）：到期需联网验证一次
+OFFLINE_GRACE_DAYS = 1          # 离线宽限期（天）：断网后短暂可用，到期仍不联网则锁定。
+                                # 收紧到 1 天，是防破解与不误伤正版之间的折中：靠断网改本地时间
+                                # 反复白嫖的窗口被压到很短，偶尔断网的付费用户又不至于立刻被锁。
 ENT_CACHE_VERSION = 1
 
 # 本地授权状态 HMAC 签名密钥。目的：让普通用户手工改 user_data 里的缓存 JSON
@@ -394,7 +396,9 @@ def get_entitlement(username):
             # 联网但查无该用户：修正旧漏洞（原为放行=未注册也能白嫖）-> 锁定
             return _locked("no_user")
 
-        now = datetime.now()
+        # 用服务器的权威当前时间判到期，防止用户改本地系统时间把试用/VIP 重置。
+        # 拿不到服务器时间（个别网络异常）时回退本地时间，不阻断正常用户。
+        now = supabase_manager.get_server_now() or datetime.now()
         # trial_days 只是个配置数字，用缓存即可，无需在这里触发远程拉取
         pricing = get_pricing(refresh_remote=False)
         trial_days = int(pricing.get('trial_days', 7))

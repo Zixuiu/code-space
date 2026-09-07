@@ -422,12 +422,12 @@ class LoginPane(QWidget):
                 ok, msg, code = self.login_manager.send_verification_code(email)
             except Exception as e:
                 ok, msg, code = False, f"发送出错: {e}", None
-            self._code_sent.emit(bool(ok), str(msg), code, (btn, fill_field))
+            self._code_sent.emit(bool(ok), str(msg), code, (status, btn, fill_field))
 
         threading.Thread(target=work, daemon=True).start()
 
     def _on_code_sent(self, ok, msg, code, targets):
-        btn, fill_field = targets
+        status, btn, fill_field = targets
         text = msg
         if ok and code:
             # SMTP 未配置时的回退：验证码直接返回，自动填入

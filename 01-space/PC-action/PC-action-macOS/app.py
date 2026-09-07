@@ -8033,7 +8033,7 @@ class AutoRecorderApp(QMainWindow):
     def check_entitlement_gate(self):
         """商业化付费闸：返回 True 放行；False = 已弹引导，调用方应中止动作。
         策略：未登录（含占位用户名「未登录」）→ 拦截并引导登录；
-        已登录：联网判定权威，仅离线宽限期(7天)内沿用上次联网状态，超期锁定（详见 entitlement）。"""
+        已登录：联网判定权威，仅离线宽限期(1天)内沿用上次联网状态，超期锁定（详见 entitlement）。"""
         try:
             from entitlement import get_entitlement
             username = getattr(self, 'current_user', None) or getattr(

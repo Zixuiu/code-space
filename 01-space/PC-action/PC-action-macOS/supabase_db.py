@@ -16,6 +16,8 @@ load_dotenv()
 class SupabaseManager:
     def __init__(self):
         self.client = None
+        self.supabase_url = None
+        self.supabase_key = None
         self._connection_status = None
         self._last_check_time = 0
         self._check_interval = 30  # 缓存连接状态30秒
@@ -40,6 +42,10 @@ class SupabaseManager:
             SUPABASE_KEY = os.getenv(
                 'SUPABASE_KEY',
                 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ')
+
+            # 记录供 get_server_now 复用
+            self.supabase_url = SUPABASE_URL
+            self.supabase_key = SUPABASE_KEY
 
             # 创建Supabase客户端
             self.client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -109,6 +115,35 @@ class SupabaseManager:
         """关闭数据库连接（兼容SQLite接口）"""
         # Supabase客户端不需要显式关闭连接
         pass
+
+    def get_server_now(self, timeout=5):
+        """获取数据库服务器的权威当前时间：读取 Supabase REST 响应的 Date 头。
+
+        用于会员/试用到期判定——客户端改本地系统时间无法伪造服务器时间。
+        响应头 Date 是 RFC7231 格式（GMT），转成本地时区后的 naive datetime，
+        与 datetime.now() 同一体系，可直接替换使用。失败返回 None（调用方回退本地时间）。
+        """
+        if not self.supabase_url or not self.supabase_key:
+            # 尚未 connect() 时自给自足：按 connect() 同一规则取 url/key，不依赖调用顺序
+            self.supabase_url = os.getenv('SUPABASE_URL', 'https://loifmrvoignxlifizogv.supabase.co')
+            self.supabase_key = os.getenv(
+                'SUPABASE_KEY',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ')
+        try:
+            import requests
+            url = self.supabase_url.rstrip('/') + '/rest/v1/users?id=eq.999999999&select=id'
+            r = requests.get(
+                url, timeout=timeout,
+                headers={'apikey': self.supabase_key,
+                         'Authorization': 'Bearer ' + self.supabase_key})
+            dh = r.headers.get('Date')
+            if not dh:
+                return None
+            from email.utils import parsedate_to_datetime
+            # RFC7231(GMT) -> 本地时区，再去掉 tzinfo，得到与 datetime.now() 等价的 naive 时间
+            return parsedate_to_datetime(dh).astimezone().replace(tzinfo=None)
+        except Exception:
+            return None
     
     def create_tables(self):
         """创建所需的表结构"""
