@@ -1479,6 +1479,17 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     except Exception:
                         traceback.print_exc()
             log_info(f"内嵌登录成功: {username}")
+            # ★ 登录后重新加载该用户的快捷键配置并注册（启动时 _lazy_init 早于登录，
+            #   此前读的是空配置，不在此重载会导致每次重启快捷键丢失）
+            try:
+                if hasattr(self, 'load_shortcut_config'):
+                    self.load_shortcut_config()
+                    if hasattr(self, 'update_shortcuts'):
+                        self.update_shortcuts()
+                    if hasattr(self, 'load_folders_to_table') and hasattr(self, 'manager_tab') and hasattr(self.manager_tab, 'folder_table'):
+                        self.load_folders_to_table(self.manager_tab.folder_table)
+            except Exception:
+                traceback.print_exc()
         except Exception:
             traceback.print_exc()
 
@@ -1493,6 +1504,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 self.login_manager.current_user = None
             self.current_user = None
             self._placeholder_user = False
+            # 退出登录：清除快捷键注册与配置，避免残留上一用户的热键
+            try:
+                self.shortcuts = {}
+                if hasattr(self, 'update_shortcuts'):
+                    self.update_shortcuts()
+            except Exception:
+                traceback.print_exc()
             if hasattr(self, 'macos_sidebar'):
                 self.macos_sidebar.set_username(None)
             if hasattr(self, 'account_stack'):
@@ -1826,6 +1844,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self.show_beautiful_message('critical', '错误', f'打开查看图片窗口失败: {e}', parent=self)
 
     def show_folder_context_menu(self, position, table_widget):
+        """流程右键菜单：自绘圆角弹层（QMenu 的 QSS 圆角在 Windows 上不生效，
+        四角会露出直角；改为 QFrame Popup 卡片确保圆润无直角）"""
         row = table_widget.rowAt(position.y())
         # 点到空白/表头区域时 rowAt 返回 -1，兜底选最接近的一行，保证菜单一定能弹出
         if row < 0 and table_widget.rowCount() > 0:
@@ -1838,57 +1858,95 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     best_dist, best = d, r
             row = best
 
-        if row >= 0 and row < table_widget.rowCount():
-            name_item = table_widget.item(row, 1)
-            if name_item:
-                folder_path = name_item.data(Qt.UserRole)
-                folder_name = name_item.text()
-                if folder_path and os.path.exists(folder_path):
-                    usage_counts = self._get_usage_counts()
-                    count = usage_counts.get(folder_name, 0)
+        if row < 0 or row >= table_widget.rowCount():
+            return
+        name_item = table_widget.item(row, 1)
+        if not name_item:
+            return
+        folder_path = name_item.data(Qt.UserRole)
+        folder_name = name_item.text()
+        if not folder_path or not os.path.exists(folder_path):
+            return
 
-                    menu = QMenu(self)
-                    menu.setStyleSheet("""
-                        QMenu {
-                            background: #FFFFFF;
-                            border: 1px solid #E5E7EC;
-                            border-radius: 10px;
-                            padding: 5px;
-                            min-width: 190px;
-                        }
-                        QMenu::item {
-                            color: #374151;
-                            padding: 7px 24px 7px 10px;
-                            border-radius: 6px;
-                            font-size: 13px;
-                        }
-                        QMenu::item:disabled {
-                            color: #6B7280;
-                            background: #F3F4F6;
-                            font-weight: 600;
-                        }
-                        QMenu::item:selected {
-                            background: #E8F0FE;
-                            color: #111827;
-                        }
-                        QMenu::separator {
-                            height: 1px;
-                            background: #E5E7EC;
-                            margin: 4px 10px;
-                        }
-                    """)
+        try:
+            usage_counts = self._get_usage_counts()
+        except Exception:
+            usage_counts = {}
+        count = usage_counts.get(folder_name, 0)
 
-                    count_action = menu.addAction(f"已执行 {count} 次")
-                    count_action.setEnabled(False)
-                    menu.addSeparator()
+        card = QFrame(table_widget)
+        card.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
+        card.setAttribute(Qt.WA_TranslucentBackground)
+        card.setObjectName("folderMenuCard")
+        card.setStyleSheet("""
+            #folderMenuCard {
+                background: #FFFFFF;
+                border: 1px solid #E7EAF0;
+                border-radius: 12px;
+            }
+            QLabel#folderMenuTitle {
+                color: #6B7280;
+                background: #F3F4F6;
+                border-top-left-radius: 12px;
+                border-top-right-radius: 12px;
+                font-size: 12px;
+                font-weight: 600;
+                padding: 8px 12px;
+            }
+            QLabel#folderMenuLabel { color: #6B7280; font-size: 12px; }
+        """)
+        try:
+            shadow = QGraphicsDropShadowEffect(card)
+            shadow.setBlurRadius(18)
+            shadow.setOffset(0, 3)
+            shadow.setColor(QColor(0, 0, 0, 60))
+            card.setGraphicsEffect(shadow)
+        except Exception:
+            pass
 
-                    rename_action = menu.addAction(load_svg_icon("edit", 16), "重命名")
-                    rename_action.triggered.connect(lambda: self.rename_folder_in_tab(folder_path, table_widget))
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
 
-                    delete_action = menu.addAction(load_svg_icon("trash", 16), "删除")
-                    delete_action.triggered.connect(lambda: self.delete_folder_in_tab(folder_path, table_widget))
+        title = QLabel(f"已执行 {count} 次")
+        title.setObjectName("folderMenuTitle")
+        lay.addWidget(title)
 
-                    menu.exec_(table_widget.viewport().mapToGlobal(position))
+        rename_btn = QPushButton("重命名")
+        rename_btn.setCursor(Qt.PointingHandCursor)
+        rename_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left; border: none; background: #FFFFFF;
+                color: #374151; font-size: 13px; padding: 9px 14px;
+                border-radius: 0px;
+            }
+            QPushButton:hover { background: #E8F0FE; color: #111827; }
+        """)
+        delete_btn = QPushButton("删除")
+        delete_btn.setCursor(Qt.PointingHandCursor)
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left; border: none; background: #FFFFFF;
+                color: #DC2626; font-size: 13px; padding: 9px 14px;
+                border-top: 1px solid #EEF0F4;
+                border-radius: 0px;
+            }
+            QPushButton:hover { background: #FDECEC; color: #B91C1C; }
+        """)
+        rename_btn.clicked.connect(lambda: (card.close(), self.rename_folder_in_tab(folder_path, table_widget)))
+        delete_btn.clicked.connect(lambda: (card.close(), self.delete_folder_in_tab(folder_path, table_widget)))
+        lay.addWidget(rename_btn)
+        lay.addWidget(delete_btn)
+
+        gpos = table_widget.viewport().mapToGlobal(position)
+        card.adjustSize()
+        # 避免贴到屏幕右/下边缘被裁掉
+        screen = QApplication.primaryScreen().availableGeometry()
+        x = min(gpos.x(), screen.right() - card.width() - 8)
+        y = min(gpos.y(), screen.bottom() - card.height() - 8)
+        card.move(max(screen.left(), x), max(screen.top(), y))
+        card.show()
+        card.raise_()
 
     def load_folders_to_table(self, table_widget):
         table_widget.setRowCount(0)
@@ -2208,6 +2266,28 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             'original_path': original_path,
             'deleted_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         })
+
+        try:
+            with open(index_file, 'w', encoding='utf-8') as f:
+                json.dump(index_data, f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def remove_from_trash_index(self, trash_folder_name):
+        """从回收站索引中移除指定项（恢复/永久删除后同步清理 trash_index.json）"""
+        recordings_dir = get_recordings_path()
+        trash_dir = os.path.join(recordings_dir, 'trash')
+        index_file = os.path.join(trash_dir, 'trash_index.json')
+
+        index_data = []
+        if os.path.exists(index_file):
+            try:
+                with open(index_file, 'r', encoding='utf-8') as f:
+                    index_data = json.load(f)
+            except Exception:
+                return
+
+        index_data = [item for item in index_data if item.get('trash_folder_name') != trash_folder_name]
 
         try:
             with open(index_file, 'w', encoding='utf-8') as f:

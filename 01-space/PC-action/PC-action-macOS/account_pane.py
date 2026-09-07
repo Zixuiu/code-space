@@ -98,6 +98,7 @@ class AccountPane(QWidget):
     logout_requested = pyqtSignal()
     open_activation_requested = pyqtSignal()
     open_recharge_requested = pyqtSignal()
+    _ent_ready = pyqtSignal(str, object)   # (username, entitlement dict)，由后台线程发放，主线程刷新 UI
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -188,6 +189,7 @@ class AccountPane(QWidget):
         self.btn_recharge.clicked.connect(self.open_recharge_requested.emit)
         self.btn_logout = _BarBtn("退出", RED, sep=False)
         self.btn_logout.clicked.connect(self.logout_requested.emit)
+        self._ent_ready.connect(self._on_ent_ready)
         for b in (self.btn_activation, self.btn_recharge, self.btn_logout):
             bh.addWidget(b, 1)
         col.addWidget(bar)
@@ -204,7 +206,9 @@ class AccountPane(QWidget):
 
     # ---------------- 数据刷新 ----------------
     def refresh(self, username):
-        """按当前登录用户刷新界面"""
+        """按当前登录用户刷新界面。
+        用户名立即显示；会员状态/权限等首次查询会走网络（Supabase），
+        放到后台线程获取，完成后经 _ent_ready 信号回主线程刷新，避免登录后界面卡死。"""
         self._username = username
         if not username:
             self.row_user.set_value("未登录", INK)
@@ -213,16 +217,33 @@ class AccountPane(QWidget):
             self.row_expiry.set_value("—", SUB)
             return
         self.row_user.set_value(username, INK)
+        # 先用占位，避免空白
+        self.row_status.set_value("查询中…", SUB)
+        self.row_access.set_value("—", SUB)
+        self.row_expiry.set_value("—", SUB)
 
         try:
-            from entitlement import get_entitlement
-            ent = get_entitlement(username)
+            import threading
+            threading.Thread(target=self._fetch_ent, args=(username,), daemon=True).start()
         except Exception:
+            self.row_status.set_value("未知", SUB)
+
+    def _fetch_ent(self, username):
+        try:
+            from entitlement import get_entitlement
+            ent = get_entitlement(username) or {}
+        except Exception:
+            ent = {}
+        self._ent_ready.emit(username, ent)
+
+    def _on_ent_ready(self, username, ent):
+        if username != self._username:
+            return
+        if not ent or not isinstance(ent, dict):
             self.row_status.set_value("未知", SUB)
             self.row_access.set_value("—", SUB)
             self.row_expiry.set_value("—", SUB)
             return
-
         if ent.get("is_vip"):
             self.row_status.set_value("VIP 会员", GOOD)
             self.row_expiry.set_value(ent.get("vip_end") or "—", INK)

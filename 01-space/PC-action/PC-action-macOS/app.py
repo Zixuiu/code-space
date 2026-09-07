@@ -7466,6 +7466,21 @@ class AutoRecorderApp(QMainWindow):
                 self.append_log("[回放] 已释放所有修饰键")
             except Exception:
                 pass
+            # ★ 无条件清空 keyboard 库的"按下键"残留状态 ★
+            # 回放高频模拟 ctrl+a/ctrl+v 等会向 keyboard 库写入按下事件；
+            # 若 ctrl 等修饰键残留于 _pressed_events/_physically.../_logically...，
+            # keyboard 会误判"组合键仍在按下"，导致回放后再按流程快捷键不触发。
+            # 此清空不依赖 _hooks_disabled，任何回放结束都执行（_triggers 保留，清空会破坏热键触发）。
+            try:
+                import keyboard as _kb_clear
+                for _clr_attr in ['_pressed_events', '_physically_pressed_keys', '_logically_pressed_keys']:
+                    if hasattr(_kb_clear, _clr_attr):
+                        try:
+                            getattr(_kb_clear, _clr_attr).clear()
+                        except Exception:
+                            pass
+            except Exception:
+                pass
             # ★ 回放结束后恢复全局热键处理器（只需清除标志位）★
             if _hooks_disabled:
                 # ★ 策略变更：不再调用 _reinitialize_all_hotkeys，它可能破坏 keyboard 库状态
@@ -8018,7 +8033,7 @@ class AutoRecorderApp(QMainWindow):
     def check_entitlement_gate(self):
         """商业化付费闸：返回 True 放行；False = 已弹引导，调用方应中止动作。
         策略：未登录（含占位用户名「未登录」）→ 拦截并引导登录；
-        离线 / 查询异常放行（entitlement fallback），不误伤已登录的正常用户。"""
+        已登录：联网判定权威，仅离线宽限期(7天)内沿用上次联网状态，超期锁定（详见 entitlement）。"""
         try:
             from entitlement import get_entitlement
             username = getattr(self, 'current_user', None) or getattr(
@@ -10066,6 +10081,17 @@ class AutoRecorderApp(QMainWindow):
         self._hotkey_health_timer.timeout.connect(self._check_and_restore_hotkeys)
         self._hotkey_health_timer.start(1000)  # 每1秒检查一次，更快响应
         log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
+
+        # ★ 权限提示：非管理员运行时 Windows 全局键盘钩子会偶发丢键（快捷键随机失效），
+        # 明确提示用户用 start_pcaction.bat 以管理员身份启动，可根治偶发失效。
+        try:
+            import ctypes as _c_perm
+            _is_admin = _c_perm.windll.shell32.IsUserAnAdmin() != 0
+            if not _is_admin:
+                log_info('[热键健康] ⚠️ 检测到当前以普通权限运行：Windows 全局键盘钩子可能偶发丢失按键'
+                         '（快捷键随机失效）。建议关闭后用 start_pcaction.bat 以管理员身份启动。')
+        except Exception:
+            pass
 
         # 健康检查日志定时器（每30秒打印一次状态，避免刷屏）
         self._health_log_timer = QTimer(self)

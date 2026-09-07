@@ -6,7 +6,11 @@ PC-action 商业化权限与激活模块
 """
 import os
 import json
+import time
 import uuid
+import hmac
+import hashlib
+import base64
 from datetime import datetime, timedelta
 
 try:
@@ -27,11 +31,83 @@ CONFIG_SOURCES = [
 ]
 
 DEFAULT_PRICING = {
-    "plan_1": {"name": "VIP会员", "price": 99.0, "months": 1, "desc": "包月（全功能）"},
+    "plan_1": {"name": "VIP会员", "price": 9.9, "months": 1, "desc": "包月（全功能）"},
     "trial_days": 1,
     "channel_name": "PC-Action",
-    "channel_url": "https://4d09c223.r8.cpolar.cn/recharge.html",
+    "channel_url": "https://3e22a5a4.r8.cpolar.top/recharge.html",
 }
+
+
+# ------------------------- 防破解：离线回退与本地状态签名 -------------------------
+# 背景：早期策略「离线/异常一律放行」是为了不误伤正版，但客观上让破解者靠
+# 断网/hosts 屏蔽 Supabase 就能白嫖全功能。整改为 -> 联网判定权威，仅当网络
+# 不可达时按「已签名的最近一次成功授权」给一个离线宽限期，超期即锁定。
+OFFLINE_GRACE_DAYS = 7          # 离线宽限期（天）：到期需联网验证一次
+ENT_CACHE_VERSION = 1
+
+# 本地授权状态 HMAC 签名密钥。目的：让普通用户手工改 user_data 里的缓存 JSON
+# 会因签名不匹配而失效。它提高篡改门槛，非绝对安全（本地无法绝对防逆向）。
+_ENT_SIGN_SECRET = b"PCa@ction#SignedEnt!2026$c7f2-9b41-ea3d8c7f2aa1"
+
+# _ent_store_path 惰性计算一次（避免每次判定都拼路径）
+_ENT_STORE_PATH = None
+
+
+def _ent_store_path():
+    global _ENT_STORE_PATH
+    if _ENT_STORE_PATH:
+        return _ENT_STORE_PATH
+    try:
+        from utils import get_user_data_path
+        _ENT_STORE_PATH = os.path.join(get_user_data_path(), "entitlement_cache.json")
+    except Exception:
+        d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_data")
+        os.makedirs(d, exist_ok=True)
+        _ENT_STORE_PATH = os.path.join(d, "entitlement_cache.json")
+    return _ENT_STORE_PATH
+
+
+def _ent_sign(payload):
+    return hmac.new(_ENT_SIGN_SECRET, payload, hashlib.sha256).hexdigest()
+
+
+def _ent_save(cache):
+    """把 {username: {ent..., 'ts': epoch}} 整个编码 + HMAC 签名落盘。
+    ts 用"最近一次联网验证成功"的时间戳，破解者改 ts 会让签名失效。"""
+    try:
+        payload = base64.b64encode(
+            json.dumps(cache, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+        ).decode('ascii')
+        store = {"ver": ENT_CACHE_VERSION, "payload": payload, "sig": _ent_sign(payload.encode('ascii'))}
+        with open(_ent_store_path(), 'w', encoding='utf-8') as f:
+            json.dump(store, f, ensure_ascii=False)
+    except Exception:
+        pass
+
+
+def _ent_load():
+    """读取并校验签名的本地状态缓存；签名不符视为被篡改，返回空。"""
+    try:
+        with open(_ent_store_path(), 'r', encoding='utf-8') as f:
+            store = json.load(f)
+        if store.get('ver') != ENT_CACHE_VERSION:
+            return {}
+        payload = store.get('payload') or ''
+        if not hmac.compare_digest(store.get('sig') or '', _ent_sign(payload.encode('ascii'))):
+            return {}
+        cache = json.loads(base64.b64decode(payload.encode('ascii')).decode('utf-8'))
+        return cache if isinstance(cache, dict) else {}
+    except Exception:
+        return {}
+
+
+def _ent_read_signed(username):
+    """返回该用户最近一次联网验证成功的 (ent, ts)，无或无效返回 None。"""
+    cache = _ent_load()
+    rec = cache.get(username)
+    if not isinstance(rec, dict) or not isinstance(rec.get('ts'), (int, float)) or not isinstance(rec.get('ent'), dict):
+        return None
+    return rec['ent'], float(rec['ts'])
 
 
 # ------------------------- 渠道地址可用性校验 -------------------------
@@ -52,7 +128,7 @@ import glob as _glob
 
 _CPOLAR_LOG_DIR = _os.path.join(_os.path.expanduser("~"), ".cpolar", "logs")
 # 只取 https 隧道地址（bind_tls: both 时日志里 http/https 都有，优先 https）
-_CPOLAR_URL_RE = _re.compile(r'https://[a-z0-9.\-]+\.cpolar\.(?:io|cn)')
+_CPOLAR_URL_RE = _re.compile(r'https://[a-z0-9.\-]+\.cpolar\.(?:io|com|cn|top)')
 _LOCAL_CPOLAR_CACHE = {"ts": 0.0, "url": None}
 _LOCAL_CPOLAR_TTL = 60  # 秒，避免每次解析都读日志
 
@@ -293,31 +369,30 @@ def get_entitlement(username):
     """
     返回用户权益状态字典。
     策略：限时全功能试用。试用期内全功能开放；过期且非 VIP 则锁定。
-    离线（Supabase 未连）时放行，避免本地无网时把用户锁死。
+    联网判定权威；仅网络不可达时按「最近一次联网成功的签名状态」给离线宽限期。
+    reason 取值：online / no_user / offline_grace / offline_expired / no_backend / error。
     """
-    fallback = {
-        "is_vip": False, "vip_end": None, "trial_end": None,
-        "trial_valid": False, "has_access": True, "reason": "offline_or_no_user"
-    }
-    # 用户级 TTL 缓存：录制/回放点击闸会高频调本函数，
-    # 不缓存的话每次都在 UI 线程同步跑 Supabase HTTP（网络一慢就卡死界面）
     import time as _time
     global _ENT_CACHE
+    # 用户级 TTL 缓存：录制/回放点击闸会高频调本函数，
+    # 不缓存的话每次都在 UI 线程同步跑 Supabase HTTP（网络一慢就卡死界面）
     try:
-        _cached = _ENT_CACHE.get(username)
-        if _cached and _time.time() - _cached["ts"] < _ENT_TTL:
-            return dict(_cached["ent"])
+        _c = _ENT_CACHE.get(username)
+        if _c and _time.time() - _c["ts"] < _ENT_TTL:
+            return dict(_c["ent"])
     except Exception:
         pass
     if not SUPABASE_OK:
-        return fallback
+        return _offline_grace(username, "no_backend")
     try:
         supabase_manager = get_supabase_manager()
         if not supabase_manager.is_connected():
-            return fallback
+            return _offline_grace(username, "offline")
+
         user = supabase_manager.get_user(username)
         if not user:
-            return fallback
+            # 联网但查无该用户：修正旧漏洞（原为放行=未注册也能白嫖）-> 锁定
+            return _locked("no_user")
 
         now = datetime.now()
         # trial_days 只是个配置数字，用缓存即可，无需在这里触发远程拉取
@@ -352,15 +427,57 @@ def get_entitlement(username):
             "trial_end": trial_end.strftime('%Y-%m-%d') if trial_end else None,
             "trial_valid": trial_valid,
             "has_access": has_access,
+            "reason": "online",
         }
         try:
             _ENT_CACHE[username] = {"ts": _time.time(), "ent": dict(result)}
         except Exception:
             pass
+        # 联网验证成功 -> 落盘签名状态，作为后续离线宽限期依据
+        try:
+            cache = _ent_load()
+            cache[username] = {"ent": result, "ts": _time.time()}
+            _ent_save(cache)
+        except Exception:
+            pass
         return result
     except Exception as e:
         print(f"获取权益失败: {e}")
-        return fallback
+        # 联网过程抛异常（网络抖动/后端异常）：走离线宽限/锁定，而非无条件放行
+        return _offline_grace(username, "error")
+
+
+def _locked(reason):
+    return {
+        "is_vip": False, "vip_end": None, "trial_end": None,
+        "trial_valid": False, "has_access": False, "reason": reason,
+    }
+
+
+def _offline_grace(username, reason):
+    """网络不可达/查询异常时的回退：读签名缓存，宽限期内沿用上次联网状态，超期锁定。"""
+    import time as _time
+    current = _time.time()
+    # 先看内存缓存是否在 TTL 内（瞬时抖动保护）
+    try:
+        _c = _ENT_CACHE.get(username)
+        if _c and current - _c["ts"] < _ENT_TTL:
+            out = dict(_c["ent"]); out.setdefault("reason", reason)
+            return out
+    except Exception:
+        pass
+    signed = _ent_read_signed(username)
+    if signed:
+        ent, ts = signed
+        if current - ts <= OFFLINE_GRACE_DAYS * 86400:
+            out = dict(ent); out.setdefault("reason", reason)
+            try:
+                _ENT_CACHE[username] = {"ts": current, "ent": dict(out)}
+            except Exception:
+                pass
+            return out
+        return _locked("offline_expired")
+    return _locked(f"{reason}_expired" if reason == "offline_grace" else reason)
 
 
 def has_full_access(username):

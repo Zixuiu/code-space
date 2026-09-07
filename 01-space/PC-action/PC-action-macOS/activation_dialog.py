@@ -67,7 +67,7 @@ class ActivationDialog(QDialog):
                     pricing = get_pricing()
                     self._status_ready.emit({
                         "ent": None, "url": pricing.get('channel_url', ''),
-                        "price_txt": f"¥{pricing.get('plan_1', {}).get('price', 99):.0f}/"
+                        "price_txt": f"¥{pricing.get('plan_1', {}).get('price', 9.9):g}/"
                                      f"{pricing.get('plan_1', {}).get('months', 1) * 30}天",
                         "channel": pricing.get('channel_name', '官方渠道'),
                         "stage": 2})
@@ -199,7 +199,7 @@ class ActivationDialog(QDialog):
             try:
                 pricing = get_pricing()
                 plan = pricing.get('plan_1', {})
-                data['price_txt'] = f"¥{plan.get('price', 99):.0f}/{plan.get('months', 1) * 30}天"
+                data['price_txt'] = f"¥{plan.get('price', 9.9):g}/{plan.get('months', 1) * 30}天"
                 data['channel'] = pricing.get('channel_name', '官方渠道')
                 url = pricing.get('channel_url', '')
                 try:
