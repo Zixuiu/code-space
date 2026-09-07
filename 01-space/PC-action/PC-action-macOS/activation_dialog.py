@@ -2,18 +2,18 @@
 """
 PC-action 账户与激活对话框（方案 6 · 嵌套面板）
 - 展示当前权益：VIP 到期日 / 试用剩余天数 / 已过期
-- 输入激活码一键开通（entitlement.activate_code，卡密模式）
 - 购买引导（pricing.json 的 channel_url；PayPro 部署后回填生效）
+- 已取消激活码卡密模式：VIP 统一改为“付款自动开通到登录邮箱”方式
 """
 from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QUrl, pyqtSignal
 from PyQt5.QtGui import QColor, QCursor, QDesktopServices
 from PyQt5.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
-    QLineEdit, QPushButton, QGraphicsDropShadowEffect, QApplication, QFrame,
+    QPushButton, QGraphicsDropShadowEffect, QApplication, QFrame,
 )
 
 from beautiful_dialog import load_svg_icon, ICON_SCALE
-from entitlement import (get_pricing, get_entitlement, activate_code,
+from entitlement import (get_pricing, get_entitlement,
                          resolve_channel_url, warmup_channel_url)
 from activation_styles import get_style
 
@@ -69,7 +69,8 @@ class ActivationDialog(QDialog):
                         "ent": None, "url": pricing.get('channel_url', ''),
                         "price_txt": f"¥{pricing.get('plan_1', {}).get('price', 99):.0f}/"
                                      f"{pricing.get('plan_1', {}).get('months', 1) * 30}天",
-                        "channel": pricing.get('channel_name', '官方渠道')})
+                        "channel": pricing.get('channel_name', '官方渠道'),
+                        "stage": 2})
                 except Exception:
                     pass
             threading.Thread(target=_work, daemon=True).start()
@@ -127,7 +128,7 @@ class ActivationDialog(QDialog):
         hr.addWidget(close_btn)
         cl.addLayout(hr)
 
-        # 嵌套灰面板：账户 / 状态 / 激活码输入 / 提示
+        # 嵌套灰面板：账户 / 状态
         panel = QFrame()
         panel.setObjectName("Panel")
         panel.setAttribute(Qt.WA_StyledBackground, True)
@@ -147,37 +148,15 @@ class ActivationDialog(QDialog):
         self.status_card.setWordWrap(True)
         self._set_status_style("#FFFFFF", "#1C1C1E")
         pv.addWidget(self.status_card)
-
-        self.code_input = QLineEdit()
-        self.code_input.setPlaceholderText("请输入激活码，如 A1B2C3D4E5F6")
-        self.code_input.setFixedHeight(42)
-        self.code_input.setStyleSheet(self.st["input"].format())
-        self.code_input.returnPressed.connect(self._on_activate)
-        pv.addWidget(self.code_input)
-
-        tip = QLabel("输入激活码开通 / 续费 VIP 会员（每码 1 个月起）")
-        tip.setStyleSheet(f"font-size:13px;color:{self.st['muted']};background:transparent;")
-        pv.addWidget(tip)
         cl.addWidget(panel)
 
-        # 激活按钮（墨色 · 胶囊形）：居中不再通栏，42 高配 21 圆角
-        btn_row = QHBoxLayout()
-        self.activate_btn = QPushButton("立即激活")
-        self.activate_btn.setFixedSize(220, 42)
-        self.activate_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        self.activate_btn.setStyleSheet(self.st["button"].format())
-        self.activate_btn.clicked.connect(self._on_activate)
-        btn_row.addStretch()
-        btn_row.addWidget(self.activate_btn)
-        btn_row.addStretch()
-        cl.addLayout(btn_row)
-
-        # 结果消息
-        self.msg_label = QLabel("")
-        self.msg_label.setWordWrap(True)
-        self.msg_label.setStyleSheet(
+        # 付款开通引导（激活码已取消：VIP 付款后自动开通到登录邮箱）
+        hint = QLabel("开通 / 续费 VIP 请点击下方购买入口。\n付款成功后 VIP 将自动开通到您的登录邮箱")
+        hint.setWordWrap(True)
+        hint.setAlignment(Qt.AlignCenter)
+        hint.setStyleSheet(
             f"font-size:13px;color:{self.st['muted']};background:transparent;")
-        cl.addWidget(self.msg_label)
+        cl.addWidget(hint)
 
         # 购买引导
         buy_row = QHBoxLayout()
@@ -214,9 +193,9 @@ class ActivationDialog(QDialog):
                     ent = get_entitlement(username)
                 except Exception:
                     ent = None
-            _apply({"ent": ent, "url": None, "price_txt": "", "channel": ""})
+            _apply({"ent": ent, "url": None, "price_txt": "", "channel": "", "stage": 1})
             # 阶段2：价格 + 渠道地址（冷缓存时逐个探测候选域名，每个 3s 超时）
-            data = {"ent": None, "url": "", "price_txt": "", "channel": "官方渠道"}
+            data = {"ent": None, "url": "", "price_txt": "", "channel": "官方渠道", "stage": 2}
             try:
                 pricing = get_pricing()
                 plan = pricing.get('plan_1', {})
@@ -234,7 +213,10 @@ class ActivationDialog(QDialog):
         threading.Thread(target=_work, daemon=True).start()
 
     def _apply_status(self, data):
-        """把后台取到的数据刷到 UI（仅主线程调用）。url=None 表示本次只刷权益不刷购买行"""
+        """把后台取到的数据刷到 UI（仅主线程调用）。
+        修复：阶段1(page=1)才刷新状态卡；阶段2只是价格/地址刷新，ent=None，
+        绝不能覆盖掉已正确展示的会员状态（曾导致"会员状态获取失败"误报）。"""
+        # 价格/购买链接（阶段1空串不刷，阶段2填入）
         if data.get('price_txt'):
             price_txt = data.get('price_txt', '')
             channel = data.get('channel', '官方渠道')
@@ -243,16 +225,20 @@ class ActivationDialog(QDialog):
                 link = self.st['link']
                 self.buy_label.setText(
                     f'<a href="{url}" style="color:{link};text-decoration:none;">'
-                    f'没有激活码？去 {channel} 购买（{price_txt}）→</a>')
+                    f'前往 {channel} 开通 / 续费 VIP（{price_txt}）→</a>')
             else:
-                self.buy_label.setText(f"购买渠道即将开放（{price_txt}），可先联系客服获取激活码")
+                self.buy_label.setText(f"购买渠道即将开放（{price_txt}），可先联系客服开通 VIP")
+
+        # 只有阶段1才刷新会员状态；阶段2不带权益，直接返回
+        if data.get('stage', 1) != 1:
+            return
 
         ent = data.get('ent')
+        if not self.username:
+            self.status_card.setText("未登录，请先登录后再开通 / 续费 VIP")
+            return
         if ent is None:
-            if not self.username:
-                self.status_card.setText("未登录，请先登录后再激活")
-            else:
-                self.status_card.setText("会员状态获取失败（网络异常），可稍后重试")
+            self.status_card.setText("会员状态获取失败（网络异常），可稍后重试")
             return
         if ent.get('is_vip') and ent.get('vip_end'):
             self.status_card.setText(f"👑 VIP 会员 · 有效期至 {ent['vip_end']}")
@@ -263,45 +249,10 @@ class ActivationDialog(QDialog):
         elif ent.get('has_access'):
             self.status_card.setText("当前为全功能访问（离线模式）")
         else:
-            self.status_card.setText("试用已过期 · 输入激活码即可恢复全功能")
+            self.status_card.setText("试用已过期 · 点击下方入口付款开通 VIP 即可恢复全功能")
             self._set_status_style("rgba(255,59,48,0.10)", "#D70015")
 
-    # ---------------- 激活动作 ----------------
-    def _on_activate(self):
-        code = self.code_input.text().strip()
-        if not code:
-            self._show_msg("请输入激活码", RED)
-            return
-        if not self.username:
-            self._show_msg("请先登录后再激活", RED)
-            return
-        self.activate_btn.setEnabled(False)
-        self.activate_btn.setText("正在激活…")
-        self.msg_label.setStyleSheet(
-            f"font-size:12px;color:{self.st['muted']};background:transparent;")
-        self.msg_label.setText("")
-
-        # 网络请求放后台一拍，避免 UI 冻结
-        def _do():
-            ok, msg = activate_code(code, self.username)
-            QTimer.singleShot(0, lambda: self._on_activate_done(ok, msg))
-        QTimer.singleShot(10, _do)
-
-    def _on_activate_done(self, ok, msg):
-        self.activate_btn.setEnabled(True)
-        self.activate_btn.setText("立即激活")
-        if ok:
-            self._show_msg(f"✅ {msg}", GREEN)
-            self.code_input.clear()
-            self._refresh_status()
-        else:
-            self._show_msg(f"❌ {msg}", RED)
-
-    def _show_msg(self, text, color):
-        self.msg_label.setText(text)
-        self.msg_label.setStyleSheet(
-            f"font-size:12px;font-weight:600;color:{color};background:transparent;")
-
+    # ---------------- 购买跳转 ----------------
     def _open_buy(self, url):
         if url and not url.startswith('TODO_'):
             QDesktopServices.openUrl(QUrl(url))

@@ -2399,7 +2399,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setAlignment(Qt.AlignTop)
 
         settings_list = [
-            ("member", "会员与激活", "查看会员状态 / 输入激活码开通", self.open_activation_dialog),
+            ("member", "会员与激活", "查看会员状态 / 付款开通 VIP", self.open_activation_dialog),
             ("clipboard", "查看运行日志", "查看应用程序运行日志", self.show_log_window),
         ]
         for icon, name, desc, handler in settings_list:

@@ -38,6 +38,17 @@ import os.txt
 
 # 凭据文件
 .env
+
+# 安装包产物（超 100MiB，GitCode 拒收，不入库；单独分发）
+installer/output/
+
+# 用户本地数据（组合技 / 快捷键 / 流程），严禁推送
+data/组合技/
+data/快捷键/
+data/流程/
+组合技/
+快捷键/
+流程/
 .env.*
 login_credentials.json
 saved_login.json

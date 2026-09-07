@@ -4,7 +4,7 @@
 =============================================
 登录成功后，「账户」页展示本页而非登录表单：
 - 白色圆角面板：标题「账户信息」+ key-value 明细行（用户名/会员状态/功能权限/到期时间）
-- 底部三等分操作条：激活码开通 / 续费会员 / 退出登录
+- 底部三等分操作条：开通 VIP / 续费会员 / 退出登录
 - 续费 / 购买会员（浏览器打开充值页，域名动态下发）
 - 退出登录（发出 logout_requested，由主窗口接管切回登录页）
 
@@ -182,7 +182,7 @@ class AccountPane(QWidget):
         bh.setContentsMargins(0, 0, 0, 0)
         bh.setSpacing(0)
 
-        self.btn_activation = _BarBtn("激活码开通", BLUE, sep=True)
+        self.btn_activation = _BarBtn("开通 VIP", BLUE, sep=True)
         self.btn_activation.clicked.connect(self.open_activation_requested.emit)
         self.btn_recharge = _BarBtn("续费会员", BLUE, sep=True)
         self.btn_recharge.clicked.connect(self.open_recharge_requested.emit)
