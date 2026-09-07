@@ -332,9 +332,11 @@ def main():
         if not ok:
             sys.exit(1)
 
-    # Step 6: 推送到 GitHub
+    # Step 6: 推送到 GitHub（未配置 token 时跳过，不阻断主流程）
     log("\n步骤 6/6: 推送到 GitHub...")
-    if not push_github_via_token():
+    if not get_github_token():
+        log("未配置 GitHub token（GITHUB_TOKEN 或 ~/.ssh/github_token），跳过 GitHub 推送", "WARNING")
+    elif not push_github_via_token():
         sys.exit(1)
 
     # 摘要

@@ -169,11 +169,19 @@ class _CapsuleSpinBoxBase:
         le.setGeometry(0, max(0, (h - th) // 2), w, min(th, h))
 
     def resizeEvent(self, ev):
-        super().resizeEvent(ev)
+        # CapsuleSpinBox 采用多重继承，MRO 使 super().resizeEvent() 落到 object，
+        # 父类并无该方法，直接调用会抛 AttributeError 刷屏并拖慢主线程事件循环。
+        try:
+            super().resizeEvent(ev)
+        except AttributeError:
+            pass
         self._pin_lineedit()
 
     def showEvent(self, ev):
-        super().showEvent(ev)
+        try:
+            super().showEvent(ev)
+        except AttributeError:
+            pass
         self._pin_lineedit()
 
 

@@ -751,15 +751,21 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     # 窗口结束仍未出现才判失败/跳过。命中时零额外等待，仍是极速。
                     debug_print(f"[回放] ⚡ 步骤 {step}: turbo 闪匹配（单次 0.005s，不轮询/不重试）")
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
-                    if location is None and turbo_grace and turbo_grace > 0:
-                        debug_print(f"[回放] ⏳ 步骤 {step}: 图片未出现，等待窗口 {turbo_grace:.2f}s 内持续检测（覆盖过渡动画）")
-                        _tg_deadline = time.time() + turbo_grace
+                    # ★ 图片步骤遵循"等图不傻等"：
+                    #   含图流程(wait_for_image=True)把等待窗口拉满到 image_wait_timeout，一直轮询等该图出现，
+                    #   图一出现立即点击（灵活）；只有超时仍未出现才判失败。非图片步骤/组合技(wait_for_image=False)
+                    #   仍用 turbo_grace 快速窗口，不受影响。
+                    _grace_s = image_wait_timeout if wait_for_image else turbo_grace
+                    if location is None and _grace_s and _grace_s > 0:
+                        debug_print(f"[回放] ⏳ 步骤 {step}: 图片未出现，等待图出现（最长 {_grace_s:.2f}s）内持续检测")
+                        _tg_deadline = time.time() + _grace_s
+                        _tg_poll = 0.05 if wait_for_image else 0.005
                         while time.time() < _tg_deadline:
                             if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
                                 break
-                            location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
+                            location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=_tg_poll, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                             if location is not None:
-                                debug_print(f"[回放] ✅ 步骤 {step}: 等待窗口内图片出现，继续点击")
+                                debug_print(f"[回放] ✅ 步骤 {step}: 等待期间图片出现，继续点击")
                                 break
                 else:
                     # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等

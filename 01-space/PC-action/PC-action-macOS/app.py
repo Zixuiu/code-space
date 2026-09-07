@@ -10038,9 +10038,9 @@ class AutoRecorderApp(QMainWindow):
         try:
             def hotkey_handler():
                 try:
-                    # ★ 检查临时禁用标志
+                    # ★ 回放禁用标志若残留则自愈复位（避免 · 键录制热键永久失效）
                     if getattr(self, '_hotkeys_temporarily_disabled', False):
-                        return
+                        self._hotkeys_temporarily_disabled = False
                     # print("[DEBUG] ·键被按下，准备在主线程中执行toggle_recording")  # [日志已禁用]
                     QTimer.singleShot(0, self.toggle_recording)
                 except Exception as _eh:
@@ -10432,7 +10432,7 @@ class AutoRecorderApp(QMainWindow):
             def hotkey_handler():
                 try:
                     if getattr(self, '_hotkeys_temporarily_disabled', False):
-                        return
+                        self._hotkeys_temporarily_disabled = False
                     if getattr(self, '_grave_hotkey_temporarily_disabled', False):
                         return
                     QTimer.singleShot(0, self.toggle_recording)
