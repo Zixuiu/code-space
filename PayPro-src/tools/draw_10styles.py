@@ -77,7 +77,7 @@ for i, s in enumerate(styles):
     rrect(x + 18, py, W_CARD - 36, 74, 10, s["prod"], outline=s["border"], width=1)
     d.text((x + 34, py + 12), "VIP会员（月）", font=f_name, fill=s["name2"])
     d.text((x + 34, py + 36), "全功能 1 个月 · 付款后自动发激活码", font=f_desc, fill=s["desc"])
-    ptxt = "￥99"
+    ptxt = "￥9.9"
     d.text((x + W_CARD - 34 - d.textlength(ptxt, f_price), py + 20), ptxt, font=f_price, fill=s["price"])
 
     # 微信支付行

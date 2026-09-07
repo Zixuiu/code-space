@@ -17,7 +17,7 @@ import entitlement
 
 # 预览不触发真实权益/网络逻辑，直接打桩
 entitlement.get_pricing = lambda: {
-    'plan_1': {'price': 99, 'months': 1},
+    'plan_1': {'price': 9.9, 'months': 1},
     'channel_name': 'PayPro',
     'channel_url': 'https://example.com/buy',
 }

@@ -86,7 +86,7 @@ STATUS_TXT = "当前为全功能访问（离线模式）"
 ACCOUNT = "当前账户：tester"
 TIP = "输入激活码开通 / 续费 VIP 会员（每码 1 个月起）"
 PH = "请输入激活码，如 A1B2C3D4E5F6"
-LINK = "没有激活码？去 PayPro 购买（¥99/30天）→"
+LINK = "没有激活码？去 PayPro 购买（¥9.9/30天）→"
 
 
 def card(radius, bg="#FFFFFF", border=LINE):

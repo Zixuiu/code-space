@@ -1,8 +1,15 @@
 {
   "channel_name": "PC-Action",
-  "channel_url": "https://4d09c223.r8.cpolar.cn/recharge.html",
-  "plan_1": {"name": "VIP会员", "price": 99.0, "months": 1, "desc": "包月（全功能）"},
+  "channel_url": "https://3e22a5a4.r8.cpolar.top/recharge.html",
+  "plan_1": {
+    "name": "VIP会员",
+    "price": 9.9,
+    "months": 1,
+    "desc": "包月（全功能）"
+  },
   "trial_days": 7,
-  "mirror_urls": ["https://4d09c223.r8.cpolar.cn/recharge.html"],
-  "updated_at": "2026-09-06T03:20:49+08:00"
+  "mirror_urls": [
+    "https://3e22a5a4.r8.cpolar.top/recharge.html"
+  ],
+  "updated_at": "2026-09-07T17:52:00+08:00"
 }
