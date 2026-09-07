@@ -1,0 +1,53 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="utf-8">
+        <title>会员开通通知</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body style="margin:0; padding:0; background:#f4f5f7; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <table align="center" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7; padding:32px 16px;">
+            <tr>
+                <td align="center">
+                    <table width="560" cellpadding="0" cellspacing="0" style="max-width:560px; width:100%; background:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,0.06);">
+                        <tr>
+                            <td style="background:linear-gradient(135deg,#4f46e5,#7c3aed); padding:28px 32px; color:#ffffff;">
+                                <div style="font-size:20px; font-weight:700; letter-spacing:.5px;">PC-Action VIP会员</div>
+                                <div style="font-size:22px; font-weight:800; margin-top:6px;">✓ 会员已开通</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:28px 32px;">
+                                <p style="font-size:15px; color:#334155; margin:0 0 20px;">您好，您的会员已成功开通，感谢您的支持！</p>
+                                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc; border-radius:10px; padding:18px 20px;">
+                                    <tr>
+                                        <td style="font-size:14px; color:#94a3b8; padding:6px 0;">充值金额</td>
+                                        <td align="right" style="font-size:15px; font-weight:700; color:#0f172a; padding:6px 0;" th:text="'￥' + ${money}">￥9.9</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-size:14px; color:#94a3b8; padding:6px 0;">支付方式</td>
+                                        <td align="right" style="font-size:15px; font-weight:700; color:#0f172a; padding:6px 0;" th:text="${payType}">微信</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-size:14px; color:#94a3b8; padding:6px 0;">开通账号</td>
+                                        <td align="right" style="font-size:15px; font-weight:700; color:#0f172a; padding:6px 0;" th:text="${email}">xxx@qq.com</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="font-size:14px; color:#94a3b8; padding:6px 0;">有效期至</td>
+                                        <td align="right" style="font-size:15px; font-weight:800; color:#4f46e5; padding:6px 0;" th:text="${notice}">2026-10-07</td>
+                                    </tr>
+                                </table>
+                                <p style="font-size:13px; color:#64748b; line-height:1.7; margin:20px 0 0;">请打开 <b>PC-Action</b> 查看您的会员状态。若需续费，可在账户页点击"续费 / 购买会员"。</p>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding:18px 32px; border-top:1px solid #eef2f7; color:#94a3b8; font-size:12px;" align="center">
+                                本邮件由 PC-Action 支付系统自动发送，请勿回复。
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+</html>

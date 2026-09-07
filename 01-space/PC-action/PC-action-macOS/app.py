@@ -80,7 +80,10 @@ def get_supabase_manager():
     from supabase_db import get_supabase_manager as _get_supabase_manager
     return _get_supabase_manager()
 
-from database_helper import DatabaseHelper
+# ★ 启动提速（2026-09-05）：DatabaseHelper 在本模块从未被使用（反馈用的是 796 行
+#   函数内的局部 db_helper），但 module-level import 会连带拉起 supabase 全家桶，
+#   实测占启动导入 ~0.74s。按需导入即可（entitlement/admin_manager 都是函数内懒加载）。
+# from database_helper import DatabaseHelper  # 已移除：未使用，纯启动开销
 
 # 先导入必要的Qt类
 from PyQt5.QtCore import Qt
@@ -363,6 +366,10 @@ class FeedbackDialog(QDialog):
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题），后续内容全部塞进返回布局
+        from beautiful_dialog import build_styled_card
+        self.feedback_layout = build_styled_card(self, "问题反馈", "feedback")
+
         # 获取屏幕尺寸
         screen_width, screen_height = get_screen_size()
         
@@ -460,41 +467,31 @@ class FeedbackDialog(QDialog):
         card_layout.addWidget(form_container)
         
         # 创建主布局并添加卡片
-        self.feedback_layout = QVBoxLayout()
         self.feedback_layout.setContentsMargins(margin, margin, margin, margin)
         self.feedback_layout.setSpacing(spacing_v)
-        
+
         h_layout = QHBoxLayout()
         h_layout.setContentsMargins(margin, margin, margin, margin)
         h_layout.setSpacing(spacing_h)
-        
+
         h_layout.addStretch(1)
         h_layout.addWidget(card_container)
         h_layout.addStretch(1)
-        
+
         self.feedback_layout.addLayout(h_layout)
-        
-        self.setLayout(self.feedback_layout)
-        
+
         # 设置窗口大小 - 调整为细长款式
         min_width = int(screen_width * 0.3)   # 减小最小宽度，实现细长效果
         min_height = int(screen_height * 0.7)  # 增加最小高度，使界面更细长
         self.setMinimumSize(min_width, min_height)  # 使用最小尺寸而非固定尺寸
-        
+
         # 设置最大尺寸，防止窗口过大，保持细长比例
         max_width = int(screen_width * 0.4)   # 减小最大宽度，保持细长比例
         max_height = int(screen_height * 0.85) # 增加最大高度，使界面更细长
         self.setMaximumSize(max_width, max_height)
-        
+
         # 设置窗口可调整大小
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        
-        # 应用统一样式
-        try:
-            from styles import apply_dialog_style
-            apply_dialog_style(self)
-        except ImportError:
-            pass
     
     def _create_combo_section(self, label_text, items, font_size, input_height, spacing_v, screen_width):
         """创建下拉选择框区域"""
@@ -1350,9 +1347,11 @@ class FolderManager(QDialog):
         _dot_lo.addSpacing(12)
         def _closeD(ev):
             if ev.button()==Qt.LeftButton: dialog.close()
-        _red_dot = QFrame()
-        _red_dot.setFixedSize(16, 16)
-        _red_dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
+        # 统一卡片风格：不用红绿灯点，用细 ✕（悬停变红）关闭
+        _red_dot = QLabel("✕")
+        _red_dot.setFixedSize(22, 22)
+        _red_dot.setAlignment(Qt.AlignCenter)
+        _red_dot.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _dot_lo.addWidget(_red_dot)
@@ -1409,7 +1408,9 @@ class FolderManager(QDialog):
                 _d = QDialog(dialog)
                 _d.setWindowTitle("图片预览")
                 _d.resize(600, 500)
-                _l = QVBoxLayout(_d)
+                # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+                from beautiful_dialog import build_styled_card
+                _l = build_styled_card(_d, "图片预览", "camera")
                 _s = QScrollArea()
                 _s.setWidgetResizable(True)
                 _s.setStyleSheet("QScrollArea{border:none;background:#1C1C1E;}")
@@ -1751,23 +1752,34 @@ class FolderManager(QDialog):
             pass
 
         # 操作类型标签配置
+        # 操作类型标签配置（点击绿系分档 / 文本橙 / 按键+滚轮灰蓝 / 条件紫）
         _at_cfg = {
-            'left_click':    ('Click',       '#34C759', 'rgba(52,199,89,0.15)'),
-            'right_click':   ('右击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'double_click':  ('双击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'middle_click':  ('中击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'text_input':    ('文本',        '#FF9500', 'rgba(255,149,0,0.15)'),
-            'keyboard':      ('按键',        '#5A6069', 'rgba(90,96,105,0.15)'),
-            'keyboard_direct': ('按键',      '#5A6069', 'rgba(90,96,105,0.15)'),
-            'scroll':        ('滚动',        '#6E6E73', 'rgba(142,142,147,0.2)'),
+            'left_click':    ('左键',       '#1E7E38', 'rgba(52,199,89,0.20)'),
+            'right_click':   ('右键',       '#34C759', 'rgba(52,199,89,0.12)'),
+            'double_click':  ('双击',       '#248A3D', 'rgba(52,199,89,0.25)'),
+            'middle_click':  ('中键',       '#128A43', 'rgba(52,199,89,0.30)'),
+            'text_input':    ('文本',        '#C93400', 'rgba(255,149,0,0.18)'),
+            'keyboard':      ('按键',        '#474C54', 'rgba(90,96,105,0.15)'),
+            'keyboard_direct': ('按键',      '#474C54', 'rgba(90,96,105,0.15)'),
+            'scroll':        ('滚轮',        '#6E6E73', 'rgba(90,96,105,0.10)'),
             'condition':     ('条件分支',     '#AF52DE', 'rgba(175,82,222,0.15)'),
         }
         _menu_items = [
-            ("🖱️ Click", "left_click"), ("🖱️ 右击", "right_click"),
-            ("🖱️ 双击", "double_click"), ("🖱️ 中击", "middle_click"),
+            ("🖱️ 左键", "left_click"), ("🖱️ 右键", "right_click"),
+            ("🖱️ 双击", "double_click"), ("🖱️ 中键", "middle_click"),
             ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
-            ("📜 滚动", "scroll")
+            ("📜 滚轮", "scroll")
         ]
+
+        def _type_btn_label(action_type, record):
+            """类型按钮文字：只显示类型名；具体值统一放右侧参数区（点击类右侧不显示）"""
+            if action_type == 'text_input':
+                return "文本"
+            if action_type in ('keyboard', 'keyboard_direct'):
+                return "按键"
+            if action_type == 'scroll':
+                return "滚轮"
+            return _at_cfg.get(action_type, (action_type,))[0]
 
         control_height = 24
         action_font_size = 11
@@ -1794,6 +1806,9 @@ class FolderManager(QDialog):
         def _build_rows():
             """根据 recording_data 构建所有行"""
             image_map = _refresh_image_map()
+
+            # ★ 表头行（步骤/图片/类型/具体数值/等待/排序）已按用户要求移除
+
             for i, record in enumerate(recording_data):
                 step_num = record.get('step', i + 1)
                 action_type = record.get('action_type', 'left_click')
@@ -1840,13 +1855,23 @@ class FolderManager(QDialog):
                 """)
                 row_layout.addWidget(step_label, 0, Qt.AlignTop)
 
-                # ── ② 缩略图 / 操作类型图标 ──
+                # ── ② 图片列：缩略图 + 图片信息（文件名 / 原图尺寸 / 匹配区域）──
+                img_col = QWidget()
+                img_col.setFixedWidth(150)
+                img_col.setContentsMargins(0, 0, 0, 0)
+                _icl = QHBoxLayout(img_col)
+                _icl.setContentsMargins(0, 0, 0, 0)
+                _icl.setSpacing(6)
+                _icl.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+                thumb_w = QPushButton()
+                thumb_w.setFixedSize(48, 48)
+                pixmap = None
                 if img_file:
-                    # 有图片 → 显示缩略图
+                    # 有图片 → 显示缩略图（点击查看大图）
                     img_path = os.path.join(folder_path, img_file)
-                    thumb_w = QPushButton()
-                    thumb_w.setFixedSize(48, 48)
                     thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius: 8px; }")
+                    thumb_w.setToolTip(f"{img_file}\n点击查看大图")
                     del_btn = _create_hover_close_button(
                         thumb_w,
                         on_click=lambda checked=False, idx=i, fn=img_file: _delete_step(idx, fn),
@@ -1873,36 +1898,57 @@ class FolderManager(QDialog):
                         tl.lower()
                     del_btn.raise_()
                     thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
-                    row_layout.addWidget(thumb_w, 0, Qt.AlignTop)
                 else:
-                    # 无图片 → 显示操作类型小色块，带上删除按钮
+                    # 无图片 → 操作类型小色块，带上删除按钮
                     _dot_color = _at_cfg.get(action_type, ('', '#8E8E93', ''))[1]
-                    _iw = QPushButton()
-                    _iw.setFixedSize(48, 48)
-                    _iw.setStyleSheet(f"QPushButton{{background:{_at_cfg.get(action_type, ('','#8E8E93',''))[2]};border-radius:8px;border:none;}}")
+                    thumb_w.setStyleSheet(f"QPushButton{{background:{_at_cfg.get(action_type, ('','#8E8E93',''))[2]};border-radius:8px;border:none;}}")
+                    thumb_w.setToolTip("该步骤没有匹配图片（直接按坐标执行）")
                     del_btn = _create_hover_close_button(
-                        _iw,
+                        thumb_w,
                         on_click=lambda checked=False, idx=i: _delete_step(idx, None),
                         size=20
                     )
                     del_btn.move(26, 0)
-                    icon_w = QLabel(_iw)
+                    icon_w = QLabel(thumb_w)
                     icon_w.setFixedSize(12, 12)
                     icon_w.setAlignment(Qt.AlignCenter)
                     icon_w.setStyleSheet(f"QLabel{{background:{_dot_color};border-radius:6px;border:none;}}")
                     icon_w.move(18, 18)
                     icon_w.lower()
                     del_btn.raise_()
-                    row_layout.addWidget(_iw, 0, Qt.AlignTop)
+                _icl.addWidget(thumb_w, 0, Qt.AlignTop)
 
-                # ── ③ 操作类型按钮（带下拉菜单） ──
+                # 图片信息（两行：文件名 + 尺寸/匹配区域）——仅图片步骤显示；
+                # 无图步骤的文字块（"无图/按坐标执行"）已按用户要求移除
+                _info = QWidget()
+                _info.setFixedWidth(96)
+                _info.setStyleSheet("QWidget{background:transparent;border:none;}")
+                _ifl = QVBoxLayout(_info)
+                _ifl.setContentsMargins(0, 7, 0, 0)
+                _ifl.setSpacing(1)
+                _ifl.setAlignment(Qt.AlignTop)
+                if img_file:
+                    _n_show = img_file if len(img_file) <= 11 else (img_file[:6] + "…" + img_file[-4:])
+                    _i1 = QLabel(_n_show)
+                    _i1.setStyleSheet("QLabel{color:#1D1D1F;font-size:10px;font-weight:600;background:transparent;border:none;}")
+                    _i1.setToolTip(img_file)
+                    _sz = f"{pixmap.width()}×{pixmap.height()}" if pixmap else "—"
+                    _i2 = QLabel(f"原图 {_sz}")
+                    _i2.setStyleSheet("QLabel{color:#8E8E93;font-size:10px;background:transparent;border:none;}")
+                    _i2.setToolTip(f"原图尺寸 {_sz}")
+                    _ifl.addWidget(_i1)
+                    _ifl.addWidget(_i2)
+                _icl.addWidget(_info, 0, Qt.AlignTop)
+                row_layout.addWidget(img_col, 0, Qt.AlignTop)
+
+                # ── ③ 操作类型按钮（带下拉菜单；按类型配色，文本/按键/滚轮带具体内容） ──
                 _cfg = _at_cfg.get(action_type, (action_type, '#8E8E93', 'rgba(142,142,147,0.2)'))
-                # 操作类型按钮统一只显示类型名称，不展示具体内容
-                _btn_label = _cfg[0]
+                _btn_label = _type_btn_label(action_type, record)
                 type_btn = QPushButton(_btn_label)
-                type_btn.setFixedSize(90, control_height)
+                type_btn.setFixedSize(110, control_height)
                 type_btn.setCursor(Qt.PointingHandCursor)
-                type_btn.setStyleSheet("QPushButton{background:#2C2C2E;color:#FFFFFF;border:none;border-radius:8px;font-weight:600;font-size:10px;padding:0;text-align:center;}QPushButton:hover{background:#3C3C3E;}QPushButton::menu-indicator{width:0;}")
+                type_btn.setToolTip("点击更换这一步的操作类型")
+                type_btn.setStyleSheet(f"QPushButton{{background:{_cfg[2]};color:{_cfg[1]};border:none;border-radius:8px;font-weight:600;font-size:10px;padding:0 6px;text-align:center;}}QPushButton:hover{{background:rgba(200,200,210,0.4);}}QPushButton::menu-indicator{{width:0;}}")
                 _m = QMenu()
                 for _lbl, _val in _menu_items:
                     _a = _m.addAction(_lbl)
@@ -1911,54 +1957,66 @@ class FolderManager(QDialog):
                     ))
                 type_btn.setMenu(_m)
                 _tw = QWidget()
-                _tw.setFixedWidth(90)
+                _tw.setFixedWidth(110)
                 _tl = QHBoxLayout(_tw)
                 _tl.setContentsMargins(0, 0, 0, 0)
                 _tl.addWidget(type_btn, 0, Qt.AlignCenter)
                 row_layout.addWidget(_tw, 0, Qt.AlignTop)
 
-                # ── ④ 参数显示（点击可编辑） ──
-                _pw = QWidget()
-                _pw.setFixedWidth(90)
-                _pl = QHBoxLayout(_pw)
-                _pl.setContentsMargins(0, 0, 0, 0)
-                _pl.setAlignment(Qt.AlignCenter)
+                # ── ④ 具体数值（坐标/区域/文本/按键/滚动量，可点击编辑）──
+                _vw = QWidget()
+                _vw.setMinimumWidth(200)
+                _vw.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+                _vl = QVBoxLayout(_vw)
+                _vl.setContentsMargins(0, 5, 0, 0)
+                _vl.setSpacing(1)
+                _vl.setAlignment(Qt.AlignTop)
+                _v1 = QLabel()
+                _v2 = QLabel()
+                _v2.setStyleSheet("QLabel{color:#8E8E93;font-size:10px;background:transparent;border:none;}")
+                _editable = False
                 if action_type == 'text_input':
+                    _editable = True
                     _txt = record.get('text', '')
-                    _disp = _txt[:10] + "..." if len(_txt) > 10 else (_txt if _txt else "(空)")
-                    _lb = QLabel(f"{_disp}")
-                    _lb.setStyleSheet("QLabel{color:#FF9500;font-size:10px;padding:2px 4px;background:rgba(255,149,0,0.1);border-radius:6px;}")
-                    _lb.setCursor(Qt.PointingHandCursor)
-                    _lb.mousePressEvent = lambda e, idx=i: _show_text_dialog(idx)
-                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                    _disp = _txt if len(_txt) <= 20 else _txt[:20] + "…"
+                    _v1.setText(_disp if _txt else "（空）")
+                    _v1.setStyleSheet("QLabel{color:#FF9500;font-size:11px;font-weight:600;background:transparent;border:none;}")
+                    _v2.setText(f"共 {len(_txt)} 字 · 点击修改")
                 elif action_type in ('keyboard', 'keyboard_direct'):
+                    _editable = True
                     _k = record.get('key', '')
-                    _lb = QLabel(f"按键 {_k}" if _k else "(空)")
-                    _lb.setStyleSheet("QLabel{color:#5A6069;font-size:10px;padding:2px 4px;background:rgba(90,96,105,0.1);border-radius:6px;}")
-                    _lb.setCursor(Qt.PointingHandCursor)
-                    _lb.mousePressEvent = lambda e, idx=i: _show_key_dialog(idx)
-                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                    _v1.setText(_k if _k else "（空）")
+                    _v1.setStyleSheet("QLabel{color:#5A6069;font-size:11px;font-weight:600;background:transparent;border:none;}")
+                    _v2.setText("点击修改按键")
                 elif action_type == 'scroll':
+                    _editable = True
                     _amt = record.get('scroll_amount', 3)
-                    # ★★★ 修复：防御 0 值，避免显示"下滑0"
                     if _amt == 0:
                         _amt = 3
-                    _dir = "上" if _amt > 0 else "下"
-                    _lb = QLabel(f"{_dir}{abs(_amt)}")
-                    _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:10px;padding:2px 4px;background:rgba(142,142,147,0.15);border-radius:6px;}")
-                    _lb.setCursor(Qt.PointingHandCursor)
-                    _lb.mousePressEvent = lambda e, idx=i: _show_scroll_dialog(idx)
-                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                    _v1.setText(f"{'上' if _amt > 0 else '下'}滚 {abs(_amt)} 格")
+                    _v1.setStyleSheet("QLabel{color:#6E6E73;font-size:11px;font-weight:600;background:transparent;border:none;}")
+                    _v2.setText("点击修改方向与格数")
                 elif action_type == 'condition':
-                    _lb = QLabel("条件分支")
-                    _lb.setStyleSheet("QLabel{color:#AF52DE;font-size:10px;padding:2px 4px;background:rgba(175,82,222,0.1);border-radius:6px;}")
-                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
+                    _v1.setText("条件分支")
+                    _v1.setStyleSheet("QLabel{color:#AF52DE;font-size:11px;font-weight:600;background:transparent;border:none;}")
+                    _v2.setText("按图片是否出现分流")
                 else:
-                    _px = record.get('x', 0); _py = record.get('y', 0)
-                    _lb = QLabel(f"({_px},{_py})")
-                    _lb.setStyleSheet("QLabel{color:#8E8E93;font-size:10px;}")
-                    _pl.addWidget(_lb, 0, Qt.AlignCenter)
-                row_layout.addWidget(_pw, 0, Qt.AlignTop)
+                    # 点击类步骤：定位代码（坐标/匹配区域）已按用户要求移除，类型按钮即代表全部信息
+                    pass
+                _v1.setToolTip(_v1.text() + (("｜" + _v2.text()) if _v2.text() else ""))
+                _vl.addWidget(_v1)
+                # ★ 第二行提示（"绝对屏幕坐标"/"点击修改按键"等）已按用户要求移除，
+                #   信息并入 _v1 的 tooltip；点击编辑功能不受影响
+                if _editable:
+                    _vw.setCursor(Qt.PointingHandCursor)
+                    _vw.setToolTip("点击修改具体数值")
+                    if action_type == 'text_input':
+                        _vw.mousePressEvent = lambda e, idx=i: _show_text_dialog(idx)
+                    elif action_type in ('keyboard', 'keyboard_direct'):
+                        _vw.mousePressEvent = lambda e, idx=i: _show_key_dialog(idx)
+                    else:
+                        _vw.mousePressEvent = lambda e, idx=i: _show_scroll_dialog(idx)
+                row_layout.addWidget(_vw, 1, Qt.AlignTop)
 
                 # ── ⑤ 延迟（本步执行完后等待 N 秒再执行下一步）──
                 delay_w = QWidget()
@@ -2236,14 +2294,15 @@ class FolderManager(QDialog):
             preview = QDialog(dialog)
             preview.setWindowTitle("图片预览")
             preview.setWindowFlags(preview.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+            # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+            from beautiful_dialog import build_styled_card
+            _layout = build_styled_card(preview, "图片预览", "camera")
             desktop = QDesktopWidget()
             sw = desktop.screenGeometry().width()
             sh = desktop.screenGeometry().height()
             max_w = int(sw * 0.7)
             max_h = int(sh * 0.7)
             preview.resize(max_w, max_h)
-            _layout = QVBoxLayout(preview)
-            _layout.setContentsMargins(0, 0, 0, 0)
             scroll = QScrollArea(preview)
             scroll.setWidgetResizable(True)
             scroll.setStyleSheet("QScrollArea { border: none; background: #1C1C1E; }")
@@ -2696,27 +2755,38 @@ class FolderManager(QDialog):
         table.horizontalHeader().setStretchLastSection(False)
 
         # 操作类型显示配置
+        # 操作类型标签配置（点击绿系分档 / 文本橙 / 按键+滚轮灰蓝 / 条件紫）
         _at_cfg = {
-            'left_click':    ('Click',       '#34C759', 'rgba(52,199,89,0.15)'),
-            'right_click':   ('右击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'double_click':  ('双击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'middle_click':  ('中击',        '#34C759', 'rgba(52,199,89,0.15)'),
-            'text_input':    ('文本',        '#FF9500', 'rgba(255,149,0,0.15)'),
-            'keyboard':      ('按键',        '#5A6069', 'rgba(90,96,105,0.15)'),
-            'keyboard_direct': ('按键',      '#5A6069', 'rgba(90,96,105,0.15)'),
-            'scroll':        ('滚动',        '#6E6E73', 'rgba(142,142,147,0.2)'),
+            'left_click':    ('左键',       '#1E7E38', 'rgba(52,199,89,0.20)'),
+            'right_click':   ('右键',       '#34C759', 'rgba(52,199,89,0.12)'),
+            'double_click':  ('双击',       '#248A3D', 'rgba(52,199,89,0.25)'),
+            'middle_click':  ('中键',       '#128A43', 'rgba(52,199,89,0.30)'),
+            'text_input':    ('文本',        '#C93400', 'rgba(255,149,0,0.18)'),
+            'keyboard':      ('按键',        '#474C54', 'rgba(90,96,105,0.15)'),
+            'keyboard_direct': ('按键',      '#474C54', 'rgba(90,96,105,0.15)'),
+            'scroll':        ('滚轮',        '#6E6E73', 'rgba(90,96,105,0.10)'),
             'condition':     ('条件分支',     '#AF52DE', 'rgba(175,82,222,0.15)'),
         }
         _menu_items = [
-            ("🖱️ Click", "left_click"), ("🖱️ 右击", "right_click"),
-            ("🖱️ 双击", "double_click"), ("🖱️ 中击", "middle_click"),
+            ("🖱️ 左键", "left_click"), ("🖱️ 右键", "right_click"),
+            ("🖱️ 双击", "double_click"), ("🖱️ 中键", "middle_click"),
             ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
-            ("📜 滚动", "scroll")
+            ("📜 滚轮", "scroll")
         ]
+
+        def _type_btn_label(action_type, record):
+            """类型按钮文字：只显示类型名；具体值统一放右侧参数区（点击类右侧不显示）"""
+            if action_type == 'text_input':
+                return "文本"
+            if action_type in ('keyboard', 'keyboard_direct'):
+                return "按键"
+            if action_type == 'scroll':
+                return "滚轮"
+            return _at_cfg.get(action_type, (action_type,))[0]
 
         def _make_type_btn(row_idx, current_type):
             _cfg = _at_cfg.get(current_type, (current_type, '#8E8E93', 'rgba(142,142,147,0.2)'))
-            _btn = QPushButton(_cfg[0])
+            _btn = QPushButton(_type_btn_label(current_type, recording_data[row_idx] if row_idx < len(recording_data) else {}))
             _btn.setFixedHeight(28)
             _btn.setCursor(Qt.PointingHandCursor)
             _btn.setStyleSheet(f"QPushButton{{background:{_cfg[2]};color:{_cfg[1]};border:none;borborder-radius: 8pxnt-weight:600;font-size:10px;padding:0 8px;}}QPushButton:hover{{background:rgba(200,200,210,0.4);}}QPushButton::menu-indicator{{width:0;}}")
@@ -2757,18 +2827,16 @@ class FolderManager(QDialog):
                 if _amt == 0:
                     _amt = 3
                 _dir = "上" if _amt > 0 else "下"
-                _lb = QLabel(f"{_dir}{abs(_amt)}")
-                _lb.setStyleSheet("QLabel{color:#6E6E73;font-size:11px;padding:2px 6px;background:rgba(142,142,147,0.15);border-radius:6px;}")
+                _lb = QLabel(f"滚轮 {_dir}{abs(_amt)}格")
+                _lb.setStyleSheet("QLabel{color:#474C54;font-size:11px;padding:2px 6px;background:rgba(90,96,105,0.12);border-radius:6px;}")
                 _l.addWidget(_lb, 0, Qt.AlignCenter)
             elif _at == 'condition':
                 _lb = QLabel("条件分支")
                 _lb.setStyleSheet("QLabel{color:#AF52DE;font-size:11px;padding:2px 6px;background:rgba(175,82,222,0.1);border-radius:6px;}")
                 _l.addWidget(_lb, 0, Qt.AlignCenter)
             else:
-                _px = record.get('x', 0); _py = record.get('y', 0)
-                _lb = QLabel(f"({_px}, {_py})")
-                _lb.setStyleSheet("QLabel{color:#8E8E93;font-size:11px;}")
-                _l.addWidget(_lb, 0, Qt.AlignCenter)
+                # 点击类：定位代码（坐标）已按用户要求移除
+                pass
             return _w
 
         def _make_del_widget(row_idx):
@@ -2973,9 +3041,10 @@ class FolderManager(QDialog):
             _dh = QHBoxLayout()
             _dh.setContentsMargins(0, 0, 0, 0)
             _dh.addStretch()
-            _dot = QFrame()
-            _dot.setFixedSize(16, 16)
-            _dot.setStyleSheet("background:#FF5F57; border-radius:6px; border:none;")
+            _dot = QLabel("✕")
+            _dot.setFixedSize(22, 22)
+            _dot.setAlignment(Qt.AlignCenter)
+            _dot.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
             _dot.setCursor(Qt.PointingHandCursor)
             def _closeD(ev):
                 if ev.button()==Qt.LeftButton: coord_dialog.close()
@@ -3063,8 +3132,9 @@ class FolderManager(QDialog):
         dialog.setWindowTitle("修改文本")
         dialog.setModal(True)
         dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        apply_dialog_style(dialog, 0.35, 0.2)
-        layout = QVBoxLayout()
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "修改文本", "text")
         label = QLabel("请输入新的文本内容:")
         layout.addWidget(label)
         text_edit = QLineEdit(current_text)
@@ -3082,7 +3152,6 @@ class FolderManager(QDialog):
         cancel_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
-        dialog.setLayout(layout)
         if dialog.exec_() == QDialog.Accepted:
             new_text = text_edit.text()
             if index < len(recording_data):
@@ -3102,12 +3171,9 @@ class FolderManager(QDialog):
         dialog.setWindowTitle("修改按键")
         dialog.setModal(True)
         dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        apply_dialog_style(dialog, 0.3, 0.2)
-        # QSS border-radius 对 FramelessWindow 顶层窗口只能染色，无法真正裁剪窗口四角，
-        # 需要用 QRegion 遮罩在 Show/Resize 时动态切出圆角。
-        from styles import apply_rounded_mask
-        apply_rounded_mask(dialog, 16)
-        layout = QVBoxLayout()
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "修改按键", "keyboard")
         label = QLabel("请按下要修改的按键(支持组合键):")
         layout.addWidget(label)
         line_edit = QLineEdit()
@@ -3154,7 +3220,6 @@ class FolderManager(QDialog):
         cancel_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
-        dialog.setLayout(layout)
         # ★ Alt+Tab 是系统级热键，Qt 收不到事件 → 挂低级键盘钩子拦下来识别
         _alt_tab_hook_ok = False
         _key_capture = None
@@ -3204,8 +3269,9 @@ class FolderManager(QDialog):
         dialog.setWindowTitle("设置滚动")
         dialog.setModal(True)
         dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        apply_dialog_style(dialog, 0.28, 0.2)
-        layout = QVBoxLayout()
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "设置滚动", "arrow_down")
         layout.setSpacing(12)
 
         # 方向选择
@@ -3247,7 +3313,6 @@ class FolderManager(QDialog):
         cancel_btn.clicked.connect(dialog.reject)
         btn_layout.addWidget(cancel_btn)
         layout.addLayout(btn_layout)
-        dialog.setLayout(layout)
 
         if dialog.exec_() == QDialog.Accepted:
             checked_id = dir_group.checkedId()
@@ -3279,14 +3344,11 @@ class FolderManager(QDialog):
                     self.setModal(True)
                     # 设置窗口标志：移除帮助按钮，添加最小化按钮，保持置顶
                     self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-                    
-                    # 应用统一的对话框样式
-                    apply_dialog_style(self, 0.3, 0.2)
-                    # QSS border-radius 对 FramelessWindow 顶层窗口只能染色，无法真正裁剪窗口四角
-                    apply_rounded_mask(self, 16)
-                    
-                    layout = QVBoxLayout()
-                    
+
+                    # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+                    from beautiful_dialog import build_styled_card
+                    layout = build_styled_card(self, "修改按键", "keyboard")
+
                     label = QLabel("请按下要修改的按键(支持组合键):")
                     layout.addWidget(label)
                     
@@ -3339,10 +3401,9 @@ class FolderManager(QDialog):
                         }}
                     """)
                     button_layout.addWidget(self.cancel_btn)
-                    
+
                     layout.addLayout(button_layout)
-                    self.setLayout(layout)
-                    
+
                     self.current_keys = []
                     self.key_map = {
                         Qt.Key_Return: 'enter',
@@ -3519,11 +3580,11 @@ class FolderManager(QDialog):
                     self.setWindowTitle("修改滚动设置")
                     self.setModal(True)
                     self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-                    
-                    apply_dialog_style(self, 0.3, 0.2)
-                    
-                    layout = QVBoxLayout()
-                    
+
+                    # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+                    from beautiful_dialog import build_styled_card
+                    layout = build_styled_card(self, "修改滚动设置", "arrow_down")
+
                     # 方向选择
                     direction_layout = QHBoxLayout()
                     direction_label = QLabel("滚动方向:")
@@ -3593,10 +3654,9 @@ class FolderManager(QDialog):
                         }}
                     """)
                     button_layout.addWidget(self.cancel_btn)
-                    
+
                     layout.addLayout(button_layout)
-                    self.setLayout(layout)
-                    
+
                 def get_scroll_amount(self):
                     direction = self.direction_combo.currentText()
                     amount = self.amount_spin.value()
@@ -3653,9 +3713,9 @@ class FolderManager(QDialog):
                     self.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint |
                                         Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
 
-                    apply_dialog_style(self, 0.35, 0.2)
-
-                    layout = QVBoxLayout()
+                    # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+                    from beautiful_dialog import build_styled_card
+                    layout = build_styled_card(self, "修改文本", "text")
 
                     label = QLabel("请输入新的文本内容:")
                     layout.addWidget(label)
@@ -3710,7 +3770,6 @@ class FolderManager(QDialog):
                     button_layout.addWidget(self.cancel_btn)
 
                     layout.addLayout(button_layout)
-                    self.setLayout(layout)
 
             dialog = TextInputDialog(self.parent, current_text)
             if dialog.exec_() == QDialog.Accepted:
@@ -3831,11 +3890,11 @@ class FolderManager(QDialog):
         # 创建条件分支对话框
         dialog = QDialog(self)
         dialog.setWindowTitle("添加条件分支")
-        
-        # 使用统一的样式函数
-        apply_dialog_style(dialog, 0.5, 0.35)
-        layout = QVBoxLayout(dialog)
-        
+
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "添加条件分支", "layers")
+
         # 条件类型选择和条件图片输入框（水平排列）
         condition_layout = QHBoxLayout()
         condition_label = QLabel("条件类型:")
@@ -4013,11 +4072,11 @@ class FolderManager(QDialog):
         # 创建图片选择对话框
         dialog = QDialog(self)
         dialog.setWindowTitle("选择条件图片")
-        
-        # 使用统一的样式函数
-        apply_dialog_style(dialog, 0.4, 0.45)
-        layout = QVBoxLayout(dialog)
-        
+
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "选择条件图片", "camera")
+
         # 图片列表
         list_widget = QListWidget()
         for img_path in image_files:
@@ -4163,11 +4222,10 @@ class FolderManager(QDialog):
             dialog = QDialog(self)
             dialog.setWindowTitle("重命名文件夹")
             dialog.setModal(False)
-            
-            # 应用统一的对话框样式
-            apply_dialog_style(dialog, 0.3, 0.2)
-            
-            layout = QVBoxLayout()
+
+            # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+            from beautiful_dialog import build_styled_card
+            layout = build_styled_card(dialog, "重命名文件夹", "edit")
             label = QLabel("请输入新的文件夹名称:")
             layout.addWidget(label)
             
@@ -4283,9 +4341,7 @@ class FolderManager(QDialog):
             button_layout.addWidget(ok_button)
             button_layout.addWidget(cancel_button)
             layout.addLayout(button_layout)
-            
-            dialog.setLayout(layout)
-            
+
             # 连接信号 - 简化逻辑，直接让按钮点击触发重命名
             def on_ok():
                 new_name = line_edit.text().strip()
@@ -4570,9 +4626,10 @@ class FolderManager(QDialog):
         _hdr_lo.addStretch()
         def _closeD(ev):
             if ev.button() == Qt.LeftButton: dialog.close()
-        _red_dot = QFrame()
-        _red_dot.setFixedSize(16, 16)
-        _red_dot.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
+        _red_dot = QLabel("✕")
+        _red_dot.setFixedSize(22, 22)
+        _red_dot.setAlignment(Qt.AlignCenter)
+        _red_dot.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _hdr_lo.addWidget(_red_dot)
@@ -5070,12 +5127,11 @@ class FolderManager(QDialog):
 
         dialog = QDialog(self)
         dialog.setWindowTitle("设置快捷键")
-        # 设置窗口标志：移除帮助按钮，添加最小化按钮
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        dialog.setFixedWidth(420)
 
-        # 按比例设置对话框大小
-        width, height = get_screen_size(0.3)  # 减小窗口大小比例
-        dialog.resize(width, int(height * 0.25))  # 减小窗口高度比例
+        # 「删除确认」同款卡片骨架：半透明窗口 + 实心白圆角卡 + 左侧竖条 + 图标标题
+        from beautiful_dialog import build_styled_card, styled_button, center_dialog, fade_in_dialog
+        content = build_styled_card(dialog, "设置快捷键", "keyboard")
 
         dialog.setWindowModality(Qt.WindowModal)
 
@@ -5095,116 +5151,39 @@ class FolderManager(QDialog):
         dialog._help_blocker_ref = _help_blocker  # 保持引用，防止被 GC
         dialog.activateWindow()
 
-        # 应用统一的对话框样式
-        apply_dialog_style(dialog, 0.3, 0.25)
-
-        layout = QVBoxLayout()
-        layout.setSpacing(15)  # 减小间距
-        layout.setContentsMargins(25, 20, 25, 20)  # 减小边距
-
-        # 按屏幕比例设置字体大小
-        screen_width, screen_height = get_screen_size()
-
         instruction_label = QLabel("请按下快捷键组合...")
         instruction_label.setAlignment(Qt.AlignCenter)
-        # 按屏幕比例设置字体大小
-        instruction_font_size = int(screen_height * 0.025)  # 屏幕高度的2.5%
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #5A6069; padding: 8px 0px; line-height: 1.4; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")  # 动态字体大小
-        layout.addWidget(instruction_label)
+        instruction_label.setStyleSheet("font-size: 13px; color: #8E8E93; background: transparent; padding: 2px 0;")
+        content.addWidget(instruction_label)
 
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
         shortcut_label.setAlignment(Qt.AlignCenter)
-        # 按屏幕比例设置字体大小
-        shortcut_font_size = int(screen_height * 0.03)  # 屏幕高度的3%
-        shortcut_label.setStyleSheet(f"""
-            font-size: {shortcut_font_size}px;
-            font-weight: bold;
-            padding: 8px;
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            background-color: white;
-            min-height: 35px;
-            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+        shortcut_label.setStyleSheet("""
+            font-size: 18px; font-weight: 600; letter-spacing: 2px;
+            padding: 14px;
+            border: 1.5px dashed #D1D1D6;
+            border-radius: 10px;
+            background-color: #FAFAFA;
+            color: #1A1A2E;
+            min-height: 40px;
         """)
-        layout.addWidget(shortcut_label)
+        content.addWidget(shortcut_label)
 
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)  # 减小按钮间距
-        clear_btn = QPushButton("清除")
-        clear_btn.setFixedSize(100, 32)
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #5A6069;
-                
-            }
-            QPushButton:pressed {
-                background-color: #5A6069;
-                
-            }
-        """)
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedSize(100, 32)
-        ok_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #5A6069;
-                
-            }
-            QPushButton:pressed {
-                background-color: #5A6069;
-                
-            }
-        """)
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedSize(100, 32)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #5A6069;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0px;
-                text-align: center;
-            }
-            QPushButton:hover {
-                background-color: #5A6069;
-                
-            }
-            QPushButton:pressed {
-                background-color: #5A6069;
-                
-            }
-        """)
-
+        button_layout.setSpacing(10)
         button_layout.addStretch()
+
+        clear_btn = styled_button("清除", danger=True)
+        ok_btn = styled_button("确定", primary=True)
+        cancel_btn = styled_button("取消", primary=False)
+
         button_layout.addWidget(clear_btn)
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
+        content.addLayout(button_layout)
 
-        dialog.setLayout(layout)
+        center_dialog(dialog)
+        fade_in_dialog(dialog)
 
         # 存储当前按下的键
         current_keys = []
@@ -5868,12 +5847,14 @@ class AutoRecorderApp(QMainWindow):
         dialog.setWindowTitle(f"查看录制图片 - {folder_name}")
         # 设置窗口标志：移除帮助按钮，添加最小化按钮
         dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card, enable_dialog_drag
+        layout = build_styled_card(dialog, f"查看录制图片 - {folder_name}", "camera")
         scr = self.screen_size()
         dialog.setMinimumSize(int(scr.width() * 0.8), int(scr.height() * 0.8))
-        layout = QVBoxLayout(dialog)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         content = QWidget()
         grid = QGridLayout(content)
         imgs = self.get_image_files(folder_path)
@@ -6297,7 +6278,8 @@ class AutoRecorderApp(QMainWindow):
                 QPushButton {{
                     background-color: {new_color};
                     color: white;
-                    bordborder-radius: 8px                  font-weight: 600;
+                    border-radius: 8px;
+                    font-weight: 600;
                     font-size: 11px;
                     padding: 0 12px;
                     text-align: center;
@@ -6322,16 +6304,12 @@ class AutoRecorderApp(QMainWindow):
         # 按屏幕比例设置对话框大小
         scr = self.screen_size()
         dialog.setFixedSize(int(scr.width() * 0.2), int(scr.height() * 0.15))
-        
-        # 应用统一样式
-        if APP_STYLES_AVAILABLE:
-            apply_dialog_style(dialog)
-        
-        # 创建布局
-        layout = QVBoxLayout(dialog)
+
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "字体大小设置", "text")
         layout.setSpacing(10)
-        layout.setContentsMargins(15, 15, 15, 15)
-        
+
         # 添加标签
         label = QLabel("请输入字体大小:")
         layout.addWidget(label)
@@ -6588,7 +6566,8 @@ class AutoRecorderApp(QMainWindow):
         clear_btn.setFixedHeight(24)
         clear_btn.setStyleSheet("""
             QPushButton#clearLogBtn {
-                background-color: #E9E9EE; color: #1D1D1F; border: none; bordeborder-radius: 8px             padding: 0 14px; font-weight: 500; font-size: 12px;
+                background-color: #E9E9EE; color: #1D1D1F; border: none; border-radius: 8px;
+                padding: 0 14px; font-weight: 500; font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
             QPushButton#clearLogBtn:hover { background-color: #DCDCE1; }
@@ -6598,9 +6577,10 @@ class AutoRecorderApp(QMainWindow):
         _hdr_lo.addWidget(clear_btn)
         def _closeD(ev):
             if ev.button() == Qt.LeftButton: self.log_window.close()
-        _red_dot = QFrame()
-        _red_dot.setFixedSize(16, 16)
-        _red_dot.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
+        _red_dot = QLabel("✕")
+        _red_dot.setFixedSize(22, 22)
+        _red_dot.setAlignment(Qt.AlignCenter)
+        _red_dot.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         _red_dot.mousePressEvent = _closeD
         _red_dot.setCursor(Qt.PointingHandCursor)
         _hdr_lo.addWidget(_red_dot)
@@ -6763,9 +6743,10 @@ class AutoRecorderApp(QMainWindow):
         _dots_l = QHBoxLayout(_dots_w)
         _dots_l.setContentsMargins(0,0,0,0)
         _dots_l.setSpacing(6)
-        _d_close = _QF2()
-        _d_close.setFixedSize(16, 16)
-        _d_close.setStyleSheet("QFrame{background-color:#FF5F57;border:none;border-radius:8px;}QFrame:hover{background-color:#FF3B30;}")
+        _d_close = QLabel("✕")
+        _d_close.setFixedSize(22, 22)
+        _d_close.setAlignment(Qt.AlignCenter)
+        _d_close.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         _d_close.setCursor(Qt.PointingHandCursor)
         def _dclose_ev(ev):
             if ev.button()==Qt.LeftButton: self.close_replay_indicator()
@@ -7109,6 +7090,9 @@ class AutoRecorderApp(QMainWindow):
     
     def batch_play_recordings(self):
         """批量执行选中的流程"""
+        # 商业化付费闸：试用过期且非 VIP 时禁止批量回放
+        if not self.check_entitlement_gate():
+            return
         if not hasattr(self, 'recording_checkboxes'):
             return
         
@@ -7140,38 +7124,20 @@ class AutoRecorderApp(QMainWindow):
         
         dialog = QDialog(self)
         dialog.setWindowTitle("回放设置")
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
-        dialog.setFixedSize(280, 200)
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
         from design_system import ColorPalette as _C
         dialog.setStyleSheet(f"""
-            QDialog {{
-                background-color: {_C.BG_CARD};
-            }}
             QLabel {{
                 color: {_C.TEXT_PRIMARY};
-                font-size: 18px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton {{
-                background-color: {_C.PRIMARY};
-                color: white;
-                borderborder-radius: 8px            padding: 8px 20px;
                 font-size: 16px;
-                font-weight: bold;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton:hover {{
-                background-color: {_C.PRIMARY_HOVER};
-            }}
-            QPushButton:pressed {{
-                background-color: {_C.PRIMARY_ACTIVE};
+                background: transparent;
             }}
         """)
-        
-        layout = QVBoxLayout(dialog)
+        layout = build_styled_card(dialog, "回放设置", "gear")
         layout.setSpacing(16)
-        
+
         # 速度设置
         speed_label = QLabel("回放速度: 1.0x")
         layout.addWidget(speed_label)
@@ -7182,13 +7148,13 @@ class AutoRecorderApp(QMainWindow):
         speed_slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
                 height: 4px;
-                background: {_C.LIGHT_GRAY_200};
+                background: {_C.GRAY_200};
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
                 width: 12px;
                 height: 12px;
-                background: {_C.LIGHT_SYSTEM_RED};
+                background: {_C.SYSTEM_RED};
                 border-radius: 6px;
             }}
         """)
@@ -7202,9 +7168,10 @@ class AutoRecorderApp(QMainWindow):
         speed_slider.valueChanged.connect(update_speed_label)
         
         # 确定按钮
+        from beautiful_dialog import styled_button
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
-        ok_btn = QPushButton("确定")
+        ok_btn = styled_button("确定", primary=True)
         
         def apply_settings():
             speed_x = speed_slider.value() / 10.0
@@ -7297,6 +7264,9 @@ class AutoRecorderApp(QMainWindow):
     def play_recording(self, recording_name):
         """播放指定录制流程 - 总是从头开始执行"""
         # print(f"[DEBUG] play_recording called: {recording_name}")  # [日志已禁用]
+        # 商业化付费闸：试用过期且非 VIP 时禁止回放
+        if not self.check_entitlement_gate():
+            return
         try:
             # 设置当前流程
             self.current_recording = recording_name
@@ -7916,7 +7886,8 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #5A6069;
                         color: white;
-                        border-raborder-radius: 8px                 font-size: 18px;
+                        border-radius: 8px;
+                        font-size: 18px;
                         font-weight: bold;
                         font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     }
@@ -7934,7 +7905,8 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #8E8E93;
                         color: white;
-                        border-radborder-radius: 8px                font-size: 18px;
+                        border-radius: 8px;
+                        font-size: 18px;
                         font-weight: bold;
                         font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                     }
@@ -8029,6 +8001,51 @@ class AutoRecorderApp(QMainWindow):
         except ImportError:
             self.show_beautiful_message('warning', '错误', '管理员模块加载失败')
 
+    def open_activation_dialog(self):
+        """打开账户与激活对话框"""
+        try:
+            from activation_dialog import ActivationDialog
+            username = getattr(self, 'current_user', None) or getattr(
+                getattr(self, 'login_manager', None), 'current_user', None)
+            dlg = ActivationDialog(self, username=username)
+            dlg.exec_()
+        except Exception as e:
+            self.show_beautiful_message('warning', '错误', f'激活窗口加载失败: {e}')
+
+    def check_entitlement_gate(self):
+        """商业化付费闸：返回 True 放行；False = 已弹引导，调用方应中止动作。
+        策略：未登录（含占位用户名「未登录」）→ 拦截并引导登录；
+        离线 / 查询异常放行（entitlement fallback），不误伤已登录的正常用户。"""
+        try:
+            from entitlement import get_entitlement
+            username = getattr(self, 'current_user', None) or getattr(
+                getattr(self, 'login_manager', None), 'current_user', None)
+            # 商业化修复：占位用户名「未登录」不算登录 —— get_entitlement 查无此用户会走
+            # fallback(has_access=True)，导致未登录用户永久白嫖。未登录必须拦截引导登录。
+            if not username or username == "未登录" or getattr(self, '_placeholder_user', False):
+                try:
+                    # macOS 版有内嵌登录页（方案 7-7）：切到账户页（最后一页）让用户登录
+                    if hasattr(self, 'macos_stack') and hasattr(self, '_macos_titles') and hasattr(self, 'on_macos_tab_changed'):
+                        self.on_macos_tab_changed(len(self._macos_titles) - 1)
+                        self.show_beautiful_message('warning', "请先登录", "该功能需要登录后使用，请在「账户」页登录。")
+                    else:
+                        self.show_beautiful_message('warning', "请先登录", "该功能需要登录后使用。")
+                except Exception:
+                    pass
+                return False
+            ent = get_entitlement(username)
+            if ent.get('has_access', True):
+                return True
+            # 试用过期且非 VIP：每次都弹激活引导（用户要求：关掉提示后再点必须再提醒）
+            try:
+                from activation_dialog import ActivationDialog
+                ActivationDialog(self, username=username).exec_()
+            except Exception:
+                pass
+            return False
+        except Exception:
+            return True
+
     def initUI(self):
         desktop = QApplication.desktop()
         available_rect = desktop.availableGeometry()
@@ -8084,6 +8101,9 @@ class AutoRecorderApp(QMainWindow):
 
         # 应用macOS主题全局样式覆盖
         self.apply_candy_theme()
+
+        # 商业化：启动后静默检查一次权益（试用过期则弹激活引导）
+        QTimer.singleShot(3000, self.check_entitlement_gate)
 
     def apply_candy_theme(self):
         """应用macOS主题样式 - 覆盖所有硬编码颜色"""
@@ -8680,6 +8700,26 @@ class AutoRecorderApp(QMainWindow):
         log_btn.clicked.connect(self.show_log_window)
         layout.addWidget(log_btn)
 
+        # 会员与激活（商业化入口）
+        vip_btn = QPushButton("会员与激活")
+        vip_btn.setIcon(load_svg_icon("member", 18))
+        vip_btn.setIconSize(QSize(32, 32))
+        vip_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #d48806;
+                color: white;
+                border-radius: 6px;
+                padding: 12px 20px;
+                font-size: 14px;
+                text-align: left;
+            }
+            QPushButton:hover {
+                background-color: #ffc53d;
+            }
+        """)
+        vip_btn.clicked.connect(self.open_activation_dialog)
+        layout.addWidget(vip_btn)
+
         layout.addStretch()
         return tab
 
@@ -8848,7 +8888,8 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #5A6069;
                         color: white;
-                        border-radiborder-radius: 8px               font-size: 16px;
+                        border-radius: 8px;
+                        font-size: 16px;
                         font-weight: bold;
                     }
                 """)
@@ -8857,7 +8898,8 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #D1D1D6;
                         color: #8E8E93;
-                        border-radiuborder-radius: 8px              font-size: 16px;
+                        border-radius: 8px;
+                        font-size: 16px;
                         font-weight: bold;
                     }
                 """)
@@ -9036,39 +9078,16 @@ class AutoRecorderApp(QMainWindow):
         # 顶部按钮区域
         top_layout = QHBoxLayout()
 
-        # 刷新按钮
+        # 刷新按钮（统一扁平样式：浅灰底、无边框、无阴影）
         refresh_btn = QPushButton("刷新")
         refresh_btn.setIcon(load_svg_icon("refresh", 18))
         refresh_btn.setIconSize(QSize(32, 32))
-        refresh_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {THEME_PRIMARY};
-                color: white;
-                border-radius: 6px;
-                padding: 8px 15px;
-                font-size: 12px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton:hover {{
-                background-color: #6B7178;
-            }}
-        """)
+        refresh_btn.setStyleSheet(flat_button_style("neutral"))
         top_layout.addWidget(refresh_btn)
-        
-        # 回收站按钮
+
+        # 回收站按钮（统一扁平样式：红底白字、无边框、无阴影）
         trash_btn = QPushButton("🗑️ 回收站")
-        trash_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #ff4d4f;
-                color: white;
-                border-radius: 4px;
-                padding: 8px 15px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #ff7875;
-            }
-        """)
+        trash_btn.setStyleSheet(flat_button_style("danger"))
         top_layout.addWidget(trash_btn)
         
         top_layout.addStretch()
@@ -9076,11 +9095,13 @@ class AutoRecorderApp(QMainWindow):
         
         # 使用QTableWidget显示流程列表（支持更多操作）
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
-        from design_system import configure_soft_card_table
+        from design_system import configure_soft_card_table, flat_button_style
 
         folder_table = QTableWidget()
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
+        # 列宽自适应表格宽度，不出现横向滚动条
+        folder_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         configure_soft_card_table(folder_table, row_height=48)
 
         # 添加单击事件 - 点击流程名称打开查看图片窗口，点击Emoji执行操作
@@ -9191,8 +9212,10 @@ class AutoRecorderApp(QMainWindow):
                 table_widget.setItem(row, 4, delete_item)
                 
             # 调整列宽 - 给按钮列更多空间
+            from PyQt5.QtWidgets import QHeaderView
             table_widget.setColumnWidth(0, 100)  # 时间
-            table_widget.setColumnWidth(1, 200)  # 流程名称
+            # 流程名称列自适应拉伸，吃掉剩余宽度，保证总宽不超过表格（否则会出横向滚动条）
+            table_widget.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
             table_widget.setColumnWidth(2, 80)   # 快捷键
             table_widget.setColumnWidth(3, 70)   # 重命名按钮
             table_widget.setColumnWidth(4, 55)   # 删除按钮
@@ -9300,12 +9323,10 @@ class AutoRecorderApp(QMainWindow):
         
         dialog = QDialog(self)
         dialog.setWindowTitle("设置快捷键")
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
-        
-        # 按比例设置对话框大小
-        width, height = get_screen_size(0.3)
-        dialog.resize(width, int(height * 0.25))
+        # 「删除确认」同款卡片骨架：半透明窗口 + 实心白圆角卡 + 左侧竖条 + 图标标题
+        from beautiful_dialog import build_styled_card, styled_button, center_dialog, fade_in_dialog
+        content = build_styled_card(dialog, "设置快捷键", "keyboard")
+        dialog.setFixedWidth(420)
         dialog.setWindowModality(Qt.WindowModal)
 
         # 拦截 F1 触发的系统“帮助”事件（Windows 下 F1 会被系统抢走焦点/弹帮助，
@@ -9324,103 +9345,41 @@ class AutoRecorderApp(QMainWindow):
         dialog._help_blocker_ref = _help_blocker  # 保持引用，防止被 GC
         dialog.activateWindow()
 
-        layout = QVBoxLayout()
-        layout.setSpacing(15)
-        layout.setContentsMargins(25, 20, 25, 20)
-
-        screen_width, screen_height = get_screen_size()
-
         instruction_label = QLabel("请按下快捷键组合...")
         instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_font_size = int(screen_height * 0.022)
-        instruction_label.setStyleSheet(f"font-size: {instruction_font_size}px; color: #8c8c8c; font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;")
-        layout.addWidget(instruction_label)
+        instruction_label.setStyleSheet("font-size: 13px; color: #8E8E93; background: transparent; padding: 2px 0;")
+        content.addWidget(instruction_label)
         
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
         shortcut_label.setAlignment(Qt.AlignCenter)
-        shortcut_font_size = int(screen_height * 0.03)
-        shortcut_label.setStyleSheet(f"""
-            font-size: {shortcut_font_size}px;
-            font-weight: bold;
-            padding: 12px;
-            border: 2px solid #FF453A;
-            border-radius: 12px;
-            background-color: #FFFFFF;
+        shortcut_label.setStyleSheet("""
+            font-size: 18px; font-weight: 600; letter-spacing: 2px;
+            padding: 14px;
+            border: 1.5px dashed #D1D1D6;
+            border-radius: 10px;
+            background-color: #FAFAFA;
+            color: #1A1A2E;
             min-height: 40px;
-            font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            color: #FF453A;
         """)
-        layout.addWidget(shortcut_label)
+        content.addWidget(shortcut_label)
         
         button_layout = QHBoxLayout()
         button_layout.setSpacing(12)
         
-        clear_btn = QPushButton("清除")
-        clear_btn.setFixedSize(100, 32)
-        clear_btn.setStyleSheet("""
-            QPushButton {
-                background: #ff4d4f;
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }
-            QPushButton:hover {
-                background: #ff7875;
-            }
-            QPushButton:pressed {
-                background: #d9363e;
-            }
-        """)
+        clear_btn = styled_button("清除", danger=True)
         
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedSize(100, 32)
-        ok_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {THEME_PRIMARY};
-                color: white;
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton:hover {{
-                background-color: #6B7178;
-            }}
-            QPushButton:pressed {{
-                background-color: #3E434B;
-            }}
-        """)
+        ok_btn = styled_button("确定", primary=True)
 
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedSize(100, 32)
-        cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {BG};
-                color: {TEXT};
-                border: 1px solid {BORDER};
-                border-radius: 6px;
-                font-weight: bold;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton:hover {{
-                background-color: {CARD};
-                border-color: {ACCENT};
-                color: {ACCENT};
-            }}
-        """)
+        cancel_btn = styled_button("取消", primary=False)
 
-        button_layout.addStretch()
         button_layout.addWidget(clear_btn)
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
-        button_layout.addStretch()
-        layout.addLayout(button_layout)
-        
-        dialog.setLayout(layout)
-        
+        content.addLayout(button_layout)
+
+        center_dialog(dialog)
+        fade_in_dialog(dialog)
+
         # 存储当前按下的键
         current_keys = []
         
@@ -9651,9 +9610,10 @@ class AutoRecorderApp(QMainWindow):
         count_label.setStyleSheet("font-size: 12px; color: #86868B; background: transparent; border: none;")
         _hdr_lo.addWidget(count_label)
         _hdr_lo.addSpacing(12)
-        dot_close = QFrame()
-        dot_close.setFixedSize(16, 16)
-        dot_close.setStyleSheet('QFrame{background-color:#FF5F57;border:none;border-radius:8px;}QFrame:hover{background-color:#FF3B30;}')
+        dot_close = QLabel("✕")
+        dot_close.setFixedSize(22, 22)
+        dot_close.setAlignment(Qt.AlignCenter)
+        dot_close.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         dot_close.setCursor(Qt.PointingHandCursor)
         def _dot_close_click(ev):
             if ev.button() == Qt.LeftButton: dialog.close()
@@ -9758,7 +9718,8 @@ class AutoRecorderApp(QMainWindow):
 
         # ① 恢复选中 → 深灰主按钮（与「添加坐标操作」同款）
         restore_btn = QPushButton("恢复选中")
-        restore_btn.setIcon(load_svg_icon("loop", 16, color="#FFFFFF"))
+        # 用 SVG 原始 emoji 配色（白底板+彩图形）；强制染白会让白底板上出现白图形，糊成一片
+        restore_btn.setIcon(load_svg_icon("restore", 16))
         restore_btn.setIconSize(QSize(24, 24))
         restore_btn.setFixedSize(140, 34)
         restore_btn.setStyleSheet(_trash_btn_style("#5A6069", "white", "#6B7178", "#474C54"))
@@ -9767,7 +9728,7 @@ class AutoRecorderApp(QMainWindow):
 
         # ② 永久删除 → 红 destructive（保留警告色，避免误删）
         delete_btn = QPushButton("永久删除")
-        delete_btn.setIcon(load_svg_icon("trash", 16, color="#FFFFFF"))
+        delete_btn.setIcon(load_svg_icon("trash", 16))
         delete_btn.setIconSize(QSize(24, 24))
         delete_btn.setFixedSize(140, 34)
         delete_btn.setStyleSheet(_trash_btn_style("#FF3B30", "white", "#FF5A50", "#E02D22"))
@@ -9776,7 +9737,7 @@ class AutoRecorderApp(QMainWindow):
 
         # ③ 清空回收站 → 白底灰边次要按钮（与「继续添加操作」同款）
         clear_btn = QPushButton("清空回收站")
-        clear_btn.setIcon(load_svg_icon("cross", 16, color="#5A6069"))
+        clear_btn.setIcon(load_svg_icon("cross", 16))
         clear_btn.setIconSize(QSize(24, 24))
         clear_btn.setFixedSize(140, 34)
         clear_btn.setStyleSheet(_trash_btn_style("#FFFFFF", "#5A6069", "#F2F2F7", "#E8E8ED",
@@ -10459,7 +10420,12 @@ class AutoRecorderApp(QMainWindow):
         self.hide()
         if hasattr(self, 'replay_status_widget'):
             self.replay_status_widget.hide()
-        from login_ui import LoginDialog
+        try:
+            from login_ui import LoginDialog
+        except ImportError:
+            # login_ui.py 已移除（登录改为 app_macos 内嵌账户页），旧界面直接退出
+            QApplication.quit()
+            return
         login_dialog = LoginDialog(self.login_manager)
         if login_dialog.exec_() == login_dialog.Accepted:
             self.username = login_dialog.current_user
@@ -11033,6 +10999,7 @@ class ComboSkillRunner:
                                 except Exception:
                                     break
                                 # 设置running=False，确保停止整个组合技（不只跳出内层while）
+                                self._stop_reason = f"连续 {self._consecutive_failures} 次执行失败"
                                 self.running = False
                                 break
                         else:
@@ -11117,12 +11084,14 @@ class ComboSkillRunner:
             else:
                 try:
                     if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ⏹️ 组合技被停止，已执行: {_run_elapsed:.3f}s")
+                        _stop_reason = getattr(self, '_stop_reason', '') or '手动停止'
+                        self._main_app.append_log(f" ║  ⏹️ 组合技被停止（{_stop_reason}），已执行: {_run_elapsed:.3f}s")
                         self._main_app.append_log(f"╚═{'═'*45}")
                 except Exception:
                     pass
                 if self._on_finished:
-                    self._on_finished(False, "已停止")
+                    _stop_reason = getattr(self, '_stop_reason', '') or '手动停止'
+                    self._on_finished(False, f"已停止 · 原因: {_stop_reason} · 已执行 {_run_elapsed:.1f}s")
 
         except Exception as e:
             import traceback

@@ -476,3 +476,113 @@ def show_styled_double(parent=None, title="输入数值", label="请输入数值
                                decimals=decimals, step=step)
     ok = dialog.exec_() == QDialog.Accepted
     return dialog.get_value(), ok
+
+
+# ============================================
+# 「删除确认」同款卡片骨架（自定义弹窗对齐全家桶样式用）
+# ============================================
+
+def add_card_shadow(widget):
+    """卡片投影（与 StyledMessageDialog 一致）。"""
+    s = QGraphicsDropShadowEffect()
+    s.setBlurRadius(40)
+    s.setColor(QColor(142, 142, 147, 30))
+    s.setOffset(0, 8)
+    widget.setGraphicsEffect(s)
+
+
+def build_styled_card(dialog, title, icon_name="info"):
+    """把任意 QDialog 装进「删除确认」同款卡片：半透明窗口 + 实心白圆角卡
+    + 左侧灰竖条 + 图标 + 粗体标题。返回 content QVBoxLayout（往里塞自己的内容）。
+
+    ⚠️ 背景由实心容器绘制——WA_TranslucentBackground 下顶层 QDialog 的
+    QSS background-color 不会被绘制（整窗透明教训，2026-09-06）。
+    按钮请用 styled_button() 保证配色同族。
+    """
+    dialog.setWindowFlags(dialog.windowFlags() | Qt.Dialog | Qt.FramelessWindowHint)
+    dialog.setAttribute(Qt.WA_TranslucentBackground)
+
+    layout = QVBoxLayout(dialog)
+    layout.setContentsMargins(0, 0, 0, 0)
+
+    container = QWidget()
+    container.setObjectName("C")
+    container.setStyleSheet("QWidget#C{background:#FFFFFF;border:none;border-radius:12px;}")
+
+    row = QHBoxLayout()
+    row.setContentsMargins(0, 0, 0, 0)
+    row.setSpacing(0)
+
+    bar = QLabel()
+    bar.setFixedWidth(8)
+    bar.setStyleSheet("background:#8E8E93;border-radius:12px 0 0 12px;")
+    row.addWidget(bar)
+
+    content = QWidget()
+    cl = QVBoxLayout(content)
+    cl.setContentsMargins(24, 28, 28, 24)
+    cl.setSpacing(16)
+
+    hr = QHBoxLayout()
+    icon = QLabel()
+    icon.setPixmap(load_svg_icon(icon_name, 28).pixmap(int(round(28 * ICON_SCALE)), int(round(28 * ICON_SCALE))))
+    icon.setStyleSheet("background:transparent;")
+    icon.setFixedSize(56, 56)
+    icon.setAlignment(Qt.AlignCenter)
+    hr.addWidget(icon)
+    tl = QLabel(title)
+    tl.setStyleSheet("font-size:18px;font-weight:700;color:#1A1A2E;background:transparent;")
+    hr.addWidget(tl, 1)
+    cl.addLayout(hr)
+
+    row.addWidget(content, 1)
+    cl2 = QVBoxLayout(container)
+    cl2.setContentsMargins(0, 0, 0, 0)
+    cl2.addLayout(row)
+    layout.addWidget(container)
+    add_card_shadow(container)
+    return cl
+
+
+def styled_button(text, primary=True, danger=False):
+    """删除确认同族按钮。primary=深灰主按钮；primary=False=白底描边次按钮；
+    danger=True=白底红字（清除等破坏性操作，自动覆盖 primary）。
+    一律不设 default（录入型弹窗要自己接管 Enter/按键）。"""
+    if danger:
+        primary = False
+    b = QPushButton(text)
+    b.setCursor(QCursor(Qt.PointingHandCursor))
+    b.setFixedHeight(32)
+    b.setMinimumWidth(80)
+    if primary:
+        b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
+    elif danger:
+        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#FF3B30;border:1px solid #FFD1CC;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#FFF0EE;}QPushButton:pressed{background:#FFE3DF;}")
+    else:
+        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
+    b.setAutoDefault(False)
+    b.setDefault(False)
+    return b
+
+
+def center_dialog(dialog):
+    """show 后居中到父窗口（无父级则居中到屏幕）。"""
+    def _c():
+        p = dialog.parent()
+        if p:
+            r = p.geometry()
+            dialog.move(r.center().x() - dialog.width() // 2, r.center().y() - dialog.height() // 2)
+        else:
+            s = QApplication.primaryScreen().geometry()
+            dialog.move(s.center().x() - dialog.width() // 2, s.center().y() - dialog.height() // 2)
+    QTimer.singleShot(0, _c)
+
+
+def fade_in_dialog(dialog):
+    """180ms 淡入（与 StyledMessageDialog 一致）。"""
+    dialog._fade_anim = QPropertyAnimation(dialog, b"windowOpacity")
+    dialog._fade_anim.setDuration(180)
+    dialog._fade_anim.setStartValue(0.0)
+    dialog._fade_anim.setEndValue(1.0)
+    dialog._fade_anim.setEasingCurve(QEasingCurve.OutCubic)
+    QTimer.singleShot(50, dialog._fade_anim.start)

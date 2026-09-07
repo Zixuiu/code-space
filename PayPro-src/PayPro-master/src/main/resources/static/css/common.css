@@ -1,0 +1,142 @@
+:root {
+    /* Base Colors - Minimal Pure White Theme (Style 1) */
+    --bg-color: #ffffff;       /* 纯白底 */
+    --surface-color: #f6f7f9;  /* 商品卡浅灰 */
+    --text-color: #1a1a1a;     /* 近黑主文字 */
+    --text-muted: #9aa0a8;     /* 灰色次级文字 */
+
+    /* Brand Colors - Minimal Dark Gray */
+    --primary-color: #3a3a3a;
+    --primary-hover: #262626;
+    --secondary-color: #3a3a3a;
+    --accent-color: #1a1a1a;
+
+    /* Glass / Cards - Light */
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-border: 1px solid #e8eaee;
+    --glass-shadow: 0 8px 28px 0 rgba(26, 26, 26, 0.07);
+    --glass-highlight: rgba(26, 26, 26, 0.03);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background-color: var(--bg-color);
+    background-image: none;
+    color: var(--text-color);
+    line-height: 1.6;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* Layout Utilities */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Glass Component */
+.glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 20px;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.glass:hover {
+    border-color: rgba(26, 26, 26, 0.25);
+    background: #ffffff;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(26, 26, 26, 0.18);
+}
+
+.btn-primary:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(26, 26, 26, 0.25);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid #e8eaee;
+}
+
+.btn-ghost:hover {
+    color: var(--primary-color);
+    border-color: rgba(26, 26, 26, 0.35);
+    background: rgba(26, 26, 26, 0.04);
+}
+
+/* Typography */
+.text-gradient {
+    background: linear-gradient(to right, #1a1a1a, #3a3a3a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.text-accent-gradient {
+    background: linear-gradient(to right, #1a1a1a, #3a3a3a);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Animations */
+@keyframes float {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+    100% { transform: translateY(0px); }
+}
+
+.animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+.footer {
+    text-align: center;
+    color: var(--text-muted);
+    margin-top: 80px;
+    padding: 40px 0;
+    border-top: 1px solid rgba(26, 26, 26, 0.10);
+}

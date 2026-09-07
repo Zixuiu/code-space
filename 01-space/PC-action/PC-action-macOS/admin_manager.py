@@ -5,6 +5,7 @@
 
 import os
 import sys
+import re
 from datetime import datetime
 from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                            QTableWidget, QTableWidgetItem, QPushButton, 
@@ -45,6 +46,17 @@ try:
 except ImportError:
     ADMIN_STYLES_AVAILABLE = False
     print("警告: 样式模块未找到，将使用默认样式")
+
+# 充值审核按钮样式常量
+_RCH_GRY = """QPushButton { background-color:#5A6069; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+QPushButton:hover { background-color:#5A6069; }
+QPushButton:pressed { background-color:#5A6069; }"""
+_RCH_OK = """QPushButton { background-color:#2E7D32; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+QPushButton:hover { background-color:#388E3C; }
+QPushButton:pressed { background-color:#1B5E20; }"""
+_RCH_BAD = """QPushButton { background-color:#C62828; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+QPushButton:hover { background-color:#D32F2F; }
+QPushButton:pressed { background-color:#B71C1C; }"""
 
 class LoadUsersThread(QThread):
     """异步加载用户数据的线程"""
@@ -177,74 +189,35 @@ class AdminManager(QMainWindow):
             return str(datetime_str) if datetime_str else "无"
     
     def show_message_box(self, msg_type, title, text, buttons=None, default_button=None):
+        """显示与主程序同款的 StyledMessageDialog 美化消息框（无边框圆角卡片）。
+
+        保持旧 QMessageBox 版本的返回值约定（返回 QMessageBox.Yes/No/Ok/Cancel），
+        所有调用方无需改动。Enter＝确认（是/确定），Esc＝取消/否。
         """
-        显示支持ESC键的美化消息框
-        msg_type: 'information', 'warning', 'critical', 'question'
-        title: 消息框标题
-        text: 消息框内容
-        buttons: 按钮组合，默认为QMessageBox.Ok
-        default_button: 默认按钮
-        """
-        from styles import get_message_box_style
-        
-        msg_box = QMessageBox()
-        msg_box.setWindowTitle(title)
-        msg_box.setText(text)
-        
-        # 应用美化样式
-        style = get_message_box_style()
-        msg_box.setStyleSheet(style)
-        
-        # 设置消息框类型
-        if msg_type == 'information':
-            msg_box.setIcon(QMessageBox.Information)
-        elif msg_type == 'warning':
-            msg_box.setIcon(QMessageBox.Warning)
-        elif msg_type == 'critical':
-            msg_box.setIcon(QMessageBox.Critical)
-        elif msg_type == 'question':
-            msg_box.setIcon(QMessageBox.Question)
-        
-        # 设置按钮
+        # 按钮组合映射：QMessageBox 标准按钮 -> StyledMessageDialog 按钮模式
         if buttons is None:
-            if msg_type == 'question':
-                buttons = QMessageBox.Yes | QMessageBox.No
-                default_button = QMessageBox.Yes
-            else:
-                buttons = QMessageBox.Ok
-                default_button = QMessageBox.Ok
+            buttons = (QMessageBox.Yes | QMessageBox.No) if msg_type == 'question' else QMessageBox.Ok
+        if (buttons & QMessageBox.Yes) and (buttons & QMessageBox.Cancel):
+            btn_mode = "yes_no_cancel"
+        elif buttons & QMessageBox.Yes:
+            btn_mode = "yes_no"
+        elif buttons & QMessageBox.Cancel:
+            btn_mode = "ok_cancel"
+        else:
+            btn_mode = "ok"
 
-        msg_box.setStandardButtons(buttons)
+        dlg = StyledMessageDialog(self, title=title, text=text,
+                                  msg_type=msg_type, buttons=btn_mode)
+        result = dlg.exec_()
 
-        # 全局约定：Enter 一律＝确认（是/确定），不＝否。
-        # 即便调用方显式传了 default_button=No，这里也强制纠正为 Yes/Ok。
-        if buttons & QMessageBox.Yes:
-            default_button = QMessageBox.Yes
-        elif buttons & QMessageBox.Ok:
-            default_button = QMessageBox.Ok
-        if default_button:
-            msg_box.setDefaultButton(default_button)
-
-        # 去掉「否 / 取消」按钮抢焦点导致 Enter 落到它们身上的可能
-        for _b in msg_box.buttons():
-            if msg_box.standardButton(_b) != default_button:
-                try:
-                    _b.setAutoDefault(False)
-                except Exception:
-                    pass
-        
-        # ESC键处理
-        def keyPressEvent(event):
-            if event.key() == Qt.Key_Escape:
-                if msg_type == 'question':
-                    msg_box.done(QMessageBox.No)
-                else:
-                    msg_box.reject()
-            else:
-                super(QMessageBox, msg_box).keyPressEvent(event)
-        
-        msg_box.keyPressEvent = keyPressEvent
-        return msg_box.exec_()
+        # 结果映射回 QMessageBox 常量，兼容旧调用方
+        mapping = {
+            StyledMessageDialog.YES: QMessageBox.Yes,
+            StyledMessageDialog.NO: QMessageBox.No,
+            StyledMessageDialog.OK: QMessageBox.Ok,
+            StyledMessageDialog.CANCEL: QMessageBox.Cancel,
+        }
+        return mapping.get(result, QMessageBox.No if msg_type == 'question' else QMessageBox.Ok)
     
     def setup_loading_indicator(self):
         """设置加载指示器"""
@@ -1061,9 +1034,54 @@ class AdminManager(QMainWindow):
         
         feedback_layout.addLayout(feedback_buttons)
         
+        # 充值审核页面
+        recharge_tab = QWidget()
+        recharge_layout = QVBoxLayout(recharge_tab)
+        recharge_layout.setContentsMargins(0, 0, 0, 0)
+        recharge_layout.setSpacing(0)
+
+        self.recharge_table = QTableWidget()
+        self.recharge_table.setColumnCount(5)
+        self.recharge_table.setHorizontalHeaderLabels(["ID", "用户名", "备注", "提交时间", "状态"])
+        self.recharge_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.recharge_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self.recharge_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.recharge_table.verticalHeader().setDefaultSectionSize(25)
+        self.recharge_table.setColumnHidden(0, True)  # 隐藏 ID 列
+
+        from styles import get_table_style
+        self.recharge_table.setStyleSheet(get_table_style() + """
+            QTableWidget::item { padding: 10px; }
+            QHeaderView::section { padding: 0px; margin: 0px; }
+        """)
+        recharge_layout.addWidget(self.recharge_table)
+
+        recharge_buttons = QHBoxLayout()
+        recharge_buttons.setSpacing(5)
+        self.refresh_recharge_btn = QPushButton("刷新列表")
+        self.refresh_recharge_btn.setFixedSize(min_button_width, 32)
+        self.refresh_recharge_btn.setStyleSheet(_RCH_GRY)
+        self.refresh_recharge_btn.clicked.connect(self.load_recharge_records)
+        recharge_buttons.addWidget(self.refresh_recharge_btn)
+
+        self.approve_recharge_btn = QPushButton("通过审核")
+        self.approve_recharge_btn.setFixedSize(min_button_width + 20, 32)
+        self.approve_recharge_btn.setStyleSheet(_RCH_OK)
+        self.approve_recharge_btn.clicked.connect(self.approve_recharge)
+        recharge_buttons.addWidget(self.approve_recharge_btn)
+
+        self.reject_recharge_btn = QPushButton("驳回")
+        self.reject_recharge_btn.setFixedSize(min_button_width, 32)
+        self.reject_recharge_btn.setStyleSheet(_RCH_BAD)
+        self.reject_recharge_btn.clicked.connect(self.reject_recharge)
+        recharge_buttons.addWidget(self.reject_recharge_btn)
+
+        recharge_layout.addLayout(recharge_buttons)
+
         # 添加标签页
         self.tabs.addTab(user_tab, "用户管理")
         self.tabs.addTab(feedback_tab, "反馈管理")
+        self.tabs.addTab(recharge_tab, "充值审核")
         
         layout.addWidget(self.tabs)
         central_widget.setLayout(layout)
@@ -1364,13 +1382,16 @@ class AdminManager(QMainWindow):
         # 创建选择对话框
         dialog = QDialog(self)
         dialog.setWindowTitle("切换管理员权限")
-        dialog.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-        dialog.setMinimumWidth(300)
-        
-        layout = QVBoxLayout()
-        
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        dialog.setFixedWidth(380)
+
+        layout = build_styled_card(dialog, "切换管理员权限", "member")
+        layout.setSpacing(18)
+
         label = QLabel("请选择要执行的操作：")
         label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("font-size:15px;font-weight:600;color:#1A1A2E;background:transparent;")
         layout.addWidget(label)
         
         # 创建按钮组
@@ -1403,10 +1424,9 @@ class AdminManager(QMainWindow):
         """)
         unset_admin_btn.clicked.connect(lambda: self._perform_batch_admin(selected_users, False, dialog))
         button_layout.addWidget(unset_admin_btn)
-        
+
         layout.addLayout(button_layout)
-        
-        dialog.setLayout(layout)
+
         dialog.exec_()
     
     def _perform_batch_admin(self, users, is_admin, dialog):
@@ -1462,13 +1482,16 @@ class AdminManager(QMainWindow):
         # 创建选择对话框
         dialog = QDialog(self)
         dialog.setWindowTitle("切换回放权限")
-        dialog.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-        dialog.setMinimumWidth(300)
-        
-        layout = QVBoxLayout()
-        
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        dialog.setFixedWidth(380)
+
+        layout = build_styled_card(dialog, "切换回放权限", "member")
+        layout.setSpacing(18)
+
         label = QLabel("请选择要执行的操作：")
         label.setAlignment(Qt.AlignCenter)
+        label.setStyleSheet("font-size:15px;font-weight:600;color:#1A1A2E;background:transparent;")
         layout.addWidget(label)
         
         # 创建按钮组
@@ -1501,10 +1524,9 @@ class AdminManager(QMainWindow):
         """)
         disable_replay_btn.clicked.connect(lambda: self._perform_batch_replay(selected_users, False, dialog))
         button_layout.addWidget(disable_replay_btn)
-        
+
         layout.addLayout(button_layout)
-        
-        dialog.setLayout(layout)
+
         dialog.exec_()
     
     def _perform_batch_replay(self, users, can_replay, dialog):
@@ -1832,10 +1854,72 @@ class AdminManager(QMainWindow):
         except Exception as e:
             self.show_message_box('critical', "错误", f"操作失败: {str(e)}")
 
+    def load_recharge_records(self):
+        """加载充值记录列表供审核"""
+        try:
+            from database_helper import DatabaseHelper
+            data = DatabaseHelper.get_recharge_records() or []
+        except Exception as e:
+            self.show_message_box('critical', "错误", f"加载充值记录失败: {str(e)}")
+            return
+        status_map = {'pending': '待审核', 'approved': '已通过', 'rejected': '已驳回'}
+        self.recharge_table.setRowCount(len(data))
+        for row, rec in enumerate(data):
+            self.recharge_table.setItem(row, 0, self._cell(str(rec.get('id', ''))))
+            self.recharge_table.setItem(row, 1, self._cell(rec.get('username', '')))
+            self.recharge_table.setItem(row, 2, self._cell(str(rec.get('payment_method') or rec.get('note') or '')))
+            self.recharge_table.setItem(row, 3, self._cell(self.format_datetime(rec.get('created_at', ''))))
+            st = str(rec.get('status', 'pending'))
+            self.recharge_table.setItem(row, 4, self._cell(status_map.get(st, st)))
+
+    def _cell(self, text):
+        item = QTableWidgetItem(text)
+        item.setTextAlignment(Qt.AlignCenter)
+        return item
+
+    def get_selected_recharge(self):
+        row = self.recharge_table.currentRow()
+        if row < 0:
+            self.show_message_box('warning', "提示", "请先选择一条充值记录")
+            return None
+        id_item = self.recharge_table.item(row, 0)
+        return {'id': id_item.text() if id_item else ''}
+
+    def _update_recharge_status(self, new_status):
+        rec = self.get_selected_recharge()
+        if not rec or not rec.get('id'):
+            return
+        if new_status == 'approved':
+            qtext = ("确认该笔充值审核通过吗？\n"
+                     "请先核对邮箱收款信息。通过后请在「用户管理」中为该用户开通对应会员。")
+        else:
+            qtext = "确认驳回这条充值申请吗？"
+        reply = self.show_message_box('question', "确认", qtext)
+        if reply != QMessageBox.Yes:
+            return
+        try:
+            from database_helper import DatabaseHelper
+            ok = DatabaseHelper.update_recharge_status(rec['id'], new_status)
+        except Exception as e:
+            self.show_message_box('critical', "错误", f"操作失败: {str(e)}")
+            return
+        if ok:
+            self.show_message_box('information', "成功", "已通过审核" if new_status == 'approved' else "已驳回")
+        else:
+            self.show_message_box('critical', "错误", "操作失败")
+        self.load_recharge_records()
+
+    def approve_recharge(self):
+        self._update_recharge_status('approved')
+
+    def reject_recharge(self):
+        self._update_recharge_status('rejected')
+
     def showEvent(self, event):
         """窗口显示时加载数据"""
         super().showEvent(event)
         self.load_feedback()
+        self.load_recharge_records()
         
     # 分页相关方法
     def go_to_first_page(self):
@@ -2002,7 +2086,21 @@ class CreateUserDialog(QDialog):
             else:
                 StyledMessageDialog(self, title="警告", text="用户名和密码不能为空", msg_type="warning", buttons="ok").exec_()
             return
-            
+
+        # 邮箱必填（无邮箱不允许创建用户，保证后端可按邮箱开通VIP）
+        if not email or not email.strip():
+            if self.parent and hasattr(self.parent, 'show_message_box'):
+                self.parent.show_message_box('warning', "警告", "邮箱不能为空")
+            else:
+                StyledMessageDialog(self, title="警告", text="邮箱不能为空", msg_type="warning", buttons="ok").exec_()
+            return
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email.strip()):
+            if self.parent and hasattr(self.parent, 'show_message_box'):
+                self.parent.show_message_box('warning', "警告", "邮箱格式不正确")
+            else:
+                StyledMessageDialog(self, title="警告", text="邮箱格式不正确", msg_type="warning", buttons="ok").exec_()
+            return
+
         password_hash = hash_password(password)
         
         try:

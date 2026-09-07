@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>账户页 UI 10 布局提案 v2 — 统一 iOS 色调，只变布局</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#E9EBF0; font-family:"Microsoft YaHei",sans-serif; padding:40px 20px; }
+  .grid { max-width:1280px; margin:0 auto; display:grid; grid-template-columns:repeat(2,1fr); gap:36px; }
+  .wrap { display:flex; flex-direction:column; gap:10px; }
+  .tag { font-size:13px; color:#3a4254; font-weight:bold; }
+  .tag small { color:#9aa1ab; font-weight:normal; margin-left:8px; }
+
+  /* 公共色板（方案5色调）：#F2F2F7 底 / #FFF 卡 / #0A84FF 主 / #FF3B30 红 */
+  .pill { display:inline-block; font-size:10px; padding:3px 10px; border-radius:20px; }
+  .pill.red { background:#FFE5E5; color:#FF3B30; }
+
+  /* ===== 1 居中大头像 + CTA 堆叠 ===== */
+  .s1 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s1 .card { background:#fff; border-radius:18px; width:300px; padding:28px; text-align:center; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s1 .avatar { width:64px; height:64px; border-radius:50%; margin:0 auto 12px; background:linear-gradient(135deg,#0A84FF,#5E5CE6);
+    color:#fff; font-size:26px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+  .s1 .name { font-size:19px; font-weight:bold; color:#1C1C1E; }
+  .s1 .pill { margin:8px 0 20px; }
+  .s1 .cta { background:#0A84FF; color:#fff; font-size:13px; padding:12px; border-radius:12px; cursor:pointer; transition:.15s; }
+  .s1 .cta:hover { background:#0070E0; }
+  .s1 .sec { border:1.5px solid #0A84FF; color:#0A84FF; font-size:13px; padding:11px; border-radius:12px; cursor:pointer; margin:10px 0 14px; transition:.15s; }
+  .s1 .sec:hover { background:#EAF4FF; }
+  .s1 .txt { font-size:12px; color:#FF3B30; cursor:pointer; }
+
+  /* ===== 2 表单明细式 key-value ===== */
+  .s2 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s2 .panel { background:#fff; border-radius:18px; width:360px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); display:flex; flex-direction:column; }
+  .s2 .head { padding:16px 20px; font-size:15px; font-weight:bold; color:#1C1C1E; border-bottom:.5px solid #E5E5EA; }
+  .s2 .kv { display:flex; padding:13px 20px; font-size:13px; border-bottom:.5px solid #E5E5EA; }
+  .s2 .kv .k { width:90px; color:#8E8E93; }
+  .s2 .kv .v { color:#1C1C1E; font-weight:500; }
+  .s2 .kv .v.bad { color:#FF3B30; }
+  .s2 .btns { margin-top:auto; display:flex; }
+  .s2 .btns div { flex:1; text-align:center; padding:13px; font-size:13px; cursor:pointer; transition:.15s; }
+  .s2 .btns div:hover { background:#F2F2F7; }
+  .s2 .btns .b1 { color:#0A84FF; border-right:.5px solid #E5E5EA; }
+  .s2 .btns .b2 { color:#0A84FF; border-right:.5px solid #E5E5EA; }
+  .s2 .btns .b3 { color:#FF3B30; }
+
+  /* ===== 3 状态横幅 + 流程步骤 ===== */
+  .s3 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s3 .col { width:360px; }
+  .s3 .banner { background:#fff; border-radius:14px; padding:14px 16px; display:flex; gap:12px; align-items:center; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s3 .banner .ic { width:36px; height:36px; border-radius:10px; background:#FFE5E5; display:flex; align-items:center; justify-content:center; font-size:17px; }
+  .s3 .banner .t { font-size:13px; font-weight:bold; color:#1C1C1E; }
+  .s3 .banner .d { font-size:11px; color:#8E8E93; margin-top:2px; }
+  .s3 .step { background:#fff; border-radius:14px; padding:14px 16px; display:flex; gap:12px; align-items:center; margin-bottom:10px; cursor:pointer; transition:.15s; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s3 .step:hover { transform:translateX(4px); }
+  .s3 .num { width:24px; height:24px; border-radius:50%; background:#0A84FF; color:#fff; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .s3 .num.gray { background:#C7C7CC; }
+  .s3 .st { font-size:13px; color:#1C1C1E; font-weight:500; }
+  .s3 .sd { font-size:11px; color:#8E8E93; margin-top:2px; }
+  .s3 .go { margin-left:auto; color:#C7C7CC; }
+  .s3 .out { text-align:center; font-size:12px; color:#FF3B30; padding:10px; cursor:pointer; }
+
+  /* ===== 4 进度环会员卡 ===== */
+  .s4 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; gap:18px; justify-content:center; align-items:center; }
+  .s4 .ring-card { background:#fff; border-radius:18px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,.05); text-align:center; width:190px; }
+  .s4 svg { display:block; margin:0 auto 10px; }
+  .s4 .rs { font-size:11px; color:#FF3B30; }
+  .s4 .acts { display:flex; flex-direction:column; gap:10px; width:160px; }
+  .s4 .a { background:#fff; border-radius:12px; padding:12px 14px; font-size:12.5px; color:#1C1C1E; cursor:pointer; display:flex; justify-content:space-between; box-shadow:0 1px 4px rgba(0,0,0,.05); transition:.15s; }
+  .s4 .a:hover { background:#EAF4FF; color:#0A84FF; }
+  .s4 .a.out { color:#FF3B30; }
+  .s4 .a span:last-child { color:#C7C7CC; }
+
+  /* ===== 5 磁贴 Grid ===== */
+  .s5 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s5 .col { width:360px; }
+  .s5 .head { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  .s5 .head .avatar { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#0A84FF,#5E5CE6); color:#fff; font-size:19px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+  .s5 .head .n { font-size:16px; font-weight:bold; color:#1C1C1E; }
+  .s5 .head .pill { margin-top:3px; }
+  .s5 .tiles { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .s5 .tile { background:#fff; border-radius:14px; padding:18px; cursor:pointer; transition:.15s; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s5 .tile:hover { transform:translateY(-3px); box-shadow:0 6px 14px rgba(0,0,0,.08); }
+  .s5 .tile .ic { font-size:22px; margin-bottom:8px; }
+  .s5 .tile .t { font-size:13px; font-weight:bold; color:#1C1C1E; }
+  .s5 .tile .d { font-size:11px; color:#8E8E93; margin-top:3px; }
+  .s5 .tile.out { background:#FFF5F5; }
+  .s5 .tile.out .t { color:#FF3B30; }
+
+  /* ===== 6 分段控件 Tabs ===== */
+  .s6 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s6 .col { width:360px; }
+  .s6 .seg { background:#E3E3E8; border-radius:10px; padding:2px; display:flex; margin-bottom:14px; }
+  .s6 .seg div { flex:1; text-align:center; font-size:12.5px; padding:7px; color:#8E8E93; cursor:pointer; border-radius:8px; }
+  .s6 .seg .on { background:#fff; color:#1C1C1E; font-weight:bold; box-shadow:0 1px 3px rgba(0,0,0,.12); }
+  .s6 .card { background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s6 .me { display:flex; align-items:center; gap:12px; padding:16px; border-bottom:.5px solid #E5E5EA; }
+  .s6 .me .avatar { width:42px; height:42px; border-radius:50%; background:#0A84FF; color:#fff; font-size:18px; font-weight:bold; display:flex; align-items:center; justify-content:center; }
+  .s6 .me .n { font-size:15px; font-weight:bold; color:#1C1C1E; }
+  .s6 .me .pill { margin-top:3px; }
+  .s6 .row { display:flex; justify-content:space-between; padding:12px 16px; font-size:13px; color:#1C1C1E; cursor:pointer; border-bottom:.5px solid #E5E5EA; transition:.15s; }
+  .s6 .row:hover { background:#F7F7FA; }
+  .s6 .row .arr { color:#C7C7CC; }
+  .s6 .row.out { color:#FF3B30; }
+
+  /* ===== 7 底部 Action Sheet ===== */
+  .s7 { background:linear-gradient(#F2F2F7 30%,#D8D9DE); border-radius:20px; min-height:360px; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+  .s7 .behind { padding:20px 24px; font-size:13px; color:#8E8E93; }
+  .s7 .sheet { margin-top:auto; background:rgba(247,247,250,.97); border-radius:20px 20px 0 0; padding:8px 12px 14px; }
+  .s7 .handle { width:36px; height:5px; border-radius:3px; background:#C7C7CC; margin:4px auto 10px; }
+  .s7 .who { text-align:center; font-size:12px; color:#8E8E93; padding:6px; }
+  .s7 .who b { display:block; font-size:15px; color:#1C1C1E; margin-bottom:2px; }
+  .s7 .grp { background:#fff; border-radius:12px; overflow:hidden; margin-bottom:10px; }
+  .s7 .opt { text-align:center; padding:13px; font-size:14px; color:#0A84FF; cursor:pointer; border-bottom:.5px solid #E5E5EA; transition:.15s; }
+  .s7 .opt:hover { background:#F2F2F7; }
+  .s7 .opt.red { color:#FF3B30; border-bottom:none; font-weight:bold; }
+  .s7 .cancel { background:#fff; border-radius:12px; text-align:center; padding:13px; font-size:14px; font-weight:bold; color:#1C1C1E; cursor:pointer; }
+
+  /* ===== 8 macOS 系统设置双栏 ===== */
+  .s8 { background:#F2F2F7; border-radius:20px; min-height:360px; display:flex; overflow:hidden; }
+  .s8 .nav { width:150px; background:#E4E4E9; padding:14px 10px; }
+  .s8 .ni { display:flex; align-items:center; gap:8px; font-size:12px; color:#3C3C43; padding:8px 10px; border-radius:8px; cursor:pointer; }
+  .s8 .ni.on { background:#0A84FF; color:#fff; }
+  .s8 .ni:not(.on):hover { background:rgba(0,0,0,.05); }
+  .s8 .detail { flex:1; background:#fff; padding:20px 22px; }
+  .s8 .dt { font-size:16px; font-weight:bold; color:#1C1C1E; margin-bottom:4px; }
+  .s8 .ds { font-size:11px; color:#8E8E93; margin-bottom:14px; }
+  .s8 .card { border:1px solid #E5E5EA; border-radius:10px; overflow:hidden; }
+  .s8 .row { display:flex; justify-content:space-between; align-items:center; padding:11px 14px; font-size:12.5px; color:#1C1C1E; border-bottom:1px solid #E5E5EA; cursor:pointer; transition:.15s; }
+  .s8 .row:hover { background:#F7F7FA; }
+  .s8 .row .l { display:flex; align-items:center; gap:8px; }
+  .s8 .row .arr { color:#C7C7CC; }
+  .s8 .row.out { color:#FF3B30; border-bottom:none; }
+  .s8 .toggle { width:34px; height:20px; background:#FF3B30; border-radius:10px; position:relative; opacity:.85; }
+  .s8 .toggle::after { content:""; position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; top:2px; left:2px; }
+
+  /* ===== 9 营销 Hero CTA ===== */
+  .s9 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; justify-content:center; }
+  .s9 .col { width:360px; }
+  .s9 .hero { background:linear-gradient(135deg,#0A84FF,#5E5CE6); border-radius:18px; padding:22px; color:#fff; margin-bottom:12px; }
+  .s9 .hero .pill { background:rgba(255,255,255,.25); color:#fff; margin-bottom:10px; }
+  .s9 .hero .h { font-size:19px; font-weight:bold; }
+  .s9 .hero ul { list-style:none; margin-top:12px; }
+  .s9 .hero li { font-size:12px; opacity:.92; margin-top:5px; }
+  .s9 .hero li::before { content:"✓  "; font-weight:bold; }
+  .s9 .cta { background:#0A84FF; color:#fff; text-align:center; font-size:14px; font-weight:bold; padding:13px; border-radius:12px; cursor:pointer; margin-bottom:9px; transition:.15s; }
+  .s9 .cta:hover { background:#0070E0; }
+  .s9 .ghost { text-align:center; font-size:13px; color:#0A84FF; padding:10px; cursor:pointer; }
+  .s9 .mini { text-align:center; font-size:11px; color:#FF3B30; padding:6px; cursor:pointer; opacity:.8; }
+
+  /* ===== 10 时间线 ===== */
+  .s10 { background:#F2F2F7; border-radius:20px; padding:32px; min-height:360px; display:flex; gap:20px; justify-content:center; }
+  .s10 .tl { width:200px; background:#fff; border-radius:18px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,.05); }
+  .s10 .tlt { font-size:13px; font-weight:bold; color:#1C1C1E; margin-bottom:14px; }
+  .s10 .ev { position:relative; padding-left:20px; padding-bottom:16px; border-left:2px solid #E5E5EA; }
+  .s10 .ev:last-child { border-left-color:transparent; padding-bottom:0; }
+  .s10 .ev::before { content:""; position:absolute; left:-6px; top:0; width:10px; height:10px; border-radius:50%; background:#C7C7CC; }
+  .s10 .ev.red::before { background:#FF3B30; box-shadow:0 0 0 4px #FFE5E5; }
+  .s10 .et { font-size:12px; font-weight:bold; color:#1C1C1E; }
+  .s10 .ed { font-size:10.5px; color:#8E8E93; margin-top:2px; }
+  .s10 .acts { display:flex; flex-direction:column; gap:10px; width:150px; justify-content:center; }
+  .s10 .a { background:#fff; border-radius:12px; padding:12px 14px; font-size:12.5px; color:#1C1C1E; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.05); transition:.15s; }
+  .s10 .a:hover { background:#EAF4FF; color:#0A84FF; }
+  .s10 .a.out { color:#FF3B30; }
+</style>
+</head>
+<body>
+<div class="grid">
+
+  <!-- 1 居中大头像 CTA -->
+  <div class="wrap"><div class="tag">布局 1 · 居中头像 + 主次按钮<small>焦点全在"续费"CTA 上，转化导向</small></div>
+  <div class="s1"><div class="card">
+    <div class="avatar">i</div>
+    <div class="name">ink</div>
+    <div><span class="pill red">会员已过期 · 功能已锁定</span></div>
+    <div class="cta" style="margin-top:16px">立即续费 / 购买会员</div>
+    <div class="sec">使用激活码开通</div>
+    <div class="txt">退出登录</div>
+  </div></div></div>
+
+  <!-- 2 表单明细 -->
+  <div class="wrap"><div class="tag">布局 2 · 账户信息明细表<small>key-value 逐项展示，像"个人信息"详情页</small></div>
+  <div class="s2"><div class="panel">
+    <div class="head">账户信息</div>
+    <div class="kv"><span class="k">用户名</span><span class="v">ink</span></div>
+    <div class="kv"><span class="k">会员状态</span><span class="v bad">已过期</span></div>
+    <div class="kv"><span class="k">功能权限</span><span class="v bad">已锁定</span></div>
+    <div class="kv"><span class="k">到期时间</span><span class="v">—</span></div>
+    <div class="btns">
+      <div class="b1">激活码开通</div>
+      <div class="b2">续费会员</div>
+      <div class="b3">退出</div>
+    </div>
+  </div></div></div>
+
+  <!-- 3 横幅 + 步骤 -->
+  <div class="wrap"><div class="tag">布局 3 · 状态横幅 + 两步引导<small>把"怎么办"变成 1-2 步流程，最降低困惑</small></div>
+  <div class="s3"><div class="col">
+    <div class="banner">
+      <div class="ic">⚠️</div>
+      <div><div class="t">ink，你的会员已过期</div><div class="d">功能已锁定，开通后立即恢复</div></div>
+    </div>
+    <div class="step"><div class="num">1</div><div><div class="st">有激活码？直接开通</div><div class="sd">粘贴收到的激活码即可</div></div><div class="go">›</div></div>
+    <div class="step"><div class="num gray">2</div><div><div class="st">没有激活码，去续费</div><div class="sd">浏览器打开购买页</div></div><div class="go">›</div></div>
+    <div class="out">退出登录</div>
+  </div></div></div>
+
+  <!-- 4 进度环 -->
+  <div class="wrap"><div class="tag">布局 4 · 会员状态环形卡<small>可视化权益状态，左侧环卡右侧操作</small></div>
+  <div class="s4">
+    <div class="ring-card">
+      <svg width="96" height="96" viewBox="0 0 96 96">
+        <circle cx="48" cy="48" r="40" fill="none" stroke="#F2F2F7" stroke-width="9"/>
+        <circle cx="48" cy="48" r="40" fill="none" stroke="#FF3B30" stroke-width="9" stroke-linecap="round"
+          stroke-dasharray="251" stroke-dashoffset="251" transform="rotate(-90 48 48)"/>
+        <text x="48" y="46" text-anchor="middle" font-size="15" font-weight="bold" fill="#1C1C1E">已过期</text>
+        <text x="48" y="62" text-anchor="middle" font-size="10" fill="#8E8E93">ink</text>
+      </svg>
+      <div class="rs">功能已锁定</div>
+    </div>
+    <div class="acts">
+      <div class="a"><span>🔑 激活码开通</span><span>›</span></div>
+      <div class="a"><span>💳 续费 / 购买</span><span>›</span></div>
+      <div class="a out"><span>退出登录</span><span>›</span></div>
+    </div>
+  </div></div></div>
+
+  <!-- 5 磁贴 -->
+  <div class="wrap"><div class="tag">布局 5 · 快捷磁贴 2×2<small>操作平铺成磁贴，入口最直观</small></div>
+  <div class="s5"><div class="col">
+    <div class="head">
+      <div class="avatar">i</div>
+      <div><div class="n">ink</div><span class="pill red">已过期 · 已锁定</span></div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="ic">🔑</div><div class="t">激活码开通</div><div class="d">粘贴激活码立即生效</div></div>
+      <div class="tile"><div class="ic">💳</div><div class="t">续费 / 购买</div><div class="d">打开充值页面</div></div>
+      <div class="tile"><div class="ic">💬</div><div class="t">帮助 / 反馈</div><div class="d">遇到问题找我们</div></div>
+      <div class="tile out"><div class="ic">🚪</div><div class="t">退出登录</div><div class="d">切换其他账号</div></div>
+    </div>
+  </div></div></div>
+
+  <!-- 6 分段控件 -->
+  <div class="wrap"><div class="tag">布局 6 · 分段控件 Tabs<small>顶部 segmented control，可扩展"权益/关于"页</small></div>
+  <div class="s6"><div class="col">
+    <div class="seg"><div class="on">账户</div><div>权益</div><div>关于</div></div>
+    <div class="card">
+      <div class="me">
+        <div class="avatar">i</div>
+        <div><div class="n">ink</div><span class="pill red">会员已过期</span></div>
+      </div>
+      <div class="row"><span>会员与激活 · 激活码开通</span><span class="arr">›</span></div>
+      <div class="row"><span>续费 / 购买会员</span><span class="arr">›</span></div>
+      <div class="row out"><span>退出登录</span><span class="arr">›</span></div>
+    </div>
+  </div></div></div>
+
+  <!-- 7 Action Sheet -->
+  <div class="wrap"><div class="tag">布局 7 · 底部动作面板<small>点"账户"弹出 sheet 选择，iOS 原生交互范式</small></div>
+  <div class="s7">
+    <div class="behind">（账户页背景内容）</div>
+    <div class="sheet">
+      <div class="handle"></div>
+      <div class="who"><b>ink</b>会员已过期 · 功能已锁定</div>
+      <div class="grp">
+        <div class="opt">🔑 会员与激活 · 激活码开通</div>
+        <div class="opt">💳 续费 / 购买会员</div>
+        <div class="opt red">退出登录</div>
+      </div>
+      <div class="cancel">取消</div>
+    </div>
+  </div></div></div>
+
+  <!-- 8 macOS 设置双栏 -->
+  <div class="wrap"><div class="tag">布局 8 · macOS 系统设置双栏<small>左侧分类导航 + 右侧详情，跟主窗口同构</small></div>
+  <div class="s8">
+    <div class="nav">
+      <div class="ni on">👤 账户</div>
+      <div class="ni">🔒 安全</div>
+      <div class="ni">🔔 通知</div>
+      <div class="ni">⚙️ 通用</div>
+    </div>
+    <div class="detail">
+      <div class="dt">账户 · ink</div>
+      <div class="ds">会员已过期 · 功能已锁定</div>
+      <div class="card">
+        <div class="row"><span class="l">🔑 会员与激活 · 激活码开通</span><span class="arr">›</span></div>
+        <div class="row"><span class="l">💳 续费 / 购买会员</span><span class="arr">›</span></div>
+        <div class="row"><span class="l">自动续费</span><span class="toggle"></span></div>
+        <div class="row out"><span class="l">退出登录</span><span class="arr">›</span></div>
+      </div>
+    </div>
+  </div></div></div>
+
+  <!-- 9 营销 Hero -->
+  <div class="wrap"><div class="tag">布局 9 · 营销 Hero CTA<small>把过期页变成"升级说服页"，付费转化最大化</small></div>
+  <div class="s9"><div class="col">
+    <div class="hero">
+      <span class="pill">ink · 会员已过期</span>
+      <div class="h">开通 VIP，解锁全部功能</div>
+      <ul><li>无限录制与回放</li><li>组合技 / 流程自动化</li><li>专属客服通道</li></ul>
+    </div>
+    <div class="cta">立即续费 / 购买会员</div>
+    <div class="ghost">已有激活码？点此开通</div>
+    <div class="mini">退出登录</div>
+  </div></div></div>
+
+  <!-- 10 时间线 -->
+  <div class="wrap"><div class="tag">布局 10 · 账户时间线<small>左时间线右操作，讲清"怎么走到过期这步的"</small></div>
+  <div class="s10">
+    <div class="tl">
+      <div class="tlt">账户动态</div>
+      <div class="ev"><div class="et">注册账号</div><div class="ed">ink 加入</div></div>
+      <div class="ev"><div class="et">试用会员</div><div class="ed">全功能体验</div></div>
+      <div class="ev red"><div class="et">会员已过期</div><div class="ed">功能已锁定</div></div>
+    </div>
+    <div class="acts">
+      <div class="a">🔑 激活码开通</div>
+      <div class="a">💳 续费 / 购买</div>
+      <div class="a out">退出登录</div>
+    </div>
+  </div></div></div>
+
+</div>
+</body>
+</html>

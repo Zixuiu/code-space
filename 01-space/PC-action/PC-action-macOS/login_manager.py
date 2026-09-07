@@ -1,21 +1,33 @@
 import os
+import time
 import json
 import hashlib
 import random
 import string
 import smtplib
 import sys
+import re
 from email.mime.text import MIMEText
 from email.header import Header
 from datetime import datetime, timedelta
 
-# 尝试导入数据库管理器
 try:
-    from hybrid_db import hybrid_db_manager
-    DB_AVAILABLE = True
-except ImportError:
-    DB_AVAILABLE = False
-    print("警告: 混合数据库模块未找到，注册将只保存到本地文件")
+    from dotenv import load_dotenv
+except ImportError:  # dotenv 缺失时降级：跳过 .env 加载（打包版已内置密钥）
+    load_dotenv = lambda **kw: None
+
+# ★ 启动提速（2026-09-05）：hybrid_db → supabase 全家桶 import 实测 ~0.8s，
+#   原来在 module-level 导入会拖慢主线程启动。改为懒加载：只在后台同步线程 /
+#   注册等真正用到数据库时才导入。
+DB_AVAILABLE = True
+def _get_hybrid_db():
+    """按需获取 hybrid_db_manager；未安装返回 None"""
+    try:
+        from hybrid_db import hybrid_db_manager
+        return hybrid_db_manager
+    except ImportError:
+        print("警告: 混合数据库模块未找到，注册将只保存到本地文件")
+        return None
 
 class LoginManager:
     """简单的登录管理器，用于处理用户认证"""
@@ -117,6 +129,11 @@ class LoginManager:
                 masked_password = sender_password[0] + '*' * (len(sender_password) - 2) + sender_password[-1] if len(sender_password) > 2 else '***'
                 print(f"SMTP_PASSWORD: {masked_password}")
         
+        # 方案A（编译期注入）：SMTP 发件凭据为发布硬依赖（注册验证码邮件）。
+        # 环境变量/.env 优先；发布版无 .env 时用内置默认值（授权码可在 QQ 邮箱后台随时重置）。
+        os.environ.setdefault('SENDER_EMAIL', '1399972370@qq.com')
+        os.environ.setdefault('SENDER_PASSWORD', 'dctsxmclaigdghbb')
+
         # 如果仍未加载到SMTP配置，尝试从.env.example复制一份到当前目录
         if not sender_email or not sender_password:
             # 查找.env.example文件
@@ -141,20 +158,24 @@ class LoginManager:
         解决不同电脑注册的用户在管理界面看不到的问题
         """
         try:
-            # 检查数据库是否可用
-            if not DB_AVAILABLE or not hybrid_db_manager.is_connected():
+            # ★ 启动提速（2026-09-05 二期）：线程一启动就 import hybrid_db 会
+            #   触发 supabase/postgrest/pydantic 全家桶（~1.9s），import 锁会把
+            #   正在构造主窗口的主线程也卡住。先让主窗口显示完再同步。
+            time.sleep(2.5)
+            _db = _get_hybrid_db()
+            if _db is None or not _db.is_connected():
                 return
-            
+
             # 读取本地JSON文件中的所有用户
             local_users = self._load_users()
             if not local_users:
                 print("本地用户列表为空，跳过同步")
                 return
-            
+
             print(f"开始同步本地用户到数据库，共 {len(local_users)} 个用户")
-            
+
             # 获取数据库中的所有用户
-            db_users = hybrid_db_manager.get_all_users()
+            db_users = _db.get_all_users()
             db_username_set = {user['username'] for user in db_users} if db_users else set()
             db_email_set = {user['email'] for user in db_users if user.get('email')} if db_users else set()
             
@@ -177,7 +198,7 @@ class LoginManager:
                             email = unique_email
                         
                         # 添加到数据库
-                        result = hybrid_db_manager.create_user(username, email, password_hash, is_admin)
+                        result = _db.create_user(username, email, password_hash, is_admin)
                         if result:
                             print(f"成功将用户 {username} 同步到数据库")
                             # 更新数据库中的用户名和邮箱集合，避免后续检查重复
@@ -297,6 +318,13 @@ class LoginManager:
     
     def register(self, username, password, email, verification_code=None):
         """用户注册"""
+        # 邮箱为必填（硬性要求：无邮箱不允许注册成功，保证后端可按邮箱开通VIP）
+        if not email or not str(email).strip():
+            return False, "邮箱不能为空"
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', str(email).strip()):
+            return False, "邮箱格式不正确"
+        email = str(email).strip()
+
         # 如果提供了验证码，则进行验证
         if verification_code is not None:
             success, message = self.verify_code(email, verification_code)
@@ -321,9 +349,10 @@ class LoginManager:
         self._save_users(users)
         
         # 同时保存到数据库
-        if DB_AVAILABLE and hybrid_db_manager.is_connected():
+        _db = _get_hybrid_db()
+        if _db is not None and _db.is_connected():
             try:
-                hybrid_db_manager.create_user(username, email, password_hash)
+                _db.create_user(username, email, password_hash)
                 print(f"用户 {username} 已保存到数据库")
             except Exception as e:
                 print(f"保存用户到数据库失败: {e}")

@@ -5,6 +5,7 @@ Supabase数据库管理模块
 import os
 import json
 import time
+import re
 from datetime import datetime
 from supabase import create_client, Client
 from dotenv import load_dotenv
@@ -31,10 +32,15 @@ class SupabaseManager:
     def connect(self):
         """连接到Supabase"""
         try:
-            # 从环境变量或配置文件读取URL和密钥
-            SUPABASE_URL = os.getenv('SUPABASE_URL', 'https://your-project.supabase.co')
-            SUPABASE_KEY = os.getenv('SUPABASE_KEY', 'your-anon-key')
-            
+            # 密钥分发方案A：anon key 编译期注入（安全性由 RLS 策略保障）。
+            # 环境变量/.env 优先（开发态），打包发布态无 .env 时用内置默认值。
+            SUPABASE_URL = os.getenv(
+                'SUPABASE_URL',
+                'https://loifmrvoignxlifizogv.supabase.co')
+            SUPABASE_KEY = os.getenv(
+                'SUPABASE_KEY',
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ')
+
             # 创建Supabase客户端
             self.client = create_client(SUPABASE_URL, SUPABASE_KEY)
             print("Supabase连接已建立")
@@ -179,7 +185,15 @@ class SupabaseManager:
         """创建新用户 - 创建后清除总数缓存"""
         if not self.is_connected():
             return None
-        
+        # 邮箱必填（无邮箱不允许创建成功，保证后端可按邮箱开通VIP）
+        if not email or not str(email).strip():
+            print("创建用户失败: 邮箱不能为空")
+            return None
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', str(email).strip()):
+            print("创建用户失败: 邮箱格式不正确")
+            return None
+        email = str(email).strip()
+
         try:
             user_data = {
                 'username': username,
@@ -338,8 +352,8 @@ class SupabaseManager:
             print(f"分页获取用户失败: {e}")
             return {'data': [], 'count': 0, 'page': page, 'page_size': page_size, 'total_pages': 0}
     
-    def add_recharge_record(self, username, amount, payment_method=None):
-        """添加充值记录"""
+    def add_recharge_record(self, username, amount, payment_method=None, months=0, status='pending', note=None):
+        """添加充值记录（默认待审核 status='pending'）"""
         if not self.is_connected():
             return None
         
@@ -347,7 +361,9 @@ class SupabaseManager:
             record_data = {
                 'username': username,
                 'amount': amount,
-                'payment_method': payment_method,
+                'months': months,
+                'payment_method': note or payment_method,
+                'status': status,
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             response = self.client.table('recharge_records').insert(record_data).execute()
@@ -356,20 +372,33 @@ class SupabaseManager:
             print(f"添加充值记录失败: {e}")
             return None
     
-    def get_recharge_records(self, username=None):
-        """获取充值记录"""
+    def get_recharge_records(self, username=None, status=None):
+        """获取充值记录（可按用户名 / 状态过滤，按时间倒序）"""
         if not self.is_connected():
             return []
         
         try:
+            query = self.client.table('recharge_records').select('*').order('created_at', desc=True)
             if username:
-                response = self.client.table('recharge_records').select('*').eq('username', username).execute()
-            else:
-                response = self.client.table('recharge_records').select('*').execute()
+                query = query.eq('username', username)
+            if status:
+                query = query.eq('status', status)
+            response = query.execute()
             return response.data if response.data else []
         except Exception as e:
             print(f"获取充值记录失败: {e}")
             return []
+    
+    def update_recharge_status(self, record_id, status):
+        """更新充值记录审核状态: pending / approved / rejected"""
+        if not self.is_connected():
+            return False
+        try:
+            self.client.table('recharge_records').update({'status': status}).eq('id', record_id).execute()
+            return True
+        except Exception as e:
+            print(f"更新充值记录状态失败: {e}")
+            return False
     
     def verify_password(self, username, password):
         """验证用户密码"""

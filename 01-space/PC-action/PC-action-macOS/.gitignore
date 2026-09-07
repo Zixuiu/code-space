@@ -37,6 +37,8 @@ import os.txt
 项目/
 
 # 凭据文件
+.env
+.env.*
 login_credentials.json
 saved_login.json
 users.json

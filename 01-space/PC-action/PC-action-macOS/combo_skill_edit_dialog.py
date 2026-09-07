@@ -72,6 +72,119 @@ from beautiful_dialog import StyledMessageDialog
 from styles import apply_dialog_style
 
 
+class CapsuleBorderBox(QWidget):
+    """胶囊描边容器：用 cosmetic pen 自绘 1px 物理像素边框。
+
+    为什么不用 QSS border：QSS 的 1px 圆角边框在非整数 DPI 缩放
+    （1.25/1.5 等）下会被摊到两个物理像素行，每行只剩一半不透明度，
+    视觉上边框"淡出/消失"（底边尤甚，用户截图实锤）。cosmetic pen
+    永远按设备像素对齐、宽度不参与缩放，任何 DPI 下都是实心线。
+
+    用法：把输入控件 setFixedHeight/Width 后 addWidget 进本容器，
+    胶囊描边画在 owner 控件的 geometry 上（owner 本体 QSS 置
+    透明背景 + 无边框）。owner 需 installEventFilter(self) 以联动聚焦态。
+    """
+    def __init__(self, owner, parent=None):
+        super().__init__(parent)
+        self._owner = owner
+        owner.installEventFilter(self)
+
+    def eventFilter(self, obj, ev):
+        if obj is not self._owner:
+            return False
+        t = ev.type()
+        if t in (QEvent.FocusIn, QEvent.FocusOut):
+            # 聚焦切换时重画描边（灰→主题色）
+            self.update()
+        elif t == QEvent.Resize:
+            # ★ 行编辑框默认被右侧按钮区砍掉 14px（8+14+8 后只剩 40/70 宽），
+            #   文字在这 40px 里居中永远到不了胶囊真中心（偏左 ~7px）。
+            #   摊满整个胶囊宽：文字真正居中；透明按钮浮在 le 上层，
+            #   右侧点击仍是步进（子控件命中优先），滚轮/输入不受影响。
+            # singleShot(0) 延后：eventFilter 先于 owner 的 resizeEvent 执行，
+            # 直接设会被基样式随后的布局覆盖。
+            ow = self._owner
+            def _spread():
+                le = ow.lineEdit()
+                # qproperty-alignment 在子控件上会静默失效（Qt QSS 已知限制），
+                # 只能代码设置
+                le.setAlignment(Qt.AlignCenter)
+                # ★ 垂直居中不托付给 QLineEdit 内部排版（其行为受全局字体/样式
+                #   级联影响，用户实机上文字沉底压边框）：把输入框高度压到文字
+                #   实高、垂直钉在胶囊正中——内部无论怎么排都偏无可偏。
+                fm = le.fontMetrics()
+                th = max(1, fm.height())
+                h = ow.height()
+                le.setGeometry(0, max(0, (h - th) // 2), ow.width(), min(th, h))
+            QTimer.singleShot(0, _spread)
+        return False
+
+    def paintEvent(self, ev):
+        # ★ 边框必须画在 owner（输入框）在 self 坐标系里的真实位置，而不是 (0,0)：
+        # owner 经布局被放在单元格内（带边距、可能被垂直居中/顶部对齐），若死画
+        # (0,0) 则可见胶囊与真实输入框错开 → 数字看上去"偏在胶囊下半部"。
+        r = self._owner.geometry()
+        w, h = r.width(), r.height()
+        if w <= 0 or h <= 0:
+            return
+        from PyQt5.QtGui import QPainterPath, QPen
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, True)
+        path = QPainterPath()
+        # 0.5 内缩：DPR=1 时落在像素中心，线宽恰好 1px 不被削
+        path.addRoundedRect(r.x() + 0.5, r.y() + 0.5, w - 1.0, h - 1.0, h / 2.0, h / 2.0)
+        border = QColor(T['primary']) if self._owner.hasFocus() else QColor(T['border'])
+        # QPen 默认 cosmetic=True：宽度按设备像素计，不随 DPI 缩放摊薄
+        p.setPen(QPen(border, 1, Qt.SolidLine))
+        # 白底也在这里画：Qt 父控件先画、子控件后画，若白底留在子控件 QSS
+        # 里会把父容器刚画好的描边内侧盖掉半根线
+        p.setBrush(QColor(T['bg_input']))
+        p.drawPath(path)
+        p.end()
+
+
+class _CapsuleSpinBoxBase:
+    """胶囊输入框基类：把内部 QLineEdit 在每次尺寸变化时**同步**钉死在正中。
+
+    为什么必须覆盖 resizeEvent 而不是用 QTimer.singleShot(0)：
+    QAbstractSpinBox 内部会在 resizeEvent 里重新摆放 lineEdit（给右侧上下按钮
+    预留 14px、按样式算内容边距）。singleShot(0) 是延迟异步的，在高频 resize
+    （树异步构建、对话框最终布局、item 增删）下会被基类的后续摆放覆盖，导致
+    lineEdit 回到"偏左/压底"状态。覆盖 resizeEvent、在 super() 之后立刻重设
+    lineEdit 几何，是最后一次、不可被覆盖的操作，任何 DPI/样式下都稳。
+    """
+    def _pin_lineedit(self):
+        le = self.lineEdit()
+        if le is None:
+            return
+        le.setContentsMargins(0, 0, 0, 0)
+        le.setTextMargins(0, 0, 0, 0)
+        le.setAlignment(Qt.AlignCenter)
+        fm = le.fontMetrics()
+        th = max(1, fm.height())
+        h = self.height()
+        w = self.width()
+        # 铺满整宽（透明按钮浮在上层，右侧步进点击不受影响），高度=文字实高、
+        # 垂直钉在胶囊正中——内部无论怎么排都偏无可偏。
+        le.setGeometry(0, max(0, (h - th) // 2), w, min(th, h))
+
+    def resizeEvent(self, ev):
+        super().resizeEvent(ev)
+        self._pin_lineedit()
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        self._pin_lineedit()
+
+
+class CapsuleSpinBox(QSpinBox, _CapsuleSpinBoxBase):
+    pass
+
+
+class CapsuleDoubleSpinBox(QDoubleSpinBox, _CapsuleSpinBoxBase):
+    pass
+
+
 class StyledCombo(QComboBox):
     """用自绘无边框弹窗替换 QComboBox 原生下拉。
 
@@ -369,9 +482,10 @@ class ComboSkillEditDialog(QDialog):
         _dot_lo = QHBoxLayout()
         _dot_lo.setContentsMargins(0, 0, 0, 0)
         _dot_lo.addStretch()
-        _close = QFrame()
-        _close.setFixedSize(16, 16)
-        _close.setStyleSheet("background:#FF5F57; border-radius:8px; border:none;")
+        _close = QLabel("✕")
+        _close.setFixedSize(22, 22)
+        _close.setAlignment(Qt.AlignCenter)
+        _close.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
         _close.setCursor(Qt.PointingHandCursor)
         def _close_click(ev):
             if ev.button() == Qt.LeftButton:
@@ -387,7 +501,9 @@ class ComboSkillEditDialog(QDialog):
         # ── 顶部栏：标题 + 名称 + 循环次数 + 备注 ──
         top_layout = QHBoxLayout()
         title = QLabel("组合技")
-        title.setStyleSheet("font-size: 16px; font-weight: bold;")
+        # 显式压掉 _card 的 QFrame 选择器泄漏：QLabel 继承 QFrame，会把卡片
+        # 的白底+18px 圆角边框继承过来，在标题外画出一个"圈"。
+        title.setStyleSheet("font-size: 16px; font-weight: bold; background:transparent; border:none;")
         top_layout.addWidget(title)
 
         self.name_input = QLineEdit(self.skill_data.get('name', ''))
@@ -396,29 +512,38 @@ class ComboSkillEditDialog(QDialog):
         top_layout.addWidget(self.name_input, 1)
 
         loop_label = QLabel("循环:")
-        loop_label.setStyleSheet("background:transparent; border:none;")
+        # ★ 统一字号：不设 font-size 会继承全局 17pt 大字，与步间/图等/点后(12px)不齐，
+        #   大字旁边的小胶囊视觉上像沉下去。四个标签必须同一字号同一颜色。
+        loop_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
+        loop_label.setFixedHeight(28)  # 与胶囊同高，中心线严格对齐
+        loop_label.setAlignment(Qt.AlignVCenter)
         top_layout.addWidget(loop_label)
 
-        self.loop_count_spin = QSpinBox()
+        self.loop_count_spin = CapsuleSpinBox()
         self.loop_count_spin.setRange(1, 9999)
         self.loop_count_spin.setValue(self.skill_data.get('loop_count', 1))
+        self.loop_count_spin.setFixedHeight(28)  # 胶囊形：高 28 + 圆角 14
         self.loop_count_spin.setStyleSheet(f"""
             QSpinBox {{
                 background-color: #FFFFFF;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
-                border-radius: 3px;
-                padding: 2px 8px;
+                border-radius: 14px;
+                padding: 0px 10px;
+                min-height: 0px;
                 font-size: 12px;
             }}
             QSpinBox::up-button, QSpinBox::down-button {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
                 width: 14px;
             }}
             QSpinBox QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
+                padding: 0px;
+                min-height: 0px;
+                font-size: 12px;
                 color: {T['text_primary']};
             }}
         """)
@@ -454,6 +579,8 @@ class ComboSkillEditDialog(QDialog):
         self._step_interval_default = True  # 是否使用默认值
         step_interval_label = QLabel("步间:")
         step_interval_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
+        step_interval_label.setFixedHeight(28)  # 与胶囊同高，中心线严格对齐
+        step_interval_label.setAlignment(Qt.AlignVCenter)
         top_layout.addWidget(step_interval_label)
 
         raw_interval = self.skill_data.get('step_interval', '__default__')
@@ -468,34 +595,39 @@ class ComboSkillEditDialog(QDialog):
                 self._step_interval_default = True
                 raw_value = 0.1
 
-        self.step_interval_spin = QDoubleSpinBox()
+        self.step_interval_spin = CapsuleDoubleSpinBox()
         self.step_interval_spin.setRange(0, 999.9)
         self.step_interval_spin.setDecimals(2)
         self.step_interval_spin.setSingleStep(0.1)
         self.step_interval_spin.setSuffix(" 秒")
         self.step_interval_spin.setValue(raw_value)
         self.step_interval_spin.setFixedWidth(100)
+        self.step_interval_spin.setFixedHeight(28)  # 胶囊形：高 28 + 圆角 14
         self.step_interval_spin.setEnabled(not self._step_interval_default)
         self.step_interval_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
                 background-color: #FFFFFF;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
-                border-radius: 3px;
-                padding: 2px 8px;
+                border-radius: 14px;
+                padding: 0px 10px;
+                min-height: 0px;
                 font-size: 12px;
             }}
             QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
                 width: 14px;
             }}
             QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover {{
-                background-color: #FFFFFF;
+                background-color: transparent;
             }}
             QDoubleSpinBox QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
+                padding: 0px;
+                min-height: 0px;
+                font-size: 12px;
                 color: {T['text_primary']};
             }}
             QDoubleSpinBox:focus {{
@@ -507,7 +639,7 @@ class ComboSkillEditDialog(QDialog):
                 border: 1px solid {T['border']};
             }}
             QDoubleSpinBox:disabled QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: {T['text_secondary']};
             }}
         """)
@@ -528,9 +660,11 @@ class ComboSkillEditDialog(QDialog):
         img_wait_label = QLabel("图等:")
         img_wait_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
         img_wait_label.setToolTip("图片出现等待窗口(秒)\n极速模式下点击后界面过渡动画期间，图片未出现会等这么久，期间图片出现立即点击；超时才跳过/失败。默认0.5s")
+        img_wait_label.setFixedHeight(28)  # 与胶囊同高，中心线严格对齐
+        img_wait_label.setAlignment(Qt.AlignVCenter)
         top_layout.addWidget(img_wait_label)
 
-        self.turbo_grace_spin = QDoubleSpinBox()
+        self.turbo_grace_spin = CapsuleDoubleSpinBox()
         self.turbo_grace_spin.setRange(0, 10.0)
         self.turbo_grace_spin.setDecimals(1)
         self.turbo_grace_spin.setSingleStep(0.1)
@@ -538,24 +672,29 @@ class ComboSkillEditDialog(QDialog):
         self.turbo_grace_spin.setValue(float(_tg_val) if _tg_val is not None else 0.5)
         self.turbo_grace_spin.setSuffix(" 秒")
         self.turbo_grace_spin.setFixedWidth(70)
+        self.turbo_grace_spin.setFixedHeight(28)  # 胶囊形：高 28 + 圆角 14
         self.turbo_grace_spin.setToolTip("图片出现等待窗口(秒)\n极速模式下点击后界面过渡动画期间，图片未出现会等这么久，期间图片出现立即点击；超时才跳过/失败。默认0.5s")
         self.turbo_grace_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
                 background-color: #FFFFFF;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
-                border-radius: 3px;
-                padding: 2px 8px;
+                border-radius: 14px;
+                padding: 0px 10px;
+                min-height: 0px;
                 font-size: 12px;
             }}
             QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
                 width: 14px;
             }}
             QDoubleSpinBox QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
+                padding: 0px;
+                min-height: 0px;
+                font-size: 12px;
                 color: {T['text_primary']};
             }}
             QDoubleSpinBox:focus {{
@@ -568,33 +707,40 @@ class ComboSkillEditDialog(QDialog):
         settle_label = QLabel("点后:")
         settle_label.setStyleSheet("background:transparent; border:none; font-size:12px; color:#555;")
         settle_label.setToolTip("点击后UI稳定等待(毫秒)\n极速模式下点击后等一小段，让目标应用处理点击/重绘，避免下一步匹配到点击前的旧画面。默认80ms")
+        settle_label.setFixedHeight(28)  # 与胶囊同高，中心线严格对齐
+        settle_label.setAlignment(Qt.AlignVCenter)
         top_layout.addWidget(settle_label)
 
-        self.turbo_settle_spin = QSpinBox()
+        self.turbo_settle_spin = CapsuleSpinBox()
         self.turbo_settle_spin.setRange(0, 1000)
         self.turbo_settle_spin.setSingleStep(10)
         _ts_val = self.skill_data.get('turbo_settle', 0.08)
         self.turbo_settle_spin.setValue(int(float(_ts_val) * 1000) if _ts_val is not None else 80)
         self.turbo_settle_spin.setSuffix(" ms")
         self.turbo_settle_spin.setFixedWidth(70)
+        self.turbo_settle_spin.setFixedHeight(28)  # 胶囊形：高 28 + 圆角 14
         self.turbo_settle_spin.setToolTip("点击后UI稳定等待(毫秒)\n极速模式下点击后等一小段，让目标应用处理点击/重绘，避免下一步匹配到点击前的旧画面。默认80ms")
         self.turbo_settle_spin.setStyleSheet(f"""
             QSpinBox {{
                 background-color: #FFFFFF;
                 color: {T['text_primary']};
                 border: 1px solid {T['border']};
-                border-radius: 3px;
-                padding: 2px 8px;
+                border-radius: 14px;
+                padding: 0px 10px;
+                min-height: 0px;
                 font-size: 12px;
             }}
             QSpinBox::up-button, QSpinBox::down-button {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
                 width: 14px;
             }}
             QSpinBox QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
+                padding: 0px;
+                min-height: 0px;
+                font-size: 12px;
                 color: {T['text_primary']};
             }}
             QSpinBox:focus {{
@@ -609,6 +755,17 @@ class ComboSkillEditDialog(QDialog):
         top_layout.addWidget(note_btn)
 
         layout.addLayout(top_layout)
+
+        # ★ 顶部四个胶囊（循环/步间/图等/点后）数字居中：复用 CapsuleBorderBox 的
+        #   事件钩子（不进布局、不参与绘制——这些胶囊仍走 QSS 描边），只在 spin
+        #   尺寸变化时把 lineEdit 铺满整胶囊 + AlignCenter。引用必须挂 self，
+        #   否则钩子对象被 GC 时过滤器随之摘除。
+        self._capsule_hooks = [
+            CapsuleBorderBox(self.loop_count_spin),
+            CapsuleBorderBox(self.step_interval_spin),
+            CapsuleBorderBox(self.turbo_grace_spin),
+            CapsuleBorderBox(self.turbo_settle_spin),
+        ]
 
         self.stacked_widget = QStackedWidget()
         self.stacked_widget.setStyleSheet('background:transparent; border:none;')
@@ -633,10 +790,11 @@ class ComboSkillEditDialog(QDialog):
             }}
             QTreeWidget::item {{
                 padding: 8px; border-bottom: none; min-height: 45px; outline: none; border: none;
+                background: transparent;
             }}
-            QTreeWidget::item:selected {{
-                background: {T['primary']}15; border: none; outline: none;
-            }}
+            /* 选中/hover 一律不上色：行内全是可点控件，行高亮只会从透明控件底下
+               透出 Windows 原生灰绿条，看起来像整行被切割（T['primary']15 这种
+               8位hex写法 QSS 不认，回退成原生高亮） */
             QHeaderView::section {{
                 /* 显式白底：transparent 在 Windows 下会让 QHeaderView 回落成原生灰色表头 */
                 background-color: #FFFFFF;
@@ -682,7 +840,7 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setAttribute(Qt.WA_NoSystemBackground, True)
         self.tree_widget.viewport().setAttribute(Qt.WA_NoSystemBackground, True)
         self.tree_widget.setFocusPolicy(Qt.NoFocus)
-        # ★ 关键：所有列加在一起约 960，加上 header padding / 列边距也不到 1100 < 1180，
+        # ★ 关键：列宽 300+230+520(自适应)+90 ≈ 1140，加上 header padding / 列边距也不到 1180，
         # 不再触发水平滚动条。同时把水平滚动条强制关闭，垂直滚动条始终允许。
         self.tree_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.tree_widget.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -692,10 +850,14 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setVerticalScrollBar(InvisibleScrollBar(self.tree_widget))
         self.tree_widget.setRootIsDecorated(False)   # 不画展开箭头（本就是 top-level）
         self.tree_widget.setIndentation(0)           # 去掉默认 16px 缩进，吃掉的列宽释放出来
-        self.tree_widget.setColumnWidth(0, 300)
-        self.tree_widget.setColumnWidth(1, 140)
-        self.tree_widget.setColumnWidth(2, 440)
-        self.tree_widget.setColumnWidth(3, 80)
+        # ★ 表头默认 stretchLastSection=True 会把最后一列「等待(s)」拉伸填满剩余宽度
+        #   （1180 - 300 - 130 - 440 ≈ 300px），看起来"等待"巨宽。关掉它，
+        #   改由「执行操作」列在 show 后按剩余宽度自适应（见 _fit_action_col_widths）。
+        self.tree_widget.header().setStretchLastSection(False)
+        self.tree_widget.setColumnWidth(0, 300)      # 执行条件
+        self.tree_widget.setColumnWidth(1, 230)      # 条件图片（原 130，放不下预览+浏览按钮）
+        self.tree_widget.setColumnWidth(2, 520)      # 执行操作（初始值，show 后自适应剩余宽度）
+        self.tree_widget.setColumnWidth(3, 90)       # 等待(s)：固定窄列，不再被拉伸
 
         self.tree_widget.setFrameShape(QFrame.NoFrame)
         self.tree_widget.setLineWidth(0)
@@ -931,7 +1093,21 @@ class ComboSkillEditDialog(QDialog):
         self._loading_overlay = overlay_wrap
         parent_layout.addWidget(self._loading_overlay)
 
+    def _fit_action_col_widths(self):
+        """show 后把「执行操作」列设为剩余宽度，避免关掉 stretchLastSection 后右侧留白。
+        对话框 setFixedSize(1180,680)，算一次即可。"""
+        try:
+            vp = self.tree_widget.viewport().width()
+            if vp <= 0:
+                return
+            others = self.tree_widget.columnWidth(0) + self.tree_widget.columnWidth(1) + self.tree_widget.columnWidth(3)
+            self.tree_widget.setColumnWidth(2, max(300, vp - others))
+        except Exception:
+            pass
+
     def _start_async_build(self):
+        # 对话框已 show（singleShot 在事件循环启动后才触发），此时 viewport 宽度真实可用
+        self._fit_action_col_widths()
         self.tree_widget.setUpdatesEnabled(False)
         self.tree_widget.blockSignals(True)
         try:
@@ -959,24 +1135,29 @@ class ComboSkillEditDialog(QDialog):
         try:
             for i in range(self._async_build_index, end):
                 flow_data = self.flows[i]
-                main_item = QTreeWidgetItem(self.tree_widget)
-                main_item.setText(0, "")
-                main_item.setText(1, "")
-                main_item.setText(2, "")
-                main_item.setData(0, Qt.UserRole, {"index": i, "is_else": False})
-                self.create_flow_item_widgets(main_item, i, flow_data, is_else=False)
-                if flow_data.get("else_branch"):
-                    else_data = flow_data["else_branch"]
-                    else_item = QTreeWidgetItem(main_item)
-                    else_item.setText(0, "")
-                    else_item.setText(1, "")
-                    else_item.setText(2, "")
-                    else_item.setBackground(0, QColor("#F5F5F7"))
-                    else_item.setBackground(1, QColor("#F5F5F7"))
-                    else_item.setBackground(2, QColor("#F5F5F7"))
-                    else_item.setData(0, Qt.UserRole, {"index": i, "is_else": True})
-                    self.create_flow_item_widgets(else_item, i, else_data, is_else=True)
-                    main_item.setExpanded(True)
+                try:
+                    main_item = QTreeWidgetItem(self.tree_widget)
+                    main_item.setText(0, "")
+                    main_item.setText(1, "")
+                    main_item.setText(2, "")
+                    main_item.setData(0, Qt.UserRole, {"index": i, "is_else": False})
+                    self.create_flow_item_widgets(main_item, i, flow_data, is_else=False)
+                    if flow_data.get("else_branch"):
+                        else_data = flow_data["else_branch"]
+                        else_item = QTreeWidgetItem(main_item)
+                        else_item.setText(0, "")
+                        else_item.setText(1, "")
+                        else_item.setText(2, "")
+                        else_item.setBackground(0, QColor("#F5F5F7"))
+                        else_item.setBackground(1, QColor("#F5F5F7"))
+                        else_item.setBackground(2, QColor("#F5F5F7"))
+                        else_item.setData(0, Qt.UserRole, {"index": i, "is_else": True})
+                        self.create_flow_item_widgets(else_item, i, else_data, is_else=True)
+                        main_item.setExpanded(True)
+                except Exception:
+                    # ★ 单行构建失败不允许断掉 QTimer 构建链，否则 Loading 遮罩永远不消失
+                    import traceback as _tb
+                    print(f"[COMBO_EDIT] flow #{i} 构建失败:\n{_tb.format_exc()}")
         finally:
             self.tree_widget.blockSignals(False)
             self.tree_widget.setUpdatesEnabled(True)
@@ -1002,13 +1183,41 @@ class ComboSkillEditDialog(QDialog):
         except Exception:
             pass
 
+    def _resolve_condition_image_path(self, image_path):
+        """条件图片路径统一解析：相对路径按 recordings 目录补全，再 normpath。
+        与 view_condition_image_path 的解析规则保持一致，避免
+        "列表判不存在卡加载中、点开却能拼出真实路径" 的分裂判定。"""
+        if not image_path:
+            return ''
+        if not os.path.isabs(image_path):
+            image_path = os.path.join(get_recordings_path(), image_path)
+        return os.path.normpath(image_path)
+
+    def _mark_preview_missing(self, preview):
+        """文件不存在时把占位从"加载中…"改成"未找到"，并保留点击查看路径的能力"""
+        try:
+            preview.setStyleSheet(
+                "color: #C7C7CC; font-size: 11px; "
+                "background-color: #F5F5F7; border: 1px dashed #E5E5EA; border-radius: 6px;"
+            )
+            preview.setText("未找到")
+        except Exception:
+            pass
+
     def _finish_async_build(self):
         # 【性能优化】构建完成后，加载所有延迟的图片缩略图
         if self._pending_image_loads:
             for preview in self._pending_image_loads:
                 path = getattr(preview, 'image_path', '')
-                if path and os.path.exists(path):
-                    self.load_image_to_preview(preview, path)
+                if not path:
+                    continue
+                # 相对路径先按 recordings 目录解析，与点击查看时的判定一致
+                resolved = self._resolve_condition_image_path(path)
+                if os.path.exists(resolved):
+                    self.load_image_to_preview(preview, resolved)
+                else:
+                    # 文件真不存在：明确显示"未找到"，不再卡"加载中…"
+                    self._mark_preview_missing(preview)
             self._pending_image_loads = []
         try:
             if self._loading_overlay is not None:
@@ -1053,22 +1262,22 @@ class ComboSkillEditDialog(QDialog):
             }}
         """
 
-    def _btn_style(self, bg=T['primary'], fg='white', font_size=10, padding='4px 8px', radius=8):
-        """统一的小按钮样式"""
+    def _btn_style(self, bg=T['primary'], fg='white', font_size=12, padding='3px 10px', radius=6):
+        """统一的小按钮样式（扁平：低内边距 + 小圆角）。font_size=12：10px 在高分屏上几乎看不清"""
         return f"background: {bg}; color: {fg}; padding: {padding}; font-size: {font_size}px; border: none; border-radius: {radius}px;"
 
     def _bar_btn_style(self, bg='transparent', fg='#1C1C1E', hover_bg='#E5E5EA'):
-        """底部操作栏按钮样式"""
-        radius = 8
+        """底部操作栏按钮样式（扁平滑）"""
+        radius = 6
         return f"""
             QPushButton {{
                 background-color: {bg}; color: {fg}; border: none;
-                border-radius: 8px; font-weight: 600;
+                border-radius: 6px; font-weight: 500;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-                padding: 0 12px; min-height: 34px;
+                padding: 0 12px; min-height: 30px;
             }}
             QPushButton:hover {{ background-color: {hover_bg}; color: #000000; }}
-            QPushButton:pressed {{ background-color: #D1D1D6; padding-top: 2px; }}
+            QPushButton:pressed {{ background-color: #D1D1D6; padding-top: 1px; }}
         """
 
     def create_flow_item_widgets(self, tree_item, index, flow_data, is_else=False):
@@ -1099,7 +1308,7 @@ class ComboSkillEditDialog(QDialog):
             condition_layout.addWidget(flow_number_label)
         else:
             else_indent = QLabel("ELSE")
-            else_indent.setStyleSheet(f"color: {T['text_secondary']}; font-size: 10px; font-weight: 600; background: transparent; padding: 0 4px;")
+            else_indent.setStyleSheet(f"color: {T['text_secondary']}; font-size: 12px; font-weight: 600; background: transparent; padding: 0 4px;")
             condition_layout.addWidget(else_indent)
 
         condition_combo = StyledCombo()
@@ -1118,7 +1327,7 @@ class ComboSkillEditDialog(QDialog):
         if not is_else:
             else_btn = QPushButton("+else")
             else_btn.setStyleSheet(self._btn_style())
-            else_btn.setFixedWidth(50)
+            else_btn.setFixedWidth(60)
             else_btn.clicked.connect(lambda checked, i=index: self.add_else_branch(i))
             if flow_data.get('else_branch'):
                 else_btn.setEnabled(False)
@@ -1172,24 +1381,40 @@ class ComboSkillEditDialog(QDialog):
         image_widget = QWidget()
         image_widget.setStyleSheet("background: transparent; border: none; outline: none;")
         image_layout = QHBoxLayout(image_widget)
-        image_layout.setContentsMargins(5, 2, 5, 2)
-        image_layout.setSpacing(5)
+        image_layout.setContentsMargins(4, 2, 4, 2)
+        image_layout.setSpacing(6)
 
         image_preview = QLabel()
-        image_preview.setFixedSize(60, 40)
-        image_preview.setStyleSheet("border: none; background: transparent; outline: none;")
-        image_preview.setFrameStyle(QFrame.NoFrame)
-        image_preview.setLineWidth(0)
-        image_preview.setMidLineWidth(0)
+        image_preview.setFixedSize(70, 46)
+        # 容器有边框+圆角，无图/失败/永远不显图也都有干净占位，不再"漂着"
         image_preview.setAlignment(Qt.AlignCenter)
-        image_preview.setCursor(Qt.PointingHandCursor)
-        image_preview.setVisible(condition != "always")
-
+        image_preview.setFrameShape(QFrame.NoFrame)
+        # ★ image_path 必须在占位渲染之前赋值（曾因先用后赋导致 UnboundLocalError，
+        #   异步构建链断裂 → Loading 遮罩永远卡在 0/N）
         image_path = flow_data.get('condition_image', '')
-        # 【性能优化】初始构建跳过图片加载，将加载任务加入队列，等构建完成后再批量加载
+        if condition == 'always':
+            # 无条件：直接显示 "—" 占位，不参与后续图片加载
+            image_preview.setText("—")
+            image_preview.setStyleSheet(
+                "color: #C7C7CC; font-size: 16px; font-weight: 500; "
+                "background-color: #F5F5F7; border: 1px dashed #E5E5EA; border-radius: 6px;"
+            )
+        else:
+            image_preview.setStyleSheet(
+                "color: #8E8E93; font-size: 11px; "
+                "background-color: #F5F5F7; border: 1px dashed #D1D1D6; border-radius: 6px;"
+            )
+            if image_path:
+                # 有路径但还没加载：占位文字"加载中"
+                image_preview.setText("加载中…")
+            else:
+                image_preview.setText("无图片")
+        image_preview.setCursor(Qt.PointingHandCursor if condition != 'always' else Qt.ArrowCursor)
+        # 「总是执行」不需要图片：预览框整个隐藏，不留空占位
+        image_preview.setVisible(condition != 'always')
+
         image_preview.image_path = image_path
         if image_path:
-            image_preview.setText("")
             self._pending_image_loads.append(image_preview)
         image_preview.mousePressEvent = lambda event, path=image_path: self.view_condition_image_path(path) if path else None
         # 保持 Python 引用，避免 wrapper 被 GC 后 Qt 回调崩溃（见 __init__ 说明）
@@ -1247,36 +1472,60 @@ class ComboSkillEditDialog(QDialog):
         self.tree_widget.setItemWidget(tree_item, 2, action_widget)
 
         # ── 第3列：执行后等待时间 ──
-        delay_widget = QWidget()
-        delay_widget.setStyleSheet("background: transparent; border: none;")
-        delay_layout = QHBoxLayout(delay_widget)
-        delay_layout.setContentsMargins(5, 2, 5, 2)
-        delay_layout.setSpacing(3)
-
-        delay_spin = QDoubleSpinBox()
+        # 胶囊描边由 CapsuleBorderBox 自绘（cosmetic pen，任何 DPI 都是实心 1px）。
+        # QSS 边框在 1.25/1.5 缩放下会半透明摊薄 → 底边"消失"（用户截图实锤）。
+        delay_spin = CapsuleDoubleSpinBox()
         delay_spin.blockSignals(True)
         delay_spin.setRange(0, 999.9)
         delay_spin.setValue(flow_data.get('delay_after', 0))
         delay_spin.setDecimals(1)
         delay_spin.setSingleStep(0.5)
         delay_spin.setFixedWidth(70)
+        delay_spin.setFixedHeight(28)
+        delay_widget = CapsuleBorderBox(delay_spin)
+        delay_widget.setStyleSheet("background: transparent; border: none;")
+        delay_layout = QHBoxLayout(delay_widget)
+        # 边距 0：让 spinbox（owner）贴在容器左上角 (0,0)，CapsuleBorderBox
+        # 的 paintEvent 据此把胶囊画在输入框真实位置，二者严格对齐。
+        # （注：树的 item padding 8px 已把 90px 列砍成 74px 可用区，spinbox 70
+        #  + 右侧 stretch，所以右侧留 4px，不会影响边框连续性）
+        delay_layout.setContentsMargins(0, 0, 0, 0)
+        delay_layout.setSpacing(3)
+        # 胶囊形：高 28，描边由外层 CapsuleBorderBox 自绘（见其类注释：
+        # QSS 1px 圆角边框在高 DPI 下会摊薄淡出，底边直接看不见）。
+        # 本体只负责文字；上下按钮透明 + 箭头隐藏（此前白按钮盖掉右线、
+        # 基样式退化箭头画成 1px 细碎线贴在边框上，都是踩过的坑）。
+        delay_spin.setFixedHeight(28)
         delay_spin.setStyleSheet(f"""
             QDoubleSpinBox {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 color: {T['text_primary']};
-                border: 1px solid {T['border']};
-                border-radius: 3px;
-                padding: 2px 6px;
+                border: none;
+                border-radius: 14px;
+                padding: 0px 10px;
+                min-height: 0px;
                 font-size: 12px;
             }}
-            QDoubleSpinBox::up-button, QDoubleSpinBox::down-button {{
-                background-color: #FFFFFF;
-                border: none;
-                width: 12px;
+            QDoubleSpinBox::up-button {{
+                subcontrol-origin: padding; subcontrol-position: top right;
+                background-color: transparent; border: none; width: 14px;
+            }}
+            QDoubleSpinBox::down-button {{
+                subcontrol-origin: padding; subcontrol-position: bottom right;
+                background-color: transparent; border: none; width: 14px;
+            }}
+            /* ★ 箭头显式隐藏：不写箭头规则时基样式退化，把箭头画成 1px 细碎线
+               贴在右/下边框上，看起来像"边框断线缺一块"；写三角规则又会把整个
+               控件打回方形回退渲染。width/height=0 是唯一干净解（按钮仍可点）。 */
+            QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow {{
+                width: 0px; height: 0px; border: none; background: transparent;
             }}
             QDoubleSpinBox QLineEdit {{
-                background-color: #FFFFFF;
+                background-color: transparent;
                 border: none;
+                padding: 0px;
+                min-height: 0px;
+                font-size: 12px;
                 color: {T['text_primary']};
             }}
         """)
@@ -1597,6 +1846,7 @@ class ComboSkillEditDialog(QDialog):
             # action 为空时，自动加载执行选项并选中第一项，让用户能看到可用流程
             type_combo.setCurrentIndex(2)
             detail_combo.setEnabled(True)
+            detail_combo.setVisible(True)
             # 【性能优化】缓存已存在时，直接从缓存加载全部流程选项，避免重复扫描磁盘
             # ★修复：之前只取第一项，导致"执行操作"下拉框只能看到一个流程，改为遍历加载全部
             if self._execute_options_cache is not None:
@@ -1612,8 +1862,10 @@ class ComboSkillEditDialog(QDialog):
             type_combo.setCurrentIndex(0)
             detail_combo.clear()
             detail_combo.setEnabled(False)
+            detail_combo.setVisible(False)  # 结束组合技无目标可选，隐藏空下拉
         elif current_action.startswith('跳转_'):
             type_combo.setCurrentIndex(1)
+            detail_combo.setVisible(True)
             self.load_goto_options(detail_combo, index)
             found_match = False
             for i in range(detail_combo.count()):
@@ -1626,6 +1878,7 @@ class ComboSkillEditDialog(QDialog):
                 detail_combo.setCurrentIndex(detail_combo.count() - 1)
         else:
             type_combo.setCurrentIndex(2)
+            detail_combo.setVisible(True)
             # 【性能优化】缓存已存在时，直接从缓存查找，避免循环 addItem
             if self._execute_options_cache is not None:
                 if current_action in self._execute_options_cache:
@@ -1656,6 +1909,7 @@ class ComboSkillEditDialog(QDialog):
             if action_type == 'end':
                 detail_combo.clear()
                 detail_combo.setEnabled(False)
+                detail_combo.setVisible(False)  # 结束组合技：无目标，隐藏下拉
                 if is_else:
                     if self.flows[index].get('else_branch'):
                         self.flows[index]['else_branch']['action'] = 'end'
@@ -1663,6 +1917,7 @@ class ComboSkillEditDialog(QDialog):
                     self.flows[index]['action'] = 'end'
             elif action_type == 'goto':
                 detail_combo.setEnabled(True)
+                detail_combo.setVisible(True)
                 self.load_goto_options(detail_combo, index)
                 if detail_combo.count() > 0:
                     first_val = detail_combo.itemData(0)
@@ -1673,6 +1928,7 @@ class ComboSkillEditDialog(QDialog):
                         self.flows[index]['action'] = first_val
             elif action_type == 'execute':
                 detail_combo.setEnabled(True)
+                detail_combo.setVisible(True)
                 self.load_execute_options(detail_combo)
                 if detail_combo.count() > 0:
                     first_val = detail_combo.itemData(0)
@@ -1797,8 +2053,9 @@ class ComboSkillEditDialog(QDialog):
         dialog = QDialog(self)
         dialog.setWindowTitle("查看条件图片")
         dialog.setMinimumSize(300, 200)
-        apply_dialog_style(dialog)
-        layout = QVBoxLayout(dialog)
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "查看条件图片", "camera")
         path_label = QLabel(f"路径: {image_path}")
         path_label.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px; padding: 5px;")
         path_label.setWordWrap(True)
@@ -1834,8 +2091,12 @@ class ComboSkillEditDialog(QDialog):
         """【性能优化】异步 + 全局缓存加载图片缩略图，避免同步IO卡顿"""
         from PyQt5.QtCore import QThread, pyqtSignal
 
-        if not image_path or not os.path.exists(image_path):
+        if not image_path:
             image_preview.clear()
+            return
+        if not os.path.exists(image_path):
+            # 路径给了但文件不在（含被移动/删除）：明确"未找到"，不静默清空
+            self._mark_preview_missing(image_preview)
             return
 
         # 命中缩略图缓存 → 直接用（CPU 0开销）
@@ -1888,16 +2149,20 @@ class ComboSkillEditDialog(QDialog):
                 ComboSkillEditDialog._thumb_cache[cache_key2] = scaled_pixmap
                 for pv in info['previews']:
                     try:
-                        pv.setStyleSheet("border: none; background: transparent; outline: none;")
+                        pv.setStyleSheet("background: #FFFFFF; border: 1px solid #E5E5EA; border-radius: 6px;")
                         pv.setText("")
                         pv.setPixmap(scaled_pixmap)
                     except Exception:
                         pass
             else:
+                # 加载失败：干净占位（不漂小 error 图标在 70x46 容器里像被切）
                 for pv in info['previews']:
                     try:
-                        pv.setStyleSheet("border: none; background: transparent; outline: none;")
-                        pv.setPixmap(load_svg_icon("error", 16).pixmap(int(round(16 * ICON_SCALE)), int(round(16 * ICON_SCALE))))
+                        pv.setStyleSheet(
+                            "color: #8E8E93; font-size: 11px; "
+                            "background-color: #F5F5F7; border: 1px dashed #D1D1D6; border-radius: 6px;"
+                        )
+                        pv.setText("加载失败")
                     except Exception:
                         pass
 
@@ -1918,8 +2183,9 @@ class ComboSkillEditDialog(QDialog):
         dialog = QDialog(self)
         dialog.setWindowTitle("查看条件图片")
         dialog.setMinimumSize(300, 200)
-        apply_dialog_style(dialog)
-        layout = QVBoxLayout(dialog)
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card
+        layout = build_styled_card(dialog, "查看条件图片", "camera")
         path_label = QLabel(f"路径: {image_path}")
         path_label.setStyleSheet(f"color: {T['text_secondary']}; font-size: 11px; padding: 5px;")
         path_label.setWordWrap(True)

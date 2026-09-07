@@ -3,6 +3,7 @@
 仅支持Supabase云端数据库
 """
 import os
+import re
 from datetime import datetime
 
 try:
@@ -176,7 +177,15 @@ class HybridDatabaseManager:
         """创建新用户"""
         if not self._ensure_connected():
             return None
-        
+        # 邮箱必填（无邮箱不允许创建成功，保证后端可按邮箱开通VIP）
+        if not email or not str(email).strip():
+            print("创建用户失败: 邮箱不能为空")
+            return None
+        if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', str(email).strip()):
+            print("创建用户失败: 邮箱格式不正确")
+            return None
+        email = str(email).strip()
+
         try:
             # 进一步简化，只保留最基本的必填字段
             # 移除不存在的is_vip和vip_end_date字段

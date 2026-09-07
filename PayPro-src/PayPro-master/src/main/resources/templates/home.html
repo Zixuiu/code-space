@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="PC-Action 会员服务 - 一键自动化操作助手，购买与会员充值">
+    <title>PC-Action - 会员服务</title>
+    <link rel="stylesheet" href="/css/common.css">
+    <style>
+        .page-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+        .hero {
+            text-align: center;
+            padding: 100px 24px 60px;
+            max-width: 860px;
+            margin: 0 auto;
+        }
+        .hero .badge {
+            display: inline-block;
+            padding: 6px 18px;
+            border: 1px solid #e8eaee;
+            border-radius: 999px;
+            color: #9aa0a8;
+            font-size: 0.85rem;
+            background: #f6f7f9;
+            margin-bottom: 28px;
+        }
+        .hero h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            color: #1a1a1a;
+            line-height: 1.3;
+            margin-bottom: 20px;
+        }
+        .hero p.desc {
+            color: #9aa0a8;
+            font-size: 1.1rem;
+            max-width: 560px;
+            margin: 0 auto 40px;
+        }
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-bottom: 44px;
+            flex-wrap: wrap;
+        }
+        .stats .item { text-align: center; }
+        .stats .num { font-size: 1.7rem; font-weight: 800; color: #1a1a1a; }
+        .stats .lbl { font-size: 0.9rem; color: #9aa0a8; }
+        .cta-row { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            max-width: 980px;
+            margin: 30px auto 80px;
+            padding: 0 24px;
+            width: 100%;
+        }
+        .feature-card {
+            background: #f6f7f9;
+            border: 1px solid #e8eaee;
+            border-radius: 16px;
+            padding: 28px 24px;
+        }
+        .feature-card h3 {
+            color: #1a1a1a;
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .feature-card p { color: #9aa0a8; font-size: 0.92rem; line-height: 1.7; }
+        .cta-section {
+            text-align: center;
+            background: #f6f7f9;
+            border-top: 1px solid #e8eaee;
+            border-bottom: 1px solid #e8eaee;
+            padding: 70px 24px;
+        }
+        .cta-section h2 { color: #1a1a1a; font-size: 1.8rem; font-weight: 800; margin-bottom: 14px; }
+        .cta-section p { color: #9aa0a8; margin-bottom: 32px; }
+        @media (max-width: 600px) {
+            .hero h1 { font-size: 1.9rem; }
+            .hero { padding: 64px 24px 44px; }
+        }
+    </style>
+</head>
+<body>
+<div class="page-wrap">
+    <section class="hero">
+        <span class="badge">PC-Action · 桌面自动化助手</span>
+        <h1>把重复操作<br>交给 PC-Action</h1>
+        <p class="desc">录制你的鼠标与键盘操作，一键回放。游戏日常、办公流程、重复点击，统统自动化。</p>
+        <div class="stats">
+            <div class="item"><div class="num">1 分钟</div><div class="lbl">录制上手</div></div>
+            <div class="item"><div class="num">7×24</div><div class="lbl">自动执行</div></div>
+            <div class="item"><div class="num">99 元/月</div><div class="lbl">会员全功能</div></div>
+        </div>
+        <div class="cta-row">
+            <a href="/recharge.html" class="btn btn-primary">立即开通会员</a>
+            <a href="/help.html" class="btn btn-ghost">使用帮助</a>
+        </div>
+    </section>
+
+    <section class="features">
+        <div class="feature-card">
+            <h3>动作录制与回放</h3>
+            <p>像录像一样录下你的鼠标键盘操作，随时一键重放，精度可控。</p>
+        </div>
+        <div class="feature-card">
+            <h3>图像识别触发</h3>
+            <p>智能识别屏幕画面，在正确的时机执行正确的操作，稳定可靠。</p>
+        </div>
+        <div class="feature-card">
+            <h3>组合技能编排</h3>
+            <p>多个动作自由组合成流程，循环、定时、条件触发，灵活调度。</p>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>准备好解放双手了吗？</h2>
+        <p>开通会员即享全部功能，付款后自动发放激活码，即时到账。</p>
+        <a href="/recharge.html" class="btn btn-primary">立即开通</a>
+    </section>
+
+    <footer class="footer" style="margin-top: auto;">
+        <p>&copy; 2026 PC-Action. All rights reserved. &nbsp;·&nbsp; 联系客服：1399972370@qq.com</p>
+    </footer>
+</div>
+</body>
+</html>

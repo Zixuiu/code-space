@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 import sys
 import time
@@ -44,6 +44,7 @@ from image_recognition import clear_image_cache, clear_replay_stop_flag, set_rep
 from design_system import (
     TypographySystem, SpacingSystem, BorderRadiusSystem,
     ColorPalette, ShadowSystem, ButtonSize, configure_table, get_table_stylesheet,
+    flat_button_style,
     configure_soft_card_table, configure_row_card_table
 )
 from theme_generator import generate_macos_theme
@@ -87,6 +88,18 @@ class MacOSColors:
     TEXT_SECONDARY = ColorPalette.TEXT_SECONDARY
     SEPARATOR = ColorPalette.SEPARATOR
     ACCENT_BG = ColorPalette.PRIMARY_BG
+
+    # 别名（对话框样式直接引用，语义更直白）
+    PRIMARY = ColorPalette.PRIMARY
+    PRIMARY_BG = ColorPalette.PRIMARY_BG  # 与 ACCENT_BG 同值，供键帽/对话框样式引用
+    PRIMARY_HOVER = ColorPalette.PRIMARY_HOVER
+    PRIMARY_ACTIVE = ColorPalette.PRIMARY_ACTIVE
+    BG_MAIN = ColorPalette.BG_MAIN
+    BG_HOVER = ColorPalette.BG_HOVER
+    TEXT_MUTED = ColorPalette.TEXT_MUTED
+    BORDER_DEFAULT = ColorPalette.BORDER_DEFAULT
+    BORDER_STRONG = ColorPalette.BORDER_STRONG
+    ERROR_BG = ColorPalette.ERROR_BG
 
 
 
@@ -260,7 +273,52 @@ class MacOSSidebar(QWidget):
 
         layout.addStretch()
 
+        # 账户入口（内嵌登录页，方案 7-7）：底部 + 登录状态徽标
+        divider = QFrame()
+        divider.setFixedHeight(1)
+        divider.setStyleSheet(f"background-color: {MacOSColors.SEPARATOR}; border: none;")
+        layout.addWidget(divider)
+        layout.addSpacing(6)
+
+        account_item = MacOSSidebarItem("member", "账户")
+        account_item.clicked.connect(lambda checked=False, idx=len(nav_items): self.set_active_tab(idx))
+        self._account_badge = QLabel("未登录")
+        self._account_badge.setAlignment(Qt.AlignCenter)
+        self._style_account_badge(logged_in=False)
+        account_item.layout().addWidget(self._account_badge)
+        self.items.append(account_item)
+        layout.addWidget(account_item)
+
         self.set_active_tab(0)
+
+    def _style_account_badge(self, logged_in):
+        """账户徽标样式：未登录红色 / 已登录浅灰用户名胶囊"""
+        if logged_in:
+            self._account_badge.setStyleSheet(f"""
+                QLabel {{
+                    background-color: #EDEEF0;
+                    color: #48484A;
+                    font-size: 10px;
+                    font-weight: 500;
+                    font-family: {TypographySystem.FONT_FAMILY};
+                    border: none;
+                    border-radius: 7px;
+                    padding: 1px 8px;
+                }}
+            """)
+        else:
+            self._account_badge.setStyleSheet(f"""
+                QLabel {{
+                    background-color: #FFE5E5;
+                    color: #FF3B30;
+                    font-size: 10px;
+                    font-weight: 500;
+                    font-family: {TypographySystem.FONT_FAMILY};
+                    border: none;
+                    border-radius: 7px;
+                    padding: 1px 8px;
+                }}
+            """)
 
     def set_active_tab(self, index):
         for i, item in enumerate(self.items):
@@ -268,7 +326,15 @@ class MacOSSidebar(QWidget):
         self.tab_changed.emit(index)
 
     def set_username(self, username):
-        pass  # reserved for future use
+        """内嵌登录成功后更新账户徽标（None = 未登录）"""
+        if getattr(self, '_account_badge', None) is None:
+            return
+        if username:
+            self._account_badge.setText(username)
+            self._style_account_badge(logged_in=True)
+        else:
+            self._account_badge.setText("未登录")
+            self._style_account_badge(logged_in=False)
 
 
 class MacOSCard(QFrame):
@@ -389,7 +455,10 @@ class MacOSDestructiveButton(QPushButton):
 
 # ---- 新拟态风格 SVG 图标加载（第 8 套：拟物凸起） ----
 # 图标文件放在与本模块同级的 icons/ 目录下，用绝对路径定位，避免启动后 cwd 变化找不到。
+# PyInstaller onefile 兜底：模块 __file__ 在 _MEIPASS 解压目录，datas 已含 ('icons','icons')。
 _ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+if not os.path.isdir(_ICON_DIR) and getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    _ICON_DIR = os.path.join(sys._MEIPASS, "icons")
 
 
 # 图标统一放大系数（用户反馈图标偏小）——改这一个值即可全局调整所有图标大小
@@ -945,19 +1014,25 @@ class MacOSToolbar(QWidget):
 class MacOSAutoRecorderApp(AutoRecorderApp):
     def __init__(self, username=None, login_manager=None):
         self._initializing = True
+        # 内嵌登录（方案 7-7）：未登录时使用占位用户名，登录成功后再真正写入
+        self._placeholder_user = False
+        if username is None and login_manager is not None:
+            username = getattr(login_manager, 'current_user', None)
         if username is None:
-            username = "macOS用户"
-        if login_manager is not None:
+            username = "未登录"
+            self._placeholder_user = True
+        if login_manager is not None and not self._placeholder_user:
             if login_manager.current_user is None:
                 login_manager.current_user = username
             # 也设置用户名属性
             login_manager.username = username
         super().__init__(username, login_manager)
-        # 双重保险：确保登录状态不为空
-        if self.login_manager.current_user is None:
-            self.login_manager.current_user = username
-        if self.current_user is None:
-            self.current_user = username
+        # 双重保险：确保登录状态不为空（仅真实登录后）
+        if not self._placeholder_user:
+            if self.login_manager.current_user is None:
+                self.login_manager.current_user = username
+            if self.current_user is None:
+                self.current_user = username
         self._initializing = False
         self.is_recording = False
         self._combo_stop_shortcuts = {}
@@ -1076,6 +1151,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def run_combo_skill_in_tab(self, skill):
         """在macOS组合技tab页中运行单个组合技"""
+        # 商业化付费闸：试用过期且非 VIP 时禁止执行组合技
+        if not self.check_entitlement_gate():
+            return
         try:
             skill_name = skill.get('name', '未命名')
             skill_id = skill.get('name', '')
@@ -1195,29 +1273,50 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self.macos_stack = QStackedWidget()
         self.macos_stack.setStyleSheet("background-color: transparent; border-bottom-right-radius: 28px;")
 
+        # ★ 启动提速（2026-09-05 二期）：tab 懒加载。
+        #   原来主窗构造 1.4s 的大头是 7 个 tab 全量构建；现在启动只建默认展示的
+        #   record_tab，其余 5 个 tab（管理/组合技/设置/帮助/反馈）放空壳占位，
+        #   首次切入时在 on_macos_tab_changed 里再真正构建（_ensure_tab_built）。
         self.record_tab = self.create_record_tab()
-        self.manager_tab = self.create_manager_tab()
-        self.combo_tab = self.create_combo_tab()
-        try:
-            self.help_tab = self.create_help_tab()
-        except Exception as e:
-            traceback.print_exc()
-            print(f"\n\n\U0001f525 create_help_tab \u62a5\u9519: {e}\n\n")
-            # \u521b\u5efa\u4e00\u4e2a\u7b80\u5355\u7684\u5e2e\u52a9\u9875\u907f\u514d\u5d29\u6e83
-            self.help_tab = QLabel(f"\u52a0\u8f7d\u5931\u8d25: {e}")
+        self.macos_stack.addWidget(self.record_tab)  # index 0
+        self._lazy_tab_factories = {
+            1: ('manager_tab', self.create_manager_tab),
+            2: ('combo_tab', self.create_combo_tab),
+            3: ('settings_tab', self.create_settings_tab),
+            4: ('help_tab', self.create_help_tab),
+            5: ('feedback_tab', self.create_feedback_tab),
+        }
+        self._tab_built = {0}
+        for _idx in range(1, 6):
+            _ph = QWidget()
+            _ph.setStyleSheet("background-color: transparent;")
+            self.macos_stack.addWidget(_ph)
 
-        self.macos_stack.addWidget(self.record_tab)
-        self.macos_stack.addWidget(self.manager_tab)
-        self.macos_stack.addWidget(self.combo_tab)
-        self.settings_tab = self.create_settings_tab()
-        self.macos_stack.addWidget(self.settings_tab)
-        self.macos_stack.addWidget(self.help_tab)
+        # 内嵌登录页（方案 7-7）：不再弹出独立登录窗口
+        # 「账户」页 = 双页 stack：未登录显示登录表单，已登录显示账户概览
         try:
-            self.feedback_tab = self.create_feedback_tab()
+            from login_pane import LoginPane
+            self.login_pane = LoginPane(self.login_manager)
+            self.login_pane.login_success.connect(self._on_embedded_login_success)
         except Exception as e:
             traceback.print_exc()
-            self.feedback_tab = QLabel(f"加载失败: {e}")
-        self.macos_stack.addWidget(self.feedback_tab)
+            self.login_pane = QLabel(f"登录页加载失败: {e}")
+
+        self.account_stack = QStackedWidget()
+        self.account_stack.addWidget(self.login_pane)  # index 0: 登录表单
+
+        try:
+            from account_pane import AccountPane
+            self.account_pane = AccountPane()
+            self.account_pane.logout_requested.connect(self._on_account_logout)
+            self.account_pane.open_activation_requested.connect(self._on_account_open_activation)
+            self.account_pane.open_recharge_requested.connect(self._on_account_open_recharge)
+        except Exception as e:
+            traceback.print_exc()
+            self.account_pane = QLabel(f"账户页加载失败: {e}")
+        self.account_stack.addWidget(self.account_pane)  # index 1: 已登录账户页
+
+        self.macos_stack.addWidget(self.account_stack)
 
         body_layout.addWidget(self.macos_stack, 1)
         main_layout.addWidget(body, 1)
@@ -1228,11 +1327,27 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             "录制控制", "流程管理", "组合技",
             "设置",
             "使用帮助",
-            "反馈"
+            "反馈",
+            "账户",
         ]
 
         self.fade_animation = None
-        self.macos_stack.setCurrentIndex(0)
+
+        # 未登录时默认展示内嵌「账户」页；已登录则进入录制控制
+        _logged_in = bool(self.login_manager and getattr(self.login_manager, 'current_user', None))
+        if _logged_in:
+            self.macos_stack.setCurrentIndex(0)
+            self.macos_sidebar.set_username(self.login_manager.current_user)
+            # 启动已登录：账户页直接切到账户概览
+            if hasattr(self, 'account_stack'):
+                self.account_stack.setCurrentWidget(self.account_pane)
+                if hasattr(self.account_pane, 'refresh'):
+                    # ★ 启动提速（2026-09-05）：refresh 会同步查 Supabase 权益（网络往返
+                    #   1~2s，日志里的"创建新的Supabase管理器实例"就是它），原来堵在
+                    #   窗口显示之前。挪到 show 之后再刷，账户页先渲染本地状态。
+                    QTimer.singleShot(200, self._refresh_account_pane_deferred)
+        else:
+            self.macos_sidebar.set_active_tab(len(self._macos_titles) - 1)
 
         # 使用新的设计系统生成统一样式
         self.setStyleSheet(generate_macos_theme())
@@ -1246,6 +1361,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         self._border_overlay = _bo
 
         QTimer.singleShot(500, self._check_admin_permission)
+
+    def _refresh_account_pane_deferred(self):
+        """窗口显示后补刷账户页权益（get_entitlement 查 Supabase，不阻塞启动）"""
+        try:
+            if hasattr(self, 'account_pane') and hasattr(self.account_pane, 'refresh'):
+                if self.login_manager and getattr(self.login_manager, 'current_user', None):
+                    self.account_pane.refresh(self.login_manager.current_user)
+        except Exception:
+            traceback.print_exc()
 
     def _check_admin_permission(self):
         if sys.platform != 'win32':
@@ -1279,7 +1403,32 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             self._border_overlay.setGeometry(self.centralWidget().rect())
         super().resizeEvent(e)
 
+    def _ensure_tab_built(self, index):
+        """tab 懒加载：首次切到某页时才真正构建并替换占位空壳"""
+        if index in self._tab_built or index not in self._lazy_tab_factories:
+            return
+        self._tab_built.add(index)
+        attr, factory = self._lazy_tab_factories.pop(index)
+        old = self.macos_stack.widget(index)
+        try:
+            page = factory()
+        except Exception as e:
+            traceback.print_exc()
+            page = QLabel(f"加载失败: {e}")
+        setattr(self, attr, page)
+        # QStackedWidget 没有 replaceWidget（那是 QStackedLayout 的方法）：
+        # 先在原位置插入新页、再移除旧占位壳，期间 index 不翻转
+        _idx = self.macos_stack.indexOf(old)
+        _was_current = self.macos_stack.currentWidget() is old
+        self.macos_stack.insertWidget(_idx, page)
+        self.macos_stack.removeWidget(old)
+        old.deleteLater()
+        if _was_current:
+            # 移除旧页后 Qt 会把 currentIndex 漂移到别的页，恢复指向新页
+            self.macos_stack.setCurrentIndex(_idx)
+
     def on_macos_tab_changed(self, index):
+        self._ensure_tab_built(index)
         if self.macos_stack.currentIndex() == index:
             return
         self.macos_toolbar.set_title(self._macos_titles[index])
@@ -1296,6 +1445,92 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         if index == 2 and hasattr(self, '_combo_refresh_timer'):
             self._combo_refresh_timer.start(3000)
             self.load_combo_skills_to_table(self.combo_tab.combo_table)
+
+        # 「账户」页：按登录状态分流——未登录显示登录表单，已登录显示账户概览
+        if index == len(self._macos_titles) - 1 and hasattr(self, 'account_stack'):
+            _user = bool(self.login_manager and getattr(self.login_manager, 'current_user', None))
+            self.account_stack.setCurrentWidget(self.account_pane if _user else self.login_pane)
+            if _user and hasattr(self.account_pane, 'refresh'):
+                try:
+                    self.account_pane.refresh(self.login_manager.current_user)
+                except Exception:
+                    traceback.print_exc()
+
+    def _on_embedded_login_success(self, username):
+        """内嵌登录页登录成功：同步用户名并跳回录制控制页"""
+        try:
+            self.current_user = username
+            if self.login_manager is not None:
+                self.login_manager.current_user = username
+                self.login_manager.username = username
+            self._placeholder_user = False
+            if hasattr(self, 'macos_sidebar'):
+                self.macos_sidebar.set_username(username)
+                self.macos_sidebar.set_active_tab(0)
+            # 已登录：账户页切到账户概览并刷新
+            if hasattr(self, 'account_stack'):
+                self.account_stack.setCurrentWidget(self.account_pane)
+                if hasattr(self.account_pane, 'refresh'):
+                    try:
+                        self.account_pane.refresh(username)
+                    except Exception:
+                        traceback.print_exc()
+            log_info(f"内嵌登录成功: {username}")
+        except Exception:
+            traceback.print_exc()
+
+    def _on_account_logout(self):
+        """账户页「退出登录」：清除状态并切回登录表单"""
+        try:
+            if self.login_manager is not None:
+                try:
+                    self.login_manager.logout()
+                except Exception:
+                    pass
+                self.login_manager.current_user = None
+            self.current_user = None
+            self._placeholder_user = False
+            if hasattr(self, 'macos_sidebar'):
+                self.macos_sidebar.set_username(None)
+            if hasattr(self, 'account_stack'):
+                self.account_stack.setCurrentWidget(self.login_pane)
+            log_info("账户页退出登录")
+        except Exception:
+            traceback.print_exc()
+
+    def _on_account_open_activation(self):
+        """账户页「会员与激活」"""
+        try:
+            self.open_activation_dialog()
+        except Exception:
+            traceback.print_exc()
+
+    def _on_account_open_recharge(self):
+        """账户页「续费 / 购买会员」：后台解析出真实可用的充值地址再打开
+        （cpolar 域名漂移自愈：本地/远程/镜像候选逐个验证品牌指纹，杜绝打开死链或别人的站）"""
+        try:
+            import threading
+            from entitlement import resolve_channel_url
+
+            def _work():
+                url = ''
+                try:
+                    url = resolve_channel_url(deep=True) or ''
+                except Exception:
+                    traceback.print_exc()
+                if url:
+                    QTimer.singleShot(0, lambda: self._open_recharge_url(url))
+            threading.Thread(target=_work, daemon=True).start()
+        except Exception:
+            traceback.print_exc()
+
+    def _open_recharge_url(self, url):
+        try:
+            from PyQt5.QtGui import QDesktopServices
+            from PyQt5.QtCore import QUrl
+            QDesktopServices.openUrl(QUrl(url))
+        except Exception:
+            traceback.print_exc()
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -1471,16 +1706,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header = QHBoxLayout()
         header.setSpacing(10)
 
-        # 紧凑高密度风格：小按钮
-        _compact_btn_qss = (
-            "QPushButton { background:#FFFFFF; color:#333333; border:1px solid #E3E5EA;"
-            " border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600;"
-            ' font-family:"Microsoft YaHei","Segoe UI Emoji"; }'
-            "QPushButton:hover { background:#F2F3F6; }"
-            "QPushButton:pressed { background:#E8EAEF; }"
-        )
+        # 统一扁平按钮样式（无边框 / 无阴影 / 统一圆角与内边距 / 语义配色）
         refresh_btn = QPushButton("刷新")
-        refresh_btn.setStyleSheet(_compact_btn_qss)
+        refresh_btn.setStyleSheet(flat_button_style("neutral"))
         refresh_btn.setIcon(load_svg_icon("refresh", 16))
         refresh_btn.setIconSize(QSize(14, 14))
         refresh_btn.setMinimumWidth(60)
@@ -1488,7 +1716,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.addWidget(refresh_btn)
 
         trash_btn = QPushButton("回收站")
-        trash_btn.setStyleSheet(_compact_btn_qss)
+        trash_btn.setStyleSheet(flat_button_style("danger"))
         trash_btn.setIcon(load_svg_icon("trash", 16))
         trash_btn.setIconSize(QSize(14, 14))
         trash_btn.setMinimumWidth(60)
@@ -1501,16 +1729,16 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         folder_table.setIconSize(QSize(16, 16))
         folder_table.setColumnCount(5)
         folder_table.setHorizontalHeaderLabels(["时间", "流程名称", "快捷键", "重命名", "删除"])
-        # 紧凑高密度风格：白底细边框表格 + 34px 行高 + 12px 字号
+        # 紧凑高密度风格：白底细边框表格 + 40px 行高 + 14px 字号
         folder_table.setStyleSheet("""
             QTableWidget { background:#FFFFFF; border:1px solid #E5E7EC; border-radius:10px;
-                outline:none; gridline-color:transparent; font-size:12px;
+                outline:none; gridline-color:transparent; font-size:14px;
                 font-family:"Microsoft YaHei","Segoe UI Emoji"; color:#333333; }
-            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:5px 12px; }
+            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:7px 12px; }
             QTableWidget::item:hover { background:#F5F8FF; }
             QTableWidget::item:selected { background:#E8F0FE; color:#333333; }
-            QHeaderView::section { background:#F4F6FB; color:#667085; padding:6px 12px; border:none;
-                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:11px;
+            QHeaderView::section { background:#F4F6FB; color:#667085; padding:7px 12px; border:none;
+                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:12px;
                 font-family:"Microsoft YaHei","Segoe UI Emoji"; }
             QHeaderView::section:first { border-top-left-radius:10px; }
             QHeaderView::section:last { border-top-right-radius:10px; }
@@ -1524,13 +1752,17 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         folder_table.setShowGrid(False)
         folder_table.setAlternatingRowColors(False)
         folder_table.verticalHeader().setVisible(False)
-        folder_table.verticalHeader().setDefaultSectionSize(34)
+        folder_table.verticalHeader().setDefaultSectionSize(40)
         folder_table.horizontalHeader().setHighlightSections(False)
         folder_table.horizontalHeader().setStretchLastSection(False)
         _folder_default_widths = [110, 400, 110, 90, 48]
         _apply_saved_column_widths(folder_table, "manager_table", _folder_default_widths)
         header = folder_table.horizontalHeader()
+        # 去除横向滚动：横向滚动条永远隐藏，列宽不足时由 Stretch 列吸收
+        folder_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        header.setMinimumSectionSize(36)
         header.setSectionResizeMode(0, QHeaderView.Fixed)
+        header.setSectionResizeMode(1, QHeaderView.Stretch)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
         header.setSectionResizeMode(2, QHeaderView.Fixed)
         header.setSectionResizeMode(3, QHeaderView.Fixed)
@@ -1717,136 +1949,60 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         dialog = QDialog(self)
         dialog.setWindowTitle("设置快捷键 - %s" % folder_name)
         dialog.setWindowModality(Qt.WindowModal)
-        dialog.setStyleSheet(f"""
-            QDialog {{
-                background-color: {MacOSColors.WINDOW_BG};
-                border-radius: 12px;
-            }}
-        """)
+        dialog.setFixedWidth(420)
+        # 「删除确认」同款卡片骨架：半透明窗口 + 实心白圆角卡 + 左侧竖条 + 图标标题
+        from beautiful_dialog import build_styled_card, styled_button, center_dialog, fade_in_dialog
+        content = build_styled_card(dialog, "设置快捷键", "keyboard")
 
-        layout = QVBoxLayout()
-        layout.setSpacing(16)
-        layout.setContentsMargins(28, 24, 28, 24)
+        # ── 副标题（流程名） ──
+        folder_hint = QLabel(folder_name)
+        folder_hint.setAlignment(Qt.AlignCenter)
+        folder_hint.setStyleSheet("font-size: 13px; color: #8E8E93; background: transparent; padding: 0 8px;")
+        content.addWidget(folder_hint)
 
-        screen_width, screen_height = get_screen_size()
-
-        instruction_label = QLabel("请按下快捷键组合...")
-        instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_font_size = int(screen_height * 0.022)
-        instruction_label.setStyleSheet(f"""
-            font-size: {instruction_font_size}px;
-            color: {MacOSColors.ACCENT};
-            font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            background-color: transparent;
-        """)
-        layout.addWidget(instruction_label)
-
+        # ── 键帽式快捷键显示屏（配色对齐卡片家族） ──
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
         shortcut_label.setAlignment(Qt.AlignCenter)
-        shortcut_font_size = int(screen_height * 0.03)
-        shortcut_label.setStyleSheet(f"""
-            font-size: {shortcut_font_size}px;
-            font-weight: 700;
-            padding: 14px;
-            border: 2px solid {MacOSColors.ACCENT};
-            border-radius: 12px;
-            background-color: {MacOSColors.CARD_BG};
+        _KEYCAP_UNSET_QSS = """
+            font-size: 18px; font-weight: 600; letter-spacing: 2px;
+            padding: 18px 14px;
+            border: 1.5px dashed #D1D1D6;
+            border-radius: 10px;
+            background-color: #FAFAFA;
+            color: #8E8E93;
             min-height: 44px;
-            font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            color: {MacOSColors.ACCENT};
-        """)
-        layout.addWidget(shortcut_label)
+        """
+        _KEYCAP_SET_QSS = """
+            font-size: 20px; font-weight: 700; letter-spacing: 3px;
+            padding: 18px 14px;
+            border: 1.5px solid #5A6069;
+            border-radius: 10px;
+            background-color: #F0F0F2;
+            color: #1A1A2E;
+            min-height: 44px;
+        """
+        shortcut_label.setStyleSheet(_KEYCAP_SET_QSS if current_shortcut else _KEYCAP_UNSET_QSS)
+        content.addWidget(shortcut_label)
+
+        # ── 录入提示 ──
+        instruction_label = QLabel("直接按下按键即可录入（最多 3 键组合） · Esc 取消")
+        instruction_label.setAlignment(Qt.AlignCenter)
+        instruction_label.setStyleSheet("font-size: 12px; color: #8E8E93; background: transparent;")
+        content.addWidget(instruction_label)
 
         button_layout = QHBoxLayout()
-        button_layout.setSpacing(12)
+        button_layout.setSpacing(10)
         button_layout.addStretch()
 
-        clear_btn = QPushButton("清除")
-        clear_btn.setFixedHeight(ButtonSize.HEIGHT_REGULAR)
-        clear_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.SYSTEM_RED};
-                color: white;
-                border: none;
-                border-radius: {BorderRadiusSystem.SM}px;
-                font-weight: 500;
-                font-size: 13px;
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
-            }}
-            QPushButton:hover {{
-                background-color: {MacOSColors.SYSTEM_RED}DD;
-            }}
-            QPushButton:pressed {{
-                background-color: {MacOSColors.SYSTEM_RED}BB;
-                padding-top: 2px;
-            }}
-        """)
-        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn = styled_button("清除", danger=True)
 
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedHeight(ButtonSize.HEIGHT_REGULAR)
-        ok_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        ok_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.ACCENT};
-                color: white;
-                border: none;
-                border-radius: {BorderRadiusSystem.SM}px;
-                font-weight: 500;
-                font-size: 13px;
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
-            }}
-            QPushButton:hover {{
-                background-color: {MacOSColors.ACCENT}DD;
-            }}
-            QPushButton:pressed {{
-                background-color: {MacOSColors.ACCENT}BB;
-                padding-top: 2px;
-            }}
-        """)
-        ok_btn.setCursor(Qt.PointingHandCursor)
+        ok_btn = styled_button("确定", primary=True)
 
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedHeight(ButtonSize.HEIGHT_REGULAR)
-        cancel_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: {BorderRadiusSystem.SM}px;
-                font-weight: 500;
-                font-size: 13px;
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
-            }}
-            QPushButton:hover {{
-                background-color: {MacOSColors.ACCENT_BG};
-                border-color: {MacOSColors.ACCENT};
-                color: {MacOSColors.ACCENT};
-            }}
-            QPushButton:pressed {{
-                padding-top: 2px;
-            }}
-        """)
-        cancel_btn.setCursor(Qt.PointingHandCursor)
+        cancel_btn = styled_button("取消", primary=False)
 
         def clear_shortcut():
             shortcut_label.setText("未设置")
-            shortcut_label.setStyleSheet(f"""
-                font-size: {shortcut_font_size}px;
-                font-weight: 700;
-                padding: 14px;
-                border: 2px solid {MacOSColors.SEPARATOR};
-                bborder-radius: 8px
-                background-color: {MacOSColors.CARD_BG};
-                min-height: 44px;
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                color: {MacOSColors.TEXT_SECONDARY};
-            """)
+            shortcut_label.setStyleSheet(_KEYCAP_UNSET_QSS)
             normalized_path = os.path.normpath(str(folder_path))
             keys_to_delete = []
             for key in self.shortcuts.keys():
@@ -1899,9 +2055,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         button_layout.addWidget(clear_btn)
         button_layout.addWidget(ok_btn)
         button_layout.addWidget(cancel_btn)
-        layout.addLayout(button_layout)
+        content.addLayout(button_layout)
 
-        dialog.setLayout(layout)
+        center_dialog(dialog)
+        fade_in_dialog(dialog)
 
         self.pending_shortcut = None
 
@@ -1958,6 +2115,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 existing = existing[:3]
             combo = "+".join(existing)
             shortcut_label.setText(combo)
+            shortcut_label.setStyleSheet(_KEYCAP_SET_QSS)
 
         dialog.keyPressEvent = key_handler
         dialog.setFocusPolicy(Qt.StrongFocus)
@@ -1967,139 +2125,32 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def rename_folder_in_tab(self, folder_path, table_widget):
         old_name = os.path.basename(folder_path)
-        dialog = QDialog(self)
-        dialog.setWindowTitle("重命名流程")
-        dialog.setWindowFlags(Qt.Dialog | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
-        width, height = get_screen_size(0.25)
-        dialog.resize(width, int(height * 0.18))
-        dialog.setWindowModality(Qt.WindowModal)
-        dialog.setStyleSheet(f"""
-            QDialog {{
-                background-color: {MacOSColors.WINDOW_BG};
-                border-radius: 12px;
-            }}
-        """)
-
-        layout = QVBoxLayout()
-        layout.setSpacing(16)
-        layout.setContentsMargins(24, 20, 24, 20)
-
-        label = QLabel("请输入新的流程名称：")
-        label.setStyleSheet(f"""
-            font-size: 14px;
-            color: {MacOSColors.TEXT_PRIMARY};
-            font-weight: 500;
-            background-color: transparent;
-        """)
-        layout.addWidget(label)
-
-        input_field = QLineEdit(old_name)
-        input_field.selectAll()
-        input_field.setStyleSheet(f"""
-            QLineEdit {{
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: 8px;
-                padding: 10px 14px;
-                font-size: 14px;
-                background: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-                font-family: 'PingFang SC', 'SimHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QLineEdit:focus {{
-                border-color: {MacOSColors.ACCENT};
-            }}
-        """)
-        layout.addWidget(input_field)
-
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(12)
-        btn_layout.addStretch()
-
-        ok_btn = QPushButton("确定")
-        ok_btn.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
-        ok_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        ok_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.ACCENT};
-                color: white;
-                border: none;
-                border-radius: {BorderRadiusSystem.SM}px;
-                font-weight: 500;
-                font-size: 13px;
-                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
-            }}
-            QPushButton:hover {{
-                background-color: {MacOSColors.ACCENT}DD;
-            }}
-            QPushButton:pressed {{
-                background-color: {MacOSColors.ACCENT}BB;
-                padding-top: 2px;
-            }}
-        """)
-        ok_btn.setCursor(Qt.PointingHandCursor)
-
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setMinimumHeight(ButtonSize.HEIGHT_REGULAR)
-        cancel_btn.setMinimumWidth(ButtonSize.MIN_WIDTH_REGULAR)
-        cancel_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {MacOSColors.CARD_BG};
-                color: {MacOSColors.TEXT_PRIMARY};
-                border: 1px solid {MacOSColors.SEPARATOR};
-                border-radius: {BorderRadiusSystem.SM}px;
-                font-weight: 500;
-                font-size: 13px;
-                padding: 0 {ButtonSize.PADDING_H_REGULAR}px;
-            }}
-            QPushButton:hover {{
-                background-color: {MacOSColors.ACCENT_BG};
-                border-color: {MacOSColors.ACCENT};
-                color: {MacOSColors.ACCENT};
-            }}
-            QPushButton:pressed {{
-                padding-top: 2px;
-            }}
-        """)
-        cancel_btn.setCursor(Qt.PointingHandCursor)
-
-        btn_layout.addWidget(ok_btn)
-        btn_layout.addWidget(cancel_btn)
-        layout.addLayout(btn_layout)
-
-        dialog.setLayout(layout)
-
-        def do_rename():
-            new_name = input_field.text().strip()
-            if not new_name:
-                return
-            if new_name == old_name:
-                dialog.accept()
-                return
-            try:
-                new_path = os.path.join(os.path.dirname(folder_path), new_name)
-                os.rename(folder_path, new_path)
-                if hasattr(self, 'shortcuts'):
-                    old_path_normalized = os.path.normpath(str(folder_path))
-                    new_path_normalized = os.path.normpath(str(new_path))
-                    old_key = None
-                    for key in list(self.shortcuts.keys()):
-                        if os.path.normpath(str(key)).lower() == old_path_normalized.lower():
-                            old_key = key
-                            break
-                    if old_key is not None:
-                        self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_key)
-                        self.save_shortcut_config()
-                        self.update_shortcuts()
-                self.load_folders_to_table(table_widget)
-                dialog.accept()
-            except Exception as e:
-                self.show_beautiful_message('critical', "错误", f"重命名失败: {e}")
-
-        ok_btn.clicked.connect(do_rename)
-        cancel_btn.clicked.connect(dialog.reject)
-        input_field.returnPressed.connect(do_rename)
-
-        dialog.exec_()
+        # 「删除确认」同款输入卡片（StyledInputDialog：白圆角卡+左竖条+图标标题）
+        from beautiful_dialog import show_styled_input
+        new_name, ok = show_styled_input(self, "重命名流程", "请输入新的流程名称：", text=old_name)
+        if not ok:
+            return
+        new_name = new_name.strip()
+        if not new_name or new_name == old_name:
+            return
+        try:
+            new_path = os.path.join(os.path.dirname(folder_path), new_name)
+            os.rename(folder_path, new_path)
+            if hasattr(self, 'shortcuts'):
+                old_path_normalized = os.path.normpath(str(folder_path))
+                new_path_normalized = os.path.normpath(str(new_path))
+                old_key = None
+                for key in list(self.shortcuts.keys()):
+                    if os.path.normpath(str(key)).lower() == old_path_normalized.lower():
+                        old_key = key
+                        break
+                if old_key is not None:
+                    self.shortcuts[new_path_normalized] = self.shortcuts.pop(old_key)
+                    self.save_shortcut_config()
+                    self.update_shortcuts()
+            self.load_folders_to_table(table_widget)
+        except Exception as e:
+            self.show_beautiful_message('critical', "错误", f"重命名失败: {e}")
 
     def delete_folder_in_tab(self, folder_path, table_widget):
         folder_name = os.path.basename(folder_path)
@@ -2177,42 +2228,38 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header = QHBoxLayout()
         header.setSpacing(10)
 
-        # 紧凑高密度风格：与流程管理页同款小按钮
-        _compact_btn_qss = (
-            "QPushButton { background:#FFFFFF; color:#333333; border:1px solid #E3E5EA;"
-            " border-radius:8px; padding:5px 12px; font-size:12px; font-weight:600;"
-            ' font-family:"Microsoft YaHei","Segoe UI Emoji"; }'
-            "QPushButton:hover { background:#F2F3F6; }"
-            "QPushButton:pressed { background:#E8EAEF; }"
-        )
+        # 统一扁平按钮样式（无边框 / 无阴影 / 统一圆角与内边距 / 语义配色）
+        _flat_primary = flat_button_style("primary")
+        _flat_neutral = flat_button_style("neutral")
+
         new_btn = QPushButton("+ 新建组合技")
-        new_btn.setStyleSheet(_compact_btn_qss)
+        new_btn.setStyleSheet(_flat_primary)
         new_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(new_btn)
 
         refresh_btn = QPushButton("刷新")
-        refresh_btn.setStyleSheet(_compact_btn_qss)
+        refresh_btn.setStyleSheet(_flat_neutral)
         refresh_btn.setIcon(load_svg_icon("refresh", 16))
         refresh_btn.setIconSize(QSize(14, 14))
         refresh_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(refresh_btn)
 
         run_selected_btn = QPushButton("启动选中")
-        run_selected_btn.setStyleSheet(_compact_btn_qss)
+        run_selected_btn.setStyleSheet(_flat_neutral)
         run_selected_btn.setIcon(load_svg_icon("play", 16))
         run_selected_btn.setIconSize(QSize(14, 14))
         run_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(run_selected_btn)
 
         stop_selected_btn = QPushButton("停止选中")
-        stop_selected_btn.setStyleSheet(_compact_btn_qss)
+        stop_selected_btn.setStyleSheet(_flat_neutral)
         stop_selected_btn.setIcon(load_svg_icon("stop", 16))
         stop_selected_btn.setIconSize(QSize(14, 14))
         stop_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(stop_selected_btn)
 
         stop_all_btn = QPushButton("全部停止")
-        stop_all_btn.setStyleSheet(_compact_btn_qss)
+        stop_all_btn.setStyleSheet(_flat_neutral)
         stop_all_btn.setIcon(load_svg_icon("stop", 16))
         stop_all_btn.setIconSize(QSize(14, 14))
         stop_all_btn.setCursor(Qt.PointingHandCursor)
@@ -2223,18 +2270,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card_layout.addLayout(header)
 
         combo_table = QTableWidget()
-        combo_table.setColumnCount(7)
-        combo_table.setHorizontalHeaderLabels(["", "名称", "流程", "状态", "操作", "快捷键", "删除"])
-        # 紧凑高密度风格：与流程管理页同款白底细边框表格
+        combo_table.setColumnCount(6)
+        combo_table.setHorizontalHeaderLabels(["", "名称", "状态", "操作", "快捷键", "删除"])
+        # 紧凑高密度风格：与流程管理页同款白底细边框表格（40px 行高 + 14px 字号）
         combo_table.setStyleSheet("""
             QTableWidget { background:#FFFFFF; border:1px solid #E5E7EC; border-radius:10px;
-                outline:none; gridline-color:transparent; font-size:12px;
+                outline:none; gridline-color:transparent; font-size:14px;
                 font-family:"Microsoft YaHei","Segoe UI Emoji"; color:#333333; }
-            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:5px 12px; }
+            QTableWidget::item { border-bottom:1px solid #F0F1F4; color:#333333; padding:7px 12px; }
             QTableWidget::item:hover { background:#F5F8FF; }
             QTableWidget::item:selected { background:#E8F0FE; color:#333333; }
-            QHeaderView::section { background:#F4F6FB; color:#667085; padding:6px 12px; border:none;
-                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:11px;
+            QHeaderView::section { background:#F4F6FB; color:#667085; padding:7px 12px; border:none;
+                border-bottom:1px solid #E5E9F2; font-weight:600; font-size:12px;
                 font-family:"Microsoft YaHei","Segoe UI Emoji"; }
             QHeaderView::section:first { border-top-left-radius:10px; }
             QHeaderView::section:last { border-top-right-radius:10px; }
@@ -2248,24 +2295,24 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         combo_table.setShowGrid(False)
         combo_table.setAlternatingRowColors(False)
         combo_table.verticalHeader().setVisible(False)
-        combo_table.verticalHeader().setDefaultSectionSize(34)
+        combo_table.verticalHeader().setDefaultSectionSize(40)
         combo_table.horizontalHeader().setHighlightSections(False)
         combo_table.setIconSize(QSize(16, 16))
         # 所有列默认可交互拖动；删除列固定窄宽度。取消 Stretch 列，避免拖动时整表抖动。
-        _combo_default_widths = [50, 180, 70, 80, 80, 100, 52]
+        _combo_default_widths = [50, 260, 80, 80, 100, 52]
         _apply_saved_column_widths(combo_table, "combo_table", _combo_default_widths)
+        combo_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         header = combo_table.horizontalHeader()
         header.setStretchLastSection(False)
-        # 名称列自适应填充剩余宽度，其余列固定/可拖动，消除右侧空白
+        # 名称列自适应填充剩余宽度，其余列固定，消除右侧空白与横向裁切
         header.setSectionResizeMode(0, QHeaderView.Fixed)
         header.setSectionResizeMode(1, QHeaderView.Stretch)
         header.setSectionResizeMode(2, QHeaderView.Fixed)
         header.setSectionResizeMode(3, QHeaderView.Fixed)
         header.setSectionResizeMode(4, QHeaderView.Fixed)
         header.setSectionResizeMode(5, QHeaderView.Fixed)
-        header.setSectionResizeMode(6, QHeaderView.Fixed)
         combo_table.setColumnWidth(0, 50)
-        combo_table.setColumnWidth(6, 52)
+        combo_table.setColumnWidth(5, 52)
 
         # 拦截第0列的鼠标点击：由我们自己切换勾选，避免与 Qt 原生勾选切换叠加导致状态紊乱
         class _ComboCheckFilter(QObject):
@@ -2295,7 +2342,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     skill = item.data(Qt.UserRole)
                     if skill:
                         self.edit_combo_skill_in_tab(skill, combo_table)
-            elif column == 4:
+            elif column == 3:
                 item = combo_table.item(row, column)
                 if item:
                     data = item.data(Qt.UserRole)
@@ -2304,13 +2351,13 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                             self.run_combo_skill_in_tab(data[1])
                         elif data[0] == "stop":
                             self.stop_combo_skill(data[1])
-            elif column == 5:
+            elif column == 4:
                 item = combo_table.item(row, column)
                 if item:
                     skill = item.data(Qt.UserRole)
                     if skill:
                         self.set_combo_stop_shortcut(skill, combo_table)
-            elif column == 6:
+            elif column == 5:
                 # 删除列
                 item = combo_table.item(row, column)
                 if item:
@@ -2352,6 +2399,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         layout.setAlignment(Qt.AlignTop)
 
         settings_list = [
+            ("member", "会员与激活", "查看会员状态 / 输入激活码开通", self.open_activation_dialog),
             ("clipboard", "查看运行日志", "查看应用程序运行日志", self.show_log_window),
         ]
         for icon, name, desc, handler in settings_list:
@@ -2467,100 +2515,194 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         return tab
 
     def create_help_tab(self):
+        """使用帮助 · 「白境画廊」翻页流（60 页设计赛 · 套 1 获选实装）
+        数学对齐：真实尺寸 = 预览值 × 1.36（预览卡 700×460 → 真实 952×626），禁止目测。"""
+
+        def S(x):
+            """预览像素 → 真实像素（×1.36，四舍五入）"""
+            return round(x * 1.36)
+
+        FG, SUB, ACC = "#111114", "#9A9AA0", "#111114"
+        LINE, CHIP = "#E8E8EC", "#F6F6F7"
+        PADV, GAPXS, GAPS, GAPM, GAPL = S(40), S(4), S(8), S(16), S(24)
+
         tab = QWidget()
         tab.setStyleSheet(f"background-color: {MacOSColors.WINDOW_BG};")
         layout = QVBoxLayout(tab)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(0)
 
-        steps = []
-        self._build_tutorial_steps(steps)
-        total_steps = len(steps)
-        current_step = [0]
-
-        # 内容卡片
         card = MacOSCard()
         cl = QVBoxLayout(card)
-        cl.setContentsMargins(28, 20, 28, 16)
-        cl.setSpacing(10)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(0)
+
+        def glabel(text, size, color, bold=False, ls=0, align=None):
+            w = "700" if bold else "500"
+            qss = (f"color:{color}; font-size:{S(size)}px; font-weight:{w};"
+                   'font-family:"Microsoft YaHei","Segoe UI Emoji";'
+                   "background:transparent; border:none;")
+            if ls:
+                qss += f"letter-spacing:{S(ls)}px;"
+            lab = QLabel(text)
+            lab.setStyleSheet(qss)
+            lab.setWordWrap(True)
+            if align is not None:
+                lab.setAlignment(align)
+            return lab
+
+        def hairline():
+            ln = QFrame()
+            ln.setFixedHeight(1)
+            ln.setStyleSheet(f"background:{LINE}; border:none;")
+            return ln
+
+        def page_shell(idx, widget, inner, spacing):
+            """统一页边距 + 页眉（kicker / 页码），与预览 page_std 一致"""
+            pg = QWidget()
+            pg.setStyleSheet("background-color: transparent;")
+            v = QVBoxLayout(pg)
+            v.setContentsMargins(PADV, GAPM, PADV, GAPM)
+            v.setSpacing(GAPM)
+            head = QHBoxLayout()
+            head.addWidget(glabel(f"GALLERY · {idx + 1:02d}", 10, SUB, bold=True, ls=3))
+            head.addStretch()
+            head.addWidget(glabel(f"{idx + 1} — 6", 10, SUB, bold=True))
+            v.addLayout(head)
+            inner.setContentsMargins(0, 0, 0, 0)
+            inner.setSpacing(spacing)
+            v.addWidget(widget, 1)
+            return pg
 
         stack = QStackedWidget()
-        for idx, s in enumerate(steps):
-            page = QWidget()
-            page.setStyleSheet("background-color: transparent;")
-            pl = QVBoxLayout(page)
-            pl.setContentsMargins(0, 0, 0, 0)
-            pl.setSpacing(6)
 
-            kicker = QLabel("STEP %d / %d" % (idx + 1, total_steps))
-            kicker.setStyleSheet("color: %s; font-size: 11px; font-weight: 700; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
-            pl.addWidget(kicker)
+        # ── 页 1 · 巨字宣言 + 灰/黑对比脚注 ──
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(glabel("同样的活", 46, FG, bold=True))
+        row = QHBoxLayout()
+        row.addWidget(glabel("两种干法", 46, FG, bold=True))
+        row.addStretch()
+        v.addLayout(row)
+        v.addStretch()
+        v.addWidget(hairline())
+        foot = QHBoxLayout()
+        foot.addWidget(glabel("以前：5min", 14, SUB))
+        foot.addStretch()
+        foot.addWidget(glabel("现在：10s", 14, ACC, bold=True))
+        v.addLayout(foot)
+        stack.addWidget(page_shell(0, w, v, S(8)))
 
-            tr = QHBoxLayout()
-            tr.setSpacing(10)
-            icon_lbl = QLabel(s["icon"])
-            icon_lbl.setStyleSheet("font-size: 26px; background-color: transparent;")
-            tr.addWidget(icon_lbl)
-            title_lbl = QLabel(s["title"])
-            title_lbl.setWordWrap(True)
-            title_lbl.setStyleSheet("color: %s; font-size: 24px; font-weight: 700; padding: 4px 0px; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
-            tr.addWidget(title_lbl, 1)
-            pl.addLayout(tr)
+        # ── 页 2 · 巨大数字 4 + 键名清单 ──
+        w = QWidget()
+        h = QHBoxLayout(w)
+        h.setSpacing(GAPL)
+        h.addWidget(glabel("4", 150, FG, bold=True), 5, Qt.AlignVCenter)
+        col = QVBoxLayout()
+        col.setSpacing(GAPS)
+        col.addStretch()
+        col.addWidget(glabel("个指令，全教会你", 12, SUB, ls=2))
+        col.addSpacing(GAPXS)
+        for key, desc in (("左键", "框选 = 单击"), ("右键", "框选 = 右击"),
+                          ("K", "模拟按键"), ("T", "输入文本")):
+            r = QHBoxLayout()
+            r.addWidget(glabel(key, 14, FG, bold=True))
+            r.addStretch()
+            r.addWidget(glabel(desc, 12, SUB))
+            col.addLayout(r)
+        col.addStretch()
+        h.addLayout(col, 7)
+        stack.addWidget(page_shell(1, w, h, 0))
 
-            ask_lbl = QLabel(s["ask"])
-            ask_lbl.setWordWrap(True)
-            ask_lbl.setStyleSheet("color: %s; font-size: 14px; font-weight: 700; background-color: transparent;" % MacOSColors.ACCENT)
-            pl.addWidget(ask_lbl)
-            pl.addSpacing(6)
+        # ── 页 3 · 巨型播放键 ──
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addStretch()
+        v.addWidget(glabel("▶", 120, FG, bold=True, align=Qt.AlignHCenter))
+        v.addWidget(glabel("点回放，它替你干", 30, FG, bold=True, align=Qt.AlignHCenter))
+        v.addSpacing(GAPXS)
+        chips = QHBoxLayout()
+        chips.setSpacing(GAPL)
+        chips.addStretch()
+        for c in ("自动打开软件", "自动输入文字", "自动点击按钮", "自动完成所有操作"):
+            chips.addWidget(glabel(c, 10, SUB, bold=True))
+        chips.addStretch()
+        v.addLayout(chips)
+        v.addStretch()
+        stack.addWidget(page_shell(2, w, v, GAPM))
 
-            # 场景小卡：单列横排（标题在左，描述在右），与渲染对比图一致
-            grid = QGridLayout()
-            grid.setSpacing(10)
-            for ci, (gicon, gtitle, gdesc) in enumerate(s["cards"]):
-                g = QFrame()
-                g.setObjectName("tutCard")
-                g.setStyleSheet(
-                    "#tutCard { background-color: %s; border: 1px solid %s; border-radius: 11px; }"
-                    % (MacOSColors.WINDOW_BG, MacOSColors.SEPARATOR)
-                )
-                gl = QHBoxLayout(g)
-                gl.setContentsMargins(16, 12, 16, 12)
-                gl.setSpacing(12)
-                gt = QLabel("%s  %s" % (gicon, gtitle))
-                gt.setStyleSheet("color: %s; font-size: 15px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
-                gl.addWidget(gt)
-                gd = QLabel(gdesc)
-                gd.setWordWrap(True)
-                gd.setStyleSheet("color: %s; font-size: 14px; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
-                gl.addWidget(gd, 1)
-                grid.addWidget(g, ci, 0)
-            grid.setColumnStretch(0, 1)
-            pl.addLayout(grid)
+        # ── 页 4 · ✗→✓ 四格修订 ──
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(glabel("录错了也不用重新来", 12, SUB))
+        v.addStretch()
+        grid = QGridLayout()
+        grid.setSpacing(GAPM)
+        edits = (("改按键", "按错了？改成对的"), ("改文字", "输错了？直接改掉"),
+                 ("调顺序", "拖拽调整步骤"), ("删多余", "点 × 删除"))
+        for k, (name, desc) in enumerate(edits):
+            tile = QFrame()
+            tile.setStyleSheet(
+                f"QFrame {{ background:#FFFFFF; border:1px solid {LINE}; border-radius:0px; }}")
+            tv = QVBoxLayout(tile)
+            tv.setContentsMargins(GAPM, GAPM, GAPM, GAPM)
+            tv.setSpacing(GAPXS)
+            head = QHBoxLayout()
+            head.addWidget(glabel("✗", 14, SUB, bold=True))
+            head.addStretch()
+            head.addWidget(glabel("✓", 14, ACC, bold=True))
+            tv.addLayout(head)
+            tv.addWidget(glabel(name, 22, FG, bold=True))
+            tv.addWidget(glabel(desc, 12, SUB))
+            grid.addWidget(tile, k // 2, k % 2)
+        v.addLayout(grid, 1)
+        v.addStretch()
+        stack.addWidget(page_shell(3, w, v, GAPM))
 
-            pl.addSpacing(4)
-            pain_lbl = QLabel(s["pain"])
-            pain_lbl.setWordWrap(True)
-            pain_lbl.setStyleSheet("color: %s; font-size: 14px; font-weight: 700; background-color: transparent;" % MacOSColors.TEXT_PRIMARY)
-            pl.addWidget(pain_lbl)
+        # ── 页 5 · 组合技 · 三连方块链 ──
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addStretch()
+        v.addWidget(glabel("⚙️", 72, FG, align=Qt.AlignHCenter))
+        v.addWidget(glabel("流程 × 流程 × 流程", 26, FG, bold=True, align=Qt.AlignHCenter))
+        v.addWidget(glabel("组合技：多个流程串起来，一次跑完", 12, SUB, align=Qt.AlignHCenter))
+        v.addSpacing(GAPM)
+        brow = QHBoxLayout()
+        brow.setSpacing(GAPS)
+        brow.addStretch()
+        for k, tag in enumerate(("A", "B", "C")):
+            box = QFrame()
+            box.setFixedSize(S(40), S(40))
+            box.setStyleSheet(
+                f"QFrame {{ background:transparent; border:1px solid {LINE}; border-radius:0px; }}")
+            bv = QVBoxLayout(box)
+            bv.addWidget(glabel(tag, 14, FG, bold=True, align=Qt.AlignCenter))
+            brow.addWidget(box)
+            if k < 2:
+                brow.addWidget(glabel("→", 14, SUB, bold=True))
+        brow.addStretch()
+        v.addLayout(brow)
+        v.addStretch()
+        v.addWidget(glabel("每天早上点一下，它自己全部搞定", 12, SUB, align=Qt.AlignHCenter))
+        stack.addWidget(page_shell(4, w, v, GAPM))
 
-            if s["gray"]:
-                gray_lbl = QLabel(s["gray"])
-                gray_lbl.setWordWrap(True)
-                gray_lbl.setStyleSheet("color: %s; font-size: 12px; background-color: transparent;" % MacOSColors.SYSTEM_GRAY)
-                pl.addWidget(gray_lbl)
-
-            pl.addStretch()
-
-            # 蓝色结论条（仅此条保留蓝色，其余维持沉稳灰主题）
-            point_lbl = QLabel(s["point"])
-            point_lbl.setWordWrap(True)
-            point_lbl.setStyleSheet(
-                "background-color: #0A84FF; color: #FFFFFF; font-size: 13px; font-weight: 700;"
-                "border: none; border-radius: 10px; padding: 12px 15px;"
-            )
-            pl.addWidget(point_lbl)
-
-            stack.addWidget(page)
+        # ── 页 6 · 巨字「下班」收官 ──
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.setSpacing(GAPXS)
+        v.addStretch()
+        v.addWidget(glabel("效率", 96, FG, bold=True, align=Qt.AlignHCenter))
+        v.addWidget(glabel("帮你把时间留给值得的人和事 🚀", 12, SUB, ls=2, align=Qt.AlignHCenter))
+        v.addSpacing(GAPM)
+        drow = QHBoxLayout()
+        drow.setSpacing(GAPM)
+        drow.addStretch()
+        for d in ("录一次", "无限回放", "随意修改", "组合串联"):
+            drow.addWidget(glabel("✓ " + d, 14, FG, bold=True))
+        drow.addStretch()
+        v.addLayout(drow)
+        v.addStretch()
+        stack.addWidget(page_shell(5, w, v, GAPXS))
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -2573,121 +2715,51 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         cl.addWidget(scroll, 1)
         layout.addWidget(card)
 
-        # 底部导航
-        nav = QHBoxLayout()
-        nav.setSpacing(16)
-        prev_btn = QPushButton()
-        prev_btn.setIcon(load_svg_icon("arrow_left", 14))
-        prev_btn.setIconSize(QSize(16, 16))
-        prev_btn.setFixedSize(44, 26)
+        # 底部导航（套 1 · 极简圆箭头）
+        # 注意：显式声明 min-height/padding，防止全局主题 QPushButton 规则撑爆圆角
+        def nav_btn(text, solid):
+            b = QPushButton(text)
+            b.setFixedSize(S(40), S(40))
+            b.setCursor(Qt.PointingHandCursor)
+            if solid:
+                qss = (f"QPushButton {{ background:{ACC}; color:#FFFFFF; border:none;"
+                       f" border-radius:{S(20)}px; font-size:{S(16)}px; font-weight:700;"
+                       ' font-family:"Microsoft YaHei"; min-height:0px; padding:0px; }'
+                       "QPushButton:hover { background:#333338; }")
+            else:
+                qss = (f"QPushButton {{ background:transparent; color:{SUB};"
+                       f" border:1px solid {LINE}; border-radius:{S(20)}px;"
+                       f" font-size:{S(16)}px; font-weight:700;"
+                       ' font-family:"Microsoft YaHei"; min-height:0px; padding:0px; }'
+                       f"QPushButton:hover {{ background:{CHIP}; }}")
+            qss += ("QPushButton:disabled { color:%s; border-color:%s; }"
+                    % (LINE, LINE))
+            b.setStyleSheet(qss)
+            return b
+
+        nav = QWidget()
+        nav.setStyleSheet("background-color: transparent;")
+        nv = QHBoxLayout(nav)
+        nv.setContentsMargins(PADV, 0, PADV, GAPM)
+        nv.setSpacing(GAPS)
+        nv.addStretch()
+        prev_btn = nav_btn("←", solid=False)
+        next_btn = nav_btn("→", solid=True)
         prev_btn.setEnabled(False)
-        prev_btn.setStyleSheet(
-            "QPushButton { background: %s; border: none; border-radius: 8px; }"
-            "QPushButton:disabled { opacity: 0.5; }"
-            % (MacOSColors.SEPARATOR,)
-        )
-        next_btn = QPushButton()
-        next_btn.setIcon(load_svg_icon("arrow_right", 14))
-        next_btn.setIconSize(QSize(16, 16))
-        next_btn.setFixedSize(44, 26)
-        next_btn.setStyleSheet(
-            "QPushButton { background: %s; border: none; border-radius: 8px; }"
-            % (MacOSColors.ACCENT,)
-        )
-        nav.addStretch(); nav.addWidget(prev_btn); nav.addSpacing(12); nav.addWidget(next_btn); nav.addStretch()
-        cl.addLayout(nav)
+        nv.addWidget(prev_btn)
+        nv.addWidget(next_btn)
+        cl.addWidget(nav)
 
         # 辅助函数
         def go_to_step(idx):
-            current_step[0] = idx
             stack.setCurrentIndex(idx)
             prev_btn.setEnabled(idx > 0)
+            next_btn.setEnabled(idx < 5)
 
-        prev_btn.clicked.connect(lambda: current_step[0] > 0 and go_to_step(current_step[0] - 1))
-        next_btn.clicked.connect(lambda: go_to_step(0) if current_step[0] == total_steps - 1 else go_to_step(current_step[0] + 1))
+        prev_btn.clicked.connect(lambda: go_to_step(stack.currentIndex() - 1))
+        next_btn.clicked.connect(lambda: go_to_step(stack.currentIndex() + 1))
 
         return tab
-
-    def _build_tutorial_steps(self, steps):
-        steps.extend([
-            dict(
-                icon="⚖️", title="同样的活，两种干法",
-                ask="左边是你现在的做法，右边是用了 PC-action 之后 ——",
-                cards=[
-                    ("🌅", "早上开工", "5 个软件挨个点 ≈ 5 分钟  →  一条流程 ≈ 10 秒"),
-                    ("📝", "填日报", "复制粘贴改 4 处 ≈ 3 分钟  →  自动生成发送 ≈ 5 秒"),
-                    ("🔑", "登录系统", "账号密码逐个输 ≈ 2 分钟  →  自动登录 ≈ 3 秒"),
-                    ("📤", "导出数据", "菜单导出归档 ≈ 5 分钟  →  自动导出 ≈ 8 秒"),
-                ],
-                pain="每天省下约 47 分钟 —— 够喝两杯咖啡，或早点下班。",
-                gray="",
-                point="💡 不是你变快了，是你不用再干了。",
-            ),
-            dict(
-                icon="🎬", title="录一遍，以后就再也不用干了",
-                ask="录制时只有 4 个指令，记住就会用",
-                cards=[
-                    ("🖱️", "左键框选", "视为【左键单击】"),
-                    ("🖱️", "右键框选", "视为【右键单击】"),
-                    ("⌨️", "按 K 键", "模拟【键盘按键】"),
-                    ("🅣", "按 T 键", "模拟【输入文本】"),
-                ],
-                pain="按 ESC 结束录制，流程自动保存。",
-                gray="",
-                point="✔ 就这 4 个指令 + ESC，你已经都会了。",
-            ),
-            dict(
-                icon="🔧", title="看它替你干活，很爽",
-                ask="点一下回放，它就开始「模仿」你",
-                cards=[
-                    ("📂", "自动打开软件", "你不用动手，它自己找"),
-                    ("⌨️", "自动输入文字", "账号、内容都能填"),
-                    ("🖱️", "自动点击按钮", "菜单、导出都能点"),
-                    ("🤖", "自动完成所有操作", "你只管看着就行"),
-                ],
-                pain="而你只需要 —— 喝杯咖啡，看着它干 ☕",
-                gray="",
-                point="这种感觉，试过一次就回不去了。",
-            ),
-            dict(
-                icon="✏️", title="不怕录错，改就完了",
-                ask="录错了也不用重新来",
-                cards=[
-                    ("⌨️", "改按键", "按错了键？改成正确的就行"),
-                    ("📝", "改文字", "输错了内容？直接改掉"),
-                    ("↕️", "调顺序", "步骤顺序不对？拖拽调整"),
-                    ("✖️", "删多余", "某一步不需要？点 × 删除"),
-                ],
-                pain="以前录错要重头再录，现在找到那一步直接修改。",
-                gray="",
-                point="✔ 修改后自动保存，再回放就是完美版本。",
-            ),
-            dict(
-                icon="⚙️", title="让电脑替你 7×24 工作",
-                ask="组合技：把多个流程串起来，一次跑完",
-                cards=[
-                    ("🅰️", "流程 A", "打开日报系统 → 导出昨日数据"),
-                    ("🅱️", "流程 B", "打开邮箱 → 填入数据 → 发送晨会报告"),
-                    ("🆎", "流程 C", "打开项目看板 → 刷新状态 → 截图保存"),
-                ],
-                pain="想象一下：每天早上到公司，点一下，它自己全部搞定。",
-                gray="比如一个「每日晨会准备」的组合：",
-                point="💡 而你只需要坐下来，喝口热水，开始真正有意义的工作。",
-            ),
-            dict(
-                icon="🎉", title="不再做重复劳动的奴隶",
-                ask="从今天起，告别「低效重复」！你学会了：",
-                cards=[
-                    ("✅", "录一次", "它记住你的操作"),
-                    ("✅", "无限回放", "以后不用再亲手干"),
-                    ("✅", "随意修改", "录错了直接改，不重录"),
-                    ("✅", "组合串联", "复杂任务一键搞定"),
-                ],
-                pain="你每天省下来的时间，可以做更重要的事。",
-                gray="祝你早点下班，把时间留给值得的人和事 🚀",
-                point="🎉 把重复的事交给电脑，把时间留给自己。",
-            ),
-        ])
 
     def create_tray_icon(self):
         """创建系统托盘图标"""
@@ -2745,57 +2817,72 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         current_shortcut = skill.get('stop_shortcut', '')
         dialog = QDialog(self)
         dialog.setWindowTitle("设置停止快捷键")
-        dialog.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
-        dialog.setFixedSize(400, 220)
         dialog.setWindowModality(Qt.WindowModal)
-        _outer = QVBoxLayout(dialog)
-        _outer.setContentsMargins(0, 0, 0, 0)
-        _card = QFrame(dialog)
-        _card.setStyleSheet("QFrame{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #FFFFFF,stop:1 #F0F0F5);border-radius:18px;border:2px solid #8E8E93;}")
-        _cl = QVBoxLayout(_card)
-        _cl.setSpacing(12)
-        _cl.setContentsMargins(20, 16, 20, 16)
-        _outer.addWidget(_card)
-        title_label = QLabel(f"设置「{skill_name}」的停止快捷键")
-        title_label.setStyleSheet(f"font-size:14px;font-weight:bold;color:{MacOSColors.TEXT_PRIMARY};background:transparent;")
-        _cl.addWidget(title_label)
-        instruction_label = QLabel("请按下快捷键组合...")
-        instruction_label.setAlignment(Qt.AlignCenter)
-        instruction_label.setStyleSheet(f"font-size:13px;color:{MacOSColors.ACCENT};background:transparent;")
-        _cl.addWidget(instruction_label)
+        dialog.setFixedWidth(420)
+        # 「删除确认」同款卡片骨架（左竖条+图标+标题）
+        from beautiful_dialog import build_styled_card, styled_button
+        _outer = build_styled_card(dialog, "设置停止快捷键", "stop")
+        _outer.setSpacing(12)
+
+        skill_hint = QLabel(f"运行中按此快捷键停止「{skill_name}」")
+        skill_hint.setAlignment(Qt.AlignCenter)
+        skill_hint.setStyleSheet("font-size:13px;color:#8E8E93;background:transparent;")
+        _outer.addWidget(skill_hint)
+
+        _KEYCAP_SET_QSS = """
+            font-size: 20px; font-weight: 700; letter-spacing: 3px;
+            padding: 18px 14px;
+            border: 1.5px solid #5A6069;
+            border-radius: 10px;
+            background-color: #F0F0F2;
+            color: #1A1A2E;
+            min-height: 44px;
+        """
+        _KEYCAP_UNSET_QSS = """
+            font-size: 18px; font-weight: 600; letter-spacing: 2px;
+            padding: 18px 14px;
+            border: 1.5px dashed #D1D1D6;
+            border-radius: 10px;
+            background-color: #FAFAFA;
+            color: #8E8E93;
+            min-height: 44px;
+        """
         shortcut_label = QLabel(current_shortcut if current_shortcut else "未设置")
         shortcut_label.setAlignment(Qt.AlignCenter)
-        shortcut_label.setStyleSheet(f"font-size:18px;font-weight:bold;padding:8px;border:2px solid {MacOSColors.ACCENT};border-radius:8px;background-color:white;min-height:30px;color:{MacOSColors.TEXT_PRIMARY};")
-        _cl.addWidget(shortcut_label)
+        shortcut_label.setStyleSheet(_KEYCAP_SET_QSS if current_shortcut else _KEYCAP_UNSET_QSS)
+        _outer.addWidget(shortcut_label)
+
+        instruction_label = QLabel("直接按下按键即可录入（最多 3 键组合） · Esc 取消")
+        instruction_label.setAlignment(Qt.AlignCenter)
+        instruction_label.setStyleSheet("font-size:12px;color:#8E8E93;background:transparent;")
+        _outer.addWidget(instruction_label)
+
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
-        clear_btn = QPushButton("清除")
-        clear_btn.setFixedSize(80, 32)
-        clear_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_RED};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#D63031;}}")
-        ok_btn = QPushButton("确定")
-        ok_btn.setFixedSize(80, 32)
-        ok_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.ACCENT};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:{MacOSButton._adjust_color_opacity(MacOSColors.ACCENT, 0.85)};}}")
-        cancel_btn = QPushButton("取消")
-        cancel_btn.setFixedSize(80, 32)
-        cancel_btn.setStyleSheet(f"QPushButton{{background-color:{MacOSColors.SYSTEM_GRAY};color:white;border-radius:8px;font-weight:bold;font-size:13px;}}QPushButton:hover{{background-color:#6E6E73;}}")
         btn_layout.addStretch()
+        clear_btn = styled_button("清除", danger=True)
+        ok_btn = styled_button("确定", primary=True)
+        cancel_btn = styled_button("取消", primary=False)
         btn_layout.addWidget(clear_btn)
         btn_layout.addWidget(ok_btn)
         btn_layout.addWidget(cancel_btn)
-        btn_layout.addStretch()
-        _cl.addLayout(btn_layout)
+        _outer.addLayout(btn_layout)
         current_keys = []
         def clear_shortcut():
             nonlocal current_keys
             current_keys = []
-            shortcut_label.setText("")
+            shortcut_label.setText("未设置")
+            shortcut_label.setStyleSheet(_KEYCAP_UNSET_QSS)
         def keyPressEvent(event):
             # 忽略系统自动重复，避免重复录入
             if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
                 return
 
             key = event.key()
+            # 兑现「Esc 取消」承诺：Esc 直接关闭对话框而不是被录进快捷键
+            if key == Qt.Key_Escape:
+                dialog.reject()
+                return
             if key in (Qt.Key_Control, Qt.Key_Shift, Qt.Key_Alt, Qt.Key_Meta):
                 return
 
@@ -2838,6 +2925,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 existing = existing[:3]
             combo = "+".join(existing)
             shortcut_label.setText(combo)
+            shortcut_label.setStyleSheet(_KEYCAP_SET_QSS)
             current_keys.clear()
             current_keys.append(combo)
         clear_btn.clicked.connect(clear_shortcut)
@@ -2945,8 +3033,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             name_item.setForeground(QColor(MacOSColors.SYSTEM_GREEN if is_running else MacOSColors.TEXT_PRIMARY))
             name_item.setFont(row_font)
 
-            # 第3列：状态
-            status_item = table_widget.item(row, 3)
+            # 第2列：状态
+            status_item = table_widget.item(row, 2)
             if is_running:
                 status_text, status_color, status_bold = "运行中", MacOSColors.SYSTEM_GREEN, True
             elif is_monitor:
@@ -2960,32 +3048,32 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             status_font.setBold(status_bold)
             status_item.setFont(status_font)
 
-            # 第4列：操作（运行/停止）
-            op_item = table_widget.item(row, 4)
+            # 第3列：操作（运行/停止）
+            op_item = table_widget.item(row, 3)
             want_op = "stop" if is_running else "run"
             cur_op = op_item.data(Qt.UserRole)
             if not (isinstance(cur_op, tuple) and len(cur_op) == 2 and cur_op[0] == want_op):
-                table_widget.removeCellWidget(row, 4)
+                table_widget.removeCellWidget(row, 3)
                 op_new = QTableWidgetItem()
                 op_new.setData(Qt.UserRole, (want_op, skill))
-                table_widget.setItem(row, 4, op_new)
+                table_widget.setItem(row, 3, op_new)
                 icon_name = "stop" if is_running else "play"
-                _set_table_icon_centered(table_widget, row, 4, icon_name, 16)
+                _set_table_icon_centered(table_widget, row, 3, icon_name, 16)
 
-            # 第6列：删除按钮（运行中禁用）
-            del_item = table_widget.item(row, 6)
+            # 第5列：删除按钮（运行中禁用）
+            del_item = table_widget.item(row, 5)
             if is_running and del_item.data(Qt.UserRole) is not None:
-                table_widget.removeCellWidget(row, 6)
+                table_widget.removeCellWidget(row, 5)
                 del_new = QTableWidgetItem("运行中")
                 del_new.setForeground(QColor(MacOSColors.SYSTEM_GRAY3))
                 del_new.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-                table_widget.setItem(row, 6, del_new)
+                table_widget.setItem(row, 5, del_new)
             elif not is_running and del_item.data(Qt.UserRole) is None:
-                table_widget.removeCellWidget(row, 6)
+                table_widget.removeCellWidget(row, 5)
                 del_new = QTableWidgetItem()
                 del_new.setData(Qt.UserRole, skill)
-                table_widget.setItem(row, 6, del_new)
-                _set_table_icon_centered(table_widget, row, 6, "trash", 14)
+                table_widget.setItem(row, 5, del_new)
+                _set_table_icon_centered(table_widget, row, 5, "trash", 14)
 
     def load_combo_skills_to_table(self, table_widget):
         checked_names = set()
@@ -3017,7 +3105,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         table_widget.setRowCount(len(combo_skills))
         for row, skill in enumerate(combo_skills):
-            table_widget.setRowHeight(row, 42)
+            table_widget.setRowHeight(row, 52)
 
             name = skill.get('name', '未命名')
             flow_count = len(skill.get('flows', []))
@@ -3041,10 +3129,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             name_item.setFont(row_font)
             table_widget.setItem(row, 1, name_item)
 
-            flow_count_item = QTableWidgetItem(str(flow_count))
-            flow_count_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-            table_widget.setItem(row, 2, flow_count_item)
-
+            # ── 第2列：状态 ──
             if is_running:
                 status_item = QTableWidgetItem("运行中")
                 status_item.setForeground(QColor(MacOSColors.SYSTEM_GREEN))
@@ -3058,8 +3143,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 status_item = QTableWidgetItem("空闲")
                 status_item.setForeground(QColor(MacOSColors.TEXT_SECONDARY))
             status_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-            table_widget.setItem(row, 3, status_item)
+            table_widget.setItem(row, 2, status_item)
 
+            # ── 第3列：操作（运行/停止）──
             op_item = QTableWidgetItem()
             if is_running:
                 op_item.setData(Qt.UserRole, ("stop", skill))
@@ -3067,9 +3153,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             else:
                 op_item.setData(Qt.UserRole, ("run", skill))
                 icon_name = "play"
-            table_widget.setItem(row, 4, op_item)
-            _set_table_icon_centered(table_widget, row, 4, icon_name, 16)
+            table_widget.setItem(row, 3, op_item)
+            _set_table_icon_centered(table_widget, row, 3, icon_name, 16)
 
+            # ── 第4列：停止快捷键 ──
             stop_shortcut = skill.get('stop_shortcut', '')
             shortcut_display = stop_shortcut if stop_shortcut else "点击设置"
             shortcut_item = QTableWidgetItem(shortcut_display)
@@ -3077,19 +3164,19 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             shortcut_item.setData(Qt.UserRole, skill)
             if not stop_shortcut:
                 shortcut_item.setForeground(QColor(MacOSColors.TEXT_SECONDARY))
-            table_widget.setItem(row, 5, shortcut_item)
+            table_widget.setItem(row, 4, shortcut_item)
 
-            # 第6列：删除按钮(运行中不允许删除)
+            # ── 第5列：删除按钮（运行中不允许删除）──
             if is_running:
                 delete_item = QTableWidgetItem("运行中")
                 delete_item.setForeground(QColor(MacOSColors.SYSTEM_GRAY3))
                 delete_item.setTextAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-                table_widget.setItem(row, 6, delete_item)
+                table_widget.setItem(row, 5, delete_item)
             else:
                 delete_item = QTableWidgetItem()
                 delete_item.setData(Qt.UserRole, skill)
-                table_widget.setItem(row, 6, delete_item)
-                _set_table_icon_centered(table_widget, row, 6, "trash", 14)
+                table_widget.setItem(row, 5, delete_item)
+                _set_table_icon_centered(table_widget, row, 5, "trash", 14)
 
     def _get_combo_manager(self):
         return ComboSkillManager(self)
@@ -3153,6 +3240,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         try:
             if skill_id in self.runners and self.runners[skill_id].isRunning():
                 runner = self.runners[skill_id]
+                runner._stop_reason = '快捷键停止'
                 runner.running = False
                 if hasattr(runner, 'interrupt_event'):
                     runner.interrupt_event.set()
@@ -3191,6 +3279,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 skill_id = skill.get('name', '')
                 if skill_id in self.runners and self.runners[skill_id].isRunning():
                     runner = self.runners[skill_id]
+                    runner._stop_reason = '手动停止'
                     runner.running = False
                     if hasattr(runner, 'interrupt_event'):
                         runner.interrupt_event.set()
@@ -3211,6 +3300,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 set_replay_stop_flag(True)
                 for skill_id, runner in list(self.runners.items()):
                     if runner.isRunning():
+                        runner._stop_reason = '全部停止'
                         runner.running = False
                         if hasattr(runner, 'interrupt_event'):
                             runner.interrupt_event.set()
@@ -3311,6 +3401,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 self.record_action.setText("开始录制")
             self.showNormal()
         else:
+            # 商业化付费闸：试用过期且非 VIP 时禁止开始新录制
+            if not self.check_entitlement_gate():
+                return
             try:
                 self._set_recording_state(True)
                 self.record_btn.setEnabled(False)
@@ -3792,7 +3885,10 @@ def start_macos_app():
     from login_manager import LoginManager
 
     login_manager = LoginManager()
-    main_window = MacOSAutoRecorderApp(login_manager=login_manager)
+
+    # 商业化：登录改为内嵌主窗口「账户」页（方案 7-7 左对齐极简），
+    # 不再弹出独立登录窗；未登录时默认展示账户页，登录成功后自动进入录制控制。
+    main_window = MacOSAutoRecorderApp(username=None, login_manager=login_manager)
     main_window.setWindowFlags(Qt.FramelessWindowHint)
     main_window.show()
 

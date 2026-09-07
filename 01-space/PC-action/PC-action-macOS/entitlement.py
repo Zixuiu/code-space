@@ -19,7 +19,8 @@ PRICING_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pricing
 REMOTE_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pricing_remote.json')
 
 # 远程配置源：URL 永不变（GitCode 仓库），内容动态更新当前充值页域名。
-# cpolar 免费域名会漂移，exe 通过这里每次启动拉到最新 channel_url。
+# 充值页域名动态获取优先级：本地 cpolar 实时隧道地址(自动跟漂移) > 本地兜底 > 远程配置源(动态更新)。
+# cpolar 免费域名会漂移，本地实时地址最高优先，app 自启即自动跟上，无需改配置或推远程。
 CONFIG_SOURCES = [
     "https://gitcode.com/api/v5/repos/weixin_58844486/pc-action-config/raw/paypro-config.json?ref=main",
     "https://gitcode.com/api/v5/repos/weixin_58844486/pc-action-config/contents/paypro-config.json?ref=main",
@@ -29,7 +30,7 @@ DEFAULT_PRICING = {
     "plan_1": {"name": "VIP会员", "price": 99.0, "months": 1, "desc": "包月（全功能）"},
     "trial_days": 7,
     "channel_name": "PC-Action",
-    "channel_url": "https://7xo5xt180643.vicp.fun/recharge.html",
+    "channel_url": "https://4d09c223.r8.cpolar.cn/recharge.html",
 }
 
 
@@ -39,6 +40,56 @@ DEFAULT_PRICING = {
 CHANNEL_FINGERPRINTS = ("PC-Action", "会员充值")
 _URL_VERIFY_CACHE = {}   # url -> (ts, ok)
 _URL_VERIFY_TTL = 300    # 秒
+
+
+# ------------------------- 本地 cpolar 实时隧道地址 -------------------------
+# cpolar 免费版域名会漂移；与其依赖写死的候选或远程配置滞后，
+# 不如直接读本地 cpolar 当前隧道地址（来自其运行日志里最新的 StartProxy Url），
+# 作为最高优先级候选，漂移后 app 自启即自动跟上，无需改配置/推远程。
+import os as _os
+import re as _re
+import glob as _glob
+
+_CPOLAR_LOG_DIR = _os.path.join(_os.path.expanduser("~"), ".cpolar", "logs")
+# 只取 https 隧道地址（bind_tls: both 时日志里 http/https 都有，优先 https）
+_CPOLAR_URL_RE = _re.compile(r'https://[a-z0-9.\-]+\.cpolar\.(?:io|cn)')
+_LOCAL_CPOLAR_CACHE = {"ts": 0.0, "url": None}
+_LOCAL_CPOLAR_TTL = 60  # 秒，避免每次解析都读日志
+
+
+def _probe_cpolar_url():
+    """从 cpolar 本地日志尾部提取当前 website 隧道公网地址（不含路径）。
+    免费版 /api/tunnels 不返回 JSON（实测空响应），故读日志里最新的 StartProxy Url。失败返回 None。"""
+    try:
+        logs = sorted(_glob.glob(_os.path.join(_CPOLAR_LOG_DIR, "cpolar_service.log*")),
+                      key=_os.path.getmtime, reverse=True)
+        for lf in logs[:3]:
+            try:
+                with open(lf, "r", encoding="utf-8", errors="ignore") as f:
+                    f.seek(0, 2)
+                    size = f.tell()
+                    f.seek(max(0, size - 300000))  # 只读尾部 300KB，避免整文件
+                    tail = f.read()
+                urls = _CPOLAR_URL_RE.findall(tail)
+                if urls:
+                    return urls[-1]  # 最后一条 https 隧道地址
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return None
+
+
+def _local_cpolar_url():
+    """带短缓存的本地 cpolar 当前隧道地址（https://xxxx.cpolar.cn，不含路径）。"""
+    import time as _t
+    now = _t.time()
+    if now - _LOCAL_CPOLAR_CACHE["ts"] < _LOCAL_CPOLAR_TTL:
+        return _LOCAL_CPOLAR_CACHE["url"]
+    url = _probe_cpolar_url()
+    _LOCAL_CPOLAR_CACHE["ts"] = now
+    _LOCAL_CPOLAR_CACHE["url"] = url
+    return url
 
 
 def verify_channel_url(url, timeout=3):
@@ -67,14 +118,21 @@ def verify_channel_url(url, timeout=3):
 
 
 def _candidate_channel_urls(local_url, remote):
-    """去重汇总所有候选充值地址：本地 -> 远程主地址 -> 远程 mirror 列表"""
+    """去重汇总所有候选充值地址：本地 cpolar 实时地址(优先) -> 本地 -> 远程主地址 -> 远程 mirror 列表"""
     candidates = []
+    # 真·自动：本地 cpolar 当前隧道地址排第一，免费域名漂移时自启即跟上
+    live = _local_cpolar_url()
+    if live:
+        live_u = live.rstrip('/') + '/recharge.html'
+        if live_u not in candidates:
+            candidates.append(live_u)
     if isinstance(remote, dict):
         for u in [local_url, remote.get('channel_url')] + list(remote.get('mirror_urls') or []):
             if u and isinstance(u, str) and u not in candidates:
                 candidates.append(u)
     elif local_url:
-        candidates = [local_url]
+        if local_url not in candidates:
+            candidates.append(local_url)
     return candidates
 
 

@@ -214,11 +214,19 @@ class SelectionOverlay(QWidget):
             self.update()
         elif event.button() == Qt.MiddleButton:
             # 中键取消选择 - 添加确认对话框避免意外关闭
-            reply = QMessageBox.question(self, "确认退出",
-                                       "确定要退出选择模式吗？\n(ESC键也可以退出)",
-                                       QMessageBox.Yes | QMessageBox.No,
-                                       QMessageBox.Yes)  # Enter 默认＝是
-            if reply == QMessageBox.Yes:
+            # 统一美化样式（StyledMessageDialog）。注意：覆盖层是全屏 layered
+            # window，弹窗挂它当父级会触发整窗不渲染的坑（见 show_screenshot_dialog
+            # 注释），所以用无父级独立窗口 + 手动置顶。
+            from beautiful_dialog import StyledMessageDialog
+            _dlg = StyledMessageDialog(None, title="确认退出",
+                                       text="确定要退出选择模式吗？\n(ESC键也可以退出)",
+                                       msg_type="question", buttons="yes_no")
+            _dlg.setWindowFlags(_dlg.windowFlags() | Qt.WindowStaysOnTopHint)
+            _dlg.show()
+            _dlg.raise_()
+            _dlg.activateWindow()
+            reply = _dlg.exec_()
+            if reply == StyledMessageDialog.YES:
                 self.close()
             else:
                 # 重新激活窗口
@@ -1056,14 +1064,17 @@ class SelectionOverlay(QWidget):
                     self.setModal(True)
                     
                     # 设置窗口标志：Dialog 才能正确模态 + 置顶
-                    self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-                    self.setAttribute(Qt.WA_TranslucentBackground)
+                    # ★ 不要 FramelessWindowHint + WA_TranslucentBackground：
+                    #   layered window 下 Windows 不渲染 QSS 的背景色，整个对话框
+                    #   变成全透明（用户看到屏幕透过来，"啥都看不见"）。
+                    #   与 19:45 停止快捷键弹窗、macos_dialog.py 同一个坑，同一修法：
+                    #   去掉无边框+半透明，让系统正常绘制白底窗口。
+                    self.setWindowFlags(Qt.Dialog | Qt.WindowStaysOnTopHint)
 
-                    # ★ 极简线框风格（样式5）：白底细边框，无三点按钮
+                    # ★ 极简线框风格（样式5）：白底，无三点按钮
                     self.setStyleSheet("""
-                        QDialog { background-color: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; }
+                        QDialog { background-color: #FFFFFF; }
                     """)
-                    self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
 
                     layout = QVBoxLayout()
 
@@ -1530,10 +1541,10 @@ class SelectionOverlay(QWidget):
         dialog = QDialog(self)
         dialog.setWindowTitle("截图")
         dialog.setModal(True)
-        dialog.setWindowFlags(Qt.Window | Qt.FramelessWindowHint)
-        dialog.setAttribute(Qt.WA_TranslucentBackground)
-        
-        layout = QVBoxLayout(dialog)
+        # 无边框 + 实底自绘标题栏（frameless_dialog_with_titlebar 不带半透明，
+        # 避开 layered window 下 WA_TranslucentBackground 整窗不渲染的历史教训）
+        from styles import frameless_dialog_with_titlebar
+        layout = frameless_dialog_with_titlebar(dialog, "截图")
         
         # 显示截图
         label = QLabel()
@@ -1600,10 +1611,11 @@ class SelectionOverlay(QWidget):
             dialog = QDialog(self)
             dialog.setWindowTitle("添加操作序列")
             dialog.setModal(True)
-            dialog.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
             dialog.resize(600, 500)
-            
-            layout = QVBoxLayout(dialog)
+
+            # 无边框 + 实底自绘标题栏（避开 WA_TranslucentBackground 整窗不渲染的坑）
+            from styles import frameless_dialog_with_titlebar
+            layout = frameless_dialog_with_titlebar(dialog, "添加操作序列")
             
             # 创建选项卡
             tab_widget = QTabWidget()

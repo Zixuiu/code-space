@@ -2,123 +2,87 @@
 数据库助手模块
 作为Supabase数据库操作的包装器，提供简化的接口
 """
+import uuid
 from datetime import datetime
 from supabase_db import get_supabase_manager
 
 class DatabaseHelper:
     """数据库助手类，封装Supabase操作"""
-    
+
     @classmethod
     def manage_vip_license(cls, username, months):
         """
-        管理VIP许可证
+        管理 VIP 许可证（开通/续费）。
+        双写策略：licenses 表记录交易（审计真源），
+        users.is_vip / vip_end_date 作为判定口径（entitlement.get_entitlement 读取）。
         :param username: 用户名
         :param months: VIP月数
         :return: (success, message) 元组
         """
         try:
             supabase_manager = get_supabase_manager()
-            # 获取用户信息
             user = supabase_manager.get_user(username)
             if not user:
                 return False, "用户不存在"
-            
-            print(f"获取到用户: {username}, ID: {user['id']}, 类型: {type(user['id'])}")
-            
-            # 计算新的到期时间
-            from datetime import datetime, timedelta
-            import uuid
+
+            from datetime import timedelta
             current_date = datetime.now()
-            
-            # 检查是否已有VIP许可证
+            new_expiry = current_date + timedelta(days=int(months) * 30)
+
+            # 1) 写 licenses 表：已有未过期 license 则叠加时长，否则新建
             try:
-                licenses = supabase_manager.client.table('licenses').select('*').eq('user_id', user['id']).execute()
-                print(f"查询到 {len(licenses.data) if licenses.data else 0} 个现有许可证")
-            except Exception as e:
-                print(f"查询现有许可证失败: {e}")
-                licenses = None
-            
-            if licenses and licenses.data and len(licenses.data) > 0:
-                # 更新现有许可证
-                license_data = licenses.data[0]
-                existing_expiry = datetime.strptime(license_data['expiry_date'], '%Y-%m-%d')
-                
-                # 如果现有许可证未过期，则延长时间；否则从当前时间开始计算
-                if existing_expiry > current_date:
-                    new_expiry = existing_expiry + timedelta(days=months * 30)
-                else:
-                    new_expiry = current_date + timedelta(days=months * 30)
-                
-                try:
-                    supabase_manager.client.table('licenses').update({
-                        'expiry_date': new_expiry.strftime('%Y-%m-%d')
-                    }).eq('id', license_data['id']).execute()
-                    return True, f"VIP已延长{months}个月"
-                except Exception as e:
-                    print(f"更新许可证失败: {e}")
-                    return False, f"更新许可证失败: {str(e)}"
-            else:
-                # 创建新的VIP许可证
-                new_expiry = current_date + timedelta(days=months * 30)
-                license_data = {
-                    'user_id': user['id'],
-                    'license_key': f"VIP-{uuid.uuid4().hex[:8].upper()}",
-                    'product_name': 'VIP会员',
-                    'expiry_date': new_expiry.strftime('%Y-%m-%d'),
-                    'created_at': current_date.strftime('%Y-%m-%d %H:%M:%S')
-                }
-                
-                print(f"尝试插入许可证: {license_data}")
-                
-                # 尝试多种方法插入许可证
-                methods = [
-                    ("标准插入", lambda: supabase_manager.client.table('licenses').insert(license_data).execute()),
-                    ("不带created_at", lambda: supabase_manager.client.table('licenses').insert({
-                        'user_id': user['id'],
-                        'license_key': license_data['license_key'],
-                        'product_name': 'VIP会员',
-                        'expiry_date': license_data['expiry_date']
-                    }).execute()),
-                    ("仅必要字段", lambda: supabase_manager.client.table('licenses').insert({
-                        'user_id': user['id'],
-                        'license_key': license_data['license_key'],
-                        'product_name': 'VIP会员',
-                        'expiry_date': license_data['expiry_date'],
-                        'created_at': '2025-11-22 13:48:30'
-                    }).execute()),
-                    ("使用字符串ID", lambda: supabase_manager.client.table('licenses').insert({
-                        'user_id': str(user['id']),
-                        'license_key': license_data['license_key'],
-                        'product_name': 'VIP会员',
-                        'expiry_date': license_data['expiry_date'],
-                        'created_at': '2025-11-22 13:48:30'
-                    }).execute()),
-                ]
-                
-                for method_name, method_func in methods:
+                r = supabase_manager.client.table('licenses').select('*').eq('user_id', user['id']).execute()
+                if r.data:
+                    existing = r.data[0]
                     try:
-                        print(f"尝试方法: {method_name}")
-                        result = method_func()
-                        print(f"{method_name}成功")
-                        return True, f"已成功开通VIP，有效期{months}个月"
-                    except Exception as e:
-                        print(f"{method_name}失败: {e}")
-                        continue
-                
-                # 如果所有方法都失败，返回错误
-                return False, f"无法创建VIP许可证，所有方法都失败了"
-        
+                        existing_expiry = datetime.strptime(str(existing.get('expiry_date'))[:10], '%Y-%m-%d')
+                        if existing_expiry > current_date:
+                            new_expiry = existing_expiry + timedelta(days=int(months) * 30)
+                    except Exception:
+                        pass  # 旧到期日解析失败则按当前时间起算
+                    supabase_manager.client.table('licenses').update({
+                        'expiry_date': new_expiry.strftime('%Y-%m-%d'),
+                    }).eq('id', existing['id']).execute()
+                else:
+                    supabase_manager.client.table('licenses').insert({
+                        'user_id': user['id'],
+                        'license_key': f"VIP-{uuid.uuid4().hex[:8].upper()}",
+                        'product_name': 'VIP会员',
+                        'expiry_date': new_expiry.strftime('%Y-%m-%d'),
+                        'created_at': current_date.strftime('%Y-%m-%d %H:%M:%S'),
+                    }).execute()
+            except Exception as e:
+                return False, f"写入许可证失败: {e}"
+
+            # 2) 同步 users 表（entitlement 判定口径），失败视为整体失败，保证两表一致
+            try:
+                supabase_manager.client.table('users').update({
+                    'is_vip': 1,
+                    'vip_end_date': new_expiry.strftime('%Y-%m-%d'),
+                }).eq('id', user['id']).execute()
+            except Exception as e:
+                return False, f"会员状态同步失败: {e}"
+
+            # 3) 失效该用户的进程内缓存，避免 entitlement 读到写库前的旧数据（缓存5分钟）
+            try:
+                supabase_manager._user_cache.pop(username, None)
+            except Exception:
+                pass
+
+            return True, f"会员已开通至 {new_expiry.strftime('%Y-%m-%d')}"
         except Exception as e:
             print(f"管理VIP许可证失败: {e}")
             return False, f"操作失败: {str(e)}"
     
     @classmethod
-    def add_recharge_record(cls, username, amount, months):
+    def add_recharge_record(cls, username, amount, months, payment_method='微信支付', status='pending'):
         """
         添加充值记录
         :param username: 用户名
         :param amount: 充值金额
         :param months: VIP月数
+        :param payment_method: 支付 / 备注说明
+        :param status: 审核状态，默认 pending（待审核）
         """
         try:
             supabase_manager = get_supabase_manager()
@@ -133,7 +97,8 @@ class DatabaseHelper:
                 'username': username,
                 'amount': amount,
                 'months': months,
-                'payment_method': '微信支付',
+                'payment_method': payment_method,
+                'status': status,
                 'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             
@@ -143,6 +108,26 @@ class DatabaseHelper:
         except Exception as e:
             print(f"添加充值记录失败: {e}")
             return None
+    
+    @classmethod
+    def get_recharge_records(cls, username=None, status=None):
+        """获取充值记录（可按用户名 / 状态过滤）"""
+        try:
+            supabase_manager = get_supabase_manager()
+            return supabase_manager.get_recharge_records(username, status)
+        except Exception as e:
+            print(f"获取充值记录失败: {e}")
+            return []
+    
+    @classmethod
+    def update_recharge_status(cls, record_id, status):
+        """更新充值记录审核状态：pending / approved / rejected"""
+        try:
+            supabase_manager = get_supabase_manager()
+            return supabase_manager.update_recharge_status(record_id, status)
+        except Exception as e:
+            print(f"更新充值记录状态失败: {e}")
+            return False
     
     def get_user_list(self):
         """获取用户列表"""

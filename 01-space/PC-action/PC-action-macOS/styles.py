@@ -346,11 +346,6 @@ def generate_dynamic_styles(screen_width=None, screen_height=None):
             background-color: {THEME_PRIMARY};
             border: 2px solid {THEME_PRIMARY};
         }}
-        QCheckBox::indicator:checked::after {{
-            content: "鉁?;
-            color: white;
-            font-size: 10px;
-        }}
         QTextEdit {{
             background-color: {THEME_BG};
             color: {THEME_TEXT};
@@ -457,49 +452,9 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
     # 覆盖会把调用方设置的 WindowStaysOnTopHint 抹掉，导致对话框无法置顶，
     # 被主窗口或坐标录制覆盖层(WindowStaysOnTopHint)遮挡。
     from PyQt5.QtCore import Qt
+    from PyQt5.QtGui import QPainter, QColor
     dialog.setWindowFlags(dialog.windowFlags() | Qt.Dialog | Qt.FramelessWindowHint)
     dialog.setAttribute(Qt.WA_TranslucentBackground)
-    dialog.setStyleSheet("QDialog{background-color:#FFFFFF;border-radius:12px;}")
-
-    # 添加 macOS 三点点（红 关闭 / 黄 最小化 / 绿 最大化）
-    from PyQt5.QtWidgets import QFrame as _DF, QWidget as _DW, QHBoxLayout as _DL, QDialog as _QD
-    _bw = _DW(dialog)
-    _bw.setGeometry(dialog.width()-78, 12, 66, 14)
-    _bw.setStyleSheet("background:transparent;")
-    _bl = _DL(_bw)
-    _bl.setContentsMargins(0,0,0,0)
-    _bl.setSpacing(8)
-    
-    for _color,_hover,_action in [
-        ("#28C840","#23A839",lambda w: w.showMaximized() if not w.isMaximized() else w.showNormal()),
-        ("#FFBD2E","#E6A722",lambda w: w.showMinimized()),
-        ("#FF5F57","#FF3B30",lambda w: w.close()),
-    ]:
-        _d = _DF(_bw)
-        _d.setFixedSize(14,14)
-        _d.setStyleSheet("QFrame{background-color:"+_color+";border:none;border-radius:7px;}QFrame:hover{background-color:"+_hover+";}")
-        _d.setCursor(Qt.PointingHandCursor)
-        _bl.addWidget(_d)
-        import PyQt5.QtCore as _QC
-        class _Filt(_QC.QObject):
-            def __init__(self,fn): super().__init__(); self.fn=fn
-            def eventFilter(self,o,e):
-                if e.type()==_QC.QEvent.MouseButtonPress and e.button()==_QC.Qt.LeftButton:
-                    p=o.parent()
-                    while p and not isinstance(p,_QD): p=p.parent()
-                    if p: self.fn(p)
-                    return True
-                return super().eventFilter(o,e)
-        # 必须保持 Python 引用：installEventFilter 不持有引用，
-        # 否则 _Filt 会被 GC，事件过滤器失效，导致三个圆点点了没反应（关不掉对话框）
-        if not hasattr(dialog, '_macos_dot_filters'):
-            dialog._macos_dot_filters = []
-        _f = _Filt(_action)
-        dialog._macos_dot_filters.append(_f)
-        _d.installEventFilter(_f)
-    
-    _bw.show()
-    _bw.raise_()
 
     # 计算动态尺寸
     dialog_border_radius = int(screen_height * 0.012)
@@ -507,11 +462,27 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
     input_border_radius = int(screen_height * 0.003)
     checkbox_border_radius = int(screen_height * 0.004)
 
+    # ⚠️ 关键：WA_TranslucentBackground 下，QSS 写在顶层 QDialog 上的
+    # background-color 不会被绘制（Qt 已知行为），整窗直接透明。
+    # 因此背景改由 paintEvent 自绘圆角白卡（与 StyledMessageDialog 的
+    # 实心容器卡片同思路），QSS 只负责子控件样式。
+    _radius = dialog_border_radius
+
+    def _paint_rounded_card(event, _d=dialog, _r=_radius):
+        p = QPainter(_d)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor("#FFFFFF"))
+        p.drawRoundedRect(_d.rect(), _r, _r)
+        p.end()
+
+    dialog._card_paint_handler = _paint_rounded_card  # 挂实例引用防 GC
+    dialog.paintEvent = _paint_rounded_card
+
     dialog.setStyleSheet(f"""
         QDialog {{
-            background-color: {THEME_CARD};
+            background: transparent;
             color: {THEME_TEXT};
-            border-radius: {dialog_border_radius}px;
         }}
         QLineEdit {{
             background-color: {THEME_BG};
@@ -538,11 +509,6 @@ def apply_dialog_style(dialog, screen_width=None, screen_height=None):
         QCheckBox::indicator:checked {{
             background-color: {THEME_PRIMARY};
             border: 2px solid {THEME_PRIMARY};
-        }}
-        QCheckBox::indicator:checked::after {{
-            content: "鉁?;
-            color: white;
-            font-size: 10px;
         }}
         QPushButton {{
             background-color: {THEME_PRIMARY};
@@ -1204,3 +1170,82 @@ def get_color_dialog_style(screen_width=None, screen_height=None):
             background-color: #5A6069BB;
         }}
     """
+
+
+def enable_dialog_drag(dialog, *widgets):
+    """让指定控件成为无边框对话框的拖动区（按住左键拖动窗口）。
+
+    用法：enable_dialog_drag(dialog, title_label, hint_label, ...)
+    配合 apply_dialog_style 使用，弥补无边框后没有标题栏可拖的问题。
+    """
+    from PyQt5.QtCore import Qt
+
+    state = {"pos": None}
+
+    def _press(e):
+        if e.button() == Qt.LeftButton:
+            state["pos"] = e.globalPos() - dialog.pos()
+
+    def _move(e):
+        if state["pos"] is not None and e.buttons() & Qt.LeftButton:
+            dialog.move(e.globalPos() - state["pos"])
+
+    def _release(e):
+        state["pos"] = None
+
+    for w in widgets:
+        w.mousePressEvent = _press
+        w.mouseMoveEvent = _move
+        w.mouseReleaseEvent = _release
+
+
+def frameless_dialog_with_titlebar(dialog, title, bar_height=36):
+    """无边框 + 实底自绘标题栏（标题 + 关闭按钮 + 整栏可拖动），返回内容区布局。
+
+    专给【不能挂 WA_TranslucentBackground】的场景：如截图覆盖层(SelectionOverlay)
+    的子对话框，挂半透明会整窗不渲染（layered window 历史教训，见
+    show_screenshot_dialog 内注释）。本助手只去边框、不做半透明圆角。
+
+    用法：
+        layout = frameless_dialog_with_titlebar(dialog, "标题")
+        layout.addWidget(...)   # 原本 QVBoxLayout(dialog) 里的代码原样接上
+    """
+    from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import QVBoxLayout, QHBoxLayout, QWidget, QLabel, QPushButton
+
+    dialog.setWindowFlags(dialog.windowFlags() | Qt.FramelessWindowHint)
+
+    outer = QVBoxLayout(dialog)
+    outer.setContentsMargins(0, 0, 0, 0)
+    outer.setSpacing(0)
+
+    bar = QWidget()
+    bar.setFixedHeight(bar_height)
+    bar.setStyleSheet("background: transparent;")  # 无灰底：与删除确认卡片同观感
+    bar_l = QHBoxLayout(bar)
+    bar_l.setContentsMargins(14, 0, 8, 0)
+    bar_l.setSpacing(6)
+    t = QLabel(title)
+    t.setStyleSheet("background: transparent; color: #3A3F4B; font-size: 13px; font-weight: 600;")
+    bar_l.addWidget(t)
+    bar_l.addStretch()
+    x_btn = QPushButton("✕")
+    x_btn.setFixedSize(30, 24)
+    x_btn.setCursor(Qt.PointingHandCursor)
+    x_btn.setStyleSheet(
+        "QPushButton{background:transparent;border:none;color:#7A8190;"
+        "font-size:14px;border-radius:6px;}"
+        "QPushButton:hover{background:#FF5F57;color:white;}"
+    )
+    x_btn.clicked.connect(dialog.close)
+    bar_l.addWidget(x_btn)
+    outer.addWidget(bar)
+
+    enable_dialog_drag(dialog, bar, t)
+
+    content = QWidget()
+    content.setStyleSheet("background-color: #FFFFFF;")
+    inner = QVBoxLayout(content)
+    inner.setContentsMargins(14, 12, 14, 14)
+    outer.addWidget(content)
+    return inner

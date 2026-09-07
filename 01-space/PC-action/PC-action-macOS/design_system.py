@@ -113,6 +113,40 @@ def configure_table(table,style=None):
     table.verticalHeader().setVisible(False)
     table.setAlternatingRowColors(True)
 
+
+def flat_button_style(variant="neutral", radius=6, font_size=13, padding="6px 14px"):
+    """统一扁平按钮样式：无边框、无阴影、统一圆角/内边距、语义化配色。
+
+    variant:
+      'primary' 主操作（强调色填充，白字）
+      'neutral' 次要操作（浅灰底，深字）
+      'danger'  危险操作（红底，白字）
+    用法：btn.setStyleSheet(flat_button_style('primary'))
+    """
+    conf = {
+        # bg, fg, hover, pressed
+        "primary": ("#5A6069", "#FFFFFF", "#474C54", "#3F434A"),
+        "neutral": ("#F2F3F5", "#1D1D1F", "#E8EAED", "#DEE0E4"),
+        "danger":  ("#FF3B30", "#FFFFFF", "#E0352B", "#C92E25"),
+    }
+    bg, fg, hover, pressed = conf.get(variant, conf["neutral"])
+    font = TypographySystem.FONT_FAMILY
+    return f"""
+        QPushButton {{
+            background-color: {bg};
+            color: {fg};
+            border: none;
+            border-radius: {radius}px;
+            padding: {padding};
+            font-size: {font_size}px;
+            font-weight: 600;
+            font-family: {font};
+        }}
+        QPushButton:hover {{ background-color: {hover}; }}
+        QPushButton:pressed {{ background-color: {pressed}; padding-top: 1px; }}
+        QPushButton:disabled {{ background-color: {ColorPalette.GRAY_200}; color: {ColorPalette.TEXT_MUTED}; }}
+    """
+
 SHADOWS=ShadowSystem()
 ANIMATIONS=AnimationTokens()
 

@@ -1,0 +1,72 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+    <head>
+        <meta charset="utf-8">
+        <title>操作成功</title>
+        <meta name="description" content="PC-Action 会员服务">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            .main{
+                margin-top: 40px;
+            }
+        </style>
+    </head>
+
+    <body>
+            <div class="main">
+                <table align="center" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                        <td height="20"></td>
+                    </tr>
+                    <!-- content -->
+                    <tr>
+                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">
+                            <img src="https://i.loli.net/2018/07/18/5b4f12fb00713.png" width="50">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">
+                            恭喜您，支付成功！
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">
+                            支付金额：<span th:text="${money}"></span>，
+                            支付方式：<span th:text="${payType}"></span>，
+                            留言：<span th:text="${description}"></span>，
+                            支付时间：<span th:text="${time}"></span>
+                        </td>
+                    </tr>
+                    <tr th:if="${licenseCode != null and !licenseCode.isEmpty()}">
+                        <td height="10"></td>
+                    </tr>
+                    <tr th:if="${licenseCode != null and !licenseCode.isEmpty()}">
+                        <td style="font-size:16px; color:#c0392b; font-weight:bold; line-height:26px;" align="center">
+                            您的激活码：<span th:text="${licenseCode}"></span>
+                        </td>
+                    </tr>
+                    <tr th:if="${licenseCode != null and !licenseCode.isEmpty()}">
+                        <td style="font-size:12px; color:#95a5a6; line-height:22px;" align="center">
+                            请复制并妥善保存激活码；打开 PC-Action → 设置 → 会员与激活 → 输入激活码即可开通。
+                        </td>
+                    </tr>
+                    <tr th:if="${licenseCode == null or licenseCode.isEmpty()}">
+                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">
+                            激活码将在 24 小时内由客服发送至本邮箱，请留意查收。
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">
+                            十分感谢您的充值，您还可以到官网查看到您的充值数据。
+                        </td>
+                    </tr>
+
+<!--                    <tr>-->
+<!--                        <td style="font-size:13px; color:#7f8c8d; line-height:26px;" align="center">-->
+<!--                            下载地址：<span th:text="${downloadUrl}"></span>-->
+<!--                        </td>-->
+<!--                    </tr>-->
+                </table>
+            </div>
+    </body>
+</html>

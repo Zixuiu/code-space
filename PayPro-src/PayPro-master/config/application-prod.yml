@@ -23,7 +23,7 @@ spring:
 paypro:
   # ---- 必改项 ----
   # 站点访问地址（改为你的域名或服务器IP）
-  site: https://7xo5xt180643.vicp.fun
+  site: https://4d09c223.r8.cpolar.cn
 
   # ---- 支付宝配置 ----
   # 支付宝用户ID（用于收款）改成你自己的
@@ -37,7 +37,7 @@ paypro:
   # 首页标题 可改可不改
   indexTitle: PC-Action 会员充值
   # 收款人姓名 改成你自己的
-  name: codewendao
+  name: PC-Action
   # 联系电话 可改可不改
   mobile: 'xxxxxx'
 
@@ -107,7 +107,7 @@ paypro:
       icon: '🔵'
       status: false
       allow-night: false
-      use-local-qr-code: false
+      use-local-qr-code: true
     - id: 'wechat'
       name: '微信支付'
       description: '需备注，自动确认收款'

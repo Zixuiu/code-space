@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:"Segoe UI","Microsoft YaHei",sans-serif; }
+body { background:#e8eaef; padding:24px; }
+h1 { text-align:center; font-size:22px; color:#333; margin-bottom:6px; }
+.sub { text-align:center; font-size:13px; color:#888; margin-bottom:20px; }
+.grid { display:grid; grid-template-columns:repeat(2, 420px); gap:22px; justify-content:center; }
+.card { border-radius:14px; overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,.10); background:#fff; }
+.label { padding:8px 14px; font-size:14px; font-weight:700; color:#fff; }
+.demo { padding:16px 18px; }
+.demo .title { text-align:center; font-size:15px; font-weight:700; margin-bottom:12px; }
+.demo .prod { border-radius:10px; padding:12px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; }
+.demo .prod .name { font-size:13px; font-weight:600; }
+.demo .prod .desc { font-size:11px; margin-top:3px; }
+.demo .prod .price { font-size:20px; font-weight:800; }
+.demo .pay { display:flex; align-items:center; gap:8px; border-radius:9px; padding:9px 12px; font-size:12.5px; margin-bottom:12px; }
+.demo .dot { width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700; }
+.demo .btn { display:block; text-align:center; padding:11px 0; border-radius:9px; font-size:14px; font-weight:700; color:#fff; }
+</style>
+</head>
+<body>
+<h1>PC-Action 充值页 · 浅色系 10 选 1</h1>
+<div class="sub">都是浅色系 · 编号 + 风格名 · 选一个告诉我编号</div>
+<div class="grid" id="grid"></div>
+<script>
+const styles = [
+ {no:"1", name:"极简纯白", label:"#3a3a3a", bg:"#ffffff", title:"#1a1a1a", prodBg:"#f6f7f9", prodBorder:"1px solid #e8eaee", name2:"#333", desc:"#9aa0a8", price:"#1a1a1a", payBg:"#f6f7f9", btn:"#1a1a1a"},
+ {no:"2", name:"清新薄荷", label:"#0fa97e", bg:"#f4fbf8", title:"#14503e", prodBg:"#ffffff", prodBorder:"1px solid #d3ece1", name2:"#1d5c49", desc:"#7ba896", price:"#0fa97e", payBg:"#ffffff", btn:"#0fa97e"},
+ {no:"3", name:"天空蓝", label:"#2f7df6", bg:"#f3f8ff", title:"#1c3d66", prodBg:"#ffffff", prodBorder:"1px solid #d6e5fb", name2:"#245089", desc:"#84a5cc", price:"#2f7df6", payBg:"#ffffff", btn:"#2f7df6"},
+ {no:"4", name:"暖杏奶油", label:"#e8964a", bg:"#fdf8f1", title:"#5c4326", prodBg:"#ffffff", prodBorder:"1px solid #f0e0c8", name2:"#6b4f2c", desc:"#b39a76", price:"#e8964a", payBg:"#ffffff", btn:"#e8964a"},
+ {no:"5", name:"樱花粉", label:"#ef7ba5", bg:"#fdf4f7", title:"#6b2e45", prodBg:"#ffffff", prodBorder:"1px solid #f5d9e3", name2:"#7a3a52", desc:"#c294a6", price:"#ef7ba5", payBg:"#ffffff", btn:"#ef7ba5"},
+ {no:"6", name:"淡雅紫", label:"#8b6fe8", bg:"#f8f6fe", title:"#453470", prodBg:"#ffffff", prodBorder:"1px solid #e2daf6", name2:"#4f3d7d", desc:"#a294c4", price:"#8b6fe8", payBg:"#ffffff", btn:"#8b6fe8"},
+ {no:"7", name:"柠檬活力", label:"#d9a400", bg:"#fefbe8", title:"#5f5417", prodBg:"#ffffff", prodBorder:"1px solid #f1e9b6", name2:"#6b5f1c", desc:"#b0a567", price:"#c79b00", payBg:"#ffffff", btn:"#d9a400"},
+ {no:"8", name:"青瓷绿", label:"#2aa198", bg:"#f2faf9", title:"#1f4d49", prodBg:"#ffffff", prodBorder:"1px solid #d2e9e6", name2:"#265b56", desc:"#7fa8a3", price:"#2aa198", payBg:"#ffffff", btn:"#2aa198"},
+ {no:"9", name:"珊瑚暖调", label:"#f0705a", bg:"#fdf5f2", title:"#6b352a", prodBg:"#ffffff", prodBorder:"1px solid #f5dcd4", name2:"#7a3d30", desc:"#c09a8e", price:"#f0705a", payBg:"#ffffff", btn:"#f0705a"},
+ {no:"10", name:"浅色渐变·极光", label:"linear-gradient(90deg,#2f7df6,#8b6fe8,#ef7ba5)", bg:"linear-gradient(160deg,#f5f8ff,#faf5ff,#fff5f8)", title:"#333a5e", prodBg:"rgba(255,255,255,.85)", prodBorder:"1px solid #e4e0f2", name2:"#40477a", desc:"#9b97b8", price:"#7c5ce0", payBg:"rgba(255,255,255,.85)", btn:"linear-gradient(90deg,#2f7df6,#8b6fe8)"}
+];
+document.getElementById('grid').innerHTML = styles.map(s => `
+<div class="card">
+  <div class="label" style="background:${s.label}">样式 ${s.no} · ${s.name}</div>
+  <div class="demo" style="background:${s.bg}">
+    <div class="title" style="color:${s.title}">PC-Action 会员充值</div>
+    <div class="prod" style="background:${s.prodBg}; border:${s.prodBorder}">
+      <div><div class="name" style="color:${s.name2}">VIP会员（月）</div><div class="desc" style="color:${s.desc}">全功能 1 个月 · 付款后自动发激活码</div></div>
+      <div class="price" style="color:${s.price}">￥99</div>
+    </div>
+    <div class="pay" style="background:${s.payBg}; border:${s.prodBorder}">
+      <span class="dot" style="background:#22c55e">微</span>
+      <span style="color:${s.name2}; font-weight:600">微信支付</span>
+      <span style="color:${s.desc}; margin-left:auto">需备注 · 自动确认</span>
+    </div>
+    <div class="btn" style="background:${s.btn}">发起支付</div>
+  </div>
+</div>`).join('');
+</script>
+</body>
+</html>
