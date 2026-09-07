@@ -1763,12 +1763,13 @@ class FolderManager(QDialog):
             'keyboard_direct': ('按键',      '#474C54', 'rgba(90,96,105,0.15)'),
             'scroll':        ('滚轮',        '#6E6E73', 'rgba(90,96,105,0.10)'),
             'condition':     ('条件分支',     '#AF52DE', 'rgba(175,82,222,0.15)'),
+            'move':          ('移动',       '#007AFF', 'rgba(0,122,255,0.16)'),
         }
         _menu_items = [
             ("🖱️ 左键", "left_click"), ("🖱️ 右键", "right_click"),
             ("🖱️ 双击", "double_click"), ("🖱️ 中键", "middle_click"),
             ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
-            ("📜 滚轮", "scroll")
+            ("📜 滚轮", "scroll"), ("📍 移动", "move")
         ]
 
         def _type_btn_label(action_type, record):
@@ -2101,7 +2102,7 @@ class FolderManager(QDialog):
             if idx < len(recording_data):
                 old_type = recording_data[idx].get('action_type', 'left_click')
                 recording_data[idx]['action_type'] = new_type
-                if new_type in ('left_click', 'right_click', 'double_click', 'middle_click'):
+                if new_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'move'):
                     recording_data[idx].pop('text', None)
                     recording_data[idx].pop('key', None)
                     recording_data[idx].pop('scroll_amount', None)
@@ -2766,12 +2767,13 @@ class FolderManager(QDialog):
             'keyboard_direct': ('按键',      '#474C54', 'rgba(90,96,105,0.15)'),
             'scroll':        ('滚轮',        '#6E6E73', 'rgba(90,96,105,0.10)'),
             'condition':     ('条件分支',     '#AF52DE', 'rgba(175,82,222,0.15)'),
+            'move':          ('移动',       '#007AFF', 'rgba(0,122,255,0.16)'),
         }
         _menu_items = [
             ("🖱️ 左键", "left_click"), ("🖱️ 右键", "right_click"),
             ("🖱️ 双击", "double_click"), ("🖱️ 中键", "middle_click"),
             ("📝 文本", "text_input"), ("⌨️ 按键", "keyboard"),
-            ("📜 滚轮", "scroll")
+            ("📜 滚轮", "scroll"), ("📍 移动", "move")
         ]
 
         def _type_btn_label(action_type, record):
@@ -3096,7 +3098,7 @@ class FolderManager(QDialog):
             old_type = record.get('action_type', 'left_click')
             record['action_type'] = new_type
             # 切换操作类型时，清理不相关的字段
-            if new_type in ('left_click', 'right_click', 'double_click', 'middle_click'):
+            if new_type in ('left_click', 'right_click', 'double_click', 'middle_click', 'move'):
                 # 保留坐标，移除文本/按键相关字段
                 record.pop('text', None)
                 record.pop('key', None)
@@ -6235,6 +6237,7 @@ class AutoRecorderApp(QMainWindow):
             ('中击', 'middle_click'),
             ('键盘输入', 'keyboard'),
             ('拖拽', 'drag'),
+            ('移动', 'move'),
         ]
         for label, action_type in action_items:
             action = menu.addAction(label)
@@ -10694,12 +10697,12 @@ class ComboSkillRunner:
                 except (TypeError, ValueError):
                     _grace = 0.5
                 _t = 0.005 if self._turbo_mode else 0.04  # 快速探测：固定小超时，不再被 speed_scale 放大/压缩
-                loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                 if loc is None and not self._turbo_mode and _grace > 0:
                     # 等待窗口：窗口内持续检测，出现即满足
                     _grace_deadline = _time.time() + _grace
                     while self.running and _time.time() < _grace_deadline:
-                        loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.05, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                        loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=0.05, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                         if loc is not None:
                             break
                 condition_met = loc is not None
@@ -10713,7 +10716,7 @@ class ComboSkillRunner:
                 condition_met = False
             else:
                 # image_not_found 本来就是 timeout=0.01 快速检测，极速模式不变
-                loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
                 condition_met = loc is None
                 _cond_elapsed = _time.time() - _cond_start
                 _log(f" ║  👻 {log_prefix} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
@@ -10737,7 +10740,7 @@ class ComboSkillRunner:
                 _poll_cnt = 0
                 _disappeared = False
                 # 速度比例缩放：step_interval=0.1→标准值, 0.05→减半, 0→极速值
-                _wf_confidence = 0.9
+                _wf_confidence = 0.8
                 _wf_timeout = 0.08 if self._turbo_mode else max(0.04, 0.2 * self._speed_scale)
                 _wf_poll = 0.02 if self._turbo_mode else max(0.01, 0.1 * self._speed_scale)
                 _wf_confirm_count = 0 if self._turbo_mode else (0 if self._speed_scale < 0.6 else 1)

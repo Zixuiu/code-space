@@ -35,6 +35,8 @@ class LoginManager:
     def __init__(self):
         self.current_user = None
         self.verification_codes = {}  # 存储验证码 {email: (code, expire_time)}
+        self._verify_code_last_sent = {}  # 验证码发送冷却 {email: last_send_time}
+        self.VERIFY_CODE_COOLDOWN_SECONDS = 60  # 同一邮箱两次发送验证码的最小间隔
         
         # 获取数据目录 - 在打包环境中使用用户数据目录
         self.data_dir = self._get_data_directory()
@@ -360,13 +362,23 @@ class LoginManager:
         return True, "注册成功"
     
     def send_verification_code(self, email):
-        """发送验证码"""
+        """发送验证码（含 60 秒冷却：同一邮箱发码后须等满 60s 才能再发）"""
+        email = email.strip()
+        now = datetime.now()
+        last = self._verify_code_last_sent.get(email)
+        if last is not None:
+            remaining = self.VERIFY_CODE_COOLDOWN_SECONDS - (now - last).total_seconds()
+            if remaining > 0:
+                return False, f"发送太频繁，请{int(remaining) + 1}秒后再试", None
+
         # 生成6位随机验证码
         code = ''.join(random.choices(string.digits, k=6))
-        expire_time = datetime.now() + timedelta(minutes=10)
+        expire_time = now + timedelta(minutes=10)
         
         # 存储验证码
         self.verification_codes[email] = (code, expire_time)
+        # 记录发送时间（无论邮件是否成功，发码即进入冷却，防止被刷）
+        self._verify_code_last_sent[email] = now
         
         # 尝试发送邮件
         try:

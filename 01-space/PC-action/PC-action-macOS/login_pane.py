@@ -11,7 +11,7 @@
 """
 import threading
 
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QColor, QFont, QPainter
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -428,8 +428,6 @@ class LoginPane(QWidget):
 
     def _on_code_sent(self, ok, msg, code, targets):
         btn, fill_field = targets
-        btn.setEnabled(True)
-        btn.setText("发送验证码")
         text = msg
         if ok and code:
             # SMTP 未配置时的回退：验证码直接返回，自动填入
@@ -437,3 +435,35 @@ class LoginPane(QWidget):
                 fill_field.setText(str(code))
             text = f"{msg}（已自动填入）"
         self._show(status, text, error=not ok)
+        if ok:
+            # 发送成功后进入 60 秒冷却倒计时，期间不可再发
+            self._start_send_countdown(btn, 60)
+        else:
+            btn.setEnabled(True)
+            btn.setText("发送验证码")
+
+    def _start_send_countdown(self, btn, seconds):
+        """验证码冷却倒计时：按钮禁用并每秒倒计时，期间不可重发"""
+        if not hasattr(self, "_send_countdowns"):
+            self._send_countdowns = {}
+        self._send_countdowns[btn] = max(1, seconds)
+        btn.setEnabled(False)
+        btn.setText(f"{seconds}s 后可重发")
+        if getattr(self, "_send_countdown_timer", None) is None:
+            self._send_countdown_timer = QTimer(self)
+            self._send_countdown_timer.setInterval(1000)
+            self._send_countdown_timer.timeout.connect(self._on_send_countdown_tick)
+            self._send_countdown_timer.start()
+
+    def _on_send_countdown_tick(self):
+        cds = getattr(self, "_send_countdowns", {})
+        for btn, left in list(cds.items()):
+            cds[btn] = left - 1
+            if cds[btn] > 0:
+                btn.setText(f"{cds[btn]}s 后可重发")
+            else:
+                btn.setEnabled(True)
+                btn.setText("发送验证码")
+                del cds[btn]
+        if not cds and getattr(self, "_send_countdown_timer", None) is not None:
+            self._send_countdown_timer.stop()

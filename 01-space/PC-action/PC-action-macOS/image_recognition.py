@@ -869,6 +869,8 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _user32.mouse_event(_MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0)
                 _user32.mouse_event(0x0001, 50, 0, 0, 0)  # MOUSEEVENTF_MOVE
                 _user32.mouse_event(_MOUSEEVENTF_LEFTUP, 0, 0, 0, 0)
+            elif action_type == 'move':
+                pass  # 光标已通过 _fast_move 移动到坐标，本类型不点击
             else:
                 _fast_click('left')
             
@@ -1052,6 +1054,8 @@ def replay_coordinates_only(recording_data, replay_interval=0, stop_check=None):
                     _fast_click('left'); time.sleep(0.05); _fast_click('left')
             elif action_type == 'middle_click':
                 _fast_click('middle')
+            elif action_type == 'move':
+                pass  # 光标已通过 SetCursorPos 移动到坐标，本类型不点击
             else:
                 _fast_click('left')
             success_count += 1
@@ -1703,7 +1707,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     # 否则图标稍晚渲染 / 外观略变会在首帧低分时瞬间放弃，造成"很快就失败"。
     if scale_best_scores and timeout <= 0.1:
         _best_score = max(v[0] for v in scale_best_scores.values())
-        _early_threshold = max(confidence * 0.45, 0.20)
+        _early_threshold = max(confidence * 0.30, 0.12)
         if _best_score < _early_threshold:
             debug_print(f"[匹配诊断] ⏭ 首次最高分 {_best_score:.3f} < {_early_threshold:.2f}，图片不存在，跳过轮询(节省{timeout:.2f}s)")
             try:

@@ -1451,8 +1451,11 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             _user = bool(self.login_manager and getattr(self.login_manager, 'current_user', None))
             self.account_stack.setCurrentWidget(self.account_pane if _user else self.login_pane)
             if _user and hasattr(self.account_pane, 'refresh'):
+                # ★ 响应提速：先渲染账户界面，会员权益查询（可能同步查 Supabase）挪到事件循环后，避免点后卡顿
                 try:
-                    self.account_pane.refresh(self.login_manager.current_user)
+                    from PyQt5.QtCore import QTimer
+                    _u = self.login_manager.current_user
+                    QTimer.singleShot(0, lambda u=_u: self.account_pane.refresh(u))
                 except Exception:
                     traceback.print_exc()
 

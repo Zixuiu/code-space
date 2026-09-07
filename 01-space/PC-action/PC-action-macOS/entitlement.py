@@ -28,7 +28,7 @@ CONFIG_SOURCES = [
 
 DEFAULT_PRICING = {
     "plan_1": {"name": "VIP会员", "price": 99.0, "months": 1, "desc": "包月（全功能）"},
-    "trial_days": 7,
+    "trial_days": 1,
     "channel_name": "PC-Action",
     "channel_url": "https://4d09c223.r8.cpolar.cn/recharge.html",
 }
