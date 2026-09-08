@@ -8052,7 +8052,10 @@ class AutoRecorderApp(QMainWindow):
                     pass
                 return False
             ent = get_entitlement(username)
-            if ent.get('has_access', True):
+            # fail-closed：拿不到明确的放行结论就拒绝（默认值 True → False）。
+            # 网络异常/后端不可用已由 get_entitlement 内部兜底成离线宽限判定并返回完整字典，
+            # 这里能拿到缺键的 ent 属异常情形，按"无权限"处理而不是放行。
+            if ent.get('has_access', False):
                 return True
             # 试用过期且非 VIP：每次都弹激活引导（用户要求：关掉提示后再点必须再提醒）
             try:
@@ -8061,8 +8064,22 @@ class AutoRecorderApp(QMainWindow):
             except Exception:
                 pass
             return False
-        except Exception:
-            return True
+        except Exception as e:
+            # fail-closed：闸门自身异常一律拒绝放行。
+            # 网络/后端异常已在 get_entitlement 内部兜底为离线宽限判定，能走到这里
+            # 说明是 entitlement 模块缺失/损坏等程序级故障。若此处 return True，
+            # 删掉或改名 entitlement.py 即可永久绕过付费（P0 白嫖漏洞）。
+            try:
+                print(f"[GATE] 权限校验异常，拒绝放行: {e}")
+            except Exception:
+                pass
+            try:
+                self.show_beautiful_message(
+                    'warning', "功能暂不可用",
+                    "权限校验失败，请重启应用后重试；若反复出现，请重新安装本程序。")
+            except Exception:
+                pass
+            return False
 
     def initUI(self):
         desktop = QApplication.desktop()

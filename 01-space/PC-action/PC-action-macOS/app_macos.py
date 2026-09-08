@@ -1043,6 +1043,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
     def run_selected_combo_skills(self, table_widget):
         """macOS版本：批量运行选中的组合技"""
+        # 商业化付费闸：与单个组合技（run_combo_skill_in_tab）保持一致。
+        # 原先只有单个组合技有闸，勾选多个走批量运行即可绕过付费判定。
+        if not self.check_entitlement_gate():
+            return
         try:
             selected_skills = []
             for row in range(table_widget.rowCount()):

@@ -14,7 +14,8 @@ from PyQt5.QtWidgets import (
 
 from beautiful_dialog import load_svg_icon, ICON_SCALE
 from entitlement import (get_pricing, get_entitlement,
-                         resolve_channel_url, warmup_channel_url)
+                         resolve_channel_url, warmup_channel_url,
+                         peek_cached_entitlement)
 from activation_styles import get_style
 
 THEME_PRIMARY = "#5A6069"
@@ -46,34 +47,31 @@ class ActivationDialog(QDialog):
         QTimer.singleShot(0, self._center)
         QTimer.singleShot(50, self._fade_in)
         # 状态加载全部异步化：get_pricing/resolve_channel_url/get_entitlement 都是网络请求，
-        # 同步跑会卡住弹窗打开（曾实测"等老半天"）。先显示加载态，后台取完再刷 UI。
-        self.status_card.setText("正在获取会员状态…")
+        # 同步跑会卡住弹窗打开（曾实测"等老半天"）。
+        # 先做一次「乐观渲染」：用本地缓存秒开，避免长时间停在"正在获取会员状态…"；
+        # 后台联网取到权威结果后再覆盖刷新。
+        self._render_cached()
         self._refresh_status()
-        # 后台预热/校验充值地址（cpolar 域名漂移自愈），完成后刷新购买链接
-        self._warm_channel()
 
-    def _warm_channel(self):
+    def _render_cached(self):
+        """零网络的乐观渲染：本地权益缓存 + 本地定价，打开瞬间就把内容显示出来。
+        只用于展示，真正的权限判定仍以后台 get_entitlement 的联网结果为准。"""
         try:
-            import threading
-
-            def _work():
-                try:
-                    resolve_channel_url(deep=True)
-                except Exception:
-                    pass
-                # 预热完成后补一次购买行刷新（用信号投递，勿用 QTimer.singleShot——
-                # 工作线程无事件循环，定时器永远不会触发）
-                try:
-                    pricing = get_pricing()
-                    self._status_ready.emit({
-                        "ent": None, "url": pricing.get('channel_url', ''),
-                        "price_txt": f"¥{pricing.get('plan_1', {}).get('price', 9.9):g}/"
-                                     f"{pricing.get('plan_1', {}).get('months', 1) * 30}天",
-                        "channel": pricing.get('channel_name', '官方渠道'),
-                        "stage": 2})
-                except Exception:
-                    pass
-            threading.Thread(target=_work, daemon=True).start()
+            ent = peek_cached_entitlement(self.username)
+            if ent:
+                self._apply_status({"ent": ent, "stage": 1})
+        except Exception:
+            pass
+        try:
+            # refresh_remote=False：只读本地 pricing.json，零网络
+            pricing = get_pricing(refresh_remote=False)
+            plan = pricing.get('plan_1', {})
+            self._apply_status({
+                "ent": None,
+                "url": pricing.get('channel_url', ''),
+                "price_txt": f"¥{plan.get('price', 9.9):g}/{plan.get('months', 1) * 30}天",
+                "channel": pricing.get('channel_name', '官方渠道'),
+                "stage": 2})
         except Exception:
             pass
 
@@ -178,7 +176,10 @@ class ActivationDialog(QDialog):
 
     def _refresh_status(self):
         """异步加载权益/价格/渠道（网络请求全在后台线程，UI 只做最终赋值）。
-        分两阶段：先取权益（快，~1s）刷状态卡；再解析购买链接（可能多次 URL 探测）补购买行。"""
+        三阶段串行：先取权益刷状态卡 → 再取价格+浅解析购买链接（走缓存，秒出）→
+        最后 deep 探测自愈 cpolar 漂移域名。
+        注意：三个阶段都在同一个后台线程内串行执行。此前 deep 探测另起 _warm_channel
+        线程，会与阶段2 并发重复打同一批网络请求，白白翻倍耗时。"""
         import threading
         username = self.username
 
@@ -209,6 +210,17 @@ class ActivationDialog(QDialog):
             except Exception:
                 pass
             _apply(data)
+            # 阶段3：deep 探测（强制刷新远程配置 + 并发探测候选域名），
+            # 修好的地址回来后再刷一次购买行。此时用户已看到可用链接，慢也无所谓。
+            try:
+                deep_url = resolve_channel_url(deep=True)
+                if deep_url:
+                    _apply({"ent": None, "url": deep_url,
+                            "price_txt": data.get('price_txt', ''),
+                            "channel": data.get('channel', '官方渠道'),
+                            "stage": 3})
+            except Exception:
+                pass
 
         threading.Thread(target=_work, daemon=True).start()
 

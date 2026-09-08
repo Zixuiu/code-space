@@ -45,7 +45,15 @@ DEFAULT_PRICING = {
 OFFLINE_GRACE_DAYS = 1          # 离线宽限期（天）：断网后短暂可用，到期仍不联网则锁定。
                                 # 收紧到 1 天，是防破解与不误伤正版之间的折中：靠断网改本地时间
                                 # 反复白嫖的窗口被压到很短，偶尔断网的付费用户又不至于立刻被锁。
+MAX_OFFLINE_STARTS = 5          # 离线放行次数上限。与 OFFLINE_GRACE_DAYS 是「与」关系，任一超限即锁定。
+                                # 计数存在 HMAC 签名的缓存里且只增不减，纯改系统时间无法让它倒退。
+CLOCK_ROLLBACK_TOLERANCE = 300  # 秒：允许的系统时间回拨幅度（NTP 校时、时区切换的容忍窗口）
 ENT_CACHE_VERSION = 1
+
+# 试用期天数上限（防篡改）：trial_days 读自随包分发的 pricing.json，该文件用户可写，
+# 改成 36500 就能无限试用。这里强制夹到产品策略上限内，本地改大也无效。
+# 根治方案是把试用期判定搬到服务端，由服务端直接下发 has_access，客户端不做计算。
+MAX_TRIAL_DAYS = 7
 
 # 本地授权状态 HMAC 签名密钥。目的：让普通用户手工改 user_data 里的缓存 JSON
 # 会因签名不匹配而失效。它提高篡改门槛，非绝对安全（本地无法绝对防逆向）。
@@ -77,6 +85,15 @@ def _ent_save(cache):
     """把 {username: {ent..., 'ts': epoch}} 整个编码 + HMAC 签名落盘。
     ts 用"最近一次联网验证成功"的时间戳，破解者改 ts 会让签名失效。"""
     try:
+        # 维护"见过的最大墙钟时间"，用于事后检测系统时间被回拨。
+        # 只增不减：一旦往前调过，再调回更早的时间点就会被 _offline_grace 判为回拨。
+        try:
+            now_wall = time.time()
+            prev = cache.get("__wall__")
+            prev = float(prev) if isinstance(prev, (int, float)) else None
+            cache["__wall__"] = max(now_wall, prev) if prev is not None else now_wall
+        except Exception:
+            pass
         payload = base64.b64encode(
             json.dumps(cache, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
         ).decode('ascii')
@@ -110,6 +127,34 @@ def _ent_read_signed(username):
     if not isinstance(rec, dict) or not isinstance(rec.get('ts'), (int, float)) or not isinstance(rec.get('ent'), dict):
         return None
     return rec['ent'], float(rec['ts'])
+
+
+def _ent_snapshot(username):
+    """一次读盘拿齐三样：整份缓存、该用户的记录、见过的最大墙钟时间。
+    合并成一次 _ent_load 是为了少读一次文件（_offline_grace 在启动路径上会被频繁调用）。"""
+    cache = _ent_load()
+    rec = cache.get(username)
+    if not isinstance(rec, dict) or not isinstance(rec.get('ts'), (int, float)) \
+            or not isinstance(rec.get('ent'), dict):
+        rec = None
+    wall = cache.get("__wall__")
+    try:
+        wall = float(wall)
+    except Exception:
+        wall = None
+    return cache, rec, wall
+
+
+def _bump_offline_start(username, cache, rec):
+    """离线放行一次 → 计数 +1 并写回（整体受 HMAC 签名保护，改数字即签名失效）。"""
+    try:
+        n = rec.get('n')
+        n = int(n) if isinstance(n, (int, float)) else 0
+        rec['n'] = n + 1
+        cache[username] = rec
+        _ent_save(cache)
+    except Exception:
+        pass
 
 
 # ------------------------- 渠道地址可用性校验 -------------------------
@@ -214,14 +259,60 @@ def _candidate_channel_urls(local_url, remote):
     return candidates
 
 
+def _cached_remote_config(force=False):
+    """带 TTL 缓存的远程配置读取。
+    原先 resolve_channel_url 每次都直接打 _fetch_remote_config（2 个 gitcode 源 × 3s 超时），
+    且绕过了 _REMOTE_CFG_CACHE，导致同一次弹窗里重复拉取多次。这里统一走缓存，
+    只有 deep=True（后台预热）才强制刷新。"""
+    import time as _t
+    now = _t.time()
+    if not force:
+        data = _REMOTE_CFG_CACHE.get("data")
+        if data is not None and now - _REMOTE_CFG_CACHE.get("ts", 0) < _REMOTE_CFG_TTL:
+            return data
+    data = _fetch_remote_config()
+    if data is not None:
+        _REMOTE_CFG_CACHE["ts"] = now
+        _REMOTE_CFG_CACHE["data"] = data
+        return data
+    return _REMOTE_CFG_CACHE.get("data")  # 网络失败时退回上次缓存（可能为 None）
+
+
+def _probe_first_ok(candidates, timeout=3):
+    """并发探测候选地址，返回第一个校验通过的 URL（按候选优先级取）。
+    串行探测时 N 个候选最坏要 N×timeout（cpolar 域名漂移后通常全失效 → 白白等满）；
+    并发后总耗时约等于 1×timeout。"""
+    if not candidates:
+        return None
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _check(u):
+        try:
+            return u, verify_channel_url(u, timeout=timeout)
+        except Exception:
+            return u, False
+
+    results = {}
+    try:
+        with ThreadPoolExecutor(max_workers=min(8, len(candidates))) as ex:
+            for u, ok in ex.map(_check, candidates):
+                results[u] = ok
+    except Exception:
+        return None
+    for u in candidates:  # 按优先级顺序返回，保证结果与串行版一致
+        if results.get(u):
+            return u
+    return None
+
+
 def resolve_channel_url(local_url=None, timeout=3, deep=False):
     """返回当前真实可用的充值地址。
-    deep=True 完整逐个探测（适合后台线程/预热）；False 时若本地地址缓存判定可用则直接返回。"""
+    deep=True 完整探测并强制刷新远程配置（适合后台预热）；False 时优先用缓存，零网络等待。"""
     try:
         pricing = get_pricing(refresh_remote=False)
         if local_url is None:
             local_url = pricing.get('channel_url')
-        remote = _fetch_remote_config() or {}
+        remote = _cached_remote_config(force=deep) or {}
     except Exception:
         remote = {}
     candidates = _candidate_channel_urls(local_url, remote)
@@ -234,9 +325,9 @@ def resolve_channel_url(local_url=None, timeout=3, deep=False):
         import time as _t
         if cached and cached[1] and _t.time() - cached[0] < _URL_VERIFY_TTL:
             return best
-    for u in candidates:
-        if verify_channel_url(u, timeout=timeout):
-            return u
+    hit = _probe_first_ok(candidates, timeout=timeout)
+    if hit:
+        return hit
     # 全部探测失败：仍返回第一个候选（可能是本机网络问题），不返回空
     return candidates[0]
 
@@ -367,6 +458,52 @@ _ENT_CACHE = {}
 _ENT_TTL = 120  # 秒
 
 
+# 服务器时间缓存：get_entitlement 原本每次都单独发一次 HTTP 拿服务器时间（5s 超时），
+# 与 get_user 串行叠加；按 TTL 复用后可省掉这一趟往返。
+_SERVER_NOW_CACHE = {"ts": 0.0, "dt": None}
+_SERVER_NOW_TTL = 300  # 秒
+
+
+def _cached_server_now(supabase_manager, timeout=5):
+    """带 TTL 的服务器时间；取不到时回退上次值（可能为 None → 调用方用本地时间）。"""
+    import time as _t
+    now_ts = _t.time()
+    dt = _SERVER_NOW_CACHE.get("dt")
+    if dt is not None and now_ts - _SERVER_NOW_CACHE.get("ts", 0) < _SERVER_NOW_TTL:
+        return dt
+    try:
+        fresh = supabase_manager.get_server_now(timeout=timeout)
+    except Exception:
+        fresh = None
+    if fresh is not None:
+        _SERVER_NOW_CACHE["ts"] = now_ts
+        _SERVER_NOW_CACHE["dt"] = fresh
+        return fresh
+    return dt  # 网络失败时用上次缓存值
+
+
+def peek_cached_entitlement(username):
+    """只读本地缓存的权益状态（零网络），供 UI 打开瞬间乐观渲染，
+    避免"正在获取会员状态…"长时间空白。无缓存返回 None。
+    注意：仅供展示，权限判定必须走 get_entitlement 联网权威结果。"""
+    if not username:
+        return None
+    import time as _t
+    try:
+        c = _ENT_CACHE.get(username)
+        if c and _t.time() - c["ts"] < _ENT_TTL:
+            return dict(c["ent"])
+    except Exception:
+        pass
+    signed = _ent_read_signed(username)
+    if not signed:
+        return None
+    ent, ts = signed
+    out = dict(ent)
+    out["_stale"] = True  # 标记：来自本地缓存，等联网结果覆盖
+    return out
+
+
 def get_entitlement(username):
     """
     返回用户权益状态字典。
@@ -398,10 +535,13 @@ def get_entitlement(username):
 
         # 用服务器的权威当前时间判到期，防止用户改本地系统时间把试用/VIP 重置。
         # 拿不到服务器时间（个别网络异常）时回退本地时间，不阻断正常用户。
-        now = supabase_manager.get_server_now() or datetime.now()
+        # 走 TTL 缓存：不必每次判定都单独发一趟 HTTP。
+        now = _cached_server_now(supabase_manager) or datetime.now()
         # trial_days 只是个配置数字，用缓存即可，无需在这里触发远程拉取
         pricing = get_pricing(refresh_remote=False)
-        trial_days = int(pricing.get('trial_days', 7))
+        # clamp 到策略上限：pricing.json 是随包分发的本地可写文件，不夹的话
+        # 改一个数字就能把试用期拉到任意长度。服务端下发更长试用时需同步调 MAX_TRIAL_DAYS。
+        trial_days = max(0, min(int(pricing.get('trial_days', 7)), MAX_TRIAL_DAYS))
 
         # VIP 状态
         is_vip = bool(user.get('is_vip', 0))
@@ -440,7 +580,8 @@ def get_entitlement(username):
         # 联网验证成功 -> 落盘签名状态，作为后续离线宽限期依据
         try:
             cache = _ent_load()
-            cache[username] = {"ent": result, "ts": _time.time()}
+            # n = 离线放行计数，每次联网验证成功后清零
+            cache[username] = {"ent": result, "ts": _time.time(), "n": 0}
             _ent_save(cache)
         except Exception:
             pass
@@ -459,7 +600,13 @@ def _locked(reason):
 
 
 def _offline_grace(username, reason):
-    """网络不可达/查询异常时的回退：读签名缓存，宽限期内沿用上次联网状态，超期锁定。"""
+    """网络不可达/查询异常时的回退：读签名缓存，宽限期内沿用上次联网状态，超期锁定。
+    三道限制，任一不满足即锁定：
+      1. 系统时间回拨检测——current 早于缓存里记录的"最大墙钟时间"说明时钟被往回调过；
+      2. 离线放行次数上限 MAX_OFFLINE_STARTS（只增不减，改系统时间无法让它倒退）；
+      3. 时间上限 OFFLINE_GRACE_DAYS。
+    残余风险：伪造整份缓存仍需拿到源码里的签名密钥，客户端无法根治，
+    根本解法是服务端下发判定结果、客户端不参与计算。"""
     import time as _time
     current = _time.time()
     # 先看内存缓存是否在 TTL 内（瞬时抖动保护）
@@ -470,18 +617,26 @@ def _offline_grace(username, reason):
             return out
     except Exception:
         pass
-    signed = _ent_read_signed(username)
-    if signed:
-        ent, ts = signed
-        if current - ts <= OFFLINE_GRACE_DAYS * 86400:
-            out = dict(ent); out.setdefault("reason", reason)
-            try:
-                _ENT_CACHE[username] = {"ts": current, "ent": dict(out)}
-            except Exception:
-                pass
-            return out
-        return _locked("offline_expired")
-    return _locked(f"{reason}_expired" if reason == "offline_grace" else reason)
+    cache, rec, wall = _ent_snapshot(username)
+    # 1) 系统时间回拨：把时钟调到"上次联网成功后一天内"是断网白嫖最省事的手法，
+    #    它不需要拿到签名密钥（缓存是 app 自己签的，始终有效），必须在这里堵。
+    if wall is not None and current < wall - CLOCK_ROLLBACK_TOLERANCE:
+        return _locked("clock_rollback")
+    if not rec:
+        return _locked(f"{reason}_expired" if reason == "offline_grace" else reason)
+    ent, ts = rec['ent'], float(rec['ts'])
+    n = rec.get('n')
+    n = int(n) if isinstance(n, (int, float)) else 0
+    # 2)(3) 次数与时间双上限
+    if current - ts <= OFFLINE_GRACE_DAYS * 86400 and n < MAX_OFFLINE_STARTS:
+        _bump_offline_start(username, cache, rec)
+        out = dict(ent); out.setdefault("reason", reason)
+        try:
+            _ENT_CACHE[username] = {"ts": current, "ent": dict(out)}
+        except Exception:
+            pass
+        return out
+    return _locked("offline_expired")
 
 
 def has_full_access(username):

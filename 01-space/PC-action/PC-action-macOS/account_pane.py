@@ -99,6 +99,7 @@ class AccountPane(QWidget):
     open_activation_requested = pyqtSignal()
     open_recharge_requested = pyqtSignal()
     _ent_ready = pyqtSignal(str, object)   # (username, entitlement dict)，由后台线程发放，主线程刷新 UI
+    _recharge_ready = pyqtSignal(str, object)  # (username, 最新充值记录或 None)，后台查询 → 主线程刷 UI
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -190,6 +191,7 @@ class AccountPane(QWidget):
         self.btn_logout = _BarBtn("退出", RED, sep=False)
         self.btn_logout.clicked.connect(self.logout_requested.emit)
         self._ent_ready.connect(self._on_ent_ready)
+        self._recharge_ready.connect(self._on_recharge_ready)
         for b in (self.btn_activation, self.btn_recharge, self.btn_logout):
             bh.addWidget(b, 1)
         col.addWidget(bar)
@@ -222,6 +224,17 @@ class AccountPane(QWidget):
         self.row_access.set_value("—", SUB)
         self.row_expiry.set_value("—", SUB)
 
+        # 乐观渲染：本地有签名的权益缓存就先显示（零网络），
+        # 避免"查询中…"停留大半天；后台联网取到权威结果后再覆盖。
+        # 只影响展示，权限判定仍走后台 get_entitlement 的联网结果。
+        try:
+            from entitlement import peek_cached_entitlement
+            cached = peek_cached_entitlement(username)
+            if cached:
+                self._apply_ent(cached)
+        except Exception:
+            pass
+
         try:
             import threading
             threading.Thread(target=self._fetch_ent, args=(username,), daemon=True).start()
@@ -243,7 +256,13 @@ class AccountPane(QWidget):
             self.row_status.set_value("未知", SUB)
             self.row_access.set_value("—", SUB)
             self.row_expiry.set_value("—", SUB)
-            return
+        else:
+            self._apply_ent(ent)
+        # 充值审核状态：持久展示「等待审核通过」
+        self._refresh_recharge_status(username)
+
+    def _apply_ent(self, ent):
+        """把权益字典刷到明细行（纯 UI 赋值，主线程调用；不发网络请求）"""
         if ent.get("is_vip"):
             self.row_status.set_value("VIP 会员", GOOD)
             self.row_expiry.set_value(ent.get("vip_end") or "—", INK)
@@ -259,26 +278,39 @@ class AccountPane(QWidget):
         else:
             self.row_access.set_value("已锁定", RED)
 
-        # 充值审核状态：持久展示「等待审核通过」
-        self._refresh_recharge_status(username)
-
     def _refresh_recharge_status(self, username):
-        """查询最新一条充值申请，更新账户页「待审核」持久状态"""
+        """查询最新一条充值申请，更新账户页「待审核」持久状态。
+        查询走后台线程（Supabase 网络请求原先在主线程同步跑，会把整个界面卡住），
+        结果经 _recharge_ready 信号回主线程刷新 UI。"""
         self.recharge_status_label.hide()
         self.btn_recharge_done.setEnabled(True)
         self.btn_recharge_done.setText("我已充值完成")
         if not username:
             return
+
+        def _work():
+            try:
+                from database_helper import DatabaseHelper
+                recs = DatabaseHelper.get_recharge_records(username, status=None) or []
+            except Exception:
+                recs = []
+            latest = None
+            for r in recs:  # 已按时间倒序
+                if r.get('status') in ('pending', 'approved', 'rejected'):
+                    latest = r
+                    break
+            self._recharge_ready.emit(username, latest)
+
         try:
-            from database_helper import DatabaseHelper
-            recs = DatabaseHelper.get_recharge_records(username, status=None) or []
+            import threading
+            threading.Thread(target=_work, daemon=True).start()
         except Exception:
+            pass
+
+    def _on_recharge_ready(self, username, latest):
+        """充值审核查询结果回主线程后的 UI 刷新"""
+        if username != self._username:
             return
-        latest = None
-        for r in recs:  # 已按时间倒序
-            if r.get('status') in ('pending', 'approved', 'rejected'):
-                latest = r
-                break
         if not latest:
             return
         st = latest.get('status')
