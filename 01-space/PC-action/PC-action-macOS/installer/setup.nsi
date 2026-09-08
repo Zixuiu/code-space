@@ -27,18 +27,18 @@ Unicode true
 !endif
 
 ; ---------- 基本信息 ----------
-!define APP_NAME      "PC-Action"
-!define APP_EXE       "PC-Action.exe"
-!define APP_PUBLISHER "PC-Action"
-!define APP_URL       "https://3e22a5a4.r8.cpolar.top"
-!define UNINST_KEY    "Software\Microsoft\Windows\CurrentVersion\Uninstall\PC-Action"
-!define DIST_DIR      "..\dist\PC-Action"
+!define APP_NAME      "Action"
+!define APP_EXE       "Action.exe"
+!define APP_PUBLISHER "Action"
+!define APP_URL       "https://477b6492.r8.cpolar.top"
+!define UNINST_KEY    "Software\Microsoft\Windows\CurrentVersion\Uninstall\Action"
+!define DIST_DIR      "..\dist\Action"
 
 Name "${APP_NAME} ${APP_VERSION}"
 !ifdef PER_USER_INSTALL
-  OutFile "output\_test\PC-Action-Setup-test.exe"
+  OutFile "output\_test\Action-Setup-test.exe"
 !else
-  OutFile "output\PC-Action-${APP_VERSION}-Setup.exe"
+  OutFile "output\Action-${APP_VERSION}-Setup.exe"
 !endif
 InstallDir "$PROGRAMFILES64\${APP_NAME}"
 ; InstallDirRegKey 只认固定根键（不支持 SHCTX），按安装范围二选一
@@ -77,7 +77,7 @@ VIAddVersionKey "LegalCopyright" "Copyright (c) 2026 ${APP_PUBLISHER}"
 !define MUI_ABORTWARNING
 !define MUI_UNABORTWARNING
 !define MUI_WELCOMEPAGE_TITLE "欢迎安装 ${APP_NAME} ${APP_VERSION}"
-!define MUI_WELCOMEPAGE_TEXT "PC-Action 是一款 Windows 桌面自动化工具：录下你的操作流程，之后一键自动重复执行。$\r$\n$\r$\n本向导会把它安装到你自己指定的位置（可以选 C 盘、D 盘或任意文件夹），并在开始菜单创建快捷方式。$\r$\n$\r$\n安装前请关闭正在运行的 PC-Action。"
+!define MUI_WELCOMEPAGE_TEXT "Action 是一款 Windows 桌面自动化工具：录下你的操作流程，之后一键自动重复执行。$\r$\n$\r$\n本向导会把它安装到你自己指定的位置（可以选 C 盘、D 盘或任意文件夹），并在开始菜单创建快捷方式。$\r$\n$\r$\n安装前请关闭正在运行的 Action。"
 !define MUI_DIRECTORYPAGE_TEXT_TOP "请选择 ${APP_NAME} 的安装位置。$\r$\n默认优先放在 D:\${APP_NAME}；点“浏览(B)...”可改到 C 盘、D 盘或任意文件夹。$\r$\n$\r$\n所需空间约 ${REQUIRED_MB} MB，安装前会校验目标磁盘剩余空间。"
 !define MUI_DIRECTORYPAGE_TEXT_DESTINATION "安装位置："
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${APP_EXE}"
@@ -216,9 +216,9 @@ Section "开机自动启动" SEC_AUTORUN
 SectionEnd
 
 ; ---------- 组件说明 ----------
-LangString DESC_SEC_MAIN    ${LANG_SIMPCHINESE} "PC-Action 主程序及运行库（必选）"
-LangString DESC_SEC_DESKTOP ${LANG_SIMPCHINESE} "在桌面上创建 PC-Action 快捷方式"
-LangString DESC_SEC_AUTORUN ${LANG_SIMPCHINESE} "开机登录后自动启动 PC-Action（可随时在设置里关闭）"
+LangString DESC_SEC_MAIN    ${LANG_SIMPCHINESE} "Action 主程序及运行库（必选）"
+LangString DESC_SEC_DESKTOP ${LANG_SIMPCHINESE} "在桌面上创建 Action 快捷方式"
+LangString DESC_SEC_AUTORUN ${LANG_SIMPCHINESE} "开机登录后自动启动 Action（可随时在设置里关闭）"
 
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_MAIN}    $(DESC_SEC_MAIN)

@@ -5,8 +5,8 @@ REM  PC-Action 一键构建安装包（NSIS 版，无需安装任何打包工具
 REM
 REM  步骤：
 REM    1) 生成图标 installer\app.ico（如已存在则跳过）
-REM    2) PyInstaller 打包  ..\dist\PC-Action\PC-Action.exe
-REM    3) NSIS 编译安装包   installer\output\PC-Action-<版本>-Setup.exe
+REM    2) PyInstaller 打包  ..\dist\Action\Action.exe
+REM    3) NSIS 编译安装包   installer\output\Action-<版本>-Setup.exe
 REM
 REM  前置：.venv 里已装 pyinstaller
 REM        .venv\Scripts\python.exe -m pip install pyinstaller
@@ -62,8 +62,8 @@ if errorlevel 1 (
 )
 
 REM ---- 3) 计算所需空间并编译安装包 ----
-set DISTDIR=%ROOT%\dist\PC-Action
-if not exist "%DISTDIR%\PC-Action.exe" (
+set DISTDIR=%ROOT%\dist\Action
+if not exist "%DISTDIR%\Action.exe" (
   echo [错误] 未找到打包产物：%DISTDIR%\PC-Action.exe
   pause
   exit /b 1
@@ -81,7 +81,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo 完成！安装包：%~dp0output\PC-Action-%APPVER%-Setup.exe
+echo 完成！安装包：%~dp0output\Action-%APPVER%-Setup.exe
 echo.
 pause
 endlocal

@@ -67,7 +67,7 @@ if sys.platform == 'win32':
         except Exception:
             pass
 
-# 桌面运行/崩溃日志：PC-Action运行日志.txt（未捕获异常、Qt 事件异常、atexit 都会落盘）
+# 桌面运行/崩溃日志：Action运行日志.txt（未捕获异常、Qt 事件异常、atexit 都会落盘）
 try:
     from crash_logger import install_crash_logger
     install_crash_logger()

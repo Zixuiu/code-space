@@ -432,12 +432,12 @@ class LoginManager:
 如果这不是您本人的操作，请忽略此邮件。
 
 ---
-此邮件由 PC-action 系统自动发送，请勿回复。"""
-            
+此邮件由 Action 系统自动发送，请勿回复。"""
+
             message = MIMEText(body, 'plain', 'utf-8')
             message['From'] = sender_email
             message['To'] = email
-            message['Subject'] = 'PC-action 验证码'
+            message['Subject'] = 'Action 验证码'
             
             # 发送邮件
             if smtp_port == 465:

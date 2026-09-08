@@ -10100,13 +10100,13 @@ class AutoRecorderApp(QMainWindow):
         log_info('[热键健康] 已启动热键健康检查定时器(1秒间隔)')
 
         # ★ 权限提示：非管理员运行时 Windows 全局键盘钩子会偶发丢键（快捷键随机失效），
-        # 明确提示用户用 start_pcaction.bat 以管理员身份启动，可根治偶发失效。
+        # 明确提示用户用 start_action.bat 以管理员身份启动，可根治偶发失效。
         try:
             import ctypes as _c_perm
             _is_admin = _c_perm.windll.shell32.IsUserAnAdmin() != 0
             if not _is_admin:
                 log_info('[热键健康] ⚠️ 检测到当前以普通权限运行：Windows 全局键盘钩子可能偶发丢失按键'
-                         '（快捷键随机失效）。建议关闭后用 start_pcaction.bat 以管理员身份启动。')
+                         '（快捷键随机失效）。建议关闭后用 start_action.bat 以管理员身份启动。')
         except Exception:
             pass
 

@@ -79,7 +79,7 @@ def _open_log_file():
     """打开桌面日志文件（每次启动覆盖重写），返回路径。"""
     global _LOG_FILE, _LOG_PATH
     desktop = _get_desktop_path()
-    path = os.path.join(desktop, 'PC-Action运行日志.txt')
+    path = os.path.join(desktop, 'Action运行日志.txt')
     # 每次启动重新写入：用 'w' 覆盖打开，旧日志清空。
     # 用默认块缓冲即可：_write 每次写完都会 flush()，崩溃也不丢最后一行。
     _LOG_FILE = open(path, 'w', encoding='utf-8')
@@ -320,7 +320,7 @@ def install_crash_logger():
     except Exception:
         try:
             from utils import get_user_data_path
-            path = os.path.join(get_user_data_path(), 'PC-Action运行日志.txt')
+            path = os.path.join(get_user_data_path(), 'Action运行日志.txt')
             _LOG_FILE = open(path, 'w', encoding='utf-8')
             _LOG_PATH = path
         except Exception:
@@ -345,7 +345,7 @@ def install_crash_logger():
         admin = '?'
 
     banner = (
-        "========== PC-action 启动 ==========\n"
+        "========== Action 启动 ==========\n"
         f"时间: {_now()}\n"
         f"Python: {sys.version.split()[0]}  模式: "
         f"{'打包exe' if getattr(sys, 'frozen', False) else '开发'}\n"

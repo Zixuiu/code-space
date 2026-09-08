@@ -1,8 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PC-Action 安装包专用打包脚本（onedir 模式）
+Action 安装包专用打包脚本（onedir 模式）
 
-产物：dist\\PC-Action\\PC-Action.exe  （同目录带 _internal 依赖）
+产物：dist\\Action\\Action.exe  （同目录带 _internal 依赖）
 用途：交给 installer\\setup.nsi 打成真正的安装包（用户可自选安装位置）
 
 构建命令（项目根目录执行）：
@@ -46,7 +46,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='PC-Action',
+    name='Action',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -67,5 +67,5 @@ coll = COLLECT(
     strip=False,
     upx=False,
     upx_exclude=[],
-    name='PC-Action',
+    name='Action',
 )

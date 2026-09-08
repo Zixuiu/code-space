@@ -1,8 +1,8 @@
 @echo off
 REM ============================================================
-REM  PC-action 一键启动脚本 (Windows)
+REM  Action 一键启动脚本 (Windows)
 REM  前提：已用 .venv 安装好 requirements.txt 全部依赖
-REM  用法：双击本文件，或在命令行执行  start_pcaction.bat
+REM  用法：双击本文件，或在命令行执行  start_action.bat
 REM
 REM  ★ 说明：本脚本会自动以「管理员权限」启动项目。
 REM  原因：流程快捷键依赖 keyboard 库的 Windows 全局键盘钩子，
@@ -22,7 +22,7 @@ if not exist ".venv\Scripts\python.exe" (
 REM ---- 检测是否已是管理员：net session 需要管理员权限，失败则非管理员 ----
 net session >nul 2>&1
 if %errorlevel% EQU 0 (
-    echo 已以管理员身份运行，正在启动 PC-action ...
+    echo 已以管理员身份运行，正在启动 Action ...
     ".venv\Scripts\python.exe" run.py
     pause
 ) else (
@@ -35,6 +35,6 @@ if %errorlevel% EQU 0 (
         ".venv\Scripts\python.exe" run.py
         pause
     ) else (
-        echo 已以管理员权限启动 PC-action，本窗口可以关闭。
+        echo 已以管理员权限启动 Action，本窗口可以关闭。
     )
 )

@@ -22,7 +22,7 @@ else:
 
 sys.path.insert(0, current_dir)
 
-# 桌面运行/崩溃日志：PC-Action运行日志.txt
+# 桌面运行/崩溃日志：Action运行日志.txt
 try:
     from crash_logger import install_crash_logger
     install_crash_logger()

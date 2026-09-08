@@ -2856,7 +2856,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             return
         self.tray_icon = QSystemTrayIcon(self)
         self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
-        self.tray_icon.setToolTip("PC-action")
+        self.tray_icon.setToolTip("Action")
         tray_menu = QMenu(self)
         show_action = tray_menu.addAction("显示主窗口")
         show_action.triggered.connect(self.show_and_raise)
