@@ -19,22 +19,24 @@ from PyQt5.QtWidgets import (
 
 from login_pane import SCALE
 
-# ---- 布局 2 色板（iOS 色调） ----
-BG = "#F2F2F7"        # 页面底
+# ---- 布局 2 色板（白境画廊 · 与主程序一致的深绿主题） ----
+BG = "#FFFFFF"        # 页面底（纯白）
 CARD = "#FFFFFF"      # 面板
-INK = "#1C1C1E"       # 主文字
-SUB = "#8E8E93"       # 次要文字（key）
-LINE = "#E5E5EA"      # 分隔线
-BLUE = "#0A84FF"      # 主操作
+INK = "#1A1A1A"       # 主文字
+SUB = "#9AA0A8"       # 次要文字（key / 提示）
+LINE = "#E9EAEE"      # 分隔线
+BLUE = "#0D7A4D"      # 主操作 · 深绿（与主程序一致）
+GREEN_HOVER = "#0A6B42"  # 深绿悬停
+GREEN_BG = "#E6F4EE"  # 浅绿信息块
 RED = "#FF3B30"       # 危险操作 / 异常状态
-GOOD = "#34C759"      # 良好状态
+GOOD = "#0D7A4D"      # 良好状态（深绿）
 
 FIXED_RECHARGE_AMOUNT = 9.9   # 固定充值单价：扫码即付 9.9 元，无需用户手填
 
 FONT_FAMILY = "Microsoft YaHei"
 
 BLOCK_W = round(240 * SCALE)          # (240) 与登录表单同宽
-PANEL_W = BLOCK_W + round(40 * SCALE)   # (280) 紧凑卡片：比旧列窄
+PANEL_W = round(420 * SCALE)          # 左右分栏（A11）加宽卡片
 HEAD_SIZE = round(13 * SCALE)
 KV_SIZE = round(10.5 * SCALE)
 KEY_W = round(76 * SCALE)
@@ -53,9 +55,11 @@ def _label(text, size, color, bold=False):
 
 
 class _KVRow(QFrame):
-    """key-value 明细行：左侧灰色 key + 右侧主色 value，行底 0.5px 分隔线"""
-    def __init__(self, key, parent=None):
+    """key-value 明细行：左侧灰色 key + 右侧主色 value，行底 0.5px 分隔线
+    tag=True 时 value 渲染为圆角色块（pill）。"""
+    def __init__(self, key, parent=None, tag=False):
         super().__init__(parent)
+        self._tag = tag
         self.setObjectName("kvRow")
         self.setStyleSheet(
             f"#kvRow {{ background: {CARD}; border-bottom: 1px solid {LINE}; }}"
@@ -72,9 +76,23 @@ class _KVRow(QFrame):
 
     def set_value(self, text, color=INK):
         self.value_label.setText(text)
-        self.value_label.setStyleSheet(
-            f"color: {color}; font-size: {KV_SIZE}px; font-weight: 500; font-family: \"{FONT_FAMILY}\"; background: transparent;"
-        )
+        if self._tag:
+            hh = round(KV_SIZE * 1.6)
+            self.value_label.setAttribute(Qt.WA_StyledBackground, True)
+            self.value_label.setFixedHeight(hh)
+            self.value_label.setAlignment(Qt.AlignCenter)
+            self.value_label.setStyleSheet(
+                f"background-color: {color}; color: white; "
+                f"border-radius: {hh // 2}px; "
+                f"padding: 0 {round(8 * SCALE)}px; "
+                f"font-size: {KV_SIZE}px; font-weight: 700; font-family: \"{FONT_FAMILY}\";"
+            )
+        else:
+            self.value_label.setFixedHeight(round(KV_SIZE * 1.4))
+            self.value_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.value_label.setStyleSheet(
+                f"color: {color}; font-size: {KV_SIZE}px; font-weight: 500; font-family: \"{FONT_FAMILY}\"; background: transparent;"
+            )
 
 
 class _BarBtn(QPushButton):
@@ -110,101 +128,107 @@ class AccountPane(QWidget):
         root.setContentsMargins(round(24 * SCALE), round(20 * SCALE), round(24 * SCALE), round(20 * SCALE))
         root.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
-        # ---- 白色圆角面板 ----
+        # ---- 白卡（A11 左右分栏 · 比例对齐设计稿）----
+        W = PANEL_W
+        _hr1 = round(0.025 * W)
+        _hr5 = round(0.05 * W)
+        self._badge_size = round(44 * SCALE)        # 徽章直径（方案1 · 比例协调）
+        _user_font = round(self._badge_size / 2.8)  # 用户名 ≈ 徽章 / 2.8
+        _r_avail = (W - 2 * _hr1 - 1) * 9.0 / 20 - _hr1      # 右栏内容可用宽度
+        _rb_w = round(_r_avail * 0.88)              # 提示块/按钮 ≈ 右栏内容 88%
+        _btn_h = round(0.09 * W)                    # 按钮高 ≈ 9% 卡宽（胶囊）
+
         panel = QFrame()
         panel.setObjectName("acctPanel")
-        panel.setFixedWidth(PANEL_W)
+        panel.setFixedWidth(W)
         panel.setStyleSheet(
-            f"#acctPanel {{ background: {CARD}; border-radius: {round(14 * SCALE)}px; }}"
+            f"#acctPanel {{ background: {CARD}; border-radius: {round(20 * SCALE)}px; }}"
         )
         root.addWidget(panel, 0, Qt.AlignTop)
 
-        col = QVBoxLayout(panel)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(0)
+        side = QHBoxLayout(panel)
+        side.setContentsMargins(round(16 * SCALE), round(18 * SCALE), round(16 * SCALE), round(18 * SCALE))
+        side.setSpacing(0)
 
-        # 标题
-        head_wrap = QWidget()
-        head_wrap.setStyleSheet("background: transparent;")
-        hv = QVBoxLayout(head_wrap)
-        hv.setContentsMargins(round(16 * SCALE), round(12 * SCALE), round(16 * SCALE), round(10 * SCALE))
-        hv.addWidget(_label("账户信息", HEAD_SIZE, INK, bold=True))
-        col.addWidget(head_wrap)
+        # ---------- 左栏（60%） ----------
+        left = QWidget()
+        left.setStyleSheet("background: transparent;")
+        lv = QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, round(14 * SCALE), 0)
+        lv.setSpacing(round(12 * SCALE))
 
-        # ---- key-value 明细行 ----
+        badge_row = QHBoxLayout()
+        badge_row.setSpacing(round(12 * SCALE))
+        self.badge_label = QLabel("✓")
+        self.badge_label.setAttribute(Qt.WA_StyledBackground, True)
+        self.badge_label.setFixedSize(self._badge_size, self._badge_size)
+        self.badge_label.setAlignment(Qt.AlignCenter)
+        self.badge_label.setStyleSheet(self._badge_style(BLUE))
+        self.user_label = _label("—", _user_font, INK, bold=True)
+        badge_row.addWidget(self.badge_label)
+        badge_row.addWidget(self.user_label, 1)
+        lv.addLayout(badge_row)
+
+        # 明细行（会员状态为绿色胶囊 tag）
         self.row_user = _KVRow("用户名")
-        self.row_status = _KVRow("会员状态")
+        self.row_user.hide()
+        self.row_status = _KVRow("会员状态", tag=True)
         self.row_access = _KVRow("功能权限")
         self.row_expiry = _KVRow("到期时间")
-        for r in (self.row_user, self.row_status, self.row_access, self.row_expiry):
-            col.addWidget(r)
+        for r in (self.row_status, self.row_access, self.row_expiry):
+            lv.addWidget(r)
+        side.addWidget(left, 6)
 
-        # ---- 充值审核区：状态提示 + 「我已充值完成」提交入口 ----
-        recharge_wrap = QWidget()
-        recharge_wrap.setStyleSheet("background: transparent;")
-        rv = QVBoxLayout(recharge_wrap)
-        rv.setContentsMargins(round(16 * SCALE), round(14 * SCALE), round(16 * SCALE), round(4 * SCALE))
-        rv.setSpacing(0)
+        # ---------- 竖向灰分隔线 ----------
+        sep = QFrame()
+        sep.setObjectName("vSep")
+        sep.setFixedWidth(1)
+        sep.setStyleSheet(f"#vSep {{ background: {LINE}; }}")
+        side.addWidget(sep, 0, Qt.AlignVCenter)
 
-        self.recharge_hint_label = _label(f"每笔充值固定 {FIXED_RECHARGE_AMOUNT} 元 · 扫码支付后点击下方按钮确认", round(9 * SCALE), SUB)
-        self.recharge_hint_label.setWordWrap(True)
-        self.recharge_hint_label.setAlignment(Qt.AlignCenter)
-        rv.addWidget(self.recharge_hint_label)
-        rv.addSpacing(round(8 * SCALE))
+        # ---------- 右栏（40%） ----------
+        right = QWidget()
+        right.setStyleSheet("background: transparent;")
+        rv = QVBoxLayout(right)
+        rv.setContentsMargins(round(14 * SCALE), 0, 0, 0)
+        rv.setSpacing(round(14 * SCALE))
+        rv.setAlignment(Qt.AlignVCenter)
 
+        # 充值审核状态（仅当有审核结果时显示）
         self.recharge_status_label = QLabel("")
         self.recharge_status_label.setWordWrap(True)
         self.recharge_status_label.setAlignment(Qt.AlignCenter)
         self.recharge_status_label.hide()
         rv.addWidget(self.recharge_status_label, 0, Qt.AlignHCenter)
-        rv.addSpacing(round(8 * SCALE))
 
-        self.btn_recharge_done = QPushButton(f"我已充值完成（{FIXED_RECHARGE_AMOUNT} 元）")
-        self.btn_recharge_done.setCursor(Qt.PointingHandCursor)
-        self.btn_recharge_done.setFixedHeight(BTN_H)
-        self.btn_recharge_done.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {BLUE}; color: white; border: none;
-                border-radius: {round(8 * SCALE)}px; font-size: {BTN_SIZE}px;
-                font-weight: 700; font-family: "{FONT_FAMILY}";
-            }}
-            QPushButton:hover {{ background-color: #2F95F8; }}
-            QPushButton:disabled {{ background-color: #C6C6CB; }}
-        """)
-        self.btn_recharge_done.clicked.connect(self._on_recharge_done)
-        rv.addWidget(self.btn_recharge_done)
-        col.addWidget(recharge_wrap)
-
-        # ---- 底部三等分操作条 ----
-        bar = QFrame()
-        bar.setObjectName("btnBar")
-        bar.setFixedHeight(BTN_H)
-        bar.setStyleSheet(f"#btnBar {{ background: {CARD}; border-top: 1px solid {LINE}; }}")
-        bh = QHBoxLayout(bar)
-        bh.setContentsMargins(0, 0, 0, 0)
-        bh.setSpacing(0)
-
-        self.btn_activation = _BarBtn("开通 VIP", BLUE, sep=True)
-        self.btn_activation.clicked.connect(self.open_activation_requested.emit)
-        self.btn_recharge = _BarBtn("续费会员", BLUE, sep=True)
-        self.btn_recharge.clicked.connect(self.open_recharge_requested.emit)
-        self.btn_logout = _BarBtn("退出", RED, sep=False)
+        def _link_btn(text, color):
+            b = QPushButton(text)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setStyleSheet(
+                f"QPushButton {{ background: transparent; border: none; outline: none; color: {color}; "
+                f"font-size: {BTN_SIZE}px; font-weight: 700; font-family: \"{FONT_FAMILY}\"; }}"
+            )
+            return b
+        self.btn_logout = _link_btn("退出", RED)
         self.btn_logout.clicked.connect(self.logout_requested.emit)
+        rv.addWidget(self.btn_logout, 0, Qt.AlignHCenter)
+
         self._ent_ready.connect(self._on_ent_ready)
         self._recharge_ready.connect(self._on_recharge_ready)
-        for b in (self.btn_activation, self.btn_recharge, self.btn_logout):
-            bh.addWidget(b, 1)
-        col.addWidget(bar)
+        side.addWidget(right, 4)
 
-        # 版本号（主窗口可能写入；无内容时不占视觉）
-        self.version_label = _label("", round(8 * SCALE), SUB)
+        # 版本号：置于面板下方整行（非第三列）
+        self.version_label = _label("", round(0.015 * W), SUB)
         self.version_label.setAlignment(Qt.AlignHCenter)
-        vw = QWidget()
-        vw.setStyleSheet("background: transparent;")
-        vv = QVBoxLayout(vw)
-        vv.setContentsMargins(0, round(8 * SCALE), 0, round(10 * SCALE))
-        vv.addWidget(self.version_label)
-        col.addWidget(vw)
+        root.addSpacing(round(6 * SCALE))
+        root.addWidget(self.version_label, 0, Qt.AlignHCenter)
+
+    def _badge_style(self, color):
+        return (
+            f"background: {color}; color: white; outline: none; "
+            f"border-radius: {self._badge_size // 2}px; "
+            f"font-size: {round(self._badge_size * 0.5)}px; font-weight: 700;"
+        )
 
     # ---------------- 数据刷新 ----------------
     def refresh(self, username):
@@ -213,11 +237,15 @@ class AccountPane(QWidget):
         放到后台线程获取，完成后经 _ent_ready 信号回主线程刷新，避免登录后界面卡死。"""
         self._username = username
         if not username:
+            self.user_label.setText("未登录")
+            self.badge_label.setStyleSheet(self._badge_style(SUB))
             self.row_user.set_value("未登录", INK)
             self.row_status.set_value("—", SUB)
             self.row_access.set_value("—", SUB)
             self.row_expiry.set_value("—", SUB)
             return
+        self.user_label.setText(username)
+        self.badge_label.setStyleSheet(self._badge_style(SUB))
         self.row_user.set_value(username, INK)
         # 先用占位，避免空白
         self.row_status.set_value("查询中…", SUB)
@@ -278,13 +306,14 @@ class AccountPane(QWidget):
         else:
             self.row_access.set_value("已锁定", RED)
 
+        active = ent.get("is_vip") or ent.get("trial_valid")
+        self.badge_label.setStyleSheet(self._badge_style(GOOD if active else RED))
+
     def _refresh_recharge_status(self, username):
         """查询最新一条充值申请，更新账户页「待审核」持久状态。
         查询走后台线程（Supabase 网络请求原先在主线程同步跑，会把整个界面卡住），
         结果经 _recharge_ready 信号回主线程刷新 UI。"""
         self.recharge_status_label.hide()
-        self.btn_recharge_done.setEnabled(True)
-        self.btn_recharge_done.setText("我已充值完成")
         if not username:
             return
 
@@ -318,8 +347,6 @@ class AccountPane(QWidget):
             self.recharge_status_label.setText("充值待审核 · 请等待审核通过")
             self.recharge_status_label.setStyleSheet(_status_style('pending', SCALE, SUB))
             self.recharge_status_label.show()
-            self.btn_recharge_done.setEnabled(False)
-            self.btn_recharge_done.setText("待审核中")
         elif st == 'approved':
             self.recharge_status_label.setText("充值已审核通过")
             self.recharge_status_label.setStyleSheet(_status_style('approved', SCALE, SUB))
@@ -328,33 +355,6 @@ class AccountPane(QWidget):
             self.recharge_status_label.setText("充值申请被驳回，请重新提交或联系客服")
             self.recharge_status_label.setStyleSheet(_status_style('rejected', SCALE, SUB))
             self.recharge_status_label.show()
-            self.btn_recharge_done.setText("重新提交")
-
-    def _on_recharge_done(self):
-        """用户点击「我已充值完成」：写一条待审核充值记录并提醒等待审核通过"""
-        username = self._username
-        if not username:
-            QMessageBox.information(self, "提示", "请先登录后再操作。")
-            return
-        try:
-            from database_helper import DatabaseHelper
-            pending = DatabaseHelper.get_recharge_records(username, status='pending') or []
-            if pending:
-                QMessageBox.information(self, "提示", "您已提交充值申请，正在等待审核通过，请耐心等待。")
-                self._refresh_recharge_status(username)
-                return
-            rec = DatabaseHelper.add_recharge_record(
-                username, FIXED_RECHARGE_AMOUNT, 0,
-                payment_method=f'固定码扫码 {FIXED_RECHARGE_AMOUNT}元 · 账号 {username}',
-                status='pending'
-            )
-            if rec:
-                QMessageBox.information(self, "提交成功", f"充值申请已提交，请等待审核通过。\n金额：{FIXED_RECHARGE_AMOUNT} 元\n账号：{username}（将用于核实）\n审核结果将展示在账户页。")
-            else:
-                QMessageBox.warning(self, "提交失败", "提交失败，请稍后再试或联系客服。")
-        except Exception as e:
-            QMessageBox.critical(self, "错误", f"提交失败：{e}")
-        self._refresh_recharge_status(username)
 
 
 def _status_style(kind, scale, sub):

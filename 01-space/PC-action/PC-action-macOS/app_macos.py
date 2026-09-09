@@ -32,7 +32,7 @@ from PyQt5.QtGui import (
     QKeySequence, QLinearGradient, QRadialGradient, QRegion, QPainterPath
 )
 
-from app import AutoRecorderApp, ComboSkillRunner, FolderManager
+from app_core import AutoRecorderApp, ComboSkillRunner, FolderManager
 from utils import (
     get_screen_size, load_json_data, save_json_data,
     get_user_data_path, get_recordings_path, get_app_base_dir,
@@ -400,6 +400,9 @@ class MacOSButton(QPushButton):
                 background-color: {disabled_color};
                 color: rgba(255, 255, 255, 0.7);
             }}
+            QPushButton:focus {{
+                outline: none;
+            }}
         """)
     
     @staticmethod
@@ -449,6 +452,9 @@ class MacOSDestructiveButton(QPushButton):
             QPushButton:disabled {{
                 background-color: {disabled_color};
                 color: rgba(255, 255, 255, 0.7);
+            }}
+            QPushButton:focus {{
+                outline: none;
             }}
         """)
 
@@ -563,6 +569,9 @@ class MacOSSecondaryButton(QPushButton):
             QPushButton:disabled {{
                 background-color: #F2F2F7;
                 color: rgba(0, 0, 0, 0.3);
+            }}
+            QPushButton:focus {{
+                outline: none;
             }}
         """)
 
@@ -1682,6 +1691,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         )
         self.record_mode_combo.setMenu(self._record_menu)
         mode_layout.addWidget(self.record_mode_combo)
+
+        mode_layout.addStretch()
         record_layout.addWidget(mode_widget)
         record_layout.addStretch()
         card_layout.addWidget(record_area)
@@ -1727,6 +1738,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(16, 16, 16, 16)
         card_layout.setSpacing(16)
+        self._mgr_time = 0
+        self._mgr_kw = ""
+        self._mgr_combo = "all"
 
         header = QHBoxLayout()
         header.setSpacing(10)
@@ -1749,6 +1763,43 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         header.addWidget(trash_btn)
         header.addStretch()
         card_layout.addLayout(header)
+
+        # ── 组合技流程筛选条：全部 / 时间范围 / 关键词 / 在组合技里 / 未在组合技里 ──
+        from PyQt5.QtWidgets import QComboBox, QLineEdit
+        filt = QHBoxLayout(); filt.setSpacing(8); filt.setContentsMargins(0, 0, 0, 0)
+        tl = QLabel("时间"); tl.setStyleSheet("color:#8E96A0;font-size:12px;font-family:'Microsoft YaHei';")
+        filt.addWidget(tl)
+        time_cb = QComboBox(); time_cb.addItems(["全部时间", "近 7 天", "近 30 天"]); time_cb.setFixedWidth(104)
+        time_cb.setStyleSheet("QComboBox{background:#FFFFFF;color:#333333;border:1px solid #E5E7EC;border-radius:8px;padding:5px 10px;font-size:12px;font-family:'Microsoft YaHei';} QComboBox::drop-down{border:none;width:18px;} QComboBox::down-arrow{border:none;}")
+        filt.addWidget(time_cb)
+        search_edit = QLineEdit(); search_edit.setPlaceholderText("搜索流程名称…"); search_edit.setClearButtonEnabled(True); search_edit.setFixedWidth(180)
+        search_edit.setStyleSheet("QLineEdit{background:#FFFFFF;border:1px solid #E5E7EC;border-radius:8px;padding:6px 10px;font-size:12px;color:#333333;font-family:'Microsoft YaHei';} QLineEdit:focus{border:1px solid #0D7A4D;}")
+        filt.addWidget(search_edit)
+        def _combo_style(on):
+            if on:
+                return "QPushButton{background:#0D7A4D;color:#FFFFFF;border:none;outline:none;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
+            return "QPushButton{background:#EEF3F0;color:#565B61;border:none;outline:none;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
+        state_map = {}
+        for key, label in [("all", "全部"), ("in", "在组合技里"), ("out", "未在组合技里")]:
+            b = QPushButton(label); b.setCheckable(True); b.setCursor(Qt.PointingHandCursor)
+            b.setStyleSheet(_combo_style(key == "all")); filt.addWidget(b); state_map[key] = b
+        filt.addStretch(1)
+        card_layout.addLayout(filt)
+
+        def _apply_filter():
+            self._mgr_time = {"全部时间": 0, "近 7 天": 7, "近 30 天": 30}[time_cb.currentText()]
+            self._mgr_kw = search_edit.text()
+            self.load_folders_to_table(folder_table)
+        def _on_combo(key):
+            for k, b in state_map.items():
+                b.setChecked(k == key); b.setStyleSheet(_combo_style(k == key))
+            self._mgr_combo = key
+            self.load_folders_to_table(folder_table)
+        time_cb.currentIndexChanged.connect(lambda _: _apply_filter())
+        search_edit.textChanged.connect(lambda _: _apply_filter())
+        for k, b in state_map.items():
+            b.clicked.connect(lambda _, k=k: _on_combo(k))
+        tab._mgf_controls = (time_cb, search_edit, state_map)  # 保持引用防 GC
 
         folder_table = QTableWidget()
         folder_table.setIconSize(QSize(16, 16))
@@ -1886,13 +1937,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             #folderMenuCard {
                 background: #FFFFFF;
                 border: 1px solid #E7EAF0;
-                border-radius: 12px;
+                border-top-left-radius: 0px;
+                border-top-right-radius: 0px;
+                border-bottom-left-radius: 12px;
+                border-bottom-right-radius: 12px;
             }
             QLabel#folderMenuTitle {
                 color: #6B7280;
                 background: #F3F4F6;
-                border-top-left-radius: 12px;
-                border-top-right-radius: 12px;
+                border-radius: 0px;
                 font-size: 12px;
                 font-weight: 600;
                 padding: 8px 12px;
@@ -1938,8 +1991,20 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             QPushButton:hover { background: #FDECEC; color: #B91C1C; }
         """)
         rename_btn.clicked.connect(lambda: (card.close(), self.rename_folder_in_tab(folder_path, table_widget)))
+        interval_btn = QPushButton("设置间隔")
+        interval_btn.setCursor(Qt.PointingHandCursor)
+        interval_btn.setStyleSheet("""
+            QPushButton {
+                text-align: left; border: none; background: #FFFFFF;
+                color: #374151; font-size: 13px; padding: 9px 14px;
+                border-radius: 0px;
+            }
+            QPushButton:hover { background: #E8F0FE; color: #111827; }
+        """)
+        interval_btn.clicked.connect(lambda: self._open_folder_interval_dialog(folder_path, table_widget, card))
         delete_btn.clicked.connect(lambda: (card.close(), self.delete_folder_in_tab(folder_path, table_widget)))
         lay.addWidget(rename_btn)
+        lay.addWidget(interval_btn)
         lay.addWidget(delete_btn)
 
         gpos = table_widget.viewport().mapToGlobal(position)
@@ -1952,7 +2017,25 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card.show()
         card.raise_()
 
+    def _referenced_flow_names(self):
+        """返回所有已被组合技引用的流程文件夹名集合（组合技 flows 里 action='执行: <folder>'）"""
+        names = set()
+        try:
+            from combo_skill_manager import ComboSkillManager as _CSM
+            csm = _CSM()
+            for skill in (getattr(csm, 'combo_skills', None) or []):
+                for fl in (skill.get('flows') or []):
+                    action = (fl.get('action') or '')
+                    if action.startswith('执行: '):
+                        names.add(action[3:].strip())
+        except Exception:
+            pass
+        return names
+
     def load_folders_to_table(self, table_widget):
+        self._mgr_time = getattr(self, '_mgr_time', 0) or 0
+        self._mgr_kw = getattr(self, '_mgr_kw', '') or ''
+        self._mgr_combo = getattr(self, '_mgr_combo', 'all') or 'all'
         table_widget.setRowCount(0)
         recordings_dir = get_recordings_path()
 
@@ -1961,22 +2044,30 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         try:
             folders = []
+            now = datetime.now()
             for item in os.listdir(recordings_dir):
                 item_path = os.path.join(recordings_dir, item)
                 if os.path.isdir(item_path) and item != 'trash':
-                    ctime = datetime.fromtimestamp(os.path.getctime(item_path)).strftime('%m-%d %H:%M')
-                    folders.append((ctime, item, item_path))
+                    folders.append((datetime.fromtimestamp(os.path.getctime(item_path)), item, item_path))
+
+            refs = self._referenced_flow_names()
+            dt = int(self._mgr_time)
+            kw = self._mgr_kw.lower()
+            cmb = self._mgr_combo
+            folders = [f for f in folders
+                       if (not dt or (now - f[0]).days <= dt)
+                       and (not kw or kw in f[1].lower())
+                       and (cmb == 'all' or ((f[1] in refs) == (cmb == 'in')))]
 
             usage_counts = self._get_usage_counts()
             folders_with_count = []
-            for fi in folders:
-                fi_name = fi[1]
-                fi_count = usage_counts.get(fi_name, 0)
-                folders_with_count.append((fi[0], fi[1], fi[2], fi_count))
+            for f in folders:
+                folders_with_count.append((f[0], f[1], f[2], usage_counts.get(f[1], 0)))
             folders_with_count.sort(key=lambda x: (-x[3], x[0]), reverse=False)
 
             table_widget.setRowCount(len(folders_with_count))
-            for row, (ctime, name, path, count) in enumerate(folders_with_count):
+            for row, (cdt, name, path, count) in enumerate(folders_with_count):
+                ctime = cdt.strftime('%m-%d %H:%M')
                 table_widget.setItem(row, 0, QTableWidgetItem(ctime))
                 name_item = QTableWidgetItem(name)
                 name_item.setData(Qt.UserRole, path)
@@ -1988,17 +2079,15 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 shortcut_item.setForeground(QColor(MacOSColors.ACCENT) if shortcut else QColor(MacOSColors.TEXT_SECONDARY))
                 table_widget.setItem(row, 2, shortcut_item)
                 rename_item = QTableWidgetItem("")
-                rename_item.setIcon(load_svg_icon("edit", 16))
                 rename_item.setTextAlignment(Qt.AlignCenter)
                 rename_item.setData(Qt.UserRole, ("rename", path))
-                rename_item.setForeground(QColor(MacOSColors.ACCENT))
                 table_widget.setItem(row, 3, rename_item)
+                _set_table_icon_centered(table_widget, row, 3, "edit", 16)
                 delete_item = QTableWidgetItem("")
-                delete_item.setIcon(load_svg_icon("trash", 16))
                 delete_item.setTextAlignment(Qt.AlignCenter)
                 delete_item.setData(Qt.UserRole, ("delete", path))
-                delete_item.setForeground(QColor(MacOSColors.SYSTEM_RED))
                 table_widget.setItem(row, 4, delete_item)
+                _set_table_icon_centered(table_widget, row, 4, "trash", 14)
             _folder_reload_widths = [150, 200, 110, 90, 55]
             _apply_saved_column_widths(table_widget, "manager_table", _folder_reload_widths)
             table_widget.horizontalHeader().setStretchLastSection(True)
@@ -2187,6 +2276,111 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         dialog.setFocus()
         dialog.exec_()
         self.reenable_grave_hotkey()
+
+    def _open_folder_interval_dialog(self, folder_path, table_widget, menu_card):
+        """关闭右键菜单后，推迟一拍再弹「设置间隔」对话框。
+        原因：右键菜单是 Qt.Popup，自带原生鼠标抓取；若在其点击回调里同步弹模态框，
+        Windows 下新对话框会被挤到主窗口后面（看起来“没反应”），等抓取释放后再弹即可置顶。"""
+        if menu_card is not None:
+            menu_card.close()
+        QTimer.singleShot(0, lambda: self.set_folder_interval_in_tab(folder_path, table_widget))
+
+    def _get_folder_interval(self, folder_path):
+        """读取该流程文件夹当前的默认间隔（秒）：优先 settings.json，其次 recording.json 首步 delay，兜底 0.1。"""
+        try:
+            fdict = load_json_data(os.path.join(folder_path, "settings.json"), {})
+            val = fdict.get("default_interval")
+            if val is not None:
+                return float(val)
+        except Exception:
+            pass
+        try:
+            records = load_json_data(os.path.join(folder_path, "recording.json"), [])
+            if isinstance(records, list) and records and records[0].get("delay") is not None:
+                return float(records[0]["delay"])
+        except Exception:
+            pass
+        return 0.1
+
+    def set_folder_interval_in_tab(self, folder_path, table_widget):
+        """右键「设置间隔」：把该流程每一坐标步骤的播放间隔改为用户指定值。"""
+        folder_name = os.path.basename(folder_path)
+        current = self._get_folder_interval(folder_path)
+
+        from beautiful_dialog import build_styled_card, styled_button, center_dialog, fade_in_dialog
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("设置间隔 - %s" % folder_name)
+        dialog.setWindowModality(Qt.WindowModal)
+        dialog.setFixedWidth(420)
+        content = build_styled_card(dialog, "设置间隔", "mouse")
+
+        hint = QLabel("设置该流程每一步坐标之间的播放间隔：")
+        hint.setWordWrap(True)
+        hint.setStyleSheet("color:#6B7280;font-size:13px;background:transparent;")
+        content.addWidget(hint)
+
+        box = QDoubleSpinBox(dialog)
+        box.setRange(0.0, 60.0)
+        box.setDecimals(2)
+        box.setSingleStep(0.1)
+        box.setSuffix(" 秒")
+        box.setValue(current)
+        box.setMinimumHeight(36)
+        box.setStyleSheet("""
+            QDoubleSpinBox {
+                background:#FFFFFF; color:#1A1A2E;
+                border:1px solid #D1D1D6; border-radius:8px;
+                padding:0 10px; font-size:14px; font-weight:500;
+                min-height:24px;
+            }
+            QDoubleSpinBox:focus { border:1.5px solid #0071E3; }
+        """)
+        content.addWidget(box)
+
+        note = QLabel("作用于该流程已录制的全部坐标步骤（改写 recording.json 每步 delay），下次播放即在每步之间等待该间隔。")
+        note.setWordWrap(True)
+        note.setStyleSheet("color:#9AA0A6;font-size:12px;background:transparent;")
+        content.addWidget(note)
+
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        ok_btn = styled_button("保存", primary=True)
+        cancel_btn = styled_button("取消", primary=False)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(ok_btn)
+        content.addLayout(btn_row)
+
+        def apply_interval():
+            v = box.value()
+            try:
+                d = load_json_data(os.path.join(folder_path, "settings.json"), {})
+                d["default_interval"] = v
+                with open(os.path.join(folder_path, "settings.json"), "w", encoding="utf-8") as f:
+                    json.dump(d, f, ensure_ascii=False, indent=2)
+            except Exception:
+                traceback.print_exc()
+            try:
+                rpath = os.path.join(folder_path, "recording.json")
+                records = load_json_data(rpath, [])
+                if isinstance(records, list):
+                    for rec in records:
+                        if isinstance(rec, dict):
+                            rec["delay"] = v
+                    with open(rpath, "w", encoding="utf-8") as f:
+                        json.dump(records, f, indent=2, ensure_ascii=False)
+            except Exception:
+                traceback.print_exc()
+            dialog.accept()
+
+        ok_btn.clicked.connect(apply_interval)
+        cancel_btn.clicked.connect(dialog.reject)
+        box.returnPressed.connect(apply_interval)
+
+        center_dialog(dialog)
+        fade_in_dialog(dialog)
+        dialog.exec_()
 
     def rename_folder_in_tab(self, folder_path, table_widget):
         old_name = os.path.basename(folder_path)
@@ -4048,6 +4242,7 @@ def start_macos_app():
 
     app.setStyleSheet(f"""
         QMainWindow, QWidget#centralWidget {{ border-radius: 16px; }}
+        *:focus {{ outline: none; }}
         QToolTip {{
             background-color: {MacOSColors.CARD_BG};
             color: {MacOSColors.TEXT_PRIMARY};

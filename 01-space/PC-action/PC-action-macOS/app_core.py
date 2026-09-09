@@ -296,6 +296,46 @@ class DraggableWidget(QWidget):
         self.has_moved = False
         self.setMouseTracking(True)
         self.setAttribute(Qt.WA_TranslucentBackground)
+        # 窗口圆角（可被实例覆盖，默认 14px，悬浮窗设为 24px）
+        self._radius = 14
+        # 可调大小：置 True 后边缘/角落可拖拽缩放
+        self.resizable = False
+        self._resize_mode = None      # (方向, 起点global, 起始geometry) 或 None
+        self._resize_min = None       # 缩放最小尺寸
+
+    def _resize_min_size(self):
+        if self._resize_min is None:
+            from PyQt5.QtCore import QSize
+            m = self.minimumSize()
+            self._resize_min = QSize(m.width() if m.width() > 0 else 240,
+                                     m.height() if m.height() > 0 else 300)
+        return self._resize_min
+
+    def _hit_resize(self, pos):
+        if not self.resizable:
+            return None
+        w, h = self.width(), self.height()
+        e = 10
+        left, right = pos.x() <= e, pos.x() >= w - e
+        top, bottom = pos.y() <= e, pos.y() >= h - e
+        if left and top: d = 'tl'
+        elif right and top: d = 'tr'
+        elif left and bottom: d = 'bl'
+        elif right and bottom: d = 'br'
+        elif left: d = 'l'
+        elif right: d = 'r'
+        elif top: d = 't'
+        elif bottom: d = 'b'
+        else: d = None
+        return d
+
+    @staticmethod
+    def _resize_cursor(d):
+        if d in ('tl', 'br'): return Qt.SizeFDiagCursor
+        if d in ('tr', 'bl'): return Qt.SizeBDiagCursor
+        if d in ('l', 'r'): return Qt.SizeHorCursor
+        if d in ('t', 'b'): return Qt.SizeVerCursor
+        return Qt.ArrowCursor
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -307,7 +347,7 @@ class DraggableWidget(QWidget):
         p = QPainter(bm)
         p.setRenderHint(QPainter.Antialiasing)
         path = QPainterPath()
-        path.addRoundedRect(0, 0, s.width(), s.height(), 14, 14)
+        path.addRoundedRect(0, 0, s.width(), s.height(), self._radius, self._radius)
         p.fillPath(path, Qt.color1)
         p.end()
         self.setMask(bm)
@@ -318,16 +358,45 @@ class DraggableWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         r = self.rect()
+        _rr = self._radius
+        # 白色圆角背景（圆角与遮罩 self._radius 完全一致，避免四角露底/断裂）
         path = QPainterPath()
-        path.addRoundedRect(r.x(), r.y(), r.width(), r.height(), 14, 14)
-        painter.fillPath(path, QColor(BG))
+        path.addRoundedRect(r.x(), r.y(), r.width(), r.height(), _rr, _rr)
+        painter.fillPath(path, QColor("#FFFFFF"))
+        # 极浅灰细边框，同圆角，四角线条连续闭合
         bp = QPainterPath()
-        bp.addRoundedRect(r.x() + 0.5, r.y() + 0.5, r.width() - 1, r.height() - 1, 13.5, 13.5)
-        painter.strokePath(bp, QPen(QColor("#1C1C1E"), 1))
+        bp.addRoundedRect(r.x() + 0.5, r.y() + 0.5, r.width() - 1, r.height() - 1,
+                          _rr - 0.5, _rr - 0.5)
+        painter.strokePath(bp, QPen(QColor("#EEEEEE"), 1))
         painter.end()
+
+    def _resize_geometry(self, g0, g0geo, now, d):
+        from PyQt5.QtCore import QRect
+        dx = now.x() - g0.x(); dy = now.y() - g0.y()
+        x, y, w, h = g0geo.x(), g0geo.y(), g0geo.width(), g0geo.height()
+        if 'l' in d: w -= dx; x += dx
+        if 'r' in d: w += dx
+        if 't' in d: h -= dy; y += dy
+        if 'b' in d: h += dy
+        ms = self._resize_min_size()
+        mw, mh = ms.width(), ms.height()
+        if w < mw:
+            if 'l' in d: x -= (mw - w)
+            w = mw
+        if h < mh:
+            if 't' in d: y -= (mh - h)
+            h = mh
+        return QRect(x, y, w, h)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            d = self._hit_resize(event.pos())
+            if d:
+                from PyQt5.QtCore import QRect
+                self._resize_mode = (d, event.globalPos(), QRect(self.geometry()))
+                self.setCursor(self._resize_cursor(d))
+                event.accept()
+                return
             self.click_start_pos = event.pos()
             self.dragging = True
             self.has_moved = False
@@ -337,12 +406,28 @@ class DraggableWidget(QWidget):
             event.accept()
 
     def mouseMoveEvent(self, event):
+        if self._resize_mode:
+            d, g0, g0geo = self._resize_mode
+            self.setGeometry(self._resize_geometry(g0, g0geo, event.globalPos(), d))
+            event.accept()
+            return
+        if self.resizable:
+            self.setCursor(self._resize_cursor(self._hit_resize(event.pos())))
         if self.dragging and event.buttons() == Qt.LeftButton:
             self.move(event.globalPos() - self.drag_position)
             self.has_moved = True
             event.accept()
 
     def mouseReleaseEvent(self, event):
+        if self._resize_mode:
+            self._resize_mode = None
+            self.setCursor(Qt.ArrowCursor)
+            try:
+                self.parent_app.save_replay_indicator_position()
+            except Exception:
+                pass
+            event.accept()
+            return
         if event.button() == Qt.LeftButton:
             self.dragging = False
             if self.has_moved:
@@ -3197,7 +3282,7 @@ class FolderManager(QDialog):
                 Qt.Key_F1:"f1",Qt.Key_F2:"f2",Qt.Key_F3:"f3",Qt.Key_F4:"f4",
                 Qt.Key_F5:"f5",Qt.Key_F6:"f6",Qt.Key_F7:"f7",Qt.Key_F8:"f8",
                 Qt.Key_F9:"f9",Qt.Key_F10:"f10",Qt.Key_F11:"f11",Qt.Key_F12:"f12",
-                Qt.Key_Space:"space",Qt.Key_Return:"return",Qt.Key_Tab:"tab",
+                Qt.Key_Space:"space",Qt.Key_Enter:"enter",Qt.Key_Return:"enter",Qt.Key_Tab:"tab",
                 Qt.Key_Escape:"esc",Qt.Key_Backspace:"backspace",Qt.Key_Delete:"delete",
                 Qt.Key_Home:"home",Qt.Key_End:"end",Qt.Key_PageUp:"pageup",Qt.Key_PageDown:"pagedown",
                 Qt.Key_Up:"up",Qt.Key_Down:"down",Qt.Key_Left:"left",Qt.Key_Right:"right",
@@ -6704,39 +6789,21 @@ class AutoRecorderApp(QMainWindow):
         # 创建主窗口
         self.replay_status_widget = DraggableWidget(self)
         self.replay_status_widget.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.replay_status_widget.setFixedSize(306, 426)
+        self.replay_status_widget._radius = 24          # 外框大圆角（设计图比例）
+        self.replay_status_widget.setMinimumSize(260, 320)
+        self.replay_status_widget.resize(306, 372)
+        self.replay_status_widget.resizable = True
 
+        # ★ 极简白境：数学 token 体系（纯白背景 + 深绿播放 + 深灰蓝主按钮）
+        _GRID = 12          # 基础栅格间距
         main_layout = QVBoxLayout(self.replay_status_widget)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(0)
-        
-        # 标题栏 - 带绿色状态点
+        main_layout.setContentsMargins(_GRID, _GRID, _GRID, _GRID)
+        main_layout.setSpacing(_GRID)
+
+        # 标题栏 - 仅右上角关闭按钮（24×24，线性灰）
         title_layout = QHBoxLayout()
-        title_layout.setSpacing(8)
-        
-        # 绿色状态点
-        status_dot = QLabel("●")
-        status_dot.setStyleSheet("""
-            QLabel {
-                color: #52c41a;
-                font-size: 16px;
-                background: transparent;
-            }
-        """)
-        title_layout.addWidget(status_dot)
-        
-        # 标题
-        title_label = QLabel("录制控制")
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #262626;
-                font-size: 14px;
-                font-weight: 500;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                background: transparent;
-            }
-        """)
-        title_layout.addWidget(title_label)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(0)
         title_layout.addStretch()
 
         from PyQt5.QtWidgets import QFrame as _QF2
@@ -6745,11 +6812,11 @@ class AutoRecorderApp(QMainWindow):
         _dots_w.setStyleSheet("background:transparent;")
         _dots_l = QHBoxLayout(_dots_w)
         _dots_l.setContentsMargins(0,0,0,0)
-        _dots_l.setSpacing(6)
+        _dots_l.setSpacing(2)
         _d_close = QLabel("✕")
-        _d_close.setFixedSize(22, 22)
+        _d_close.setFixedSize(24, 24)
         _d_close.setAlignment(Qt.AlignCenter)
-        _d_close.setStyleSheet("QLabel{color:#7A8190; font-size:13px; background:transparent; border:none; border-radius:6px;}QLabel:hover{background:#FF5F57; color:white;}")
+        _d_close.setStyleSheet("QLabel{color:#9AA0A8; font-size:15px; background:transparent; border:none; border-radius:12px;}QLabel:hover{background:#F4F6F8; color:#4A5568;}")
         _d_close.setCursor(Qt.PointingHandCursor)
         def _dclose_ev(ev):
             if ev.button()==Qt.LeftButton: self.close_replay_indicator()
@@ -6758,36 +6825,8 @@ class AutoRecorderApp(QMainWindow):
         title_layout.addWidget(_dots_w)
         
         main_layout.addLayout(title_layout)
-        
-        # 分隔线 - 已移除，减少线条
-        
-        # 回放状态开关按钮 - 只切换状态，不执行回放
-        self.floating_replay_btn = QPushButton("回放已关闭")
-        self.floating_replay_btn.setCursor(Qt.PointingHandCursor)
-        self.floating_replay_btn.setFixedHeight(32)
-        self.floating_replay_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: {BG};
-                color: {TEXT};
-                border-radius: 6px;
-                font-size: 14px;
-                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-            }}
-            QPushButton:hover {{
-                background-color: {CARD};
-                color: {ACCENT};
-            }}
-            QPushButton:pressed {{
-                background-color: {CARD};
-            }}
-        """)
-        self.floating_replay_btn.setIcon(load_svg_icon("play", 18))
-        self.floating_replay_btn.setIconSize(QSize(32, 32))
-        self.floating_replay_btn.clicked.connect(self.toggle_replay_status_only)
-        main_layout.addWidget(self.floating_replay_btn)
-        
-        main_layout.addSpacing(16)
-        
+        # 移除原"回放状态开关"按钮（回放已开启/已关闭），悬浮窗仅保留流程列表与进入主程序
+
         # 流程列表区域 - 使用QScrollArea实现滚动
         from PyQt5.QtWidgets import QScrollArea
         self.list_scroll_area = QScrollArea()
@@ -6838,28 +6877,32 @@ class AutoRecorderApp(QMainWindow):
         self.list_scroll_area.setMaximumHeight(300)
         
         main_layout.addWidget(self.list_scroll_area, 1)
-        
-        main_layout.addSpacing(16)
-        
-        # 进入主程序按钮
-        enter_main_btn = QPushButton("🏠 进入主程序")
+
+        # 进入主程序按钮（胶囊形 · 深灰蓝 · 设计图比例）
+        enter_main_btn = QPushButton("进入主程序")
+        _home_icon = load_svg_icon("home", 12, "#FFFFFF")   # 12×1.8≈22px
+        if not _home_icon.isNull():
+            enter_main_btn.setIcon(_home_icon)
+            enter_main_btn.setIconSize(QSize(20, 20))
         enter_main_btn.setCursor(Qt.PointingHandCursor)
-        enter_main_btn.setFixedHeight(40)
-        enter_main_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {THEME_PRIMARY};
+        enter_main_btn.setFixedHeight(48)
+        enter_main_btn.setStyleSheet("""
+            QPushButton {
+                background: #4A5568;
                 color: white;
-                border-radius: 6px;
-                font-size: 14px;
+                border: none;
+                outline: none;
+                border-radius: 24px;
+                font-size: 15px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: #6B7178;
-            }}
-            QPushButton:pressed {{
-                background-color: #3E434B;
-            }}
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #3E4A5C;
+            }
+            QPushButton:pressed {
+                background-color: #2E3945;
+            }
         """)
         enter_main_btn.clicked.connect(self.enter_main_program)
         main_layout.addWidget(enter_main_btn)
@@ -6961,14 +7004,14 @@ class AutoRecorderApp(QMainWindow):
         )
         
         item_layout = QHBoxLayout(item_widget)
-        item_layout.setContentsMargins(12, 8, 12, 8)
+        item_layout.setContentsMargins(4, 8, 4, 8)   # 垂直8 → 单项高 8+32+8=48（数学一致）
         item_layout.setSpacing(12)
-        
+
         # 流程名称
         name_label = QLabel(recording)
         name_label.setStyleSheet("""
             QLabel {
-                color: #1a1a1a;
+                color: #1A1A1A;
                 font-size: 14px;
                 font-weight: normal;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -6976,26 +7019,26 @@ class AutoRecorderApp(QMainWindow):
             }
         """)
         item_layout.addWidget(name_label, 1)
-        
-        # 播放按钮
+
+        # 播放按钮（无背景圆，直接展示深绿播放图标；悬停有淡绿底反馈）
         play_btn = QPushButton()
-        play_btn.setIcon(load_svg_icon("play", 22))
-        play_btn.setIconSize(QSize(40, 40))
-        play_btn.setFixedSize(32, 32)
+        play_btn.setIcon(load_svg_icon("play", 11, "#0D7A4D"))   # 11×1.8 = 20px 深绿图标
+        play_btn.setIconSize(QSize(20, 20))
+        play_btn.setFixedSize(34, 34)
         play_btn.setCursor(Qt.PointingHandCursor)
-        play_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {THEME_PRIMARY};
-                color: white;
-                border-radius: 8px;
-                font-size: 14px;
-            }}
-            QPushButton:hover {{
-                background-color: #6B7178;
-            }}
-            QPushButton:pressed {{
-                background-color: #3E434B;
-            }}
+        play_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                outline: none;
+                border-radius: 17px;
+            }
+            QPushButton:hover {
+                background-color: rgba(13, 122, 77, 0.12);
+            }
+            QPushButton:pressed {
+                background-color: rgba(13, 122, 77, 0.22);
+            }
         """)
         play_btn.clicked.connect(lambda checked, name=recording: self.play_recording(name))
         item_layout.addWidget(play_btn)
@@ -9127,7 +9170,7 @@ class AutoRecorderApp(QMainWindow):
         
         top_layout.addStretch()
         layout.addLayout(top_layout)
-        
+
         # 使用QTableWidget显示流程列表（支持更多操作）
         from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QAbstractItemView
         from design_system import configure_soft_card_table, flat_button_style
@@ -9440,7 +9483,7 @@ class AutoRecorderApp(QMainWindow):
                 if Qt.Key_A <= k <= Qt.Key_Z:
                     return chr(k).lower()
                 _special = {
-                    Qt.Key_Space: "space", Qt.Key_Return: "return", Qt.Key_Enter: "return",
+                    Qt.Key_Space: "space", Qt.Key_Return: "enter", Qt.Key_Enter: "enter",
                     Qt.Key_Tab: "tab", Qt.Key_Escape: "esc", Qt.Key_Backspace: "backspace",
                     Qt.Key_Delete: "delete", Qt.Key_Insert: "insert", Qt.Key_Home: "home",
                     Qt.Key_End: "end", Qt.Key_PageUp: "pageup", Qt.Key_PageDown: "pagedown",

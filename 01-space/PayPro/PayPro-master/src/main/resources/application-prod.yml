@@ -86,7 +86,7 @@ paypro:
     - id: 1
       product-name: "PC-Action VIP会员（月）"
       money: "9.90"
-      description: "全功能 1 个月，付款后自动发送激活码到邮箱"
+      description: "全功能 1 个月，付款后审核通过，自动开通VIP"
       type: "CODE"
       extend: ""
       download-url: ""

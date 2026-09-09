@@ -777,6 +777,23 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
 
+                # ★ 防误命中乱点：图片步骤若录制保存了参考坐标(x,y)，
+                #   命中的图中心距参考位置过远（远超目标图自身尺寸）→ 基本是形状匹配在别处误命中，
+                #   说明该图实际未出现；把它当作"未找到"处理（据 skip_on_fail 跳过或停止），绝不点击错误位置。
+                if location is not None and operation.get('x') is not None and operation.get('y') is not None:
+                    try:
+                        _ref_px = (int(operation['x']) * _dpi_scale, int(operation['y']) * _dpi_scale)
+                        _mcx = location[0] + location[2] // 2
+                        _mcy = location[1] + location[3] // 2
+                        _off = ((_mcx - _ref_px[0]) ** 2 + (_mcy - _ref_px[1]) ** 2) ** 0.5
+                        # 容差 = 目标图尺寸扩散 + 固定余量，避免误拦"图在但仅轻微位移"的正常情况
+                        _tol = int((location[2] + location[3]) * 1.5 + 40)
+                        if _off > _tol:
+                            debug_print(f"[回放] 🚫 步骤 {step}: 匹配点距参考位置 {_off:.0f}px（容差{_tol}px），判定图片 '{image_name}' 实际未出现，跳过点击（防止点错）")
+                            location = None
+                    except Exception:
+                        pass
+
                 if not location:
                     image_match_fail_count += 1
                     if skip_on_fail:

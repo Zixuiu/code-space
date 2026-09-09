@@ -240,6 +240,7 @@ class LoginPane(QWidget):
     login_success = pyqtSignal(str)
     _code_sent = pyqtSignal(bool, str, object, object)
     _register_done = pyqtSignal(bool, str)
+    _login_done = pyqtSignal(bool, str, str, str)
 
     MODE_LOGIN, MODE_REGISTER, MODE_RESET = 0, 1, 2
 
@@ -265,6 +266,8 @@ class LoginPane(QWidget):
 
         self._code_sent.connect(self._on_code_sent)
         self._register_done.connect(self._on_register_done)
+        self._login_done.connect(self._on_login_done)
+        self._login_in_flight = False
 
         # 预填已保存的登录信息（与旧版「记住我」行为一致）
         try:
@@ -285,6 +288,9 @@ class LoginPane(QWidget):
         page.add_title("欢迎回来", "登录你的账户以继续")
         self.login_username = page.add_field("用户名")
         self.login_password = page.add_field("密码", password=True)
+        # 回车直接登录：在用户名或密码框按 Enter 触发登录，无需点「登录」按钮
+        self.login_username.returnPressed.connect(self._do_login)
+        self.login_password.returnPressed.connect(self._do_login)
         self.login_status = page.add_status()
         self.login_btn = page.add_button("登录  →")
         self.login_btn.clicked.connect(self._do_login)
@@ -346,16 +352,36 @@ class LoginPane(QWidget):
         if not u or not p:
             self._show(self.login_status, "请输入用户名和密码")
             return
-        self.login_status.hide()
-        ok, result = self.login_manager.login(u, p)
+        # 防连按：请求发出前先禁用按钮，避免重复提交
+        if self._login_in_flight:
+            return
+        self._login_in_flight = True
+        self.login_btn.setEnabled(False)
+        self._show(self.login_status, "正在登录…", error=False)
+
+        def work():
+            try:
+                ok, result = self.login_manager.login(u, p)
+            except Exception as e:
+                ok, result = False, f"登录出错: {e}"
+            self._login_done.emit(bool(ok), str(result), u, p)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_login_done(self, ok, result, u, p):
+        """后台登录结束（主线程回调，UI 不再卡顿）"""
+        self._login_in_flight = False
+        self.login_btn.setEnabled(True)
         if ok:
             try:
                 self.login_manager.save_login_credentials(u, p)
             except Exception:
                 pass
-            self.login_success.emit(u)
+            self._show(self.login_status, "登录成功", error=False)
+            self.login_success.emit(result)
         else:
-            self._show(self.login_status, str(result))
+            self._show(self.login_status, result)
+            self.login_password.setFocus()
 
     # ---------- 注册 ----------
 

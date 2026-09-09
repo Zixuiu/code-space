@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QGraphicsDropShadowEffect, QApplication, QFrame,
 )
 
-from beautiful_dialog import load_svg_icon, ICON_SCALE
+from beautiful_dialog import load_svg_icon, ICON_SCALE, install_drag_move
 from entitlement import (get_pricing, get_entitlement,
                          resolve_channel_url, warmup_channel_url,
                          peek_cached_entitlement)
@@ -46,6 +46,7 @@ class ActivationDialog(QDialog):
         self._add_shadow()
         QTimer.singleShot(0, self._center)
         QTimer.singleShot(50, self._fade_in)
+        install_drag_move(self)
         # 状态加载全部异步化：get_pricing/resolve_channel_url/get_entitlement 都是网络请求，
         # 同步跑会卡住弹窗打开（曾实测"等老半天"）。
         # 先做一次「乐观渲染」：用本地缓存秒开，避免长时间停在"正在获取会员状态…"；
@@ -86,9 +87,12 @@ class ActivationDialog(QDialog):
         host = QFrame()
         host.setObjectName("ShadowHost")
         host.setAttribute(Qt.WA_StyledBackground, True)
+        # 宿主只负责承载阴影效果，不再画纯黑边带：
+        # 现场反馈无边框半透明窗口顶部有一条黑色横线，根源就是这里的
+        # background:#000000 仿阴影边带在 Windows 合成下透出成黑边。改透明，阴影改挂到圆角容器上。
         host.setStyleSheet(
-            "QFrame#ShadowHost{background:#000000;border:none;"
-            "border-radius:18px;margin:16px;margin-bottom:24px;}")
+            "QFrame#ShadowHost{background:transparent;border:none;"
+            "border-radius:18px;margin:8px;margin-bottom:16px;}")
 
         # QFrame 才支持 QSS border/border-radius（普通 QWidget 只画背景 → 四角永远直角）
         container = QFrame()
@@ -271,15 +275,11 @@ class ActivationDialog(QDialog):
 
     # ---------------- 窗口效果 ----------------
     def _add_shadow(self):
-        """阴影挂在影子宿主上（容器不能挂效果，否则样式化输入框破坏圆角）"""
-        host = self.findChild(QFrame, "ShadowHost")
-        if host:
-            blur, color = self.st["shadow"]
-            s = QGraphicsDropShadowEffect()
-            s.setBlurRadius(blur)
-            s.setColor(QColor(*color))
-            s.setOffset(0, 8)
-            host.setGraphicsEffect(s)
+        """已禁用投影效果。
+
+        上一版曾把 QGraphicsDropShadowEffect 挂在圆角容器上代替纯黑边带，
+        但投影会在四个角和顶部渲出深色阴影斑块，使卡片看起来不完全圆润。
+        用户要求干净的胶囊形状，因此不再施加任何投影——卡片为纯白圆角即可。"""
 
     def _center(self):
         p = self.parent()

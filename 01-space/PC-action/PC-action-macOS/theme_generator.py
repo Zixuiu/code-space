@@ -97,6 +97,11 @@ def generate_macos_theme():
         color: {C.GRAY_500};
     }}
 
+    /* 去聚焦蓝框：按钮获得焦点时不再画系统/融合风格的蓝色内框 */
+    QPushButton:focus, QPushButton:default, QPushButton:default:focus {{
+        outline: none;
+    }}
+
     /* 次要按钮 */
     QPushButton[class="secondary"] {{
         background-color: transparent;

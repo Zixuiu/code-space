@@ -77,6 +77,7 @@ class StyledMessageDialog(QDialog):
         QTimer.singleShot(0, self._center)
         QTimer.singleShot(50, self._fade_in)
         QTimer.singleShot(60, self._focus_primary)
+        install_drag_move(self)
     
     def _build(self, title, text, msg_type, buttons):
         layout = QVBoxLayout(self)
@@ -250,6 +251,7 @@ class StyledInputDialog(QDialog):
         self._add_shadow()
         QTimer.singleShot(0, self._center)
         QTimer.singleShot(50, self._fade_in)
+        install_drag_move(self)
 
     def _build(self, title, label, text, placeholder, value, min_value, max_value, decimals, step):
         layout = QVBoxLayout(self)
@@ -541,6 +543,7 @@ def build_styled_card(dialog, title, icon_name="info"):
     cl2.addLayout(row)
     layout.addWidget(container)
     add_card_shadow(container)
+    install_drag_move(dialog)
     return cl
 
 
@@ -586,3 +589,44 @@ def fade_in_dialog(dialog):
     dialog._fade_anim.setEndValue(1.0)
     dialog._fade_anim.setEasingCurve(QEasingCurve.OutCubic)
     QTimer.singleShot(50, dialog._fade_anim.start)
+
+
+def install_drag_move(dialog):
+    """让无边框弹窗可拖动：按住窗口空白/标题区（非交互控件）拖拽即移动。
+
+    交互控件（按钮/输入框/下拉框）会自行消费鼠标事件、不会冒泡到弹窗，
+    因此从它们上面点按不会触发拖动；标签/标题/留白区域会冒泡上来 → 可拖动。
+    采用实例方法覆写，并链式调用原同名方法，互不影响其它逻辑。
+    """
+    _orig_press = getattr(dialog, "mousePressEvent", None)
+    _orig_move = getattr(dialog, "mouseMoveEvent", None)
+    _orig_release = getattr(dialog, "mouseReleaseEvent", None)
+    _st = {"pos": None}
+
+    def _press(e):
+        if e.button() == Qt.LeftButton:
+            _st["pos"] = e.globalPos() - dialog.frameGeometry().topLeft()
+            e.accept()
+            return
+        if _orig_press:
+            _orig_press(e)
+
+    def _move_event(e):
+        if _st["pos"] is not None and (e.buttons() & Qt.LeftButton):
+            dialog.move(e.globalPos() - _st["pos"])
+            e.accept()
+            return
+        if _orig_move:
+            _orig_move(e)
+
+    def _release(e):
+        if _st["pos"] is not None:
+            _st["pos"] = None
+            e.accept()
+            return
+        if _orig_release:
+            _orig_release(e)
+
+    dialog.mousePressEvent = _press
+    dialog.mouseMoveEvent = _move_event
+    dialog.mouseReleaseEvent = _release
