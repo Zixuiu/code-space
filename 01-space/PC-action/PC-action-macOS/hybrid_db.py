@@ -6,6 +6,12 @@ import os
 import re
 from datetime import datetime
 
+# 与 supabase_db.py 共用同一套默认 anon key（打包发布态无 .env 时自动可用）。
+# 这是 Supabase 公开 anon key，随客户端分发是标准做法；写库权限由表的 RLS 策略控制。
+# 直接写在这里（不依赖运行时 import supabase_db），避免冻结包里 import 失败导致连不上。
+SUPABASE_URL_DEFAULT = 'https://loifmrvoignxlifizogv.supabase.co'
+SUPABASE_KEY_DEFAULT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ'
+
 try:
     from supabase import create_client, Client
     SUPABASE_AVAILABLE = True
@@ -32,12 +38,22 @@ class HybridDatabaseManager:
             self.supabase_client = create_client(self.supabase_url, self.supabase_key)
             # 测试连接
             test_response = self.supabase_client.table('users').select('id').limit(1).execute()
-            print("成功连接到Supabase数据库")
+            try:
+                from utils import log_info
+                log_info("成功连接到Supabase数据库")
+            except Exception:
+                print("成功连接到Supabase数据库")
             self.use_supabase = True
             return True
         except Exception as e:
             self.supabase_client = None
             self.use_supabase = False
+            # 窗口化 exe 无 stdout，把连接失败原因写进 app.log 便于排查
+            try:
+                from utils import log_error
+                log_error("Supabase 连接失败: %r" % (e,))
+            except Exception:
+                print("Supabase 连接失败:", e)
             return False
     
     def is_connected(self):
@@ -51,9 +67,12 @@ class HybridDatabaseManager:
         if self.supabase_client is not None:
             return True
         # 首次使用：读取配置并尝试连接
+        # 用 or 让环境变量覆盖默认值；即使环境只给了 URL 没给 KEY（很常见），
+        # KEY 也会回退到内置 anon 默认，保证连接尝试一定会发起。
         if not self.supabase_url:
-            self.supabase_url = os.getenv('SUPABASE_URL', '')
-            self.supabase_key = os.getenv('SUPABASE_KEY', '')
+            self.supabase_url = os.getenv('SUPABASE_URL') or SUPABASE_URL_DEFAULT
+        if not self.supabase_key:
+            self.supabase_key = os.getenv('SUPABASE_KEY') or SUPABASE_KEY_DEFAULT
         if self.supabase_url and self.supabase_key:
             return self._try_connect_supabase()
         return False

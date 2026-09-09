@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """绘制充值页 10 个浅色系样式对比图 -> 一张 PNG"""
 from PIL import Image, ImageDraw, ImageFont
+import pathlib
 
 W_CARD, H_CARD = 420, 300
 COLS, ROWS = 2, 5
@@ -95,6 +96,7 @@ for i, s in enumerate(styles):
     rrect(x + 18, by, W_CARD - 36, 42, 9, s["btn"])
     center_text(x + W_CARD / 2, by + 10, "发起支付", f_btn, (255, 255, 255))
 
-out = r"D:/codespace/PayPro-src/tools/ui-10styles.png"
+# 用脚本自身位置定位输出，避免移动项目后路径失效
+out = str(pathlib.Path(__file__).resolve().parent / "ui-10styles.png")
 img.save(out)
 print("saved:", out, img.size)

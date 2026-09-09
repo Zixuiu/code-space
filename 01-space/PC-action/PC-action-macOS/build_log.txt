@@ -1,0 +1,128 @@
+=== start build Wed Sep  9 15:50:46     2026 ===
+648 INFO: PyInstaller: 6.22.2, contrib hooks: 2026.7
+648 INFO: Python: 3.13.14
+685 INFO: Platform: Windows-10-10.0.14393-SP0
+685 INFO: Python environment: D:\codespace\01-space\PC-action\PC-action-macOS\.venv
+708 INFO: Module search paths (PYTHONPATH):
+['D:\\codespace\\01-space\\PC-action\\PC-action-macOS',
+ 'D:\\workbuddy\\resources\\app.asar.unpacked\\cli\\vendor\\shim',
+ 'C:\\Users\\ink\\.workbuddy\\binaries\\python\\versions\\3.13.12\\python313.zip',
+ 'C:\\Users\\ink\\.workbuddy\\binaries\\python\\versions\\3.13.12\\DLLs',
+ 'C:\\Users\\ink\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib',
+ 'C:\\Users\\ink\\.workbuddy\\binaries\\python\\versions\\3.13.12',
+ 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv',
+ 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages',
+ 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS']
+1960 INFO: Appending 'datas' from .spec
+1964 INFO: checking Analysis
+1964 INFO: Building Analysis because Analysis-00.toc is non existent
+1964 INFO: Looking for Python shared library...
+1964 INFO: Using Python shared library: C:\Users\ink\.workbuddy\binaries\python\versions\3.13.12\python313.dll
+1964 INFO: Running Analysis Analysis-00.toc
+1964 INFO: Target bytecode optimization level: 0
+1965 INFO: Initializing module dependency graph...
+1979 INFO: Initializing module graph hook caches...
+2010 INFO: Analyzing modules for base_library.zip ...
+5700 INFO: Processing standard module hook 'hook-math.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+5750 INFO: Processing standard module hook 'hook-heapq.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+6065 INFO: Processing standard module hook 'hook-encodings.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+11744 INFO: Processing standard module hook 'hook-pickle.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+18851 INFO: Caching module dependency graph...
+18926 INFO: Analyzing D:\codespace\01-space\PC-action\PC-action-macOS\main.py
+19032 INFO: Processing standard module hook 'hook-sysconfig.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19055 INFO: Processing standard module hook 'hook-_ctypes.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+19136 INFO: Processing standard module hook 'hook-PyQt5.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+21109 INFO: Processing standard module hook 'hook-PyQt5.QtCore.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+27230 INFO: Processing standard module hook 'hook-PyQt5.QtWidgets.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+36288 INFO: Processing standard module hook 'hook-PyQt5.QtGui.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+75460 INFO: Processing standard module hook 'hook-PIL.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+75689 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+76681 INFO: Processing standard module hook 'hook-numpy.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+77364 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+77367 INFO: SetuptoolsInfo: initializing cached setuptools info...
+79552 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+79805 INFO: Processing standard module hook 'hook-xml.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+82435 INFO: Processing standard module hook 'hook-platform.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+83233 INFO: Processing standard module hook 'hook-webbrowser.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+85830 INFO: Processing standard module hook 'hook-difflib.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+87028 INFO: Processing standard module hook 'hook-charset_normalizer.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+88190 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+88599 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+91503 INFO: Processing standard module hook 'hook-sqlite3.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+93037 INFO: Processing standard module hook 'hook-PyQt5.QtSvg.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+96826 INFO: Processing standard module hook 'hook-certifi.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+97124 INFO: Processing standard module hook 'hook-anyio.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+101171 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+101614 INFO: Processing standard module hook 'hook-pydantic.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+103825 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+106205 INFO: Processing standard module hook 'hook-websockets.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+108405 INFO: Processing standard module hook 'hook-cryptography.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+114105 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+114840 INFO: Processing standard module hook 'hook-urllib3.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+115055 INFO: Processing pre-safe-import-module hook 'hook-backports.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115058 INFO: Setuptools: 'backports' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.backports'!
+115075 INFO: Processing standard module hook 'hook-setuptools.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+115104 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115172 INFO: Processing pre-safe-import-module hook 'hook-jaraco.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115173 INFO: Setuptools: 'jaraco' appears to be a full setuptools-vendored copy - creating alias to 'setuptools._vendor.jaraco'!
+115214 INFO: Processing pre-safe-import-module hook 'hook-more_itertools.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+115215 INFO: Setuptools: 'more_itertools' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.more_itertools'!
+115505 INFO: Processing standard module hook 'hook-_osx_support.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+116110 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+116114 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+117407 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+117409 INFO: Setuptools: 'tomli' appears to be a setuptools-vendored copy - creating alias to 'setuptools._vendor.tomli'!
+118548 INFO: Processing pre-safe-import-module hook 'hook-wheel.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+120378 INFO: Processing standard module hook 'hook-cv2.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+D:\codespace\01-space\PC-action\PC-action-macOS\.venv\Lib\site-packages\pyautogui\_pyautogui_x11.py:284: SyntaxWarning: invalid escape sequence '\e'
+  '\e': _display.keysym_to_keycode(Xlib.XK.string_to_keysym('Escape')),
+123476 INFO: Analyzing hidden import 'pynput.keyboard._win32'
+123481 INFO: Processing standard module hook 'hook-pynput.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+124784 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+125467 INFO: Analyzing hidden import 'pynput.mouse._win32'
+125495 INFO: Processing module hooks (post-graph stage)...
+127140 WARNING: Hidden import "tzdata" not found!
+127809 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+127921 WARNING: Hidden import "sip" not found!
+129505 INFO: Performing binary vs. data reclassification (145 entries)
+129629 INFO: Looking for ctypes DLLs
+130302 INFO: Analyzing run-time hooks ...
+130312 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+130318 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+130321 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+130327 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+130332 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+130335 INFO: Including run-time hook 'pyi_rth_pyqt5.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+130340 INFO: Processing pre-find-module-path hook 'hook-_pyi_rth_utils.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+130345 INFO: Processing standard module hook 'hook-_pyi_rth_utils.py' from 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyInstaller\\hooks'
+130403 INFO: Creating base_library.zip...
+130477 INFO: Looking for dynamic libraries
+133752 INFO: Extra DLL search directories (AddDllDirectory): ['D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyQt5\\Qt5\\bin', 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\numpy.libs', 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\cv2\\../../x64/vc17/bin']
+133752 INFO: Extra DLL search directories (PATH): ['D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\cv2\\../../x64/vc17/bin', 'D:\\codespace\\01-space\\PC-action\\PC-action-macOS\\.venv\\Lib\\site-packages\\PyQt5\\Qt5\\bin']
+136779 INFO: Warnings written to C:\Temp\ba_v3\PC-Action-install\PC-Action-install\warn-PC-Action-install.txt
+137034 INFO: Graph cross-reference written to C:\Temp\ba_v3\PC-Action-install\PC-Action-install\xref-PC-Action-install.html
+137379 INFO: checking PYZ
+137379 INFO: Building PYZ because PYZ-00.toc is non existent
+137380 INFO: Building PYZ (ZlibArchive) C:\Temp\ba_v3\PC-Action-install\PC-Action-install\PYZ-00.pyz
+139238 INFO: Building PYZ (ZlibArchive) C:\Temp\ba_v3\PC-Action-install\PC-Action-install\PYZ-00.pyz completed successfully.
+139343 INFO: checking PKG
+139344 INFO: Building PKG because PKG-00.toc is non existent
+139344 INFO: Building PKG (CArchive) Action.pkg
+139419 INFO: Building PKG (CArchive) Action.pkg completed successfully.
+139433 INFO: Bootloader D:\codespace\01-space\PC-action\PC-action-macOS\.venv\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+139433 INFO: checking EXE
+139433 INFO: Building EXE because EXE-00.toc is non existent
+139433 INFO: Building EXE from EXE-00.toc
+139433 INFO: Copying bootloader EXE to C:\Temp\ba_v3\PC-Action-install\PC-Action-install\Action.exe
+139642 INFO: Copying icon to EXE
+139789 INFO: Copying 0 resources to EXE
+139790 INFO: Embedding manifest in EXE
+139934 INFO: Appending PKG archive to EXE
+140189 INFO: Fixing EXE headers
+140744 INFO: Building EXE from EXE-00.toc completed successfully.
+140827 INFO: checking COLLECT
+140827 INFO: Building COLLECT because COLLECT-00.toc is non existent
+140836 INFO: Building COLLECT COLLECT-00.toc
+159966 INFO: Building COLLECT COLLECT-00.toc completed successfully.
+160039 INFO: Build complete! The results are available in: C:\Temp\da_v3
+BUILD_EXIT=0

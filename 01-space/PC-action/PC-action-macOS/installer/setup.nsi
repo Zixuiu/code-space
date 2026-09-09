@@ -109,6 +109,11 @@ Function .onInit
   SetShellVarContext all
 !endif
 
+  ; makensis 默认产出 32 位安装程序，不切换的话注册表会被重定向到
+  ; HKLM\SOFTWARE\WOW6432Node\...，导致 64 位工具读不到卸载项。
+  ; 本安装包面向 64 位系统（安装目录已用 $PROGRAMFILES64），这里统一切到 64 位视图。
+  SetRegView 64
+
   ; 只允许一个安装实例
   System::Call 'kernel32::CreateMutex(i 0, i 0, t "PCActionSetupMutex") ?e'
   Pop $0
@@ -132,6 +137,13 @@ Function .onInit
     ReadRegStr $1 SHCTX "${UNINST_KEY}" "InstallLocation"
     ${If} $1 == ""
       ReadRegStr $1 HKCU "${UNINST_KEY}" "InstallLocation"
+    ${EndIf}
+    ${If} $1 == ""
+      ; 旧版未切换注册表视图，键值落在 WOW6432Node，回退读一次，
+      ; 保证覆盖升级时装到同一个目录而不是另起一处
+      SetRegView 32
+      ReadRegStr $1 SHCTX "${UNINST_KEY}" "InstallLocation"
+      SetRegView 64
     ${EndIf}
     ${If} $1 != ""
       StrCpy $INSTDIR $1
@@ -233,6 +245,7 @@ Function un.onInit
 !else
   SetShellVarContext all
 !endif
+  SetRegView 64
   System::Call 'kernel32::CreateMutex(i 0, i 0, t "PCActionUninstMutex") ?e'
   Pop $0
   ${If} $0 != 0
@@ -275,4 +288,11 @@ Section "Uninstall"
   DeleteRegKey SHCTX "${UNINST_KEY}"
   DeleteRegValue SHCTX "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
   DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
+
+  ; 兼容旧版：1.0.0 之前未切换注册表视图，卸载项落在 WOW6432Node，这里一并清掉
+  SetRegView 32
+  DeleteRegKey SHCTX "${UNINST_KEY}"
+  DeleteRegValue SHCTX "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${APP_NAME}"
+  SetRegView 64
 SectionEnd

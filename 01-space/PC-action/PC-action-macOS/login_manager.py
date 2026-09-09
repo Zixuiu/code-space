@@ -324,7 +324,10 @@ class LoginManager:
             _db = _get_hybrid_db()
             if _db is not None and _db.is_connected():
                 remote = _db.get_user(username)
-                if remote and remote.get('password') == password_hash:
+                # ★ 云端 users 表列名为 password_hash（本地缓存才用 password 键），
+                #   这里两个都兼容，避免字段名不一致导致云端登录永远失败。
+                remote_pw = (remote.get('password_hash') or remote.get('password') or '') if remote else ''
+                if remote and remote_pw == password_hash:
                     # 写回本地缓存（含 is_admin / email），便于后续断网登录与鉴权
                     users[username] = {
                         'password': password_hash,

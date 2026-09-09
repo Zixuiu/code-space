@@ -13,6 +13,11 @@ from dotenv import load_dotenv
 # 加载环境变量
 load_dotenv()
 
+# 编译期注入的默认 anon key（打包发布态无 .env 时使用；安全性由 RLS 保障）。
+# 这是 Supabase 公开 anon key，随客户端分发是标准做法；写库权限由表的 RLS 策略控制。
+SUPABASE_URL_DEFAULT = 'https://loifmrvoignxlifizogv.supabase.co'
+SUPABASE_KEY_DEFAULT = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ'
+
 class SupabaseManager:
     def __init__(self):
         self.client = None
@@ -38,10 +43,10 @@ class SupabaseManager:
             # 环境变量/.env 优先（开发态），打包发布态无 .env 时用内置默认值。
             SUPABASE_URL = os.getenv(
                 'SUPABASE_URL',
-                'https://loifmrvoignxlifizogv.supabase.co')
+                SUPABASE_URL_DEFAULT)
             SUPABASE_KEY = os.getenv(
                 'SUPABASE_KEY',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvaWZtcnZvaWdueGxpZml6b2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5NTA3ODksImV4cCI6MjA3NjUyNjc4OX0.EtuSOO6pms-kkHiR4g1lLU8As-J0mWR0WIO8TiwselQ')
+                SUPABASE_KEY_DEFAULT)
 
             # 记录供 get_server_now 复用
             self.supabase_url = SUPABASE_URL

@@ -3879,6 +3879,111 @@ class CoordinateRecorder(QWidget):
         super().closeEvent(event)
 
 
+# ══════════════════════════════════════════════════════════════
+#  单实例保护
+#  同一时刻只允许一个 Action 实例。第二个实例启动时会把已有窗口
+#  拉到前台，然后自己安静退出，而不是"再来一套全局热键"。
+# ══════════════════════════════════════════════════════════════
+# 改这个串即可区分不同安装（如开发版与正式版互不影响）
+_SINGLE_INSTANCE_KEY = "Action_SingleInstance_7F3C21"
+_single_inst_state = {"window": None, "mutex": None}
+
+
+def _activate_existing_window():
+    """把已运行实例的主窗口置顶。
+
+    优先用进程内持有的主窗引用（精确）；失败再回退 Win32 FindWindow
+    按标题匹配（兜底，能跨进程找到已最小化的窗口）。
+    """
+    w = _single_inst_state.get("window")
+    if w is not None:
+        try:
+            show_and_raise = getattr(w, "show_and_raise", None)
+            if callable(show_and_raise):
+                show_and_raise()
+            else:
+                w.show()
+                w.raise_()
+                w.activateWindow()
+            try:
+                w.setWindowState((w.windowState() & ~Qt.WindowMinimized) | Qt.WindowActive)
+            except Exception:
+                pass
+            return True
+        except Exception:
+            pass
+    # 回退：Win32 按窗口标题 "Action" 找并置顶
+    try:
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        user32.FindWindowW.restype = wintypes.HWND
+        user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+        user32.ShowWindow.argtypes = [wintypes.HWND, wintypes.INT]
+        user32.SetForegroundWindow.argtypes = [wintypes.HWND]
+        hwnd = user32.FindWindowW(None, "Action")
+        if hwnd:
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def ensure_single_instance():
+    """确保只有一个实例在运行。
+
+    返回 True  → 本进程是首个实例（或无法可靠判定），继续正常启动；
+    返回 False → 已存在运行中的实例，本进程应立即退出。
+
+    ★ 必须在构造主窗口之前调用：MacOSAutoRecorderApp 一构造就会注册
+      alt+c / alt+x / F12 / · 等全局热键。两个实例同时持有 keyboard 库
+      的全局钩子会互相打架（钩子丢失、按键被重复消费），这正是界面
+      卡住/未响应的根源之一。所以要在任何副作用发生之前把第二个进程拦下。
+
+    ★ 用 Win32 命名互斥体（CreateMutex）做判定：
+      - 跨进程真正排他，且完全不依赖 Qt 事件循环；
+      - 绕开 QLocalServer::listen 在 Windows 上会“删除并抢占同名管道”
+        导致单实例保护失效的坑（实测两个进程都能 listen 成功）；
+      - 进程崩溃后内核自动释放，不会留下僵尸锁。
+    """
+    try:
+        if sys.platform != "win32":
+            return True
+        # 给调试留后门：ACTION_ALLOW_MULTI_INSTANCE=1 可显式允许多开
+        if os.environ.get("ACTION_ALLOW_MULTI_INSTANCE") == "1":
+            return True
+
+        from ctypes import wintypes
+        kernel32 = ctypes.windll.kernel32
+        kernel32.CreateMutexW.restype = wintypes.HANDLE
+        kernel32.CreateMutexW.argtypes = [wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR]
+        kernel32.GetLastError.restype = wintypes.DWORD
+
+        ERROR_ALREADY_EXISTS = 183
+        # ★ 关键：用本地会话命名空间（不要加 "Global\\" 前缀）。
+        #   "Global\\" 需要 SeCreateGlobalPrivilege，标准用户（非管理员）默认
+        #   没有该权限，CreateMutexW 会返回 NULL 句柄 → 走到 `if not hmutex:
+        #   return True` 直接放行，单实例保护对绝大多数用户彻底失效。
+        #   桌面工具只需拦住"同一用户同一会话"的重复启动，本地命名空间足够，
+        #   且标准用户也能正常创建互斥体。
+        mutex_name = _SINGLE_INSTANCE_KEY
+        # bInitialOwner=0：仅创建/打开，不 claim 所有权
+        hmutex = kernel32.CreateMutexW(None, 0, mutex_name)
+        if not hmutex:
+            return True  # 创建失败，兜底放行
+        # 持有引用到进程退出（内核对象随之释放），防止被 GC 误关
+        _single_inst_state["mutex"] = hmutex
+
+        if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+            # 已有实例运行 → 把它的窗口置顶，本进程退出
+            _activate_existing_window()
+            return False
+        return True
+    except Exception:
+        return True
+
+
 def start_macos_app():
     from PyQt5.QtGui import QFont
 
@@ -3916,6 +4021,16 @@ def start_macos_app():
 
     from crash_logger import make_application
     app = make_application(sys.argv)
+
+    # ★ 单实例保护：必须赶在主窗口构造（= 注册全局热键）之前。
+    #   已有实例在运行则激活它的窗口、本进程直接结束，避免出现两套全局钩子互相打架。
+    if not ensure_single_instance():
+        log_info("[单实例] Action 已在运行，已请求既有窗口置顶，本次启动退出")
+        try:
+            QApplication.processEvents()
+        except Exception:
+            pass
+        sys.exit(0)
 
     # 全局字体栈——与使用帮助页保持一致（PingFang SC 优先，Windows 回落微软雅黑，
     # 西文回落 Helvetica Neue / Segoe UI；正常字重，长文阅读更舒服）
@@ -3978,6 +4093,8 @@ def start_macos_app():
     main_window = MacOSAutoRecorderApp(username=None, login_manager=login_manager)
     main_window.setWindowFlags(Qt.FramelessWindowHint)
     main_window.show()
+    # 登记主窗引用：后续再启动时由此实例负责把自己拉到前台
+    _single_inst_state["window"] = main_window
 
     # 启动时检查管理员权限，未以管理员运行时提示一次
     def _show_admin_tip_once():

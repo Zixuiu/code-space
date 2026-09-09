@@ -6,7 +6,7 @@
 import os
 import copy
 from PyQt5.QtCore import Qt, QEvent, QTimer, QSize, QPoint, QByteArray
-from PyQt5.QtGui import QColor, QPixmap, QIcon, QPainter, QPolygon
+from PyQt5.QtGui import QColor, QPixmap, QImage, QIcon, QPainter, QPolygon
 try:
     from PyQt5.QtSvg import QSvgRenderer
     _SVG_OK = True
@@ -2130,18 +2130,25 @@ class ComboSkillEditDialog(QDialog):
 
         # 子线程加载（IO + 解码 + 缩放都在后台做，不卡UI）
         class _ThumbLoader(QThread):
-            done = pyqtSignal(object, object)  # cache_key, scaled_pixmap
+            done = pyqtSignal(object, object)  # cache_key, QImage(或None)
 
             def run(self2):
+                # ★ 严禁在此处创建 QPixmap！
+                #   QPixmap 是 GUI 资源（背后绑定 QPlatformPixmap/原生位图句柄），Qt 明确规定
+                #   只能在 GUI 线程创建与使用。在非 GUI 线程里 QPixmap(image_path) 属未定义行为：
+                #   Windows 上与主线程的位图缓存锁发生竞争，典型症状就是界面冻结/未响应
+                #   （进程还活着、日志照常，但窗口画不出来），也可能直接访问冲突崩溃。
+                #   正解：子线程用 QImage（线程安全的隐式共享值类型）解码并缩放，
+                #        回到主线程后再 QPixmap.fromImage() 转成 GUI 资源。
                 try:
-                    pm = QPixmap(image_path)
-                    if not pm.isNull():
-                        pm = pm.scaled(60, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                    img = QImage(image_path)
+                    if not img.isNull():
+                        img = img.scaled(60, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     else:
-                        pm = None
+                        img = None
                 except Exception:
-                    pm = None
-                self2.done.emit(cache_key, pm)
+                    img = None
+                self2.done.emit(cache_key, img)
 
         worker = _ThumbLoader()
         ComboSkillEditDialog._thumb_workers[cache_key] = {
@@ -2149,10 +2156,19 @@ class ComboSkillEditDialog(QDialog):
             'previews': [image_preview]
         }
 
-        def _on_done(cache_key2, scaled_pixmap):
+        def _on_done(cache_key2, loaded_image):
+            # ★ 本回调经信号队列回到 GUI 线程执行（ worker.done 在主线程 connect ，
+            #   PyQt 把跨线程连接自动降级为 QueuedConnection ），因此这里是唯一
+            #   允许把 QImage 转成 QPixmap 的位置。
             info = ComboSkillEditDialog._thumb_workers.pop(cache_key2, None)
             if not info:
                 return
+            scaled_pixmap = None
+            if loaded_image is not None and not loaded_image.isNull():
+                try:
+                    scaled_pixmap = QPixmap.fromImage(loaded_image)
+                except Exception:
+                    scaled_pixmap = None
             if scaled_pixmap is not None:
                 ComboSkillEditDialog._thumb_cache[cache_key2] = scaled_pixmap
                 for pv in info['previews']:

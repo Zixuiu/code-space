@@ -1,220 +1,88 @@
-# 🚀 Code Space 工作区
+# Code Space 工作区
 
-> **最后更新**: 2026-08-30
->
-> **状态**: ✅ 已整理
+> 最后更新：2026-09-09
 
-## 📂 目录结构
+统一的本地开发工作区。按 `01`~`05` 编号分类，编号只用于排序，不代表优先级。
+（`03` 目前空缺，原移动应用项目已移除。）
+
+## 目录结构
 
 ```
 codespace/
-├── 01-开发项目/          # 主要开发项目
-│   ├── PC-action/PC-action-macOS/  # ⭐ macOS风格桌面应用 (WiFi手机控制器)
-│   ├── ai-news-daily/   # AI新闻每日更新
-│   ├── harmony-clipboard-tool/ # 鸿蒙剪贴板工具
-│   ├── 简历助手/          # 简历匹配助手
-│   ├── map/             # 地图应用
-│   └── 股票筛选/         # 股票筛选策略与邮件推送
+├── 01-space/                    # 桌面 / 服务端项目
+│   ├── PC-action/               # ⭐ 桌面自动化工具（应用名已改为 Action）
+│   │   └── PC-action-macOS/     #    Python + PyQt5 主工程
+│   └── PayPro/                  # 支付充值服务（Java + Docker）
+│       ├── PayPro-master/       #    服务端主工程（Spring Boot）
+│       ├── tools/               #    激活码生成、端口代理、充值页样式稿
+│       ├── qr_processed/        #    已处理的收款二维码
+│       ├── qr_src/              #    二维码原始素材
+│       └── paypro-config.json   #    充值页配置（推送到远端供客户端拉取）
 │
-├── 02-Web应用/           # Web应用和网页
-│   ├── 各种速成html/     # FDE、LangChain 等速成页面
-│   ├── 清单/             # 清单管理
-│   └── 销售系统/         # 销售管理系统
+├── 02-Web应用/                  # 纯前端 / 网页
+│   ├── 各种速成html/
+│   │   ├── fde/
+│   │   └── langchain/
+│   └── 清单/                    # 清单管理（含 txt 版本说明）
 │
-├── 03-移动应用/          # 移动端应用
-│   └── wo-laibang-app/  # UniApp应用
+├── 04-工具脚本/                 # 本机常用脚本
+│   ├── git工具/                 # 一键推送 / 一键拉取
+│   ├── 系统工具/                # IP 切换、预设、禁用自带键盘
+│   └── open_deepharness.bat
 │
-├── 04-工具脚本/          # 常用工具（git工具、系统工具等）
-└── 05-开源项目/          # 第三方开源项目
-    ├── coze-studio/     # 开源项目（独立仓库）
-    ├── freellmapi/      # ⭐ LLM 代理网关（独立git仓库）
-    └── go-music-dl/     # 音乐下载工具
+├── 05-开源项目/                 # 第三方 / 独立仓库
+│   └── freellmapi/              # LLM 代理网关（自带独立 git 仓库）
+│
+├── README.md
+└── .gitignore
 ```
 
-## 🎯 核心项目
+## 项目速览
 
-### 1. PC-action (主项目) ⭐
-**位置**: `01-开发项目/PC-action/PC-action-macOS/`
+| 项目 | 位置 | 类型 | 说明 |
+|---|---|---|---|
+| **Action**（原 PC-Action） | `01-space/PC-action/PC-action-macOS/` | Python + PyQt5 | 桌面自动化：录制操作流程后一键重复执行。含激活码授权、组合技能、图像识别 |
+| **PayPro** | `01-space/PayPro/` | Java + Docker | 支付/充值服务端，搭配 `tools/` 下的发码与代理脚本，为 Action 提供会员支付能力 |
+| 各种速成 html | `02-Web应用/各种速成html/` | HTML | fde、langchain 等单页演示 |
+| 清单 | `02-Web应用/清单/` | HTML + JS | 清单管理工具 |
+| git 工具 | `04-工具脚本/git工具/` | Python | 一键推送/拉取，SSH 失败自动回退 HTTPS |
+| freellmapi | `05-开源项目/freellmapi/` | Node.js | LLM 代理网关，独立仓库，需自行 `npm install` |
 
-**功能**:
-- ✅ macOS风格桌面应用程序
-- ✅ WiFi手机远程控制器
-- ✅ 屏幕镜像、触摸操作、文件传输
-- ✅ 快捷操作、自定义命令
+## 常用操作
 
-**主要文件**:
-- [wifi_phone_controller.py](01-开发项目/PC-action/PC-action-macOS/wifi_phone_controller.py) - WiFi手机控制器
-- [app_macos.py](01-开发项目/PC-action/PC-action-macOS/app_macos.py) - 主应用程序
-- [main.py](01-开发项目/PC-action/PC-action-macOS/main.py) - 入口文件
+启动 Action（开发模式）：
 
-**运行方法**:
 ```bash
-cd 01-开发项目/PC-action/PC-action-macOS/
+cd 01-space/PC-action/PC-action-macOS
 python main.py
 ```
 
-### 2. 其他项目
+打包 Action 为 Windows 安装包：见
+[`01-space/PC-action/PC-action-macOS/installer/BUILD.md`](01-space/PC-action/PC-action-macOS/installer/BUILD.md)，
+流程是「装依赖 → PyInstaller 出 `dist/Action` → NSIS 编译成安装包」，NSIS 便携版已随仓库提供，无需额外安装。
 
-| 项目 | 类型 | 说明 |
-|------|------|------|
-| 股票筛选 | Python | 股票策略筛选与邮件推送 |
-| freellmapi | Node.js | LLM 代理网关（独立仓库） |
-| coze-studio | Go/React | 开源项目（独立仓库） |
-| harmony-clipboard-tool | ArkTS | 鸿蒙剪贴板工具 |
-| 简历助手 | Python | 简历匹配助手 |
-| wo-laibang-app | UniApp | 移动端应用 |
-| map | Python | 地图应用 |
-| 销售系统 | HTML | 销售管理系统 |
-| 清单 | HTML+JS | 清单管理工具 |
-
-## 🛠️ 开发环境
-
-### 必需
-- Python 3.8+
-- PyQt5
-- Android SDK Platform Tools (ADB)
-
-### 可选
-- Node.js (用于freellmapi前端)
-- HBuilderX (用于UniApp开发)
-
-## 📦 安装依赖
+Git 推送：
 
 ```bash
-# Python依赖
-pip install PyQt5
-
-# ADB (Android Debug Bridge)
-# 下载: https://developer.android.com/studio/releases/platform-tools
-```
-
-## 🔧 常用命令
-
-### Git操作
-```bash
-# 查看状态
-git status
-
-# 提交更改
-git add -A
-git commit -m "update: 描述更改内容"
-
-# 推送到远程
 python 04-工具脚本/git工具/一键推送.py
 ```
 
-### 项目操作
-```bash
-# 运行主程序
-cd 01-开发项目/PC-action/PC-action-macOS/
-python main.py
+## 约定
 
-# 运行WiFi控制器
-python wifi_phone_controller.py
+- **编号前缀**：`01-`~`05-`，便于排序
+- **中文目录名**：描述清楚即可
+- **新增项目**：放进对应编号目录后更新本文档
+- **脚本里不要写死 `D:/codespace/...` 绝对路径**，用 `Path(__file__)` 相对定位，否则移动目录就失效
 
-# 运行AI新闻
-cd 01-开发项目/ai-news-daily/
-python main.py
-```
+## 已知问题
 
-## 📋 项目规范
+- `02-Web应用/各种速成html/fde/gen_fde.py` 里 `BASE` 仍写死 `D:/codespace/各种速成html/fde`，
+  与该文件的实际位置不符，跑之前需改成相对路径。
+- `01-space/PC-action/PC-action-macOS/build/` 与 `dist/` 都是 PyInstaller 生成物，已被 `.gitignore` 忽略。
+- `05-开源项目/` 根部的 `package.json` / `package-lock.json` 属于 `freellmapi` 之外的一层，
+  确认无用后可清理（`freellmapi` 自己目录下也有一套）。
 
-### 目录命名规范
-- **编号前缀**: `01-`, `02-` 等，便于排序
-- **中文描述**: 使用清晰的中文
-- **kebab-case**: 多个单词用连字符连接
+## 注意
 
-### 新增项目流程
-1. 确定项目类型（开发/Web/移动）
-2. 放入对应目录
-3. 更新本README
-4. 添加.gitignore规则（如需要）
-
-### Git提交规范
-```
-feat: 新功能
-fix: 修复bug
-docs: 文档更新
-style: 格式调整
-refactor: 重构代码
-test: 测试相关
-chore: 构建/工具
-```
-
-## 🗂️ 文件清理建议
-
-### 可以删除的文件
-- ❌ `recordings/` 中不常用的录制文件
-- ❌ `*.pyc`, `__pycache__/` 缓存文件
-- ❌ `*.log` 日志文件
-- ❌ 临时测试文件
-
-### 必须保留的文件
-- ✅ `.gitignore`
-- ✅ `README.md`
-- ✅ 核心源代码
-- ✅ 配置文件
-
-## 📊 项目统计
-
-- **总项目数**: 6个
-- **主要语言**: Python, JavaScript/Vue, HTML/CSS
-- **代码行数**: ~15,000+
-- **最后整理**: 2026-06-28
-
-## 🎓 学习资源
-
-### WiFi手机控制
-- [ADB官方文档](https://developer.android.com/tools/adb)
-- [PyQt5教程](https://www.pyqt5.com/)
-- [无线调试设置](https://developer.android.com/studio/command-line/adb#Wireless)
-
-### UniApp开发
-- [UniApp官网](https://uniapp.dcloud.net.cn/)
-- [Vue.js文档](https://vuejs.org/)
-
-## 🤝 贡献指南
-
-1. Fork本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开Pull Request
-
-## 📝 更新日志
-
-### 2026-06-28
-- ✨ 添加WiFi手机控制器功能
-- 🔧 开始目录结构整理
-- 📝 创建完整的README文档
-- 🗂️ 制定整理方案
-
-## ⚠️ 注意事项
-
-1. **node_modules已忽略** - freellmapi 需要单独执行 `npm install`
-2. **录制文件较大** - 定期清理recordings目录
-3. **路径引用** - 移动项目后检查配置文件中的路径
-4. **备份重要数据** - 整理前务必备份
-
-## 📞 支持
-
-遇到问题？
-- 查看[整理方案.md](整理方案.md)获取详细指南
-- 检查各项目的README
-- 查看代码注释
-
----
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
-
----
-
-<div align="center">
-
-**⭐ 如果这个工作区对你有帮助，请给一个Star！⭐**
-
-Made with ❤️ by Code Space Team
-
-</div>
+- `.gitignore` 里忽略了 `dist/`、`installer/output/`、`.venv/`，这些都是生成物，不要手动加进仓库。
+- 移动目录后务必回到本文档更新路径，并检查脚本内的路径引用。

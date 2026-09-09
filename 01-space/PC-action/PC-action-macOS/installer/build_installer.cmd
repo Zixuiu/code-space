@@ -61,10 +61,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM ---- 2.5) 确保 NSIS 输出目录存在 ----
+REM NSIS 不会自动创建 OutFile 所在目录，缺目录时报 "Can't open output file" 后静默退出
+if not exist "%~dp0output" mkdir "%~dp0output"
+
 REM ---- 3) 计算所需空间并编译安装包 ----
 set DISTDIR=%ROOT%\dist\Action
 if not exist "%DISTDIR%\Action.exe" (
-  echo [错误] 未找到打包产物：%DISTDIR%\PC-Action.exe
+  echo [错误] 未找到打包产物：%DISTDIR%\Action.exe
   pause
   exit /b 1
 )
