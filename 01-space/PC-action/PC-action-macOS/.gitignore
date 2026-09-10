@@ -70,14 +70,8 @@ nul
 *.old
 
 # 构建产物 / 构建日志（不入库）
-dist_v3/
-build_log_v3.txt
-dist_v4/
-build_log_v4.txt
-dist_v5/
-build_log_v5.txt
-dist_v6/
-build_log_v6.txt
+dist_v*/
+build_log_v*.txt
 
 # 日志
 *.log

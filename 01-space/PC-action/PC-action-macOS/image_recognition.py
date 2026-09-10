@@ -10,6 +10,7 @@ import mss
 import cv2
 import numpy as np
 import ctypes
+import math
 from ctypes import wintypes
 
 # ⚡ 模块级 Win32 API 常量（避免每次调用都重复导入）
@@ -23,6 +24,20 @@ _MOUSEEVENTF_MIDDLEUP = 0x0040
 _MOUSEEVENTF_WHEEL = 0x0800
 
 _MOUSEEVENTF_ABSOLUTE = 0x8000
+
+
+def _imwrite_u(path, img):
+    """cv2.imwrite 在中文/非 ASCII 路径下会静默失败（返回 False 且不报错）。
+    统一走 imencode + tofile 落盘，录制目录常带中文，必须用这个。"""
+    try:
+        ext = os.path.splitext(path)[1] or '.png'
+        ok, buf = cv2.imencode(ext, img)
+        if ok:
+            buf.tofile(path)
+            return True
+    except Exception:
+        pass
+    return False
 
 def _fast_click(btn='left'):
     """极速点击（mouse_event）"""
@@ -142,6 +157,27 @@ except Exception:
 
 # 全局停止标志，用于中断回放
 _replay_stop_flag = False
+
+# ★★ 「位置不符」的可信线（防误点校验用）★★
+#   回放时若命中位置离录制坐标过远，要判断它是"同一个图只是位置变了（界面滚动/窗口移动）"
+#   还是"别处的相似区域（假命中）"。判据就是匹配度：
+#     匹配度 >= _MOVED_HIT_TRUST_SCORE → 认定是同一个图，按新位置点击（能跟上滚动/移动的界面）
+#     匹配度 <  _MOVED_HIT_TRUST_SCORE → 认定是别处的相似区域，拒绝点击（保留防误点保护）
+#   想更保守就调高（如 0.97），想更宽松就调低（如 0.90）。
+_MOVED_HIT_TRUST_SCORE = 0.93
+
+# ★★ 位置校验总开关（2026-09-10 用户拍板关闭）★★
+#   用户场景：BOSS 聊天列表的"未读红点"每行一个、全在同一列，列表一滚录制点就作废，
+#   而"别处出现的同款红点"恰恰就是要点的目标 —— 位置校验在这种场景下是反效果的。
+#   用户决定：**取消位置校验，只要匹配度(+颜色)达标就点**。
+#   校验代码全部保留，只关开关；想恢复防误点，把 False 改回 True 即可。
+_POS_CHECK_ENABLED = False
+
+# 位置拒绝「现场存档」的全局时间节流（秒）：同一进程内最快每 30 秒才落一份全屏图。
+# 组合技是高速循环的，不设节流会被灌爆磁盘并拖慢回放。
+_POS_DUMP_MIN_INTERVAL = 30.0
+_pos_dump_last_ts = [0.0]
+
 # 全局调试模式标志
 _debug_mode = False
 # 全局日志回调函数
@@ -214,7 +250,7 @@ def _interruptible_sleep(duration, stop_check=None):
         time.sleep(poll_interval)
     return (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag)
 
-def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None, turbo_grace=0.5, turbo_settle=0.08, wait_for_image=None, image_wait_timeout=2.0):
+def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.5, consider_color=False, region_center=None, match_timeout=0.3, stop_check=None, skip_cache_clear=False, skip_on_fail=False, turbo_match=False, on_step_timing=None, turbo_grace=0.5, turbo_settle=0.08, wait_for_image=None, image_wait_timeout=2.0, on_step_result=None, narr_mode=False):
     """
     根据录制数据回放操作（完全基于图像匹配）
     
@@ -237,6 +273,108 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     recording_data = sorted(recording_data, key=lambda op: op.get('step', 0))
     total_operations = len(recording_data)
     _saved_clipboard = None  # 保存的剪贴板内容，用于 save_clipboard / restore_clipboard
+
+    # ======================================================================
+    # ★★★ 「人话日志」模式（narr_mode=True，组合技专用）★★★
+    #   组合技的日志默认只输出"程序实际干了什么"的流水（第N步 / 打boss（第1次）：...），
+    #   技术细节（分数、偏移量、耗时诊断等 [回放] 行）改为受开关控制。
+    #   narr_mode=True 时这些行全部静音；narr_mode=False（单条录制回放）行为完全不变。
+    # ======================================================================
+    def _tech(msg):
+        """技术细节日志：仅详细模式输出"""
+        if not narr_mode:
+            debug_print(msg)
+
+    # 本动作内的图片序号（用于"第N个图"），只统计真正带图的步骤
+    _narr_img_idx = [0]
+
+    def _emit_result(step, img_name, action_type, result, score=None, extra=None):
+        """把单步执行结果回传给组合技执行器（用于生成人话日志）
+        result 取值:
+          clicked   - 图片匹配成功并已点击
+          wrong_pos - 匹配到了但位置离录制点太远，判定图未出现，未点击
+          moved     - 匹配到了且匹配度极高，判定为"图在、只是位置变了"，已按新位置点击
+          not_found - 图片没找到（超时），未点击
+          missing   - 录制引用的图片文件不存在
+          coord     - 纯坐标点击（无图）
+          skipped   - 无图且无坐标，跳过
+        extra: dict，可选附加诊断信息（如 off=偏离像素, tol=容差, ref=录制坐标）
+        """
+        if on_step_result is None:
+            return
+        _no = _next_img_no() if img_name else 0
+        info = {
+            'step': step,
+            'image': img_name,
+            'action_type': action_type,
+            'result': result,
+            'score': score,
+            'img_no': _no,
+        }
+        if extra:
+            try:
+                info.update(extra)
+            except Exception:
+                pass
+        try:
+            on_step_result(info)
+        except Exception:
+            pass
+
+    def _next_img_no():
+        _narr_img_idx[0] += 1
+        return _narr_img_idx[0]
+
+    # 位置拒绝现场存档的节流：每个步骤只存一次 + 单次回放总共最多存 3 份，
+    # 防止组合技高速循环时每次迭代都写一张全屏图（灌爆磁盘 + 拖慢速度）。
+    _pos_dump_done = set()
+    _pos_dump_budget = [3]
+
+    def _dump_pos_reject(step, img_name, hit, operation, diag):
+        """位置校验拒绝点击时，把现场存档，便于事后判断到底是"界面变了"还是"模板没特征"。
+        产出（放在该录制的 _debug_failed_match/ 下）：
+          红框 = 录制时框的位置   橙框 = 本次匹配到的位置
+        """
+        try:
+            _now = time.time()
+            if step in _pos_dump_done or _pos_dump_budget[0] <= 0:
+                return
+            if _now - _pos_dump_last_ts[0] < _POS_DUMP_MIN_INTERVAL:
+                return
+            _pos_dump_done.add(step)
+            _pos_dump_budget[0] -= 1
+            _pos_dump_last_ts[0] = _now
+            from datetime import datetime as _dt
+            _shot = _mss_grab_array()
+            if _shot is None:
+                return
+            _dir = os.path.join(folder_path or '.', '_debug_failed_match')
+            os.makedirs(_dir, exist_ok=True)
+            _ts = _dt.now().strftime('%Y%m%d_%H%M%S')
+            _mk = _shot.copy()
+            try:
+                _rx = int(operation.get('x', 0)); _ry = int(operation.get('y', 0))
+                _rw = int(operation.get('width', 0)); _rh = int(operation.get('height', 0))
+                cv2.rectangle(_mk, (_rx - 2, _ry - 2), (_rx + _rw + 2, _ry + _rh + 2), (0, 0, 255), 2)
+                cv2.rectangle(_mk, (int(hit[0]), int(hit[1])),
+                              (int(hit[0]) + int(hit[2]), int(hit[1]) + int(hit[3])), (0, 165, 255), 2)
+                # 附上两处各放大 5 倍的局部对比，便于肉眼看模板质量
+                _pad = 60
+                def _crop(cx, cy):
+                    x0 = max(0, int(cx) - _pad); y0 = max(0, int(cy) - _pad)
+                    x1 = min(_shot.shape[1], int(cx) + _pad); y1 = min(_shot.shape[0], int(cy) + _pad)
+                    c = _shot[y0:y1, x0:x1]
+                    return cv2.resize(c, (c.shape[1] * 3, c.shape[0] * 3), interpolation=cv2.INTER_NEAREST)
+                _side = np.hstack([_crop(_rx + _rw / 2, _ry + _rh / 2), _crop(hit[0] + hit[2] / 2, hit[1] + hit[3] / 2)])
+                _imwrite_u(os.path.join(_dir, f'posreject_step{step}_{_ts}_compare.png'), _side)
+            except Exception:
+                pass
+            _out = os.path.join(_dir, f'posreject_step{step}_{_ts}.png')
+            _imwrite_u(_out, _mk)
+            _tech(f"[回放] 📸 步骤 {step}: 现场已存档 {_out}"
+                  f"（红框=录制位置 {diag.get('ref')}，橙框=本次命中 {tuple(hit[:2])}）")
+        except Exception:
+            pass
     
     # 禁用pyautogui的安全检查 + 去掉默认 100ms 暂停(极速模式)
     pyautogui.FAILSAFE = False
@@ -415,7 +553,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     text = operation.get('text', '')
                     if text:
                         preview = text[:20] + ('...' if len(text) > 20 else '')
-                        debug_print(f"[回放] 步骤 {step}: 文本输入 '{preview}' (共 {len(text)} 字符)")
+                        _tech(f"[回放] 步骤 {step}: 文本输入 '{preview}' (共 {len(text)} 字符)")
                         # 使用剪贴板方式支持中文输入
                         import pyperclip
                         # turbo_match 极速模式：剪贴板等待压到最小，关闭额外验证
@@ -452,12 +590,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             try:
                                 verify = pyperclip.paste()
                                 if verify != text:
-                                    debug_print(f"[回放] ⚠️ 步骤 {step}: 剪贴板验证不匹配！预期={len(text)}字符，实际={len(verify) if verify else 0}字符，重试复制...")
+                                    _tech(f"[回放] ⚠️ 步骤 {step}: 剪贴板验证不匹配！预期={len(text)}字符，实际={len(verify) if verify else 0}字符，重试复制...")
                                     pyperclip.copy(text)
                                     if _clip_retry_sleep > 0:
                                         _interruptible_sleep(_clip_retry_sleep, stop_check=stop_check)
                                 else:
-                                    debug_print(f"[回放] 步骤 {step}: 剪贴板验证通过 ({len(verify)}字符)")
+                                    _tech(f"[回放] 步骤 {step}: 剪贴板验证通过 ({len(verify)}字符)")
                             except Exception:
                                 pass
                         pyautogui.hotkey('ctrl', 'v')
@@ -468,31 +606,31 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         if saved_clipboard is not None:
                             _force_clipboard(saved_clipboard, label="恢复", max_retry=_restore_max_retry, delay=_restore_delay)
                         success_count += 1
-                        debug_print(f"[回放] 步骤 {step}: 文本输入完成")
+                        _tech(f"[回放] 步骤 {step}: 文本输入完成")
                     else:
-                        debug_print(f"[回放] 步骤 {step}: 文本输入 - 内容为空，跳过")
+                        _tech(f"[回放] 步骤 {step}: 文本输入 - 内容为空，跳过")
                         continue
 
                 elif action_type == 'scroll':
                     scroll_amount = operation.get('scroll_amount', 3)
                     direction = "向上" if scroll_amount > 0 else "向下"
-                    debug_print(f"[回放] 步骤 {step}: {direction}滚动 {abs(scroll_amount)} 格")
+                    _tech(f"[回放] 步骤 {step}: {direction}滚动 {abs(scroll_amount)} 格")
                     # ⚡ 用 Win32 mouse_event 一次性发送总wheel delta，瞬间完成
                     # pyautogui.scroll(N) 会分N次发送，每次间隔50ms，333格需要16.6秒
                     # mouse_event 的 wheel 参数单位是 WHEEL_DELTA(=120) 的倍数
                     try:
                         _wheel_delta = int(scroll_amount) * 120
                         _user32.mouse_event(_MOUSEEVENTF_WHEEL, 0, 0, _wheel_delta, 0)
-                        debug_print(f"[回放] 步骤 {step}: wheel delta={_wheel_delta} 已发送")
+                        _tech(f"[回放] 步骤 {step}: wheel delta={_wheel_delta} 已发送")
                     except Exception as _scroll_e:
-                        debug_print(f"[回放] 步骤 {step}: mouse_event失败，回退pyautogui: {_scroll_e}")
+                        _tech(f"[回放] 步骤 {step}: mouse_event失败，回退pyautogui: {_scroll_e}")
                         pyautogui.scroll(scroll_amount)
                     success_count += 1
-                    debug_print(f"[回放] 步骤 {step}: 滚动完成")
+                    _tech(f"[回放] 步骤 {step}: 滚动完成")
 
                 elif action_type in ['keyboard', 'keyboard_direct']:
                     key = operation.get('key', 'enter')
-                    debug_print(f"[回放] 步骤 {step}: 按键 '{key}' (action_type={action_type})")
+                    _tech(f"[回放] 步骤 {step}: 按键 '{key}' (action_type={action_type})")
 
                     # ★ Alt+Tab 是 Windows 系统级窗口切换热键，pyautogui.hotkey 模拟经常不生效
                     #   （Alt 按下后系统需要时间弹切换器），这里走底层 keybd_event 发真实按键
@@ -504,11 +642,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             if _key_capture.send_alt_tab(shift=_shift):
                                 _alt_tab_done = True
                                 success_count += 1
-                                debug_print(f"[回放] 步骤 {step}: Alt+Tab 完成（底层 keybd_event 模拟）")
+                                _tech(f"[回放] 步骤 {step}: Alt+Tab 完成（底层 keybd_event 模拟）")
                                 time.sleep(0.15)   # 等窗口切到前台，否则下一步会匹配到旧画面
                     except Exception as _e_alt_tab:
                         _alt_tab_done = False
-                        debug_print(f"[回放] 步骤 {step}: Alt+Tab 底层模拟失败，回退 pyautogui: {_e_alt_tab}")
+                        _tech(f"[回放] 步骤 {step}: Alt+Tab 底层模拟失败，回退 pyautogui: {_e_alt_tab}")
 
                     # 解析组合键
                     if _alt_tab_done:
@@ -535,7 +673,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 main_key = part
                         
                         if not main_key:
-                            debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 解析失败（无主键），跳过")
+                            _tech(f"[回放] 步骤 {step}: 组合键 '{key}' 解析失败（无主键），跳过")
                             continue
 
                         # 执行组合键
@@ -544,7 +682,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             if 'clipboard' in operation and operation['clipboard']:
                                 import pyperclip
                                 _force_clipboard(operation['clipboard'], label="粘贴前指定", max_retry=3, delay=0.3)
-                                debug_print(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
+                                _tech(f"[回放] 步骤 {step}: 已恢复剪贴板内容({len(operation['clipboard'])}字符)用于Ctrl+V")
                             elif 'v' == main_key and 'ctrl' in modifiers:
                                 _capture_first_paste()
                                 # ★★★ 速度优化：先读一次剪贴板，如果已经等于锁定值就跳过强制恢复
@@ -579,7 +717,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             # 使用pyautogui的hotkey方法处理组合键
                             pyautogui.hotkey(*modifiers, main_key)
                             success_count += 1
-                            debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 完成")
+                            _tech(f"[回放] 步骤 {step}: 组合键 '{key}' 完成")
                             # ★ Ctrl+C 后更新锁定的剪贴板内容（用户主动复制了新内容）
                             if 'c' == main_key and 'ctrl' in modifiers:
                                 try:
@@ -612,9 +750,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                     pyautogui.keyUp(mod)
 
                                 success_count += 1
-                                debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 完成（手动回退）")
+                                _tech(f"[回放] 步骤 {step}: 组合键 '{key}' 完成（手动回退）")
                             except Exception as e2:
-                                debug_print(f"[回放] 步骤 {step}: 组合键 '{key}' 失败: {e2}")
+                                _tech(f"[回放] 步骤 {step}: 组合键 '{key}' 失败: {e2}")
                                 continue
                     else:
                         # 处理单个按键
@@ -651,12 +789,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             # 转换为小写并检查是否为特殊键
                             key_lower = key.lower()
                             actual_key = special_keys.get(key_lower, key) if key_lower in special_keys else key
-                            debug_print(f"[回放] 步骤 {step}: 按键 '{actual_key}' (pyautogui)")
+                            _tech(f"[回放] 步骤 {step}: 按键 '{actual_key}' (pyautogui)")
                             pyautogui.press(actual_key)
                             success_count += 1
-                            debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
+                            _tech(f"[回放] 步骤 {step}: 按键 '{key}' 完成")
                         except Exception as e:
-                            debug_print(f"[回放] 步骤 {step}: 按键 '{key}' 失败: {e}")
+                            _tech(f"[回放] 步骤 {step}: 按键 '{key}' 失败: {e}")
                             continue
 
                 _log_clipboard(f"步骤{step}后({action_type})")
@@ -673,7 +811,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         _ok, _why = _wait_next_image(_next_image, image_wait_timeout)
                         if not _ok:
                             image_match_fail_count += 1
-                            debug_print(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {image_wait_timeout:.2f}s 内未出现（{_why}），执行失败")
+                            _tech(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {image_wait_timeout:.2f}s 内未出现（{_why}），执行失败")
                             break
                     else:
                         # 下一步非图片，或组合技：正常盲等（傻等）
@@ -690,6 +828,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             break
                 # 键盘/滚动/文本输入操作完成后直接继续下一轮（不需要image也不需要坐标点击）
                 if not image_name and action_type in ('text_input', 'keyboard', 'keyboard_direct', 'scroll'):
+                    _emit_result(step, '', action_type, 'keyboard_step')
                     continue
             
             # 对于需要图像的操作，检查图像文件
@@ -715,12 +854,13 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     # ⚠️ 如果还是找不到图片文件 → 立即停止回放，不允许回退坐标点击
                     if not os.path.exists(image_path):
                         image_match_fail_count += 1
-                        debug_print(f"[回放] ❌ 步骤 {step}: 图片 '{image_name}' 不存在，停止回放")
+                        _tech(f"[回放] ❌ 步骤 {step}: 图片 '{image_name}' 不存在，停止回放")
+                        _emit_result(step, image_name, action_type, 'missing')
                         break
 
                 # ============= 到这里说明图片文件确实存在，开始执行图像匹配 =============
                 # 使用图像匹配查找位置
-                debug_print(f"[回放] 步骤 {step}: 开始匹配图片 {image_name}")
+                _tech(f"[回放] 步骤 {step}: 开始匹配图片 {image_name}")
                 # 直接使用缓存的图像数组获取尺寸，避免重复打开文件
                 dynamic_confidence = 0.8
                 use_color = consider_color
@@ -736,7 +876,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             # 阈值从 50 提到 80：覆盖 50~80px 的中等图标（如 70x63），这类图之前会漏掉颜色保护。
                             use_color = True
                             dynamic_confidence = 0.8
-                            debug_print(f"[回放] 步骤 {step}: 中等/小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
+                            _tech(f"[回放] 步骤 {step}: 中等/小图标检测，尺寸 {img_width}x{img_height}，置信度 {dynamic_confidence}，颜色匹配={'开启' if use_color else '关闭'}")
                 except Exception:
                     pass
                 # 根据 match_timeout 自适应分配匹配时间
@@ -749,7 +889,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     # 极速模式：先做一次闪匹配；未命中则进入 turbo_grace 等待窗口
                     # （给点击后界面过渡动画留时间），窗口内轮询闪匹配，图片一出现立即点击；
                     # 窗口结束仍未出现才判失败/跳过。命中时零额外等待，仍是极速。
-                    debug_print(f"[回放] ⚡ 步骤 {step}: turbo 闪匹配（单次 0.005s，不轮询/不重试）")
+                    _tech(f"[回放] ⚡ 步骤 {step}: turbo 闪匹配（单次 0.005s，不轮询/不重试）")
                     location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=0.005, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                     # ★ 图片步骤遵循"等图不傻等"：
                     #   含图流程(wait_for_image=True)把等待窗口拉满到 image_wait_timeout，一直轮询等该图出现，
@@ -757,7 +897,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     #   仍用 turbo_grace 快速窗口，不受影响。
                     _grace_s = image_wait_timeout if wait_for_image else turbo_grace
                     if location is None and _grace_s and _grace_s > 0:
-                        debug_print(f"[回放] ⏳ 步骤 {step}: 图片未出现，等待图出现（最长 {_grace_s:.2f}s）内持续检测")
+                        _tech(f"[回放] ⏳ 步骤 {step}: 图片未出现，等待图出现（最长 {_grace_s:.2f}s）内持续检测")
                         _tg_deadline = time.time() + _grace_s
                         _tg_poll = 0.05 if wait_for_image else 0.005
                         while time.time() < _tg_deadline:
@@ -765,7 +905,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                 break
                             location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=_tg_poll, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint, skip_small_match=True)
                             if location is not None:
-                                debug_print(f"[回放] ✅ 步骤 {step}: 等待期间图片出现，继续点击")
+                                _tech(f"[回放] ✅ 步骤 {step}: 等待期间图片出现，继续点击")
                                 break
                 else:
                     # 首次匹配给一半时间，快的 UI 0.01s 就返回，慢的 UI 后续轮询继续等
@@ -777,42 +917,79 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                         location = find_image_with_timeout(image_path, confidence=dynamic_confidence, timeout=single_attempt_timeout, consider_color=use_color, region_center=region_center, stop_check=stop_check, roi_hint=_roi_hint)
                 _match_t1 = time.time()
 
-                # ★ 防误命中乱点：图片步骤若录制保存了参考坐标(x,y)，
-                #   命中的图中心距参考位置过远（远超目标图自身尺寸）→ 基本是形状匹配在别处误命中，
-                #   说明该图实际未出现；把它当作"未找到"处理（据 skip_on_fail 跳过或停止），绝不点击错误位置。
-                if location is not None and operation.get('x') is not None and operation.get('y') is not None:
+                # ★ 防误命中乱点：图片步骤若录制保存了参考坐标(x,y)，命中位置离录制点过远时有两种可能——
+                #     ① 就是同一个图，只是界面滚动了/窗口移动了（匹配度接近满分）
+                #     ② 形状匹配在别处撞到了一个相似区域（匹配度只是贴着阈值，假命中）
+                #   用匹配度区分：>= _MOVED_HIT_TRUST_SCORE → 按新位置点击（能跟上滚动/移动的界面）；
+                #   否则拒绝点击，保留原有的防误点保护。
+                _pos_rejected = False
+                _moved_note = None   # 非 None 表示"位置变了但确认是同一个图"，附加信息随点击一起上报
+                # _POS_CHECK_ENABLED=False（2026-09-10 用户拍板）→ 整段位置校验跳过，命中即点
+                if _POS_CHECK_ENABLED and location is not None and operation.get('x') is not None and operation.get('y') is not None:
                     try:
-                        _ref_px = (int(operation['x']) * _dpi_scale, int(operation['y']) * _dpi_scale)
+                        _hs = _LAST_MATCH_BEST_SCORE_GLOBAL[0] if _LAST_MATCH_BEST_SCORE_GLOBAL else 0.0
+                        # ★ 口径修正：录制存的是"选框左上角"（selection_overlay.py 的 x1,y1），
+                        #   location 也是匹配框左上角 → 两边都换算成中心再比距离。
+                        #   之前拿"匹配框中心"去比"录制左上角"，会恒定多算 sqrt((w/2)^2+(h/2)^2)
+                        #   （13x91 的窄条就是 46px），凭空吃掉一截容差，造成误拦。
+                        _ref_cx = int(operation['x']) * _dpi_scale + location[2] / 2.0
+                        _ref_cy = int(operation['y']) * _dpi_scale + location[3] / 2.0
                         _mcx = location[0] + location[2] // 2
                         _mcy = location[1] + location[3] // 2
-                        _off = ((_mcx - _ref_px[0]) ** 2 + (_mcy - _ref_px[1]) ** 2) ** 0.5
+                        _off = ((_mcx - _ref_cx) ** 2 + (_mcy - _ref_cy) ** 2) ** 0.5
                         # 容差 = 目标图尺寸扩散 + 固定余量，避免误拦"图在但仅轻微位移"的正常情况
                         _tol = int((location[2] + location[3]) * 1.5 + 40)
+                        _diag = {'off': int(round(_off)), 'tol': _tol, 'score': _hs,
+                                 'ref': (int(operation['x']), int(operation['y'])), 'hit': location}
                         if _off > _tol:
-                            debug_print(f"[回放] 🚫 步骤 {step}: 匹配点距参考位置 {_off:.0f}px（容差{_tol}px），判定图片 '{image_name}' 实际未出现，跳过点击（防止点错）")
-                            location = None
+                            if _hs >= _MOVED_HIT_TRUST_SCORE:
+                                _tech(f"[回放] ➡️ 步骤 {step}: 匹配点距录制位置 {_off:.0f}px（容差{_tol}px），"
+                                      f"但匹配度 {_hs:.3f} 已达可信线 {_MOVED_HIT_TRUST_SCORE:.2f} "
+                                      f"→ 判定为同一个图只是位置变了（界面滚动/窗口移动），按新位置点击")
+                                _moved_note = dict(_diag)
+                                _moved_note['moved'] = True
+                            else:
+                                _tech(f"[回放] 🚫 步骤 {step}: 匹配点距录制位置 {_off:.0f}px（容差{_tol}px），"
+                                      f"匹配度仅 {_hs:.3f}（未达可信线 {_MOVED_HIT_TRUST_SCORE:.2f}）"
+                                      f"→ 判定为别处的相似区域（不是录制的那张图），跳过点击（防止点错）")
+                                _dump_pos_reject(step, image_name, location, operation, _diag)
+                                _emit_result(step, image_name, action_type, 'wrong_pos', _hs, _diag)
+                                _pos_rejected = True
+                                location = None
                     except Exception:
                         pass
 
                 if not location:
                     image_match_fail_count += 1
+                    # ★ 位置不对的情况上面已经上报过结果，这里不再重复上报（否则人话日志会重复列同一个图）
+                    if not _pos_rejected:
+                        _emit_result(step, image_name, action_type, 'not_found')
                     if skip_on_fail:
-                        debug_print(f"[回放] ⚠️ 步骤 {step}: 图片匹配失败 '{image_name}'，跳过此步骤继续执行")
+                        # ★ 措辞分清两种情况：图找到了但位置不符（≠"图片没出现"），与真的没找到
+                        if _pos_rejected:
+                            _tech(f"[回放] ⚠️ 步骤 {step}: '{image_name}' 没有出现在录制位置"
+                                  f"（别处的相似区域已拒绝），跳过此步骤继续执行")
+                        else:
+                            _tech(f"[回放] ⚠️ 步骤 {step}: 屏幕上找不到 '{image_name}'，跳过此步骤继续执行")
                         if delay > 0:
                             if _interruptible_sleep(delay, stop_check=stop_check): break
                         elif (not wait_for_image) and replay_interval > 0:
                             if _interruptible_sleep(replay_interval, stop_check=stop_check): break
                         continue
                     else:
-                        debug_print(f"[回放] ❌ 步骤 {step}: 图片匹配失败 '{image_name}'，停止回放")
+                        if _pos_rejected:
+                            _tech(f"[回放] ❌ 步骤 {step}: '{image_name}' 没有出现在录制位置"
+                                  f"（注意：屏幕上确实有长得像它的区域，疑似别处相似图，已拒绝点击），停止回放")
+                        else:
+                            _tech(f"[回放] ❌ 步骤 {step}: 屏幕上完全找不到 '{image_name}'，停止回放")
                         break
                 else:
                     # ★ 成功日志带匹配分数：贴阈值命中往往就是"没找到图却点了坐标"的元凶（误命中），
                     # 用户看到分数即可判断是真命中还是疑似误命中。
                     _hit_score = _LAST_MATCH_BEST_SCORE_GLOBAL[0] if _LAST_MATCH_BEST_SCORE_GLOBAL else 0.0
-                    debug_print(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}, 分数: {_hit_score:.3f}）")
+                    _tech(f"[回放] ✅ 步骤 {step}: 图片匹配成功（位置: {location}, 分数: {_hit_score:.3f}）")
                     if _hit_score < dynamic_confidence + 0.06 and dynamic_confidence >= 0.9:
-                        debug_print(f"[回放] ⚠️ 步骤 {step}: 分数 {_hit_score:.3f} 紧贴阈值({dynamic_confidence:.2f})，若视觉上并未看到目标图，请留意——疑似误命中")
+                        _tech(f"[回放] ⚠️ 步骤 {step}: 分数 {_hit_score:.3f} 紧贴阈值({dynamic_confidence:.2f})，若视觉上并未看到目标图，请留意——疑似误命中")
                     # ★ 稳定检测：刚匹配到的这一帧，图标可能仍在移动/动画过渡中，
                     # 直接点击会点到半空（"图片还没稳定就点了"）。再次就近匹配确认位置基本不动才点击。
                     # 仅在非极速模式启用；用首次命中位置作 roi_hint（转回逻辑坐标）做局部快速确认，避免误命中远处相似图标。
@@ -823,7 +1000,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                             _hit = _LAST_MATCH_BEST_SCORE_GLOBAL[0] if _LAST_MATCH_BEST_SCORE_GLOBAL else 0.0
                             _STABLE_SKIP_SCORE = 0.92  # 形状分高于此视为静止清晰，跳过稳定检测
                             if _hit >= _STABLE_SKIP_SCORE:
-                                debug_print(f"[回放] 步骤 {step}: 高分({_hit:.3f})直接点击，跳过稳定检测")
+                                _tech(f"[回放] 步骤 {step}: 高分({_hit:.3f})直接点击，跳过稳定检测")
                             else:
                                 _sc = (location[0] + location[2] // 2, location[1] + location[3] // 2)
                                 _stable_loc = location
@@ -847,9 +1024,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                                         break
                                     # 位移仍大，图标在动，继续观察
                                 if _stable_ok:
-                                    debug_print(f"[回放] 步骤 {step}: 稳定确认通过（图标已静止），执行点击")
+                                    _tech(f"[回放] 步骤 {step}: 稳定确认通过（图标已静止），执行点击")
                                 else:
-                                    debug_print(f"[回放] 步骤 {step}: ⚠️ 图标持续移动未完全稳定，使用最近位置点击")
+                                    _tech(f"[回放] 步骤 {step}: ⚠️ 图标持续移动未完全稳定，使用最近位置点击")
                                 location = _stable_loc
                         except Exception:
                             pass
@@ -865,9 +1042,11 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     if _dpi_scale != 1.0:
                         center_x = int(round(center_x * _dpi_scale))
                         center_y = int(round(center_y * _dpi_scale))
-                    debug_print(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({center_x}, {center_y})")
+                    _tech(f"[回放] 步骤 {step}: 纯坐标点击 {action_type} ({center_x}, {center_y})")
+                    _emit_result(step, '', action_type, 'coord')
                 else:
-                    debug_print(f"[回放] ⚠️ 步骤 {step}: 无图片且无坐标，跳过")
+                    _tech(f"[回放] ⚠️ 步骤 {step}: 无图片且无坐标，跳过")
+                    _emit_result(step, '', action_type, 'skipped')
                     continue
             
             # 极速模式：Win32 API 直接移动并点击（比pyautogui快5-10倍）
@@ -881,9 +1060,9 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     pyautogui.click(center_x, center_y)
                     time.sleep(0.03)
                     pyautogui.click(center_x, center_y)
-                    debug_print(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
+                    _tech(f"[回放] 步骤 {step}: pyautogui双击完成 ({center_x}, {center_y})")
                 except Exception as e:
-                    debug_print(f"[回放] 步骤 {step}: pyautogui双击失败: {e}")
+                    _tech(f"[回放] 步骤 {step}: pyautogui双击失败: {e}")
             elif action_type == 'left_click':
                 _fast_click('left')
             elif action_type == 'right_click':
@@ -898,6 +1077,10 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                 _fast_click('left')
             
             success_count += 1
+            if image_name:
+                _emit_result(step, image_name, action_type, 'clicked',
+                             _LAST_MATCH_BEST_SCORE_GLOBAL[0] if _LAST_MATCH_BEST_SCORE_GLOBAL else None,
+                             _moved_note)
 
             # ★ 极速模式：点击后给目标应用一点 UI 处理时间（消息循环/重绘），
             #   避免下一步匹配到"点击前的旧画面"（旧画面里后续图片还在原位 → 点错位置）。
@@ -946,7 +1129,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
                     _ok, _why = _wait_next_image(_next_image, image_wait_timeout)
                     if not _ok:
                         image_match_fail_count += 1
-                        debug_print(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {image_wait_timeout:.2f}s 内未出现（{_why}），执行失败")
+                        _tech(f"[回放] ❌ 步骤 {step}: 等待下一张图片 '{_next_image}' 在 {image_wait_timeout:.2f}s 内未出现（{_why}），执行失败")
                         _step_durations.append((step, action_type, time.time() - _step_start))
                         break
                 else:
@@ -980,12 +1163,12 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
     # ★★★ 每步耗时诊断（重点看时间，定位最慢一步）★★★
     if _step_durations:
         _dur_sorted = sorted(_step_durations, key=lambda x: x[2], reverse=True)
-        debug_print(f"[回放][耗时诊断] 回放总计 {_replay_elapsed:.3f}s | 共执行 {len(_step_durations)} 步")
+        _tech(f"[回放][耗时诊断] 回放总计 {_replay_elapsed:.3f}s | 共执行 {len(_step_durations)} 步")
         for _sd, _sa, _dt in _dur_sorted:
-            debug_print(f"[回放][耗时] 步骤{_sd}({_sa}): {_dt*1000:.1f}ms")
+            _tech(f"[回放][耗时] 步骤{_sd}({_sa}): {_dt*1000:.1f}ms")
         _slow = _dur_sorted[0]
         _slow_pct = (_slow[2] / _replay_elapsed * 100) if _replay_elapsed > 0 else 0
-        debug_print(f"[回放][耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
+        _tech(f"[回放][耗时诊断] ⚠️ 最慢一步 → 步骤{_slow[0]}({_slow[1]}): {_slow[2]*1000:.1f}ms (占回放 {_slow_pct:.1f}%)")
         # ★ 面板内可见的逐步骤计时回调（组合技计时器用）
         if on_step_timing:
             for _sd, _sa, _dt in _dur_sorted:
@@ -999,7 +1182,7 @@ def replay_coordinate_operations(recording_data, folder_path, replay_interval=0.
         for _key in ['ctrl', 'shift', 'alt', 'win']:
             pyautogui.keyUp(_key)
         if _clipboard_log_enabled:
-            debug_print("[回放] 已释放所有修饰键")
+            _tech("[回放] 已释放所有修饰键")
     except Exception:
         pass
     return success_count, total_operations, image_match_fail_count
@@ -1176,12 +1359,104 @@ def _get_shared_small_gray():
     return _shared_small_gray_screenshot
 
 
+# ==================== 小模板 / 颜色门控（模块级，供所有匹配入口共用）====================
+# 背景（2026-09-11 实测）：8x9 的极小模板（BOSS 未读红点）在 1600x900 上有 142 万个候选
+# 位置，TM_CCOEFF_NORMED 的偶然最高分可达 0.80~0.89；真命中是 1.0000。阈值 0.8 挡不住 →
+# 界面上没有红点却判定"找到了"，进而执行了不该执行的动作。
+# 对策：① 小模板自动抬高最低匹配度；② 形状分过线后再过一道真正的颜色校验。
+_COLOR_GATE_TOL = 0.5          # 颜色相似度下限（0~1）
+_COLOR_GATE_SHAPE_EXEMPT = 0.92  # 形状分达到此值时，颜色要求放宽（抗锯齿/半透明/渲染噪声）
+_COLOR_GATE_SHAPE_MIN_TOL = 0.35  # 上述豁免下的颜色相似度下限
+
+
+def _min_conf_for_template(template_bgr, confidence):
+    """按模板尺寸抬高最低匹配度：模板越小，全屏偶然高分越高，必须要求更高的分数。
+
+    分档依据（8x9 未读红点实测）：真命中 1.0000；界面上没有红点时，同列其它联系人位置
+    能拿到 0.90（2026-09-11 00:27 用户现场日志：命中 (376,219) 匹配度 0.90），
+    其它屏幕区域 0.80~0.89。所以极小模板必须抬到 0.95 才能把"压线假命中"挡掉。
+      面积 <200px（约 15x15 以下，如 8x9 / 11x9）→ 至少 0.95
+      面积 <400px（约 20x20 以下）              → 至少 0.90
+      面积 <1600px（约 40x40 以下）             → 至少 0.85
+      更大                                      → 不变
+    """
+    try:
+        _h, _w = template_bgr.shape[:2]
+        _area = _w * _h
+    except Exception:
+        return confidence
+    if _area < 200:
+        return max(float(confidence), 0.95)
+    if _area < 400:
+        return max(float(confidence), 0.90)
+    if _area < 1600:
+        return max(float(confidence), 0.85)
+    return float(confidence)
+
+
+def _color_similarity_bgr(a, b):
+    """返回 0~1 的颜色相似度：优先用彩色像素的 HSV 色相分布余弦相似度（规避灰白背景干扰），
+    彩色像素不足时回退 Lab 均值色差。异常时返回 1.0（放行，避免误杀）。"""
+    try:
+        aa = cv2.resize(a, (24, 24), interpolation=cv2.INTER_AREA)
+        bb = cv2.resize(b, (24, 24), interpolation=cv2.INTER_AREA)
+        ha = cv2.cvtColor(aa, cv2.COLOR_BGR2HSV).reshape(-1, 3).astype(np.float32)
+        hb = cv2.cvtColor(bb, cv2.COLOR_BGR2HSV).reshape(-1, 3).astype(np.float32)
+        sa = ha[:, 1]
+        sb = hb[:, 1]
+        ma = sa > 40
+        mb = sb > 40
+        if ma.sum() >= 8 and mb.sum() >= 8:
+            bins = np.arange(0, 181, 15)
+            hah = np.histogram(ha[ma, 0], bins=bins)[0].astype(np.float32)
+            hbh = np.histogram(hb[mb, 0], bins=bins)[0].astype(np.float32)
+            nrm = np.linalg.norm(hah) * np.linalg.norm(hbh)
+            if nrm > 0:
+                return float(max(0.0, np.dot(hah, hbh) / nrm))
+        la = cv2.cvtColor(aa, cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32).mean(0)
+        lb = cv2.cvtColor(bb, cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32).mean(0)
+        d = math.sqrt(float(((la - lb) ** 2).sum()))
+        return float(max(0.0, 1.0 - d / 60.0))
+    except Exception:
+        return 1.0
+
+
+def _color_gate_pass(crop_bgr, template_bgr, shape_score, tag=""):
+    """形状分已经过线后，再校验颜色是否真的像。True=放行。
+    注意：BGR matchTemplate 的分数仍然是「形状/纹理相关性」，不是颜色校验——
+    屏幕上颜色完全不同的区域也能拿到 0.8+，必须靠这一关挡掉。"""
+    try:
+        cs = _color_similarity_bgr(crop_bgr, template_bgr)
+    except Exception:
+        return True
+    # ★ 极小模板（面积<200，如 8x9 / 11x9）不享受「高形状分豁免」：
+    #   实测 8x9 模板在 1600x900 的 142 万个候选位上，形状分偶然能刷到 0.95~0.97
+    #   （2026-09-11 一次截屏出现 0.9686 的假命中），形状分对这种模板已不可信，
+    #   再放行颜色就是纯粹的误判。真红点颜色相似度 1.000，标准门槛照样过。
+    try:
+        _th, _tw = template_bgr.shape[:2]
+        _tiny = (_tw * _th) < 200
+    except Exception:
+        _tiny = False
+    if not _tiny and shape_score >= _COLOR_GATE_SHAPE_EXEMPT and cs >= _COLOR_GATE_SHAPE_MIN_TOL:
+        return True
+    if cs >= _COLOR_GATE_TOL:
+        return True
+    try:
+        debug_print(f"[颜色门控] 拒绝{tag}: 形状分={shape_score:.4f} 但颜色相似度={cs:.3f} < {_COLOR_GATE_TOL}")
+    except Exception:
+        pass
+    return False
+
+
 def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_check=None, roi_hint=None):
     """⚡ turbo 单次闪匹配。roi_hint=(逻辑x,逻辑y) 时只截其附近±R窗口，比全屏快约10倍。"""
     try:
         arr = get_cached_image(image_path)
         if arr is None:
             return None
+        # ★ 小模板抬高最低匹配度（详见 _min_conf_for_template 说明）
+        confidence = _min_conf_for_template(arr, confidence)
         if (stop_check and stop_check()) or (stop_check is None and _replay_stop_flag):
             return None
         # ★ 局部截图加速：roi_hint 为录制坐标(逻辑像素)，转物理像素后以其中心截 ±R 窗口
@@ -1240,7 +1515,8 @@ def _find_image_flash(image_path, confidence=0.8, consider_color=True, stop_chec
                     continue
                 _cres = cv2.matchTemplate(_roi_bgr, arr, cv2.TM_CCOEFF_NORMED)
                 _, _cval, _, _ = cv2.minMaxLoc(_cres)
-                if float(_cval) >= confidence:
+                # ★ 形状分过线后还要过真正的颜色校验（BGR matchTemplate 分数不是颜色校验）
+                if float(_cval) >= confidence and _color_gate_pass(_roi_bgr, arr, float(_cval), "·flash候选"):
                     h, w = arr.shape[:2]
                     # ★ turbo 路径命中后记录真实分数，否则上层读到的是 0.0 假象
                     _LAST_MATCH_BEST_SCORE_GLOBAL[0] = float(_cval)
@@ -1306,6 +1582,8 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
     if image_array is None:
         debug_print(f"[匹配诊断] ⚠️ get_cached_image 返回 None: {image_path}")
         return None
+    # ★ 小模板抬高最低匹配度（8x9 这类极小图在全屏上的偶然高分可达 0.8~0.89）
+    confidence = _min_conf_for_template(image_array, confidence)
     debug_print(f"[匹配诊断] 图片加载成功 {image_array.shape} | 阈值 {confidence:.2f} | 超时 {timeout:.2f}s")
 
     # 必须先获取截图，后面诊断信息要用到 first_screenshot
@@ -1504,6 +1782,12 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             debug_print(f"[回放匹配] 迭代{iteration}: 最高置信度={max_val:.3f} (阈值={confidence:.2f}) 位置={max_loc}")
         if max_val >= confidence:
             h, w = image_array.shape[:2]
+            # ★ 彩色匹配模式（_gray_template 为 None）下，max_val 仍是形状/纹理相关性，
+            #   必须再过一道颜色校验，否则屏幕上颜色不同的区域会凭 0.8+ 的偶然分冒充命中。
+            if _gray_template is None and consider_color:
+                _cg = screenshot[max_loc[1]:max_loc[1] + h, max_loc[0]:max_loc[0] + w]
+                if _cg.shape[0] != h or _cg.shape[1] != w or not _color_gate_pass(_cg, image_array, float(max_val), "·主循环"):
+                    return None
             return (max_loc[0], max_loc[1], w, h)
         # 智能多尺度：只有 1:1 分数接近阈值时才跑多尺度，节省时间
         if not skip_multi_scale and (iteration % multi_scale_interval == 0) and (max_val >= confidence * multi_scale_threshold_ratio):
@@ -1933,7 +2217,7 @@ def find_image_with_timeout(image_path, confidence=0.8, timeout=0.5, consider_co
             base = os.path.splitext(os.path.basename(image_path))[0]
             fail_path = os.path.join(debug_dir, f"fail_{base}_{ts}.png")
             if 'screenshot_bgr' in dir() and screenshot_bgr is not None:
-                cv2.imwrite(fail_path, screenshot_bgr)
+                _imwrite_u(fail_path, screenshot_bgr)
                 debug_print(f"[匹配失败诊断] 📸 失败截图已保存: {fail_path}")
                 debug_print(f"[匹配失败诊断] 💡 对比: 模板={os.path.basename(image_path)}, 截图={fail_path}")
         except Exception as _e:
@@ -2165,7 +2449,7 @@ def _save_debug_screenshot(screenshot_bgr, name="debug"):
         ts = datetime.now().strftime("%H%M%S_%f")[:-3]
         safe_name = name.replace("..", ".").replace("/", "_").replace("\\", "_")
         save_path = os.path.join(debug_dir, f"{safe_name}_{ts}.png")
-        cv2.imwrite(save_path, screenshot_bgr)
+        _imwrite_u(save_path, screenshot_bgr)
         debug_print(f"[调试截图] 已保存: {save_path}")
     except Exception as e:
         debug_print(f"[调试截图] 保存失败: {e}")

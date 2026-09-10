@@ -254,12 +254,16 @@ class SelectionOverlay(QWidget):
                 x2 = max(self.selection_start.x(), self.selection_end.x())
                 y2 = max(self.selection_start.y(), self.selection_end.y())
                 
-                # 确保选择区域有实际大小
-                if abs(x2 - x1) > 5 and abs(y2 - y1) > 5:
+                _w, _h = x2 - x1, y2 - y1
+                # 门槛从 >5 放开到 >1：用户刻意框住的小目标（如 2×2）不再被当成单击丢掉
+                if _w > 1 and _h > 1:
                     # 保存选择区域
                     self.save_selection(x1, y1, x2, y2, button=event.button())
+                    # 区域过小 → 提醒"识别可能不准"（只提示，不拦截）
+                    if _w < self._TINY_SIDE_WARN or _h < self._TINY_SIDE_WARN:
+                        self._show_tiny_area_hint(_w, _h)
                 else:
-                    # 选择区域太小（用户只是单击，未框选）→ 弹出操作提醒
+                    # 只是一次单击（没形成有效框选）→ 弹出操作提醒
                     self.selection_start = None
                     self.selection_end = None
                     self.update()
@@ -280,11 +284,15 @@ class SelectionOverlay(QWidget):
                     y2 = max(self.selection_start.y(), self.selection_end.y())
                     
                     # 确保选择区域有实际大小
-                    if abs(x2 - x1) > 5 and abs(y2 - y1) > 5:
+                    _w, _h = x2 - x1, y2 - y1
+                    # 与左键一致：放开到 >1，小选区照样保存
+                    if _w > 1 and _h > 1:
                         # 保存选择区域
                         self.save_selection(x1, y1, x2, y2, button=event.button())
+                        if _w < self._TINY_SIDE_WARN or _h < self._TINY_SIDE_WARN:
+                            self._show_tiny_area_hint(_w, _h)
                     else:
-                        # 选择区域太小，忽略
+                        # 只是一次右键单击，忽略
                         self.selection_start = None
                         self.selection_end = None
                         self.update()
@@ -292,8 +300,29 @@ class SelectionOverlay(QWidget):
                 # 右键单击直接退出
                 self.close()
     
+    # 选区任一边小于该值（逻辑像素）→ 提醒用户"太小、识别可能不准"（不拦截保存）
+    _TINY_SIDE_WARN = 8
+
     def _show_click_hint(self):
-        """图片录制状态下单击（未框选）时，显示自动消失的浮层提示（约 1.2s 后淡出）"""
+        """图片录制状态下单击（未框选）时的浮层提示"""
+        self._show_hint("左右框选，或者 T，或者 K！")
+
+    def _show_tiny_area_hint(self, w, h):
+        """框选区域过小时的提醒。
+
+        不拦保存 —— 只提醒用户这个尺寸的图像特征极少、回放时容易匹配不准。
+        """
+        self._show_hint(
+            f"这个区域只有 {w}×{h}，偏小了，识别可能不准；"
+            f"建议框到 {self._TINY_SIDE_WARN}×{self._TINY_SIDE_WARN} 以上",
+            warn=True,
+        )
+
+    def _show_hint(self, text, warn=False):
+        """图片录制状态下的浮层提示（自动消失）。
+
+        warn=True → 琥珀色底、字号略小、停留更久，用于"区域太小"这类提醒。
+        """
         from PyQt5.QtWidgets import QLabel, QGraphicsOpacityEffect
         from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation
 
@@ -307,24 +336,40 @@ class SelectionOverlay(QWidget):
                 pass
             self._hint_label = None
 
-        hint = QLabel("左右框选，或者 T，或者 K！", self)
+        hint = QLabel(text, self)
         hint.setAlignment(Qt.AlignCenter)
         # 不接收鼠标/键盘事件：点击穿透回覆盖层，不抢焦点，无需暂停 focus_timer / grabKeyboard
         hint.setAttribute(Qt.WA_TransparentForMouseEvents)
-        hint.setStyleSheet("""
-            QLabel {
-                background: rgba(30, 32, 38, 220);
-                color: #FFFFFF;
-                font-size: 17px;
-                font-weight: 600;
-                padding: 14px 34px;
-                border: 1px solid rgba(255, 255, 255, 40);
-                border-radius: 12px;
-            }
-        """)
+        if warn:
+            _bg = "rgba(122, 78, 8, 235)"
+            _bd = "rgba(255, 205, 120, 90)"
+            _fs = 15
+            _pad = "13px 26px"
+        else:
+            _bg = "rgba(30, 32, 38, 220)"
+            _bd = "rgba(255, 255, 255, 40)"
+            _fs = 17
+            _pad = "14px 34px"
+        hint.setStyleSheet(
+            "QLabel {"
+            "background: " + _bg + ";"
+            "color: #FFFFFF;"
+            "font-size: " + str(_fs) + "px;"
+            "font-weight: 600;"
+            "padding: " + _pad + ";"
+            "border: 1px solid " + _bd + ";"
+            "border-radius: 12px;"
+            "}"
+        )
         hint.adjustSize()
+        # 屏幕太窄时自动换行，避免提示被挤出屏幕
+        _max_w = max(200, self.width() - 80)
+        if hint.width() > _max_w:
+            hint.setWordWrap(True)
+            hint.setFixedWidth(_max_w)
+            hint.adjustSize()
         # 屏幕水平居中、略偏上（约 40% 高度处），不挡视野中心
-        hx = (self.width() - hint.width()) // 2
+        hx = max(8, (self.width() - hint.width()) // 2)
         hy = int(self.height() * 0.38)
         hint.move(hx, hy)
         hint.show()
@@ -354,7 +399,7 @@ class SelectionOverlay(QWidget):
                 pass
 
         anim.finished.connect(_cleanup)
-        QTimer.singleShot(1200, _fadeout)
+        QTimer.singleShot(2200 if warn else 1200, _fadeout)
 
     def show_context_menu(self, position):
         """显示右键上下文菜单"""

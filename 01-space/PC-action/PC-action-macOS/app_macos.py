@@ -49,7 +49,7 @@ from design_system import (
 )
 from theme_generator import generate_macos_theme
 from beautiful_dialog import StyledMessageDialog
-from combo_skill_edit_dialog import ComboSkillEditDialog
+from combo_skill_edit_dialog import ComboSkillEditDialog, StyledCombo
 from selection_overlay import SelectionOverlay
 
 # 兼容旧代码的颜色常量
@@ -1791,8 +1791,18 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         filt = QHBoxLayout(); filt.setSpacing(8); filt.setContentsMargins(0, 0, 0, 0)
         tl = QLabel("时间"); tl.setStyleSheet("color:#8E96A0;font-size:12px;font-family:'Microsoft YaHei';")
         filt.addWidget(tl)
-        time_cb = QComboBox(); time_cb.addItems(["全部时间", "近 7 天", "近 30 天"]); time_cb.setFixedWidth(104)
-        time_cb.setStyleSheet("QComboBox{background:#FFFFFF;color:#333333;border:1px solid #E5E7EC;border-radius:9999px;padding:5px 10px;font-size:12px;font-family:'Microsoft YaHei';} QComboBox::drop-down{border:none;width:18px;} QComboBox::down-arrow{border:none;}")
+        # ★ 用 StyledCombo（自绘无边框弹窗）替换原生 QComboBox：
+        #   原生下拉面板在 Windows 上自带一圈系统边框 + DWM 投影，QSS 去不干净
+        #   （就是界面上"点开后有黑色小边边"的来源）。StyledCombo 直接自绘
+        #   Frameless + NoDropShadow 弹窗，白底无描边。
+        # ★ border-radius:9999px 会被 Qt 裁成直角矩形，真实胶囊靠 capsule_round
+        #   属性交给 design_system 的胶囊修正器在 Resize 时改成 height//2。
+        # ★ padding-right 不能贪大：StyledCombo 的文字绘制区 = subControlRect
+        #   (受 QSS padding 约束) 再 adjust(-6)，右 padding 过大会把"全部时间"
+        #   4 个字挤到被裁（实测 26px 就裁掉了"间"）。12/14 是安全值。
+        time_cb = StyledCombo(); time_cb.addItems(["全部时间", "近 7 天", "近 30 天"]); time_cb.setFixedWidth(104)
+        time_cb.setProperty('capsule_round', True)
+        time_cb.setStyleSheet("QComboBox{background:#FFFFFF;color:#333333;border:1px solid #E5E7EC;border-radius:9999px;padding:5px 14px 5px 12px;font-size:12px;font-family:'Microsoft YaHei';} QComboBox::drop-down{border:none;width:18px;} QComboBox::down-arrow{border:none;}")
         filt.addWidget(time_cb)
         search_edit = QLineEdit(); search_edit.setPlaceholderText("搜索流程名称…"); search_edit.setClearButtonEnabled(True); search_edit.setFixedWidth(180)
         search_edit.setStyleSheet("QLineEdit{background:#FFFFFF;border:1px solid #E5E7EC;border-radius:8px;padding:6px 10px;font-size:12px;color:#333333;font-family:'Microsoft YaHei';} QLineEdit:focus{border:1px solid #0D7A4D;}")

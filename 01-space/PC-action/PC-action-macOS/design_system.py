@@ -5,7 +5,7 @@ import re
 
 from PyQt5.QtCore import Qt, QObject, QEvent
 from PyQt5.QtGui import QColor, QPainter
-from PyQt5.QtWidgets import QStyle, QStyledItemDelegate, QPushButton, QToolButton
+from PyQt5.QtWidgets import QStyle, QStyledItemDelegate, QPushButton, QToolButton, QComboBox
 
 class TypographySystem:
     """macOS 瀛椾綋绯荤粺"""
@@ -167,6 +167,12 @@ class _CapsuleButtonFixer(QObject):
         if t in (QEvent.Show, QEvent.ShowToParent, QEvent.Resize, QEvent.StyleChange):
             if isinstance(obj, (QPushButton, QToolButton)):
                 self._fix(obj)
+            elif isinstance(obj, QComboBox) and obj.property('capsule_round'):
+                # 个别下拉框需要胶囊外观（如流程管理页的"全部时间"）：
+                # 同样因为 9999px 会被裁成直角，只能按实际高度算 radius。
+                # 只有显式打了 capsule_round 标记的 QComboBox 才处理，
+                # 避免影响程序内其它保持小圆角的下拉框。
+                self._fix(obj)
         return False
 
     def _fix(self, btn):
@@ -180,6 +186,16 @@ class _CapsuleButtonFixer(QObject):
         ss = btn.styleSheet()
         if not ss or 'border-radius' not in ss:
             return
+        # ★ 只在控件已可见时修正：setStyleSheet() 会立刻触发 StyleChange，
+        #   但此时布局往往还没跑完，height() 可能是未布局的默认值（实测
+        #   QComboBox 未显示时 height=480 → 会算成 radius=240），虽然随后的
+        #   Resize/Show 会纠正回来，但万一那次纠正没触发就会退回直角矩形。
+        #   未显示的控件不需要立刻修正，等 Show/Resize 时再处理即可。
+        try:
+            if not btn.isVisible():
+                return
+        except Exception:
+            pass
         h = btn.height()
         if h < 6:
             return

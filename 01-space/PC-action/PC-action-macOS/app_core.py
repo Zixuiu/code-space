@@ -5815,6 +5815,7 @@ class AutoRecorderApp(QMainWindow):
         if hasattr(self, "manager_tab") and hasattr(self.manager_tab, "folder_table"):
             self.load_folders_to_table(self.manager_tab.folder_table)
         self.load_debug_mode_setting()
+        self.load_verbose_log_setting()
         self.is_folder_manager_open = False
         self.update_shortcuts()
         self.register_record_hotkey()
@@ -6678,8 +6679,11 @@ class AutoRecorderApp(QMainWindow):
     def _append_log_impl(self, message):
         """实际的日志追加实现（始终在主线程中执行）"""
         timestamp = datetime.now().strftime('%H:%M:%S')
+        # ★ 人话日志（\x01 前缀，组合技流水）：不加时间戳，保持"第N步 / 内容"的干净排版
+        if message.startswith('\x01'):
+            log_line = message[1:]
         # 盒式日志（以 ╔═/ ║/╚═ 开头）不加时间戳，保持排版整洁
-        if message.startswith('╔═') or message.startswith(' ║') or message.startswith('╚═'):
+        elif message.startswith('╔═') or message.startswith(' ║') or message.startswith('╚═'):
             log_line = message
         else:
             log_line = f"[{timestamp}] {message}"
@@ -6754,7 +6758,7 @@ class AutoRecorderApp(QMainWindow):
 
     def create_log_window(self):
         """创建日志窗口"""
-        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QCheckBox
         from PyQt5.QtCore import Qt
 
         self.log_window = QDialog(self)
@@ -6793,6 +6797,35 @@ class AutoRecorderApp(QMainWindow):
         _hdr_title.setStyleSheet("color: #1D1D1F; font-size: 14px; font-weight: bold; font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif; background: transparent; border: none;")
         _hdr_lo.addWidget(_hdr_title)
         _hdr_lo.addStretch()
+        # ★ 「详细日志」开关：关闭时组合技只输出人话流水（第N步 / 打boss（第1次）：…），
+        #   打开后额外输出匹配分数、偏移量、耗时诊断等技术细节。设置存 user_data/verbose_log.json
+        verbose_cb = QCheckBox()
+        verbose_cb.setObjectName("verboseLogCb")
+        verbose_cb.setCursor(Qt.PointingHandCursor)
+        verbose_cb.setChecked(bool(getattr(self, 'verbose_run_log', False)))
+        verbose_cb.setText("详细日志：开" if getattr(self, 'verbose_run_log', False) else "详细日志：关")
+        verbose_cb.setToolTip("关闭时只显示程序实际干了什么（第N步流水）；\n打开后额外显示匹配分数、偏移量、耗时等技术细节，便于排查问题。")
+        verbose_cb.setStyleSheet("""
+            QCheckBox#verboseLogCb {
+                color: #1D1D1F; font-size: 12px; spacing: 6px;
+                font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
+            }
+            QCheckBox#verboseLogCb::indicator {
+                width: 14px; height: 14px; border-radius: 4px;
+                border: 1px solid #C7C7CC; background: #FFFFFF;
+            }
+            QCheckBox#verboseLogCb::indicator:checked {
+                background: #0A84FF; border: 1px solid #0A84FF;
+            }
+        """)
+        def _on_verbose_toggled(checked):
+            try:
+                self.set_verbose_run_log(checked)
+            except Exception:
+                pass
+            verbose_cb.setText("详细日志：开" if checked else "详细日志：关")
+        verbose_cb.toggled.connect(_on_verbose_toggled)
+        _hdr_lo.addWidget(verbose_cb)
         # 清空按钮放在标题栏右侧，做成 macOS 风格小胶囊按钮，不占用日志区高度
         clear_btn = QPushButton("清空")
         clear_btn.setObjectName("clearLogBtn")
@@ -6916,6 +6949,35 @@ class AutoRecorderApp(QMainWindow):
         # 设置日志回调
         set_log_callback(lambda msg: self.append_log(f" ║  {msg}"))
         return self.debug_mode
+
+    # ===== 组合技「详细日志」开关（默认关闭：只输出人话流水）=====
+    def save_verbose_log_setting(self):
+        """保存「详细日志」开关设置"""
+        try:
+            config_path = os.path.join(self.user_data_dir, 'verbose_log.json')
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump({'verbose_run_log': bool(getattr(self, 'verbose_run_log', False))},
+                          f, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
+
+    def load_verbose_log_setting(self):
+        """加载「详细日志」开关设置（默认关闭）"""
+        try:
+            config_path = os.path.join(self.user_data_dir, 'verbose_log.json')
+            if os.path.exists(config_path):
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    self.verbose_run_log = bool(json.load(f).get('verbose_run_log', False))
+            else:
+                self.verbose_run_log = False
+        except Exception:
+            self.verbose_run_log = False
+
+    def set_verbose_run_log(self, on):
+        """切换「详细日志」开关（由日志窗口复选框调用）"""
+        self.verbose_run_log = bool(on)
+        self.save_verbose_log_setting()
+        return self.verbose_run_log
 
     def create_replay_status_indicator(self):
         """创建回放控制窗口 - 极简扁平风格 (方案3)"""
@@ -10883,6 +10945,201 @@ class ComboSkillRunner:
         # 耗时统计：面板内可见的计时器数据
         self._combo_step_times = []   # (step, action, ms, flow_index)
         self._combo_flow_times = []   # (flow_index, action, exec_elapsed)
+        # ===== 「人话日志」状态（默认模式）=====
+        # 组合技默认只输出"程序实际干了什么"的流水，技术细节由详细日志开关控制。
+        self._narr_step = 0           # 全局连续步骤号（跨轮次连续递增）
+        self._narr_cond_count = 0     # 条件判断累计次数（用于"程序又看屏幕"这类措辞）
+        self._action_run_count = {}   # {动作名: 已执行次数} → "打boss（第2次）"
+        self._action_steps = []       # 当前动作内每一步的结果（由回放回调填充）
+        self._stop_reason = ''
+
+    # ==================================================================
+    #  人话日志 / 技术日志
+    # ==================================================================
+    @property
+    def detail_log(self):
+        """详细日志开关：True 时额外输出分数/偏移/耗时等技术细节"""
+        try:
+            return bool(getattr(self._main_app, 'verbose_run_log', False))
+        except Exception:
+            return False
+
+    def _emit_raw(self, text):
+        """输出一条不带时间戳的原始日志（人话日志专用）"""
+        try:
+            if self._main_app is not None:
+                self._main_app.append_log("\x01" + text)
+        except Exception:
+            pass
+
+    def _narr(self, *lines):
+        """输出一条人话步骤：第N步 / 内容...（步骤号全局连续，步骤之间空一行隔开）"""
+        self._narr_step += 1
+        body = "\n".join([str(x) for x in lines if x is not None])
+        self._emit_raw("第%d步\n%s\n" % (self._narr_step, body))
+
+    def _tech(self, msg):
+        """技术细节日志：仅在详细日志开关打开时输出"""
+        if not self.detail_log:
+            return
+        try:
+            if self._main_app is not None:
+                self._main_app.append_log(msg)
+        except Exception:
+            pass
+
+    def _dest_text(self, action, flows, prefix="去"):
+        """把目标动作翻译成人话去向（解开 跳转_N 到最终动作）"""
+        if not action:
+            return "什么也不做"
+        if action == "end":
+            return "结束"
+        if action.startswith("跳转_"):
+            try:
+                _t = int(action.split("_")[1])
+            except (IndexError, ValueError):
+                return f"{prefix}下一个流程"
+            if 0 <= _t < len(flows or []):
+                _nxt = (flows[_t] or {}).get("action", "")
+                if _nxt and not _nxt.startswith("跳转_") and _nxt != "end":
+                    return f"{prefix}{_nxt}"
+                if _t == 0:
+                    return "回到开头"
+                return f"{prefix}第{_t + 1}个流程"
+            return f"{prefix}下一个流程"
+        return f"{prefix}{action}"
+
+    def _dump_cond_hit(self, image_path, x, y, score, w, h):
+        """条件判定为「找到」时，把整屏截图存档并框出命中位置，便于事后核对程序到底在哪找到的。
+        存到 录制目录/_debug_cond_hit/，3 秒节流（避免刷屏时写一堆图）。"""
+        try:
+            import os as _os
+            import time as _t
+            import cv2 as _cv2
+            import image_recognition as _irm
+            if _t.time() - getattr(self, '_cond_dump_last_ts', 0) < 3.0:
+                return
+            self._cond_dump_last_ts = _t.time()
+            _folder = _os.path.dirname(image_path) or '.'
+            _d = _os.path.join(_folder, '_debug_cond_hit')
+            _os.makedirs(_d, exist_ok=True)
+            _shot = _irm._mss_grab_array()
+            if _shot is None:
+                return
+            _cv2.rectangle(_shot, (x, y), (x + max(1, int(w)), y + max(1, int(h))), (0, 255, 0), 2)
+            _cv2.putText(_shot, 'HIT %.4f' % score, (max(0, x - 40), max(14, y - 6)),
+                         _cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1, _cv2.LINE_AA)
+            _name = 'condhit_%s_%.2f.png' % (_t.strftime('%Y%m%d_%H%M%S'), score)
+            _ok, _buf = _cv2.imencode('.png', _shot)
+            if _ok:
+                _buf.tofile(_os.path.join(_d, _name))   # 中文路径：imencode + tofile
+        except Exception:
+            pass
+
+    def _narr_condition(self, cond, main_met, used_else, target_action, flows):
+        """条件判断 → 一步人话
+        cond: 条件类型; main_met: 主条件是否满足;
+        used_else: 是否走了 else 分支; target_action: 最终要执行的动作
+        """
+        self._narr_cond_count += 1
+        look = "程序又看屏幕" if self._narr_cond_count > 1 else "程序看屏幕"
+        if cond == "wait_for_image":
+            if main_met:
+                self._narr(f"{look}等图片，等到了 → {self._dest_text(target_action, flows)}")
+            else:
+                self._narr(f"{look}等图片，一直等到超时也没出现 → 这一步先跳过")
+            return
+        if cond == "image_not_found":
+            if main_met:
+                self._narr(f"{look}，图片不见了 → {self._dest_text(target_action, flows)}")
+            else:
+                self._narr(f"{look}，图片还在 → 这一步先跳过")
+            return
+        # image_found
+        if main_met:
+            _hi = getattr(self, '_last_cond_hit', None)
+            if _hi:
+                self._narr(f"{look}，找到了图片（在 {_hi[0]},{_hi[1]}，匹配度 {_hi[2]:.2f}） → {self._dest_text(target_action, flows)}")
+            else:
+                self._narr(f"{look}，找到了图片 → {self._dest_text(target_action, flows)}")
+        elif used_else:
+            self._narr(f"{look}，这次没找到图片 → 改成{self._dest_text(target_action, flows)}")
+        else:
+            self._narr(f"{look}，这次没找到图片 → 这一步先跳过")
+
+    def _narr_jump(self, target, flows):
+        """无条件跳转 → 一步人话"""
+        if target == 0:
+            self._narr("程序跳回开头")
+            return
+        _nxt = (flows[target] or {}).get("action", "") if 0 <= target < len(flows or []) else ""
+        if _nxt and not _nxt.startswith("跳转_") and _nxt != "end":
+            self._narr(f"程序跳到第{target + 1}个流程，去{_nxt}")
+        else:
+            self._narr(f"程序跳到第{target + 1}个流程")
+
+    def _narr_step_line(self, info):
+        """单个录制步骤 → 一行人话"""
+        r = info.get("result")
+        no = info.get("img_no") or 0
+        if r == "clicked":
+            if info.get("moved"):
+                _off = info.get("off")
+                _s = info.get("score")
+                _dt = ("%dpx" % _off) if isinstance(_off, int) else "一些"
+                _sd = ("，匹配度 %.2f" % _s) if isinstance(_s, float) else ""
+                return f"第{no}个图：位置比录制时挪了 {_dt}{_sd}，确认是同一个图 → 按新位置点了 ✅"
+            return f"第{no}个图：点了 ✅"
+        if r == "wrong_pos":
+            _off = info.get("off")
+            _s = info.get("score")
+            _dt = ("%dpx" % _off) if isinstance(_off, int) else "很远"
+            _sd = ("、匹配度只有 %.2f" % _s) if isinstance(_s, float) else ""
+            return f"第{no}个图：离录制位置差 {_dt}{_sd}，像是屏幕上别处的相似图案 → 没点"
+        if r == "not_found":
+            return f"第{no}个图：整屏都没找到，没点"
+        if r == "missing":
+            return f"第{no}个图：图片文件不见了，没点"
+        if r == "coord":
+            return "（没有图）按坐标点了一下"
+        if r == "skipped":
+            return "有个步骤没图也没坐标，跳过了"
+        if r == "keyboard_step":
+            _d = {'text_input': '输入了文字', 'keyboard': '按了按键',
+                  'keyboard_direct': '按了按键', 'scroll': '滚了一下'}
+            return _d.get(info.get('action_type'), '操作了一下')
+        if r == "failed":
+            return "有个操作没做成"
+        return f"有个步骤：{r}"
+
+    def _on_replay_step(self, info):
+        """回放每步结果回调：收集起来，动作结束后统一输出成人话"""
+        try:
+            self._action_steps.append(info)
+        except Exception:
+            pass
+
+    def _narr_action(self, action, steps):
+        """动作执行 → 一步人话：标题 / 每个图的结果 / 汇总"""
+        _n = self._action_run_count.get(action, 0) + 1
+        self._action_run_count[action] = _n
+        lines = ["%s（第%d次）：" % (action, _n)]
+        for st in steps:
+            lines.append(self._narr_step_line(st))
+        _clicked = sum(1 for s in steps if s.get('result') in ('clicked', 'moved'))
+        _img_n = sum(1 for s in steps if s.get('img_no'))
+        _denom = _img_n if _img_n else len(steps)
+        if _denom == 0:
+            lines.append("→ 这个动作没能执行起来（没有可执行的步骤）")
+        elif _clicked == 0:
+            lines.append("→ 这次一个都没点成")
+        elif _clicked >= _denom:
+            lines.append("→ 这次点成了 %d 个" % _clicked)
+        elif _clicked * 2 > _denom:
+            lines.append("→ 这次点成了 %d 个" % _clicked)
+        else:
+            lines.append("→ 这次只点成了 %d 个" % _clicked)
+        self._narr(*lines)
 
     def isRunning(self):
         return self.running
@@ -10903,13 +11160,11 @@ class ComboSkillRunner:
         condition_image = flow_data.get("condition_image", "")
         _cond_start = _time.time()
         condition_met = True
+        self._last_cond_hit = None   # 本次条件命中的 (x, y, 匹配度)，供人话日志/存档使用
 
         def _log(msg):
-            try:
-                if self._main_app is not None:
-                    self._main_app.append_log(msg)
-            except Exception:
-                pass
+            # 条件判断的技术细节（耗时/等待窗口/轮询次数）只在详细日志模式下输出
+            self._tech(msg)
 
         if condition == "image_found":
             if not condition_image:
@@ -10928,16 +11183,33 @@ class ComboSkillRunner:
                         _grace = 0.5
                 except (TypeError, ValueError):
                     _grace = 0.5
+                # ★★ 严格度对齐（2026-09-10 用户要求）：条件判断必须与「动作回放」用同一套标准
+                #    （置信度 0.8 + 校验颜色），否则会出现"条件说找到了、动作说没出现"的矛盾：
+                #    条件判断用 0.72 且不校验颜色 → 屏幕上别处一个相似图标就能让它判"找到"，
+                #    于是跳进动作流程，动作匹配再因位置/颜色不符把它跳过。
+                #    实测日志里同一张 操作1.png 两个模块结论相反：
+                #      流程1 条件 → ✅ 满足 (0.133s)；流程4 步骤1 → 🚫 距参考位置 305px，判定未出现。
+                _CONF = 0.8
+                _COLOR = True
                 _t = 0.005 if self._turbo_mode else 0.04  # 快速探测：固定小超时，不再被 speed_scale 放大/压缩
-                loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=_t, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                loc = find_image_with_timeout(condition_image, confidence=_CONF, timeout=_t, consider_color=_COLOR, stop_check=lambda: not self.running, skip_small_match=True)
                 if loc is None and not self._turbo_mode and _grace > 0:
                     # 等待窗口：窗口内持续检测，出现即满足
                     _grace_deadline = _time.time() + _grace
                     while self.running and _time.time() < _grace_deadline:
-                        loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=0.05, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                        loc = find_image_with_timeout(condition_image, confidence=_CONF, timeout=0.05, consider_color=_COLOR, stop_check=lambda: not self.running, skip_small_match=True)
                         if loc is not None:
                             break
                 condition_met = loc is not None
+                if condition_met:
+                    try:
+                        import image_recognition as _irm
+                        _sc = float(_irm._LAST_MATCH_BEST_SCORE_GLOBAL[0] or 0.0)
+                    except Exception:
+                        _sc = 0.0
+                    self._last_cond_hit = (int(loc[0]), int(loc[1]), _sc)
+                    _log(f" ║     ↳ 判定找到：位置 ({int(loc[0])},{int(loc[1])}) 匹配度 {_sc:.4f}")
+                    self._dump_cond_hit(condition_image, int(loc[0]), int(loc[1]), _sc, loc[2], loc[3])
                 _cond_elapsed = _time.time() - _cond_start
                 _mode_tag = ' (⚡极速)' if self._turbo_mode else f' (x{self._speed_scale:.1f})'
                 _grace_tag = '' if (self._turbo_mode or _grace <= 0) else f' 等待窗口{_grace:.1f}s'
@@ -10948,7 +11220,10 @@ class ComboSkillRunner:
                 condition_met = False
             else:
                 # image_not_found 本来就是 timeout=0.01 快速检测，极速模式不变
-                loc = find_image_with_timeout(condition_image, confidence=0.72, timeout=0.01, consider_color=False, stop_check=lambda: not self.running, skip_small_match=True)
+                # ★ 严格度必须与上面的 image_found 完全一致（同一张图的"不在"这一面）：
+                #   若两边标准不同（如主条件 0.8 / else 0.72），匹配分落在夹缝里时会出现
+                #   "主条件说没找到、else 也说找到了" → 主/else 均不满足 → 整个流程被跳过。
+                loc = find_image_with_timeout(condition_image, confidence=0.8, timeout=0.01, consider_color=True, stop_check=lambda: not self.running, skip_small_match=True)
                 condition_met = loc is None
                 _cond_elapsed = _time.time() - _cond_start
                 _log(f" ║  👻 {log_prefix} image_not_found: {_cond_elapsed:.3f}s {'✅ 满足' if condition_met else '❌ 不满足'}")
@@ -11022,12 +11297,18 @@ class ComboSkillRunner:
         import time as _time
         self.running = True
         self._consecutive_failures = 0
+        # ★ 人话日志状态复位：每次运行都从"第1步"开始重新编号
+        self._narr_step = 0
+        self._narr_cond_count = 0
+        self._action_run_count = {}
+        self._action_steps = []
+        self._stop_reason = ''
         _run_start = _time.time()
         try:
-            if self._main_app is not None:
-                self._main_app.append_log(f"╔═ {'='*45}")
-                self._main_app.append_log(f" ║  🚀 组合技开始: {self.skill_data.get('name', '')}")
-                self._main_app.append_log(f" ║  📊 流程数: {len(self.skill_data.get('flows', []))}, 循环次数: {self._loop_count}")
+            # 启动横幅属于技术细节：只在详细日志模式下输出
+            self._tech(f"╔═ {'='*45}")
+            self._tech(f" ║  🚀 组合技开始: {self.skill_data.get('name', '')}")
+            self._tech(f" ║  📊 流程数: {len(self.skill_data.get('flows', []))}, 循环次数: {self._loop_count}")
         except Exception:
             pass
         try:
@@ -11067,11 +11348,10 @@ class ComboSkillRunner:
             from image_recognition import find_image_with_timeout
             _t1 = _time.time()
             try:
-                if self._main_app is not None:
-                    self._main_app.append_log(f" ║  ⏳ find_image_with_timeout 导入: {_t1-_t0:.3f}s")
-                    self._main_app.append_log(f" ║  ⚙️  步间间隔(录制内): {self._flow_gap:.3f}s | 流程间强制等待: {'关闭(极速)' if _flow_gap <= 0 else str(round(_flow_gap,3))+'s'} | 速度比例: {'极速' if self._turbo_mode else f'{self._speed_scale:.2f}x'} | 图片匹配: {'⚡闪匹配(极速)' if self._turbo_mode else '智能缩放' if self._speed_scale < 0.8 else '标准(带重试)'}")
-                    if flows:
-                        self._main_app.append_log(f" ║  📋 流程0数据: {str(flows[0])[:200]}")
+                self._tech(f" ║  ⏳ find_image_with_timeout 导入: {_t1-_t0:.3f}s")
+                self._tech(f" ║  ⚙️  步间间隔(录制内): {self._flow_gap:.3f}s | 流程间强制等待: {'关闭(极速)' if _flow_gap <= 0 else str(round(_flow_gap,3))+'s'} | 速度比例: {'极速' if self._turbo_mode else f'{self._speed_scale:.2f}x'} | 图片匹配: {'⚡闪匹配(极速)' if self._turbo_mode else '智能缩放' if self._speed_scale < 0.8 else '标准(带重试)'}")
+                if flows:
+                    self._tech(f" ║  📋 流程0数据: {str(flows[0])[:200]}")
             except Exception:
                 pass
 
@@ -11096,16 +11376,12 @@ class ComboSkillRunner:
                     condition = flow.get("condition", "always")
                     else_branch = flow.get("else_branch") or {}
 
-                    # ====== 0. 流程进度日志 ======
+                    # ====== 0. 流程进度日志（技术细节，仅详细日志模式） ======
                     _total_flows = len(flows)
                     _cond_label = {"always": "总是执行", "image_found": "找到图片", "image_not_found": "找不到图片", "wait_for_image": "等待图片"}.get(condition, condition)
-                    try:
-                        if self._main_app is not None:
-                            _cond_emoji = {"always": "▶", "image_found": "🔍", "image_not_found": "👻", "wait_for_image": "⏳"}.get(condition, "▶")
-                            self._main_app.append_log(f"╔═ {_cond_emoji} 流程{flow_index+1}/{_total_flows} [第{loop}轮] ═══")
-                            self._main_app.append_log(f" ║  {_cond_emoji} {_cond_label} → {action if action else '(无)'}")
-                    except Exception:
-                        pass
+                    _cond_emoji = {"always": "▶", "image_found": "🔍", "image_not_found": "👻", "wait_for_image": "⏳"}.get(condition, "▶")
+                    self._tech(f"╔═ {_cond_emoji} 流程{flow_index+1}/{_total_flows} [第{loop}轮] ═══")
+                    self._tech(f" ║  {_cond_emoji} {_cond_label} → {action if action else '(无)'}")
 
                     # ====== 1. 判断条件（主条件，含等待窗口；else 分支在步骤2再判断） ======
                     condition_met, _cond_elapsed = self._evaluate_flow_condition(flow, log_prefix=f"流程{flow_index+1}")
@@ -11117,29 +11393,34 @@ class ComboSkillRunner:
                     target_action = ""
                     target_else_branch = None
                     delay_after = 0.0
+                    _narr_done = False   # 本流程的去向是否已由条件步骤的人话说明过
                     if condition_met:
                         target_action = action
                         delay_after = flow.get("delay_after", 0) or 0
+                        if condition != "always":
+                            self._narr_condition(condition, True, False, target_action, flows)
+                            _narr_done = True
                     elif else_branch and else_branch.get("action"):
                         target_else_branch = else_branch
                         else_met, _ = self._evaluate_flow_condition(else_branch, log_prefix=f"流程{flow_index+1} else")
                         if else_met:
                             target_action = else_branch.get("action", "")
                             delay_after = else_branch.get("delay_after", 0) or 0
+                            if condition != "always":
+                                self._narr_condition(condition, False, True, target_action, flows)
+                                _narr_done = True
                         else:
                             # else 条件也不满足 → 跳过本流程，执行下一个
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⏭️ 流程{flow_index+1} 主/else 条件均不满足，跳过本流程")
-                            except Exception:
-                                break
+                            self._tech(f" ║  ⏭️ 流程{flow_index+1} 主/else 条件均不满足，跳过本流程")
+                            if condition != "always":
+                                self._narr_condition(condition, False, False, "", flows)
+                                _narr_done = True
                     else:
                         # 无 else 分支 → 跳过本流程，执行下一个
-                        try:
-                            if self._main_app is not None:
-                                self._main_app.append_log(f" ║  ⏭️ 流程{flow_index+1} 主条件不满足且无 else，跳过本流程")
-                        except Exception:
-                            break
+                        self._tech(f" ║  ⏭️ 流程{flow_index+1} 主条件不满足且无 else，跳过本流程")
+                        if condition != "always":
+                            self._narr_condition(condition, False, False, "", flows)
+                            _narr_done = True
                     delay_after = max(0.0, float(delay_after))
 
                     step_info = {
@@ -11156,11 +11437,7 @@ class ComboSkillRunner:
 
                     # ====== 3. 处理跳转/结束 ======
                     if target_action and target_action.startswith("跳转_"):
-                        try:
-                            if self._main_app is not None:
-                                self._main_app.append_log(f" ║  🔀 流程{flow_index+1}: → 跳转 {target_action} (总跳转: {total_jumps+1})")
-                        except Exception:
-                            break
+                        self._tech(f" ║  🔀 流程{flow_index+1}: → 跳转 {target_action} (总跳转: {total_jumps+1})")
                         try:
                             target = int(target_action.split("_")[1])
                         except (IndexError, ValueError):
@@ -11168,29 +11445,20 @@ class ComboSkillRunner:
                         if 0 <= target < len(flows):
                             total_jumps += 1
                             if total_jumps > max_jumps:
-                                try:
-                                    if self._main_app is not None:
-                                        self._main_app.append_log(f" ║  ⛔ 跳转次数超过上限({max_jumps})，停止")
-                                        self._main_app.append_log(f"╚═{'═'*40}")
-                                except Exception:
-                                    break
+                                self._tech(f" ║  ⛔ 跳转次数超过上限({max_jumps})，停止")
+                                self._tech(f"╚═{'═'*40}")
                                 # 设置 running=False 确保停止整个组合技（而非仅跳出内层 while）
                                 self.running = False
                                 break
                             flow_index = target
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ➡️ 跳转到流程 {target+1}")
-                            except Exception:
-                                break
+                            self._tech(f" ║  ➡️ 跳转到流程 {target+1}")
+                            # 无条件跳转（always 流程）单独成一步人话；条件流程的去向已在条件步骤里说过
+                            if not _narr_done:
+                                self._narr_jump(target, flows)
                             # 跳转后的等待：delay_after > 0 时优先用单独设置；否则用统一的 _flow_gap（用户设0就真0）
                             _wait = delay_after if (delay_after and delay_after > 0) else (self._flow_gap if hasattr(self, '_flow_gap') else 0.01)
                             if _wait and _wait > 0:
-                                try:
-                                    if self._main_app is not None:
-                                        self._main_app.append_log(f" ║  ⏱️ 跳转后等待: {_wait:.2f}s{' (统一间隔)' if not (delay_after and delay_after>0) else ''}")
-                                except Exception:
-                                    pass
+                                self._tech(f" ║  ⏱️ 跳转后等待: {_wait:.2f}s{' (统一间隔)' if not (delay_after and delay_after>0) else ''}")
                                 self._wait_interruptible(_wait)
                             continue
                         else:
@@ -11202,11 +11470,8 @@ class ComboSkillRunner:
                     # ====== 4. 执行动作 ======
                     if target_action:
                         _exec_start = _time.time()
-                        try:
-                            if self._main_app is not None:
-                                self._main_app.append_log(f" ║  ▶ 执行动作 '{target_action}'")
-                        except Exception:
-                            break
+                        self._tech(f" ║  ▶ 执行动作 '{target_action}'")
+                        self._action_steps = []   # 重置本动作的逐图结果缓冲
                         _action_result = self._execute_action(target_action)
                         if isinstance(_action_result, tuple):
                             _action_ok, _img_fail_count = _action_result
@@ -11214,25 +11479,22 @@ class ComboSkillRunner:
                             _action_ok, _img_fail_count = _action_result, 0
                         _exec_elapsed = _time.time() - _exec_start
                         try:
-                            if self._main_app is not None:
-                                _emoji = "✅" if _action_ok else "❌"
-                                self._main_app.append_log(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
-                            try:
-                                self._combo_flow_times.append((flow_index, target_action, _exec_elapsed))
-                            except Exception:
-                                pass
+                            _emoji = "✅" if _action_ok else "❌"
+                            self._tech(f" ║  {_emoji} Flow{flow_index+1} 动作完成: {_exec_elapsed:.3f}s 图片匹配失败={_img_fail_count}")
+                            self._combo_flow_times.append((flow_index, target_action, _exec_elapsed))
                         except Exception:
-                            break
+                            pass
+                        # ★ 人话：把这次动作的执行过程说清楚（第几个图 点了/没点 + 汇总）
+                        try:
+                            self._narr_action(target_action, self._action_steps)
+                        except Exception:
+                            pass
                         # skip_on_fail 开启时，即使全部步骤失败也不计入连续失败（避免很快停止）
                         if not _action_ok and not self.skip_on_fail:
                             self._consecutive_failures += 1
-                            if self._consecutive_failures >= 10000:
-                                try:
-                                    if self._main_app is not None:
-                                        self._main_app.append_log(f" ║  ⛔ 连续 {self._consecutive_failures} 次执行失败，停止组合技")
-                                        self._main_app.append_log(f"╚═{'═'*40}")
-                                except Exception:
-                                    break
+                            if self._consecutive_failures >= 5000:
+                                self._tech(f" ║  ⛔ 连续 {self._consecutive_failures} 次执行失败，停止组合技")
+                                self._tech(f"╚═{'═'*40}")
                                 # 设置running=False，确保停止整个组合技（不只跳出内层while）
                                 self._stop_reason = f"连续 {self._consecutive_failures} 次执行失败"
                                 self.running = False
@@ -11241,91 +11503,76 @@ class ComboSkillRunner:
                             self._consecutive_failures = 0
                         # 录制回放中图片匹配失败 → 跳过该流程，继续执行下一个
                         if _img_fail_count > 0 and condition not in ("wait_for_image", "image_not_found"):
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过此流程继续执行")
-                            except Exception:
-                                pass
+                            self._tech(f" ║  ⚠️ 录制回放中图片匹配失败 {_img_fail_count} 次，跳过此流程继续执行")
 
-                    try:
-                        if self._main_app is not None:
-                            self._main_app.append_log(f"╚═{'═'*40}")
-                    except Exception:
-                        pass
+                    self._tech(f"╚═{'═'*40}")
 
                     # 流程结束后的等待：delay_after>0时用单独设置；否则用统一的 _flow_gap（用户设0就真0，不再强制死值）
                     if delay_after and delay_after > 0 and self.running:
-                        try:
-                            if self._main_app is not None:
-                                self._main_app.append_log(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
-                        except Exception:
-                            pass
+                        self._tech(f" ║  ⏱️ 动作后等待: {delay_after:.1f}s")
                         self._wait_interruptible(delay_after)
                     else:
                         _gap = self._flow_gap if hasattr(self, '_flow_gap') else 0.05
                         if _gap and _gap > 0 and self.running:
-                            try:
-                                if self._main_app is not None:
-                                    self._main_app.append_log(f" ║  ⏱️ 流程间等待(统一间隔): {_gap:.2f}s")
-                            except Exception:
-                                pass
+                            self._tech(f" ║  ⏱️ 流程间等待(统一间隔): {_gap:.2f}s")
                             self._wait_interruptible(_gap)
                         # _gap == 0 → 用户明确设了0秒(极速) → 完全不等待
                     flow_index += 1
 
                 _loop_elapsed = _time.time() - _loop_start
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ⏱️ 第{loop}轮循环完成")
-                except Exception:
-                    pass
+                self._tech(f" ║  ⏱️ 第{loop}轮循环完成")
                 self.reset()
 
             _run_elapsed = _time.time() - _run_start
-            # ===== 耗时统计汇总（面板内可见，定位最慢流程/最慢单步）=====
+            # ===== 耗时统计汇总（技术细节，仅详细日志模式）=====
             try:
-                if self._main_app is not None:
-                    _st = getattr(self, '_combo_step_times', [])
-                    _ft = getattr(self, '_combo_flow_times', [])
-                    self._main_app.append_log(f"╔═ {'═'*45}")
-                    self._main_app.append_log(f" ║  📊 耗时统计汇总")
-                    self._main_app.append_log(f" ║    总耗时: {_run_elapsed:.3f}s | 流程数: {len(flows)} | 执行步数: {len(_st)}")
-                    if _ft:
-                        # 按流程聚合（同一流程可能被执行多次，取平均）
-                        _by_flow = {}
-                        for _f, _a, _d in _ft:
-                            _by_flow.setdefault(_f, []).append(_d)
-                        _avg = sorted(
-                            ((_f, sum(_ds) / len(_ds), len(_ds)) for _f, _ds in _by_flow.items()),
-                            key=lambda x: x[1], reverse=True
-                        )
-                        _top = " > ".join(f"流程{_f + 1} {_avg_d * 1000:.0f}ms(×{_n})" for _f, _avg_d, _n in _avg[:3])
-                        self._main_app.append_log(f" ║    最慢流程(均): {_top}")
-                    if _st:
-                        _ss = max(_st, key=lambda x: x[2])
-                        self._main_app.append_log(f" ║    ⚠️ 最慢单步: 流程{_ss[3] + 1} 步骤{_ss[0]}({_ss[1]}): {_ss[2]:.0f}ms")
-                    self._main_app.append_log(f"╚═{'═'*45}")
+                _st = getattr(self, '_combo_step_times', [])
+                _ft = getattr(self, '_combo_flow_times', [])
+                self._tech(f"╔═ {'═'*45}")
+                self._tech(f" ║  📊 耗时统计汇总")
+                self._tech(f" ║    总耗时: {_run_elapsed:.3f}s | 流程数: {len(flows)} | 执行步数: {len(_st)}")
+                if _ft:
+                    # 按流程聚合（同一流程可能被执行多次，取平均）
+                    _by_flow = {}
+                    for _f, _a, _d in _ft:
+                        _by_flow.setdefault(_f, []).append(_d)
+                    _avg = sorted(
+                        ((_f, sum(_ds) / len(_ds), len(_ds)) for _f, _ds in _by_flow.items()),
+                        key=lambda x: x[1], reverse=True
+                    )
+                    _top = " > ".join(f"流程{_f + 1} {_avg_d * 1000:.0f}ms(×{_n})" for _f, _avg_d, _n in _avg[:3])
+                    self._tech(f" ║    最慢流程(均): {_top}")
+                if _st:
+                    _ss = max(_st, key=lambda x: x[2])
+                    self._tech(f" ║    ⚠️ 最慢单步: 流程{_ss[3] + 1} 步骤{_ss[0]}({_ss[1]}): {_ss[2]:.0f}ms")
+                self._tech(f"╚═{'═'*45}")
             except Exception:
                 pass
             if self.running:
+                # ★ 人话：正常跑完
                 try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ✅ 组合技完毕: {_run_elapsed:.3f}s")
-                        self._main_app.append_log(f"╚═{'═'*45}")
+                    self._narr(f"全部跑完了。总共跑了 {_run_elapsed:.3f} 秒。")
                 except Exception:
                     pass
+                self._tech(f" ║  ✅ 组合技完毕: {_run_elapsed:.3f}s")
+                self._tech(f"╚═{'═'*45}")
                 if self._on_finished:
                     self._on_finished(True, f"组合技 '{self.skill_data.get('name', '')}' 执行完成")
             else:
+                _stop_reason = getattr(self, '_stop_reason', '') or '手动停止'
+                # ★ 人话：怎么停的 + 总共跑了多久
                 try:
-                    if self._main_app is not None:
-                        _stop_reason = getattr(self, '_stop_reason', '') or '手动停止'
-                        self._main_app.append_log(f" ║  ⏹️ 组合技被停止（{_stop_reason}），已执行: {_run_elapsed:.3f}s")
-                        self._main_app.append_log(f"╚═{'═'*45}")
+                    if '快捷键' in _stop_reason:
+                        self._narr(f"你按了快捷键，程序停了。总共跑了 {_run_elapsed:.3f} 秒。")
+                    elif '连续' in _stop_reason:
+                        self._narr(f"程序停了（{_stop_reason}）。总共跑了 {_run_elapsed:.3f} 秒。")
+                    else:
+                        self._narr(f"你把程序停下来了。总共跑了 {_run_elapsed:.3f} 秒。")
                 except Exception:
                     pass
+                self._tech(f" ║  ⏹️ 组合技被停止（{_stop_reason}），已执行: {_run_elapsed:.3f}s")
+                self._tech(f"╚═{'═'*45}")
                 if self._on_finished:
-                    _stop_reason = getattr(self, '_stop_reason', '') or '手动停止'
                     self._on_finished(False, f"已停止 · 原因: {_stop_reason} · 已执行 {_run_elapsed:.1f}s")
 
         except Exception as e:
@@ -11337,12 +11584,11 @@ class ComboSkillRunner:
             self.running = False
 
     def _combo_step_timing_cb(self, step, action, ms):
-        """逐步骤耗时回调：同时累计到面板计时器数据，并实时打印到组合技日志"""
+        """逐步骤耗时回调：累计到面板计时器数据，耗时明细仅在详细日志模式输出"""
         try:
             _fid = getattr(self, '_current_flow_index', 0)
             self._combo_step_times.append((step, action, ms, _fid))
-            if self._main_app is not None:
-                self._main_app.append_log(f" ║    ⏱ 步骤{step}({action}): {ms:.0f}ms  [流程{_fid + 1}]")
+            self._tech(f" ║    ⏱ 步骤{step}({action}): {ms:.0f}ms  [流程{_fid + 1}]")
         except Exception:
             pass
 
@@ -11357,27 +11603,15 @@ class ComboSkillRunner:
             folder_path = os.path.join(get_recordings_path(), action)
             json_path = os.path.join(folder_path, "recording.json")
             if not os.path.exists(json_path):
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ❌ 找不到录制文件: {action} ({_time.time()-_ea_start:.3f}s)")
-                except Exception:
-                    pass
+                self._tech(f" ║  ❌ 找不到录制文件: {action} ({_time.time()-_ea_start:.3f}s)")
                 return False, 0
 
             _t_load0 = _time.time()
             recording_data = load_json_data(json_path)
             _t_load1 = _time.time()
-            try:
-                if self._main_app is not None:
-                    self._main_app.append_log(f" ║  📂 load_json_data: {_t_load1-_t_load0:.3f}s 共{len(recording_data) if recording_data else 0}步")
-            except Exception:
-                pass
+            self._tech(f" ║  📂 load_json_data: {_t_load1-_t_load0:.3f}s 共{len(recording_data) if recording_data else 0}步")
             if not recording_data:
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ⚠️ 录制数据为空: {action}")
-                except Exception:
-                    pass
+                self._tech(f" ║  ⚠️ 录制数据为空: {action}")
                 return False, 0
 
             # ======================================================================
@@ -11422,11 +11656,7 @@ class ComboSkillRunner:
                 pass
 
             has_images = any(op.get("image", "") for op in recording_data)
-            try:
-                if self._main_app is not None:
-                    self._main_app.append_log(f" ║  🖼️ 动作 '{action}' 含图片={has_images}, 步骤数={len(recording_data)}")
-            except Exception:
-                pass
+            self._tech(f" ║  🖼️ 动作 '{action}' 含图片={has_images}, 步骤数={len(recording_data)}")
 
             from image_recognition import replay_coordinate_operations, replay_coordinates_only
 
@@ -11480,7 +11710,11 @@ class ComboSkillRunner:
                     turbo_match=_turbo,  # 极速/快速模式：一次即止不重试
                     turbo_grace=_turbo_grace,  # 极速模式图片等待窗口（覆盖过渡动画）
                     turbo_settle=_turbo_settle,  # 极速模式点击后UI稳定等待（防旧画面误匹配）
-                    on_step_timing=self._combo_step_timing_cb
+                    on_step_timing=self._combo_step_timing_cb,
+                    # ★ 每步结果回传 → 生成人话日志（第几个图 点了/位置不对/没找到）
+                    on_step_result=self._on_replay_step,
+                    # ★ 人话模式下静音 [回放] 技术细节（分数/偏移/耗时诊断）
+                    narr_mode=not self.detail_log
                 )
                 # 兼容新旧返回值
                 if len(replay_result) == 3:
@@ -11489,14 +11723,10 @@ class ComboSkillRunner:
                     ok, total = replay_result
                     img_fail_count = 0
                 _t_replay1 = _time.time()
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(
-                            f" ║  ▶ replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s "
-                            f"成功={ok}/{total} 图片匹配失败={img_fail_count} | 步间间隔={step_interval:.2f}s"
-                        )
-                except Exception:
-                    pass
+                self._tech(
+                    f" ║  ▶ replay_coordinate_operations: {_t_replay1-_t_replay0:.3f}s "
+                    f"成功={ok}/{total} 图片匹配失败={img_fail_count} | 步间间隔={step_interval:.2f}s"
+                )
             else:
                 _t_replay0 = _time.time()
                 ok, total = replay_coordinates_only(
@@ -11505,14 +11735,10 @@ class ComboSkillRunner:
                 )
                 img_fail_count = 0
                 _t_replay1 = _time.time()
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(
-                            f" ║  ▶ replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s "
-                            f"成功={ok}/{total} | 步间间隔={step_interval:.2f}s"
-                        )
-                except Exception:
-                    pass
+                self._tech(
+                    f" ║  ▶ replay_coordinates_only: {_t_replay1-_t_replay0:.3f}s "
+                    f"成功={ok}/{total} | 步间间隔={step_interval:.2f}s"
+                )
 
             # 先计数（不管成功失败，只要调用了就计数）
             try:
@@ -11523,27 +11749,15 @@ class ComboSkillRunner:
 
             # 如果全部步骤都失败，返回 False
             if ok == 0 and total > 0:
-                try:
-                    if self._main_app is not None:
-                        self._main_app.append_log(f" ║  ❌ 执行失败: {action} 全部 {total} 个步骤均未成功")
-                except Exception:
-                    pass
+                self._tech(f" ║  ❌ 执行失败: {action} 全部 {total} 个步骤均未成功")
                 return False, img_fail_count
 
-            try:
-                if self._main_app is not None:
-                    self._main_app.append_log(f" ║  ✅ 动作 '{action}' 完成: {_time.time()-_ea_start:.3f}s")
-            except Exception:
-                pass
+            self._tech(f" ║  ✅ 动作 '{action}' 完成: {_time.time()-_ea_start:.3f}s")
             return True, img_fail_count
         except Exception as e:
             import traceback
             traceback.print_exc()
-            try:
-                if self._main_app is not None:
-                    self._main_app.append_log(f" ║  ❌ 执行动作失败: {str(e)}")
-            except Exception:
-                pass
+            self._tech(f" ║  ❌ 执行动作失败: {str(e)}")
             return False, 0
 
     def _wait_interruptible(self, seconds):
