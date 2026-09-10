@@ -1,10 +1,11 @@
 """macOS Design System - Based on Apple Human Interface Guidelines"""
 
 import sys
+import re
 
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QObject, QEvent
 from PyQt5.QtGui import QColor, QPainter
-from PyQt5.QtWidgets import QStyle, QStyledItemDelegate
+from PyQt5.QtWidgets import QStyle, QStyledItemDelegate, QPushButton, QToolButton
 
 class TypographySystem:
     """macOS 瀛椾綋绯荤粺"""
@@ -136,7 +137,7 @@ def flat_button_style(variant="neutral", radius=6, font_size=13, padding="6px 14
             background-color: {bg};
             color: {fg};
             border: none;
-            border-radius: {radius}px;
+            border-radius: 9999px;
             padding: {padding};
             font-size: {font_size}px;
             font-weight: 600;
@@ -149,6 +150,47 @@ def flat_button_style(variant="neutral", radius=6, font_size=13, padding="6px 14
 
 SHADOWS=ShadowSystem()
 ANIMATIONS=AnimationTokens()
+
+
+# ==================== 运行时按钮胶囊修正器 ====================
+# Qt(QSS) 有个坑：border-radius 只有「恰好=按钮实际高度的一半」才会渲染成胶囊，
+# 而半像素数大于高度一半（如 9999）会被直接裁成直角矩形；% 也不被支持。
+# 因此提供这个全局修正器：每个按钮在显示/高度变化时，把自身样式的 border-radius
+# 自动改成「height//2」，压在既有样式上，保证所有按钮都呈现胶囊两端圆。
+class _CapsuleButtonFixer(QObject):
+    def __init__(self, app):
+        super().__init__()
+        app.installEventFilter(self)
+
+    def eventFilter(self, obj, ev):
+        t = ev.type()
+        if t in (QEvent.Show, QEvent.ShowToParent, QEvent.Resize, QEvent.StyleChange):
+            if isinstance(obj, (QPushButton, QToolButton)):
+                self._fix(obj)
+        return False
+
+    def _fix(self, btn):
+        ss = btn.styleSheet()
+        if not ss or 'border-radius' not in ss:
+            return
+        h = btn.height()
+        if h < 6:
+            return
+        radius = max(h // 2, 2)
+        new = re.sub(r'border-radius\s*:\s*[0-9]+(?:\.[0-9]+)?px',
+                     'border-radius:%dpx' % radius, ss)
+        if new != ss:
+            btn.setStyleSheet(new)
+
+
+def install_capsule_button_fixer():
+    """全局生效：把程序内所有按钮的圆角统一改成胶囊（需要先创建好 QApplication）。"""
+    from PyQt5.QtWidgets import QApplication
+    app = QApplication.instance()
+    if app is None or getattr(app, '_capsule_fix_installed', False):
+        return
+    app._capsule_fix_installed = True
+    app._capsule_fixer = _CapsuleButtonFixer(app)  # 必须持有引用，否则被 GC 回收导致失效
 
 
 # ==================== Soft UI 大圆角卡片表格（风格10） ====================

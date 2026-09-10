@@ -1003,7 +1003,7 @@ class FolderManager(QDialog):
             QPushButton {{
                 background: #5A6069;
                 color: white;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -1329,6 +1329,61 @@ class FolderManager(QDialog):
         header.resizeSection(2, button_width)  # 快捷键按钮
         header.resizeSection(3, button_width)  # 重命名按钮
 
+    def move_op_to_position(self, folder_path, old_pos, new_pos):
+        """把第 old_pos 步（1-based，按列表显示顺序）移动到第 new_pos 位，其余照常顺延。
+
+        对任意步骤生效（图片/按键/文本/滚轮…），同步重编号 step 与磁盘图片文件名。
+        """
+        json_path = os.path.join(folder_path, 'recording.json')
+        if not os.path.exists(json_path):
+            return False
+        data = load_json_data(json_path)
+        if not isinstance(data, list) or len(data) < 2:
+            return False
+        old_idx, new_idx = old_pos - 1, new_pos - 1
+        if not (0 <= old_idx < len(data) and 0 <= new_idx < len(data)) or old_idx == new_idx:
+            return False
+        item = data.pop(old_idx)
+        insert_idx = new_idx
+        if old_idx < insert_idx:
+            insert_idx -= 1
+        data.insert(insert_idx, item)
+        # 重新编号 step + image 字段，并两步法重命名磁盘图片文件（防覆盖冲突）
+        rename_plan = {}
+        _img_counter = 0
+        for _i, _d in enumerate(data):
+            _d['step'] = _i + 1
+            if _d.get('image'):
+                _img_counter += 1
+                _new = f"操作{_img_counter}.png"
+                if _d['image'] != _new:
+                    rename_plan[_d['image']] = _new
+                _d['image'] = _new
+        tmp_paths = {}
+        for _old_name in list(rename_plan.keys()):
+            _oldp = os.path.join(folder_path, _old_name)
+            if os.path.exists(_oldp):
+                _tmpn = f"_r_tmp_{uuid.uuid4().hex[:8]}_{_old_name}"
+                _tmpp = os.path.join(folder_path, _tmpn)
+                shutil.move(_oldp, _tmpp)
+                tmp_paths[_old_name] = _tmpp
+        for _old_name, _new_name in rename_plan.items():
+            _tmpp = tmp_paths.get(_old_name)
+            if not _tmpp or not os.path.exists(_tmpp):
+                continue
+            _newp = os.path.join(folder_path, _new_name)
+            if not os.path.exists(_newp):
+                shutil.move(_tmpp, _newp)
+            else:
+                try:
+                    os.replace(_tmpp, _newp)
+                except Exception:
+                    shutil.move(_tmpp, _newp)
+        save_json_data(json_path, data)
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(300, lambda: self.parent.refresh_view_images(folder_path))
+        return True
+
     def view_images(self, folder_path):
         folder_path = str(folder_path)
         if not os.path.isdir(folder_path):
@@ -1419,7 +1474,7 @@ class FolderManager(QDialog):
         _dot_lo.addStretch()
         # 标题（与红点同一行，整体垂直居中）
         icon_label = QLabel()
-        icon_label.setPixmap(load_svg_icon("folder", 16).pixmap(int(round(16 * ICON_SCALE)), int(round(16 * ICON_SCALE))))
+        icon_label.setPixmap(load_svg_icon("folder", 20).pixmap(int(round(20 * ICON_SCALE)), int(round(20 * ICON_SCALE))))
         icon_label.setStyleSheet("background:transparent; border:none;")
         icon_label.setAttribute(Qt.WA_TransparentForMouseEvents)
         text_label = QLabel(os.path.basename(str(folder_path)))
@@ -1546,7 +1601,7 @@ class FolderManager(QDialog):
                     background-color: #FFFFFF;
                     color: #5A6069;
                     border: 1px solid #D1D1D6;
-                    border-radius: 8px;
+                    border-radius:9999px;
                     font-weight: 600;
                     font-size: 13px;
                     padding: 0 10px;
@@ -1573,7 +1628,7 @@ class FolderManager(QDialog):
                     background-color: #5A6069;
                     color: white;
                     border: none;
-                    border-radius: 8px;
+                    border-radius:9999px;
                     font-weight: 600;
                     font-size: 13px;
                     padding: 0 10px;
@@ -1867,6 +1922,25 @@ class FolderManager(QDialog):
                 return "滚轮"
             return _at_cfg.get(action_type, (action_type,))[0]
 
+        def _type_short_label(action_type):
+            """短标签胶囊文字：用两字类型名，字面直白"""
+            return {
+                'left_click': '左键', 'right_click': '右键',
+                'double_click': '双击', 'middle_click': '中键',
+                'text_input': '文本', 'keyboard': '按键', 'keyboard_direct': '按键',
+                'scroll': '滚轮', 'move': '移动', 'condition': '条件',
+            }.get(action_type, '操作')
+
+        def _type_badge_color(action_type):
+            """短标签胶囊背景色（饱和实底 + 白字），一眼区分"""
+            return {
+                'left_click': '#34C759', 'right_click': '#E5433C',
+                'double_click': '#2fae4f', 'middle_click': '#27a34a',
+                'text_input': '#FF9500', 'keyboard': '#63666A',
+                'keyboard_direct': '#63666A', 'scroll': '#48494d',
+                'move': '#0A84FF', 'condition': '#AF52DE',
+            }.get(action_type, '#8E8E93')
+
         control_height = 24
         action_font_size = 11
 
@@ -1956,7 +2030,7 @@ class FolderManager(QDialog):
                 if img_file:
                     # 有图片 → 显示缩略图（点击查看大图）
                     img_path = os.path.join(folder_path, img_file)
-                    thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius: 8px; }")
+                    thumb_w.setStyleSheet("QPushButton { background: rgba(195,240,202,0.3); border-radius:9999px; }")
                     thumb_w.setToolTip(f"{img_file}\n点击查看大图")
                     del_btn = _create_hover_close_button(
                         thumb_w,
@@ -1985,22 +2059,21 @@ class FolderManager(QDialog):
                     del_btn.raise_()
                     thumb_w.clicked.connect(lambda checked, fp=img_path: _show_large_preview(fp))
                 else:
-                    # 无图片 → 操作类型小色块，带上删除按钮
-                    _dot_color = _at_cfg.get(action_type, ('', '#8E8E93', ''))[1]
-                    thumb_w.setStyleSheet(f"QPushButton{{background:{_at_cfg.get(action_type, ('','#8E8E93',''))[2]};border-radius:8px;border:none;}}")
-                    thumb_w.setToolTip("该步骤没有匹配图片（直接按坐标执行）")
+                    # 无图片 → 短标签胶囊（类型名），字面直白，一眼识别
+                    thumb_w.setStyleSheet("QPushButton{background:transparent;border:none;border-radius:0px;}")
+                    thumb_w.setToolTip(f"操作类型 {_type_btn_label(action_type, record)}")
                     del_btn = _create_hover_close_button(
                         thumb_w,
                         on_click=lambda checked=False, idx=i: _delete_step(idx, None),
                         size=20
                     )
                     del_btn.move(26, 0)
-                    icon_w = QLabel(thumb_w)
-                    icon_w.setFixedSize(12, 12)
-                    icon_w.setAlignment(Qt.AlignCenter)
-                    icon_w.setStyleSheet(f"QLabel{{background:{_dot_color};border-radius:6px;border:none;}}")
-                    icon_w.move(18, 18)
-                    icon_w.lower()
+                    badge = QLabel(_type_short_label(action_type), thumb_w)
+                    badge.setFixedSize(46, 24)
+                    badge.setAlignment(Qt.AlignCenter)
+                    badge.setStyleSheet(f"QLabel{{background:{_type_badge_color(action_type)};color:#FFFFFF;font-weight:600;font-size:11px;font-family:'Microsoft YaHei','PingFang SC',sans-serif;border:none;border-radius:12px;}}")
+                    badge.move(1, 12)
+                    badge.raise_()
                     del_btn.raise_()
                 _icl.addWidget(thumb_w, 0, Qt.AlignTop)
 
@@ -2086,9 +2159,13 @@ class FolderManager(QDialog):
                     _v1.setText("条件分支")
                     _v1.setStyleSheet("QLabel{color:#AF52DE;font-size:11px;font-weight:600;background:transparent;border:none;}")
                     _v2.setText("按图片是否出现分流")
-                else:
-                    # 点击类步骤：定位代码（坐标/匹配区域）已按用户要求移除，类型按钮即代表全部信息
-                    pass
+                elif action_type in ('left_click', 'right_click', 'double_click', 'middle_click'):
+                    # 点击类：显示点击坐标 (x, y)
+                    x = int(record.get('x', 0))
+                    y = int(record.get('y', 0))
+                    _v1.setText(f"{x}, {y}")
+                    _v1.setStyleSheet("QLabel{color:#1E9E45;font-size:11px;font-weight:600;background:transparent;border:none;}")
+                    _v2.setText("坐标")
                 _v1.setToolTip(_v1.text() + (("｜" + _v2.text()) if _v2.text() else ""))
                 _vl.addWidget(_v1)
                 # ★ 第二行提示（"绝对屏幕坐标"/"点击修改按键"等）已按用户要求移除，
@@ -2137,13 +2214,13 @@ class FolderManager(QDialog):
                 btn_up.setIcon(load_svg_icon("arrow_up", 16))
                 btn_up.setIconSize(QSize(29, 29))
                 btn_up.setFixedSize(24, 24)
-                btn_up.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;}QPushButton:hover{background:rgba(90,96,105,0.15);color:#5A6069;}")
+                btn_up.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:9999px;}QPushButton:hover{background:rgba(90,96,105,0.15);color:#5A6069;}")
                 btn_up.setEnabled(i > 0)
                 btn_down = QPushButton()
                 btn_down.setIcon(load_svg_icon("arrow_down", 16))
                 btn_down.setIconSize(QSize(29, 29))
                 btn_down.setFixedSize(24, 24)
-                btn_down.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:4px;}QPushButton:hover{background:rgba(90,96,105,0.15);color:#5A6069;}")
+                btn_down.setStyleSheet("QPushButton{background:rgba(142,142,147,0.12);color:#6E6E73;border:none;border-radius:9999px;}QPushButton:hover{background:rgba(90,96,105,0.15);color:#5A6069;}")
                 btn_down.setEnabled(i < len(recording_data) - 1)
                 ml.addWidget(btn_up, 0, Qt.AlignTop)
                 ml.addWidget(btn_down, 0, Qt.AlignTop)
@@ -2178,6 +2255,69 @@ class FolderManager(QDialog):
                         d.exec_(Qt.MoveAction)
                     w.mouseMoveEvent = _mme.__get__(w, QWidget)
                 _bd(row_widget)
+
+                # ── ⑧ 右键菜单：移动该步骤到指定位置（对任意步骤生效）──
+                def _show_row_menu(ri, local_pos, wid):
+                    _m = QMenu(row_widget)
+                    _m.setStyleSheet("""
+                        QMenu { background:#FFFFFF; border:1px solid #E7EAF0;
+                                border-radius:8px; padding:6px; }
+                        QMenu::item { padding:8px 18px; border-radius:6px;
+                                      color:#1D1D1F; font-size:13px; }
+                        QMenu::item:selected { background:#E8F0FE; color:#111827; }
+                    """)
+                    total = len(recording_data)
+                    _mFor = _m.addAction(f"移动'第 {ri + 1} 步'到指定位置…")
+                    _mFor.setEnabled(total > 1)
+                    _mFor.triggered.connect(lambda: _ask_move_op(ri))
+                    _mFront = _m.addAction("移到最前")
+                    _mFront.setEnabled(ri > 0)
+                    _mFront.triggered.connect(lambda: _swap_rows(ri, 0))
+                    _mLast = _m.addAction("移到最后")
+                    _mLast.setEnabled(ri < total - 1)
+                    _mLast.triggered.connect(lambda: _swap_rows(ri, total - 1))
+                    _m.exec_(wid.mapToGlobal(local_pos))
+
+                def _ask_move_op(ri):
+                    total = len(recording_data)
+                    if total < 2:
+                        self.parent.show_beautiful_message('information', '提示', '该流程不足 2 步，无需移动', parent=dialog)
+                        return
+                    from PyQt5.QtWidgets import QSpinBox, QHBoxLayout
+                    from beautiful_dialog import build_styled_card, styled_button, center_dialog, fade_in_dialog
+                    _dlg = QDialog(dialog)
+                    _dlg.setWindowTitle("移动步骤位置")
+                    _dlg.setWindowModality(Qt.WindowModal)
+                    _content = build_styled_card(_dlg, "移动步骤位置", "layers")
+                    _cur = QLabel(f"当前是第 {ri + 1} 步（共 {total} 步）")
+                    _cur.setStyleSheet("color:#1D1D1F;font-size:13px;background:transparent;border:none;")
+                    _content.addWidget(_cur)
+                    _h = QHBoxLayout(); _h.setSpacing(8)
+                    _lb = QLabel("移到第")
+                    _lb.setStyleSheet("color:#1D1D1F;font-size:13px;background:transparent;border:none;")
+                    _spin = QSpinBox(); _spin.setRange(1, total); _spin.setValue(2 if ri == 0 else 1)
+                    _spin.setStyleSheet("QSpinBox{min-height:28px;min-width:90px;padding:0 8px;font-size:13px;border:1px solid #E7EAF0;border-radius:6px;background:#FFFFFF;color:#1D1D1F;}")
+                    _h.addWidget(_lb); _h.addWidget(_spin); _h.addStretch()
+                    _content.addLayout(_h)
+                    _btn_row = QHBoxLayout(); _btn_row.addStretch()
+                    _ok = styled_button("确定", primary=True)
+                    _cancel = styled_button("取消", primary=False)
+                    _btn_row.addWidget(_ok); _btn_row.addWidget(_cancel)
+                    _content.addLayout(_btn_row)
+                    _ok.clicked.connect(_dlg.accept)
+                    _cancel.clicked.connect(_dlg.reject)
+                    center_dialog(_dlg)
+                    fade_in_dialog(_dlg)
+                    if _dlg.exec_() == QDialog.Accepted:
+                        target = _spin.value()
+                        if target == ri + 1:
+                            return
+                        self.move_op_to_position(folder_path, ri + 1, target)
+
+                for _w in [row_widget] + row_widget.findChildren(QWidget):
+                    _w.setContextMenuPolicy(Qt.CustomContextMenu)
+                    _w.customContextMenuRequested.connect(
+                        lambda pos, wid=_w, ri=i: _show_row_menu(ri, pos, wid))
 
                 list_layout.addWidget(row_widget, 0, Qt.AlignTop)
 
@@ -2921,6 +3061,12 @@ class FolderManager(QDialog):
                 _lb = QLabel("条件分支")
                 _lb.setStyleSheet("QLabel{color:#AF52DE;font-size:11px;padding:2px 6px;background:rgba(175,82,222,0.1);border-radius:6px;}")
                 _l.addWidget(_lb, 0, Qt.AlignCenter)
+            elif _at in ('left_click', 'right_click', 'double_click', 'middle_click'):
+                _x = int(record.get('x', 0))
+                _y = int(record.get('y', 0))
+                _lb = QLabel(f"坐标 {_x}, {_y}")
+                _lb.setStyleSheet("QLabel{color:#1E9E45;font-size:11px;padding:2px 6px;background:rgba(30,158,69,0.1);border-radius:6px;}")
+                _l.addWidget(_lb, 0, Qt.AlignCenter)
             else:
                 # 点击类：定位代码（坐标）已按用户要求移除
                 pass
@@ -2935,7 +3081,7 @@ class FolderManager(QDialog):
             _b = QPushButton("删除")
             _b.setFixedHeight(28)
             _b.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            _b.setStyleSheet("QPushButton{background:transparent;color:#FF3B30;border:1px solid #FF3B30;border-radius: 4px;padding:2px 8px;font-size:12px;}QPushButton:hover{background:#FF3B30;color:white;}")
+            _b.setStyleSheet("QPushButton{background:transparent;color:#FF3B30;border:1px solid #FF3B30;border-radius:9999px;padding:2px 8px;font-size:12px;}QPushButton:hover{background:#FF3B30;color:white;}")
             _b.setCursor(Qt.PointingHandCursor)
             _b.clicked.connect(lambda checked=False, idx=row_idx: (
                 recording_data.pop(idx),
@@ -2995,7 +3141,7 @@ class FolderManager(QDialog):
             QPushButton {
                 background-color: #34C759;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 padding: 8px 16px;
                 font-size: 12px;
                 font-weight: bold;
@@ -3165,7 +3311,7 @@ class FolderManager(QDialog):
             _btn_bar = QHBoxLayout()
             _btn_bar.addStretch()
             close_btn = QPushButton("关闭")
-            close_btn.setStyleSheet("""QPushButton{background-color:#5A6069;color:white;border:none;border-radius:6px;padding:10px 24px;font-size:13px;font-weight:bold;}QPushButton:hover{background-color:#6B7178;}""")
+            close_btn.setStyleSheet("""QPushButton{background-color:#5A6069;color:white;border:none;border-radius:9999px;padding:10px 24px;font-size:13px;font-weight:bold;}QPushButton:hover{background-color:#6B7178;}""")
             close_btn.clicked.connect(coord_dialog.close)
             _btn_bar.addWidget(close_btn)
             _inner.addLayout(_btn_bar)
@@ -3477,7 +3623,7 @@ class FolderManager(QDialog):
                             background-color: #FFFFFF;
                             color: #8E8E93;
                             border: 1px solid #D1D1D6;
-                            border-radius: 6px;
+                            border-radius:9999px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -3730,7 +3876,7 @@ class FolderManager(QDialog):
                             background-color: #FFFFFF;
                             color: #8E8E93;
                             border: 1px solid #D1D1D6;
-                            border-radius: 6px;
+                            border-radius:9999px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -3844,7 +3990,7 @@ class FolderManager(QDialog):
                             background-color: #FFFFFF;
                             color: #8E8E93;
                             border: 1px solid #D1D1D6;
-                            border-radius: 6px;
+                            border-radius:9999px;
                             font-weight: bold;
                             font-size: 14px;
                             font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4085,7 +4231,7 @@ class FolderManager(QDialog):
             QPushButton {
                 background-color: #5A6069;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4112,7 +4258,7 @@ class FolderManager(QDialog):
             QPushButton {
                 background-color: #5A6069;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4205,7 +4351,7 @@ class FolderManager(QDialog):
             QPushButton {
                 background-color: #5A6069;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4230,7 +4376,7 @@ class FolderManager(QDialog):
             QPushButton {
                 background-color: #5A6069;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4396,7 +4542,7 @@ class FolderManager(QDialog):
                 QPushButton {
                     background-color: #5A6069;
                     color: white;
-                    border-radius: 4px;
+                    border-radius:9999px;
                     font-size: 14px;
                     font-weight: bold;
                 }
@@ -4410,7 +4556,7 @@ class FolderManager(QDialog):
                 QPushButton {
                     background-color: #5A6069;
                     color: white;
-                    border-radius: 6px;
+                    border-radius:9999px;
                     font-weight: bold;
                     font-size: 14px;
                     font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4781,7 +4927,7 @@ class FolderManager(QDialog):
         clear_btn.setFixedSize(110, 32)
         clear_btn.setStyleSheet("""
             QPushButton#clearTrashBtn {
-                background-color: #5A6069; color: white; border: none; border-radius: 4px;
+                background-color: #5A6069; color: white; border: none; border-radius:9999px;
                 font-weight: bold; font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
@@ -4837,7 +4983,7 @@ class FolderManager(QDialog):
                 QPushButton {
                     background-color: #5A6069;
                     color: white;
-                    border-radius: 4px;  /* 减小圆角 */
+                    border-radius:9999px;  /* 减小圆角 */
                     font-weight: bold;
                     font-size: 11px;  /* 减小字体大小 */
                     font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -4872,7 +5018,7 @@ class FolderManager(QDialog):
                 QPushButton {
                     background-color: #5A6069;
                     color: white;
-                    border-radius: 4px;  /* 减小圆角 */
+                    border-radius:9999px;  /* 减小圆角 */
                     font-weight: bold;
                     font-size: 11px;  /* 减小字体大小 */
                     font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -5249,7 +5395,7 @@ class FolderManager(QDialog):
             font-size: 18px; font-weight: 600; letter-spacing: 2px;
             padding: 14px;
             border: 1.5px dashed #D1D1D6;
-            border-radius: 10px;
+            border-radius:9999px;
             background-color: #FAFAFA;
             color: #1A1A2E;
             min-height: 40px;
@@ -6628,7 +6774,7 @@ class AutoRecorderApp(QMainWindow):
         _outer.setStyleSheet("""
             QFrame#logOuter {
                 background-color: #F5F5F7;
-                border-radius: 14px;
+                border-radius:9999px;
                 border: 1px solid #D1D1D6;
             }
         """)
@@ -6654,7 +6800,7 @@ class AutoRecorderApp(QMainWindow):
         clear_btn.setFixedHeight(24)
         clear_btn.setStyleSheet("""
             QPushButton#clearLogBtn {
-                background-color: #E9E9EE; color: #1D1D1F; border: none; border-radius: 8px;
+                background-color: #E9E9EE; color: #1D1D1F; border: none; border-radius:9999px;
                 padding: 0 14px; font-weight: 500; font-size: 12px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
             }
@@ -6816,7 +6962,7 @@ class AutoRecorderApp(QMainWindow):
         _d_close = QLabel("✕")
         _d_close.setFixedSize(24, 24)
         _d_close.setAlignment(Qt.AlignCenter)
-        _d_close.setStyleSheet("QLabel{color:#9AA0A8; font-size:15px; background:transparent; border:none; border-radius:12px;}QLabel:hover{background:#F4F6F8; color:#4A5568;}")
+        _d_close.setStyleSheet("QLabel{color:#9AA0A8; font-size:15px; background:transparent; border:none; border-radius:9999px;}QLabel:hover{background:#F4F6F8; color:#4A5568;}")
         _d_close.setCursor(Qt.PointingHandCursor)
         def _dclose_ev(ev):
             if ev.button()==Qt.LeftButton: self.close_replay_indicator()
@@ -6892,7 +7038,7 @@ class AutoRecorderApp(QMainWindow):
                 color: white;
                 border: none;
                 outline: none;
-                border-radius: 24px;
+                border-radius:9999px;
                 font-size: 15px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
                 font-weight: 500;
@@ -7031,7 +7177,7 @@ class AutoRecorderApp(QMainWindow):
                 background: transparent;
                 border: none;
                 outline: none;
-                border-radius: 17px;
+                border-radius:9999px;
             }
             QPushButton:hover {
                 background-color: rgba(13, 122, 77, 0.12);
@@ -7800,7 +7946,7 @@ class AutoRecorderApp(QMainWindow):
                     background-color: #F2F2F7;
                     color: #8E8E93;
                     border: none;
-                    border-radius: 8px;
+                    border-radius:9999px;
                     padding: 0 24px;
                     font-size: 14px;
                     font-weight: 500;
@@ -7819,7 +7965,7 @@ class AutoRecorderApp(QMainWindow):
                     background-color: #34C759;
                     color: #FFFFFF;
                     border: none;
-                    border-radius: 8px;
+                    border-radius:9999px;
                     padding: 0 24px;
                     font-size: 14px;
                     font-weight: 600;
@@ -7947,7 +8093,7 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #5A6069;
                         color: white;
-                        border-radius: 8px;
+                        border-radius:9999px;
                         font-size: 18px;
                         font-weight: bold;
                         font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -7966,7 +8112,7 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #8E8E93;
                         color: white;
-                        border-radius: 8px;
+                        border-radius:9999px;
                         font-size: 18px;
                         font-weight: bold;
                         font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Segoe UI', sans-serif;
@@ -8550,7 +8696,7 @@ class AutoRecorderApp(QMainWindow):
         main_card.setStyleSheet("""
             QWidget {
                 background-color: white;
-                border-radius: 16px;
+                border-radius:9999px;
                 border: 1px solid #e8ecf0;
             }
         """)
@@ -8746,7 +8892,7 @@ class AutoRecorderApp(QMainWindow):
         #         background-color: #faad14;
         #         color: white;
         #         border: none;
-        #         border-radius: 6px;
+        #         border-radius:9999px;
         #         padding: 12px 20px;
         #         font-size: 14px;
         #         text-align: left;
@@ -8766,7 +8912,7 @@ class AutoRecorderApp(QMainWindow):
             QPushButton {
                 background-color: #722ed1;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 padding: 12px 20px;
                 font-size: 14px;
                 text-align: left;
@@ -8786,7 +8932,7 @@ class AutoRecorderApp(QMainWindow):
             QPushButton {
                 background-color: #d48806;
                 color: white;
-                border-radius: 6px;
+                border-radius:9999px;
                 padding: 12px 20px;
                 font-size: 14px;
                 text-align: left;
@@ -8810,7 +8956,7 @@ class AutoRecorderApp(QMainWindow):
                 QPushButton {
                     background-color: #faad14;
                     color: white;
-                    border-radius: 6px;
+                    border-radius:9999px;
                     padding: 12px 20px;
                     font-size: 14px;
                     text-align: left;
@@ -8826,7 +8972,7 @@ class AutoRecorderApp(QMainWindow):
                 QPushButton {
                     background-color: #52c41a;
                     color: white;
-                    border-radius: 6px;
+                    border-radius:9999px;
                     padding: 12px 20px;
                     font-size: 14px;
                     text-align: left;
@@ -8966,7 +9112,7 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #5A6069;
                         color: white;
-                        border-radius: 8px;
+                        border-radius:9999px;
                         font-size: 16px;
                         font-weight: bold;
                     }
@@ -8976,7 +9122,7 @@ class AutoRecorderApp(QMainWindow):
                     QPushButton {
                         background-color: #D1D1D6;
                         color: #8E8E93;
-                        border-radius: 8px;
+                        border-radius:9999px;
                         font-size: 16px;
                         font-weight: bold;
                     }
@@ -9030,8 +9176,8 @@ class AutoRecorderApp(QMainWindow):
 
         # 上一步按钮
         prev_btn = QPushButton("上一步")
-        prev_btn.setIcon(load_svg_icon("arrow_left", 16))
-        prev_btn.setIconSize(QSize(16, 16))
+        prev_btn.setIcon(load_svg_icon("arrow_left", 20))
+        prev_btn.setIconSize(QSize(20, 20))
         prev_btn.setFixedHeight(32)
         prev_btn.setEnabled(False)  # 第一步时禁用
         prev_btn.setStyleSheet("""
@@ -9039,7 +9185,7 @@ class AutoRecorderApp(QMainWindow):
                 background-color: #FFFFFF;
                 color: #5A6069;
                 border: 1px solid #D1D1D6;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 0px 12px;
                 font-size: 13px;
                 font-weight: 600;
@@ -9061,7 +9207,7 @@ class AutoRecorderApp(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 0px 14px;
                 font-size: 13px;
                 font-weight: 600;
@@ -9093,7 +9239,7 @@ class AutoRecorderApp(QMainWindow):
                         QPushButton {
                             background-color: #5A6069;
                             color: white;
-                            border-radius: border-radius: 8px               font-size: 16px;
+                            border-radius: border-radius:9999px               font-size: 16px;
                             font-weight: bold;
                         }
                     """)
@@ -9434,7 +9580,7 @@ class AutoRecorderApp(QMainWindow):
             font-size: 18px; font-weight: 600; letter-spacing: 2px;
             padding: 14px;
             border: 1.5px dashed #D1D1D6;
-            border-radius: 10px;
+            border-radius:9999px;
             background-color: #FAFAFA;
             color: #1A1A2E;
             min-height: 40px;
@@ -9657,7 +9803,7 @@ class AutoRecorderApp(QMainWindow):
             QFrame#tdContainer {
                 background: #F5F5F7;
                 border: 1px solid #8E8E93;
-                border-radius: 16px;
+                border-radius:9999px;
                 font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
                 color: #1D1D1F;
             }

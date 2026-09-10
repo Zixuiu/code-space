@@ -135,7 +135,7 @@ class ActivationDialog(QDialog):
         panel.setObjectName("Panel")
         panel.setAttribute(Qt.WA_StyledBackground, True)
         panel.setStyleSheet(self.st.get(
-            "panel", "QFrame#Panel{background:#F5F5F7;border:none;border-radius:14px;}"))
+            "panel", "QFrame#Panel{background:#F5F5F7;border:none;border-radius:9999px;}"))
         pv = QVBoxLayout(panel)
         pv.setContentsMargins(14, 14, 14, 14)
         pv.setSpacing(10)

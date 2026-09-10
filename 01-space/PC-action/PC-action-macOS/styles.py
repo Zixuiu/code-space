@@ -151,7 +151,7 @@ def generate_dynamic_styles(screen_width=None, screen_height=None):
     # 计算动态尺寸
     main_window_radius = int(screen_height * 0.012)
     widget_radius = int(screen_height * 0.008)
-    button_radius = int(screen_height * 0.008)
+    button_radius = 9999
     menu_radius = int(screen_height * 0.006)
     dialog_border_radius = int(screen_height * 0.012)
     input_border_radius = int(screen_height * 0.003)
@@ -655,7 +655,7 @@ def get_button_style(style_type="primary", screen_width=None, screen_height=None
     if not screen_width or not screen_height:
         screen_width, screen_height = get_screen_size()
 
-    button_radius = int(screen_height * 0.008)
+    button_radius = 9999
     font_size = 18
 
     if style_type == "primary":
@@ -1234,7 +1234,7 @@ def frameless_dialog_with_titlebar(dialog, title, bar_height=36):
     x_btn.setCursor(Qt.PointingHandCursor)
     x_btn.setStyleSheet(
         "QPushButton{background:transparent;border:none;color:#7A8190;"
-        "font-size:14px;border-radius:6px;}"
+        "font-size:14px;border-radius:9999px;}"
         "QPushButton:hover{background:#FF5F57;color:white;}"
     )
     x_btn.clicked.connect(dialog.close)

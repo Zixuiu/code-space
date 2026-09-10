@@ -48,13 +48,13 @@ except ImportError:
     print("警告: 样式模块未找到，将使用默认样式")
 
 # 充值审核按钮样式常量
-_RCH_GRY = """QPushButton { background-color:#5A6069; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+_RCH_GRY = """QPushButton { background-color:#5A6069; color:white; border:none; border-radius:9999px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
 QPushButton:hover { background-color:#5A6069; }
 QPushButton:pressed { background-color:#5A6069; }"""
-_RCH_OK = """QPushButton { background-color:#2E7D32; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+_RCH_OK = """QPushButton { background-color:#2E7D32; color:white; border:none; border-radius:9999px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
 QPushButton:hover { background-color:#388E3C; }
 QPushButton:pressed { background-color:#1B5E20; }"""
-_RCH_BAD = """QPushButton { background-color:#C62828; color:white; border:none; border-radius:8px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
+_RCH_BAD = """QPushButton { background-color:#C62828; color:white; border:none; border-radius:9999px; font-weight:bold; font-size:14px; font-family:"Microsoft YaHei"; text-align:center; }
 QPushButton:hover { background-color:#D32F2F; }
 QPushButton:pressed { background-color:#B71C1C; }"""
 
@@ -317,7 +317,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 12px;
                 font-family: "Microsoft YaHei";
@@ -579,7 +579,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 11px;
                 font-family: "Microsoft YaHei";
@@ -607,7 +607,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 11px;
                 font-family: "Microsoft YaHei";
@@ -644,7 +644,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 11px;
                 font-family: "Microsoft YaHei";
@@ -672,7 +672,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 11px;
                 font-family: "Microsoft YaHei";
@@ -704,7 +704,7 @@ class AdminManager(QMainWindow):
                 background-color: #FFFFFF;
                 color: #1D1D1F;
                 border: 1px solid #D1D1D6;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 6px 14px;
                 font-size: 13px;
                 font-weight: 500;
@@ -770,7 +770,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 12px;
                 font-family: "Microsoft YaHei";
@@ -794,7 +794,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 12px;
                 font-family: "Microsoft YaHei";
@@ -818,7 +818,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -842,7 +842,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -865,7 +865,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -888,7 +888,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -911,7 +911,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -970,7 +970,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -993,7 +993,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -1016,7 +1016,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -1403,7 +1403,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 10px 20px;
                 font-weight: bold;
             }
@@ -1417,7 +1417,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 10px 20px;
                 font-weight: bold;
             }
@@ -1503,7 +1503,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 10px 20px;
                 font-weight: bold;
             }
@@ -1517,7 +1517,7 @@ class AdminManager(QMainWindow):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 padding: 10px 20px;
                 font-weight: bold;
             }
@@ -2021,7 +2021,7 @@ class CreateUserDialog(QDialog):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";
@@ -2042,7 +2042,7 @@ class CreateUserDialog(QDialog):
                 background-color: #5A6069;
                 color: white;
                 border: none;
-                border-radius: 8px;
+                border-radius:9999px;
                 font-weight: bold;
                 font-size: 14px;
                 font-family: "Microsoft YaHei";

@@ -21,7 +21,7 @@ STYLES = {
         "container": ("QFrame#C{background:#FFFFFF;border:1px solid #D1D1D6;"
                       "border-radius:18px;}"),
         "title": "font-size:17px;font-weight:700;color:#1A1A2E;background:transparent;",
-        "close": ("QPushButton{background:#FF3B30;border:none;border-radius:8px;"
+        "close": ("QPushButton{background:#FF3B30;border:none;border-radius:9999px;"
                   "min-width:0px;min-height:0px;padding:0px;}"
                   "QPushButton:hover{background:#FF6B5E;}"),
         "chip": "#F5F5F7",
@@ -32,7 +32,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#FFFFFF;border:1px solid #E5E5EA;border-radius:12px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#1A1A2E;}}"
                   "QLineEdit:focus{{border-color:#111114;}}"),
-        "button": ("QPushButton{{background:#111114;color:#fff;border:none;border-radius:21px;"
+        "button": ("QPushButton{{background:#111114;color:#fff;border:none;border-radius:9999px;"
                    "font-size:16px;font-weight:700;min-height:0px;padding:0px;}}"
                    "QPushButton:hover{{background:#2C2C31;}}"
                    "QPushButton:pressed{{background:#000000;}}"
@@ -47,7 +47,7 @@ STYLES = {
                       "border-radius:14px;}"),
         "title": "font-size:18px;font-weight:700;color:#F2F2F7;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#98989F;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#2F3037;color:#FFFFFF;}"),
         "muted": "#98989F",
         "status": ("QLabel{{background:{bg};border:1px solid #3A3B42;border-radius:10px;"
@@ -55,7 +55,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#2A2B31;border:2px solid #3A3B42;border-radius:10px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#F2F2F7;}}"
                   "QLineEdit:focus{{border-color:#0A84FF;}}"),
-        "button": ("QPushButton{{background:#0A84FF;color:#fff;border:none;border-radius:10px;"
+        "button": ("QPushButton{{background:#0A84FF;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#2A95FF;}}"
                    "QPushButton:pressed{{background:#0069D9;}}"
@@ -70,7 +70,7 @@ STYLES = {
                       "border-top:6px solid #5E5CE6;}"),
         "title": "font-size:18px;font-weight:700;color:#1D1D3F;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#9A9AB0;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#EEF0FF;color:#5E5CE6;}"),
         "muted": "#8A8AA3",
         "status": ("QLabel{{background:{bg};border-radius:12px;"
@@ -79,7 +79,7 @@ STYLES = {
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#1D1D3F;}}"
                   "QLineEdit:focus{{border-color:#5E5CE6;}}"),
         "button": ("QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
-                   "stop:0 #5E5CE6, stop:1 #0A84FF);color:#fff;border:none;border-radius:12px;"
+                   "stop:0 #5E5CE6, stop:1 #0A84FF);color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#6E6CF0;}}"
                    "QPushButton:pressed{{background:#4B49D6;}}"
@@ -94,7 +94,7 @@ STYLES = {
                       "border-radius:14px;}"),
         "title": "font-size:18px;font-weight:700;color:#1B4332;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#6B9080;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#E3F2E8;color:#1B4332;}"),
         "muted": "#6B9080",
         "status": ("QLabel{{background:{bg};border:1px solid #CDE5D6;border-radius:10px;"
@@ -102,7 +102,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#FFFFFF;border:2px solid #CDE5D6;border-radius:10px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#1B4332;}}"
                   "QLineEdit:focus{{border-color:#2D6A4F;}}"),
-        "button": ("QPushButton{{background:#2D6A4F;color:#fff;border:none;border-radius:10px;"
+        "button": ("QPushButton{{background:#2D6A4F;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#40916C;}}"
                    "QPushButton:pressed{{background:#1B4332;}}"
@@ -117,7 +117,7 @@ STYLES = {
                       "border-radius:16px;}"),
         "title": "font-size:18px;font-weight:700;color:#4A2C17;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#B08968;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#FBEADB;color:#4A2C17;}"),
         "muted": "#B08968",
         "status": ("QLabel{{background:{bg};border-radius:12px;"
@@ -125,7 +125,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#FFFFFF;border:2px solid #F0D9C0;border-radius:12px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#4A2C17;}}"
                   "QLineEdit:focus{{border-color:#E8590C;}}"),
-        "button": ("QPushButton{{background:#E8590C;color:#fff;border:none;border-radius:12px;"
+        "button": ("QPushButton{{background:#E8590C;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#F76707;}}"
                    "QPushButton:pressed{{background:#D9480F;}}"
@@ -141,7 +141,7 @@ STYLES = {
         "title": ("font-size:18px;font-weight:700;color:#1A1A2E;background:transparent;"
                   "border-left:4px solid #1A1A2E;padding-left:10px;"),
         "close": ("QPushButton{background:transparent;color:#6C6C80;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#1A1A2E;color:#FFFFFF;}"),
         "muted": "#6C6C80",
         "status": ("QLabel{{background:{bg};border:1px solid #1A1A2E;border-radius:4px;"
@@ -149,7 +149,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#FFFFFF;border:2px solid #1A1A2E;border-radius:4px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#1A1A2E;}}"
                   "QLineEdit:focus{{border-color:#0A84FF;}}"),
-        "button": ("QPushButton{{background:#1A1A2E;color:#fff;border:none;border-radius:4px;"
+        "button": ("QPushButton{{background:#1A1A2E;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#33334D;}}"
                    "QPushButton:pressed{{background:#0D0D17;}}"
@@ -164,7 +164,7 @@ STYLES = {
                       "border-radius:12px;}"),
         "title": "font-size:18px;font-weight:700;color:#E8F1FF;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#7FA8D9;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#13375F;color:#E8F1FF;}"),
         "muted": "#7FA8D9",
         "status": ("QLabel{{background:{bg};border:1px solid #1D4E89;border-radius:8px;"
@@ -172,7 +172,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#13375F;border:2px solid #1D4E89;border-radius:8px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#E8F1FF;}}"
                   "QLineEdit:focus{{border-color:#00D4FF;}}"),
-        "button": ("QPushButton{{background:#00D4FF;color:#04264B;border:none;border-radius:8px;"
+        "button": ("QPushButton{{background:#00D4FF;color:#04264B;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#33DEFF;}}"
                    "QPushButton:pressed{{background:#00B2D9;}}"
@@ -187,7 +187,7 @@ STYLES = {
                       "border-radius:16px;}"),
         "title": "font-size:18px;font-weight:700;color:#4A1D2B;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#C2808F;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#FBE3E9;color:#4A1D2B;}"),
         "muted": "#C2808F",
         "status": ("QLabel{{background:{bg};border-radius:12px;"
@@ -195,7 +195,7 @@ STYLES = {
         "input": ("QLineEdit{{background:#FFFFFF;border:2px solid #F2CBD6;border-radius:12px;"
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#4A1D2B;}}"
                   "QLineEdit:focus{{border-color:#D6336C;}}"),
-        "button": ("QPushButton{{background:#D6336C;color:#fff;border:none;border-radius:12px;"
+        "button": ("QPushButton{{background:#D6336C;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#E64980;}}"
                    "QPushButton:pressed{{background:#B02A5B;}}"
@@ -210,7 +210,7 @@ STYLES = {
                       "border-radius:16px;}"),
         "title": "font-size:18px;font-weight:700;color:#F5F5FA;background:transparent;",
         "close": ("QPushButton{background:transparent;color:#A8A8B8;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:rgba(255,255,255,0.10);color:#FFFFFF;}"),
         "muted": "#A8A8B8",
         "status": ("QLabel{{background:{bg};border:1px solid rgba(255,255,255,0.10);"
@@ -219,7 +219,7 @@ STYLES = {
                   "border-radius:12px;padding:0 12px;font-size:15px;font-weight:600;"
                   "letter-spacing:1px;color:#F5F5FA;}}"
                   "QLineEdit:focus{{border-color:#7C7CF0;}}"),
-        "button": ("QPushButton{{background:#7C7CF0;color:#fff;border:none;border-radius:12px;"
+        "button": ("QPushButton{{background:#7C7CF0;color:#fff;border:none;border-radius:9999px;"
                    "font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#9090F5;}}"
                    "QPushButton:pressed{{background:#6262D8;}}"
@@ -234,7 +234,7 @@ STYLES = {
                       "border-radius:18px;}"),
         "title": "font-size:18px;font-weight:700;color:#2D3A52;background:transparent;",
         "close": ("QPushButton{background:#E8ECF3;color:#7C89A3;border:none;"
-                  "border-radius:14px;font-size:18px;font-weight:600;}"
+                  "border-radius:9999px;font-size:18px;font-weight:600;}"
                   "QPushButton:hover{background:#DDE3EE;color:#2D3A52;}"),
         "muted": "#7C89A3",
         "status": ("QLabel{{background:{bg};border-radius:12px;"
@@ -243,7 +243,7 @@ STYLES = {
                   "padding:0 12px;font-size:15px;font-weight:600;letter-spacing:1px;color:#2D3A52;}}"
                   "QLineEdit:focus{{border:2px solid #5B7BBD;}}"),
         "button": ("QPushButton{{background:#E8ECF3;color:#3D5A9E;border:1px solid #D0D8E6;"
-                   "border-radius:12px;font-size:15px;font-weight:700;}}"
+                   "border-radius:9999px;font-size:15px;font-weight:700;}}"
                    "QPushButton:hover{{background:#DFE6F1;}}"
                    "QPushButton:pressed{{background:#D2DAE9;color:#2D3A52;}}"
                    "QPushButton:disabled{{color:#AEB8CB;}}"),

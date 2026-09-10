@@ -132,12 +132,12 @@ class StyledMessageDialog(QDialog):
             b.setFixedHeight(32)
             b.setMinimumWidth(80)
             if primary:
-                b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
+                b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
                 # 主按钮：Enter 就走它（用户要求「Enter 默认＝是/确定」）
                 b.setDefault(True)
                 b.setAutoDefault(True)
             else:
-                b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
+                b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
                 # 次按钮：关掉 autoDefault，避免它抢走 Enter
                 b.setAutoDefault(False)
                 b.setDefault(False)
@@ -259,7 +259,7 @@ class StyledInputDialog(QDialog):
 
         container = QWidget()
         container.setObjectName("C")
-        container.setStyleSheet("QWidget#C{background:#FFFFFF;border:none;border-radius:12px;}")
+        container.setStyleSheet("QWidget#C{background:#FFFFFF;border:none;border-radius:9999px;}")
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -363,12 +363,12 @@ class StyledInputDialog(QDialog):
             b.setFixedHeight(32)
             b.setMinimumWidth(80)
             if primary:
-                b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
+                b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
                 # 主按钮＝确定：Enter 走它
                 b.setDefault(True)
                 b.setAutoDefault(True)
             else:
-                b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
+                b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
                 b.setAutoDefault(False)
                 b.setDefault(False)
             b.clicked.connect(lambda: self._done(val))
@@ -558,11 +558,11 @@ def styled_button(text, primary=True, danger=False):
     b.setFixedHeight(32)
     b.setMinimumWidth(80)
     if primary:
-        b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
+        b.setStyleSheet("QPushButton{background:#5A6069;color:#fff;border:none;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#6B7178;}QPushButton:pressed{background:#474C54;}")
     elif danger:
-        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#FF3B30;border:1px solid #FFD1CC;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#FFF0EE;}QPushButton:pressed{background:#FFE3DF;}")
+        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#FF3B30;border:1px solid #FFD1CC;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#FFF0EE;}QPushButton:pressed{background:#FFE3DF;}")
     else:
-        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:8px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
+        b.setStyleSheet("QPushButton{background:#FFFFFF;color:#5A6069;border:1px solid #D1D1D6;border-radius:9999px;padding:0 12px;font-size:13px;font-weight:600;}QPushButton:hover{background:#F0F0F2;color:#474C54;}QPushButton:pressed{background:#E8E8ED;}")
     b.setAutoDefault(False)
     b.setDefault(False)
     return b

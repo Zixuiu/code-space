@@ -516,6 +516,26 @@ def load_svg_icon(name, size=27, color=None):
         return QIcon()
 
 
+def _app_icon():
+    """构建程序皮肤图标（闪电 logo，用于主窗口/任务栏/托盘）。"""
+    size = int(round(256 * ICON_SCALE))
+    try:
+        from PyQt5.QtSvg import QSvgRenderer
+        game_logo = os.path.join(_ICON_DIR, "app_logo.svg")
+        renderer = QSvgRenderer(game_logo)
+        if not renderer.isValid():
+            return QIcon()
+        pix = QPixmap(size, size)
+        pix.fill(Qt.transparent)
+        painter = QPainter(pix)
+        painter.setRenderHint(QPainter.Antialiasing)
+        renderer.render(painter)
+        painter.end()
+        return QIcon(pix)
+    except Exception:
+        return QIcon()
+
+
 def _set_table_icon_centered(table, row, col, icon_name, size):
     """在 QTableWidget 单元格中显示一个严格水平+垂直居中的图标。
 
@@ -1740,29 +1760,23 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card_layout.setSpacing(16)
         self._mgr_time = 0
         self._mgr_kw = ""
-        self._mgr_combo = "all"
-
-        header = QHBoxLayout()
-        header.setSpacing(10)
+        self._mgr_combo = "out"
 
         # 统一扁平按钮样式（无边框 / 无阴影 / 统一圆角与内边距 / 语义配色）
         refresh_btn = QPushButton("刷新")
-        refresh_btn.setStyleSheet(flat_button_style("neutral"))
-        refresh_btn.setIcon(load_svg_icon("refresh", 16))
-        refresh_btn.setIconSize(QSize(14, 14))
-        refresh_btn.setMinimumWidth(60)
+        refresh_btn.setStyleSheet(flat_button_style("neutral", radius=14, font_size=12, padding="0 14px"))
+        refresh_btn.setFixedHeight(28)
+        refresh_btn.setIcon(load_svg_icon("refresh", 20))
+        refresh_btn.setIconSize(QSize(20, 20))
         refresh_btn.setCursor(Qt.PointingHandCursor)
-        header.addWidget(refresh_btn)
 
         trash_btn = QPushButton("回收站")
-        trash_btn.setStyleSheet(flat_button_style("danger"))
-        trash_btn.setIcon(load_svg_icon("trash", 16))
-        trash_btn.setIconSize(QSize(14, 14))
+        trash_btn.setStyleSheet(flat_button_style("danger", radius=14, font_size=12, padding="0 14px"))
+        trash_btn.setFixedHeight(28)
+        trash_btn.setIcon(load_svg_icon("trash", 20))
+        trash_btn.setIconSize(QSize(20, 20))
         trash_btn.setMinimumWidth(60)
         trash_btn.setCursor(Qt.PointingHandCursor)
-        header.addWidget(trash_btn)
-        header.addStretch()
-        card_layout.addLayout(header)
 
         # ── 组合技流程筛选条：全部 / 时间范围 / 关键词 / 在组合技里 / 未在组合技里 ──
         from PyQt5.QtWidgets import QComboBox, QLineEdit
@@ -1770,20 +1784,22 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         tl = QLabel("时间"); tl.setStyleSheet("color:#8E96A0;font-size:12px;font-family:'Microsoft YaHei';")
         filt.addWidget(tl)
         time_cb = QComboBox(); time_cb.addItems(["全部时间", "近 7 天", "近 30 天"]); time_cb.setFixedWidth(104)
-        time_cb.setStyleSheet("QComboBox{background:#FFFFFF;color:#333333;border:1px solid #E5E7EC;border-radius:8px;padding:5px 10px;font-size:12px;font-family:'Microsoft YaHei';} QComboBox::drop-down{border:none;width:18px;} QComboBox::down-arrow{border:none;}")
+        time_cb.setStyleSheet("QComboBox{background:#FFFFFF;color:#333333;border:1px solid #E5E7EC;border-radius:9999px;padding:5px 10px;font-size:12px;font-family:'Microsoft YaHei';} QComboBox::drop-down{border:none;width:18px;} QComboBox::down-arrow{border:none;}")
         filt.addWidget(time_cb)
         search_edit = QLineEdit(); search_edit.setPlaceholderText("搜索流程名称…"); search_edit.setClearButtonEnabled(True); search_edit.setFixedWidth(180)
         search_edit.setStyleSheet("QLineEdit{background:#FFFFFF;border:1px solid #E5E7EC;border-radius:8px;padding:6px 10px;font-size:12px;color:#333333;font-family:'Microsoft YaHei';} QLineEdit:focus{border:1px solid #0D7A4D;}")
         filt.addWidget(search_edit)
         def _combo_style(on):
             if on:
-                return "QPushButton{background:#0D7A4D;color:#FFFFFF;border:none;outline:none;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
-            return "QPushButton{background:#EEF3F0;color:#565B61;border:none;outline:none;border-radius:8px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
+                return "QPushButton{background:#0D7A4D;color:#FFFFFF;border:none;outline:none;border-radius:9999px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
+            return "QPushButton{background:#EEF3F0;color:#565B61;border:none;outline:none;border-radius:9999px;padding:0 14px;font-size:12px;font-weight:600;font-family:'Microsoft YaHei';}"
         state_map = {}
         for key, label in [("all", "全部"), ("in", "在组合技里"), ("out", "未在组合技里")]:
             b = QPushButton(label); b.setCheckable(True); b.setCursor(Qt.PointingHandCursor)
-            b.setStyleSheet(_combo_style(key == "all")); filt.addWidget(b); state_map[key] = b
+            b.setStyleSheet(_combo_style(key == "out")); filt.addWidget(b); state_map[key] = b
         filt.addStretch(1)
+        filt.addWidget(refresh_btn, 0, Qt.AlignVCenter)
+        filt.addWidget(trash_btn, 0, Qt.AlignVCenter)
         card_layout.addLayout(filt)
 
         def _apply_filter():
@@ -1975,7 +1991,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             QPushButton {
                 text-align: left; border: none; background: #FFFFFF;
                 color: #374151; font-size: 13px; padding: 9px 14px;
-                border-radius: 0px;
+                border-radius:9999px;
             }
             QPushButton:hover { background: #E8F0FE; color: #111827; }
         """)
@@ -1986,7 +2002,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 text-align: left; border: none; background: #FFFFFF;
                 color: #DC2626; font-size: 13px; padding: 9px 14px;
                 border-top: 1px solid #EEF0F4;
-                border-radius: 0px;
+                border-radius:9999px;
             }
             QPushButton:hover { background: #FDECEC; color: #B91C1C; }
         """)
@@ -1997,7 +2013,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             QPushButton {
                 text-align: left; border: none; background: #FFFFFF;
                 color: #374151; font-size: 13px; padding: 9px 14px;
-                border-radius: 0px;
+                border-radius:9999px;
             }
             QPushButton:hover { background: #E8F0FE; color: #111827; }
         """)
@@ -2018,16 +2034,54 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         card.raise_()
 
     def _referenced_flow_names(self):
-        """返回所有已被组合技引用的流程文件夹名集合（组合技 flows 里 action='执行: <folder>'）"""
+        """返回已被组合技引用的流程文件夹名集合。
+
+        判定依据两种引用：
+          1) 动作里执行的流程（'执行: <名>' 或 直接为流程名）；
+          2) 条件检测图片所属的流程（condition_image 指向 recordings/<流程名>/...，
+             说明该流程截图被组合技用作判断条件，也算被引用）。
+        """
+        rec = get_recordings_path()
+        rec_norm = os.path.normpath(rec).replace('\\', '/')
+        try:
+            real_dirs = {d for d in os.listdir(rec)
+                         if os.path.isdir(os.path.join(rec, d)) and d != 'trash'}
+        except Exception:
+            real_dirs = set()
+
+        def _dir_of_image(img):
+            p = os.path.normpath(img).replace('\\', '/')
+            tail = 'recordings'
+            if tail in p.split('/'):
+                idx = p.split('/').index(tail)
+                rest = p.split('/')[idx + 1:]
+                return rest[0] if rest else None
+            return None
+
         names = set()
         try:
             from combo_skill_manager import ComboSkillManager as _CSM
             csm = _CSM()
             for skill in (getattr(csm, 'combo_skills', None) or []):
                 for fl in (skill.get('flows') or []):
-                    action = (fl.get('action') or '')
-                    if action.startswith('执行: '):
-                        names.add(action[3:].strip())
+                    action = (fl.get('action') or '').strip()
+                    if action.startswith('执行:'):
+                        action = action[2:].strip()
+                    if action and action in real_dirs:
+                        names.add(action)
+                    stack = [fl]
+                    while stack:
+                        node = stack.pop()
+                        if isinstance(node, dict):
+                            for v in node.values():
+                                if isinstance(v, str) and rec_norm in v.replace('\\', '/'):
+                                    d = _dir_of_image(v)
+                                    if d and d in real_dirs:
+                                        names.add(d)
+                                elif isinstance(v, (dict, list)):
+                                    stack.append(v)
+                        elif isinstance(node, list):
+                            stack.extend(node)
         except Exception:
             pass
         return names
@@ -2035,7 +2089,7 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
     def load_folders_to_table(self, table_widget):
         self._mgr_time = getattr(self, '_mgr_time', 0) or 0
         self._mgr_kw = getattr(self, '_mgr_kw', '') or ''
-        self._mgr_combo = getattr(self, '_mgr_combo', 'all') or 'all'
+        self._mgr_combo = getattr(self, '_mgr_combo', 'out') or 'out'
         table_widget.setRowCount(0)
         recordings_dir = get_recordings_path()
 
@@ -2520,29 +2574,29 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         refresh_btn = QPushButton("刷新")
         refresh_btn.setStyleSheet(_flat_neutral)
-        refresh_btn.setIcon(load_svg_icon("refresh", 16))
-        refresh_btn.setIconSize(QSize(14, 14))
+        refresh_btn.setIcon(load_svg_icon("refresh", 20))
+        refresh_btn.setIconSize(QSize(20, 20))
         refresh_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(refresh_btn)
 
         run_selected_btn = QPushButton("启动选中")
         run_selected_btn.setStyleSheet(_flat_neutral)
-        run_selected_btn.setIcon(load_svg_icon("play", 16))
-        run_selected_btn.setIconSize(QSize(14, 14))
+        run_selected_btn.setIcon(load_svg_icon("play", 20))
+        run_selected_btn.setIconSize(QSize(20, 20))
         run_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(run_selected_btn)
 
         stop_selected_btn = QPushButton("停止选中")
         stop_selected_btn.setStyleSheet(_flat_neutral)
-        stop_selected_btn.setIcon(load_svg_icon("stop", 16))
-        stop_selected_btn.setIconSize(QSize(14, 14))
+        stop_selected_btn.setIcon(load_svg_icon("stop", 20))
+        stop_selected_btn.setIconSize(QSize(20, 20))
         stop_selected_btn.setCursor(Qt.PointingHandCursor)
         header.addWidget(stop_selected_btn)
 
         stop_all_btn = QPushButton("全部停止")
         stop_all_btn.setStyleSheet(_flat_neutral)
-        stop_all_btn.setIcon(load_svg_icon("stop", 16))
-        stop_all_btn.setIconSize(QSize(14, 14))
+        stop_all_btn.setIcon(load_svg_icon("stop", 20))
+        stop_all_btn.setIconSize(QSize(20, 20))
         stop_all_btn.setCursor(Qt.PointingHandCursor)
         stop_all_btn.setVisible(False)
         header.addWidget(stop_all_btn)
@@ -3049,7 +3103,10 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.style().standardIcon(QStyle.SP_ComputerIcon))
+        tray_pix = _app_icon().pixmap(QSize(96, 96))
+        if tray_pix.isNull():
+            tray_pix = self.style().standardIcon(QStyle.SP_ComputerIcon).pixmap(QSize(96, 96))
+        self.tray_icon.setIcon(QIcon(tray_pix))
         self.tray_icon.setToolTip("Action")
         tray_menu = QMenu(self)
         show_action = tray_menu.addAction("显示主窗口")
@@ -4216,6 +4273,10 @@ def start_macos_app():
     from crash_logger import make_application
     app = make_application(sys.argv)
 
+    # ★ 运行时胶囊修正器：所有按钮统一胶囊圆角（border-radius=height/2）。
+    from design_system import install_capsule_button_fixer
+    install_capsule_button_fixer()
+
     # ★ 单实例保护：必须赶在主窗口构造（= 注册全局热键）之前。
     #   已有实例在运行则激活它的窗口、本进程直接结束，避免出现两套全局钩子互相打架。
     if not ensure_single_instance():
@@ -4239,6 +4300,18 @@ def start_macos_app():
     app.setFont(font)
 
     app.setStyle("Fusion")
+
+    # 任务栏显示「Action」而不是 pythonw：给进程一个专属 AppUserModelID，
+    # 并在 Qt 应用层登记应用名/显示名（二者需在主窗口创建前设置才生效）。
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("TraeAction.desktop")
+        except Exception:
+            pass
+    app.setApplicationName("Action")
+    app.setApplicationDisplayName("Action")
+
+    app.setWindowIcon(_app_icon())
 
     app.setStyleSheet(f"""
         QMainWindow, QWidget#centralWidget {{ border-radius: 16px; }}
@@ -4287,6 +4360,8 @@ def start_macos_app():
     # 不再弹出独立登录窗；未登录时默认展示账户页，登录成功后自动进入录制控制。
     main_window = MacOSAutoRecorderApp(username=None, login_manager=login_manager)
     main_window.setWindowFlags(Qt.FramelessWindowHint)
+    main_window.setWindowTitle("Action")
+    main_window.setWindowIcon(_app_icon())
     main_window.show()
     # 登记主窗引用：后续再启动时由此实例负责把自己拉到前台
     _single_inst_state["window"] = main_window

@@ -201,7 +201,7 @@ def get_common_styles(screen_width=None, screen_height=None):
             color: white;
             border: none;
             padding: 8px 16px;
-            border-radius: 4px;
+            border-radius:9999px;
         }
         QPushButton:hover {
             background-color: #40a9ff;
@@ -220,7 +220,7 @@ def create_styled_button(text, color="#1890ff"):
             color: white;
             border: none;
             padding: 8px 16px;
-            border-radius: 4px;
+            border-radius: 9999px;
         }}
         QPushButton:hover {{
             background-color: #40a9ff;

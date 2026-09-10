@@ -1349,8 +1349,8 @@ class ComboSkillEditDialog(QDialog):
             del_else_btn.setIconSize(QSize(29, 29))
             del_else_btn.setStyleSheet("""
                 QPushButton { background: transparent; border: none; padding: 2px; }
-                QPushButton:hover { background-color: rgba(0,0,0,0.06); border-radius: 4px; }
-                QPushButton:pressed { background-color: rgba(0,0,0,0.10); border-radius: 4px; }
+                QPushButton:hover { background-color: rgba(0,0,0,0.06); border-radius:9999px; }
+                QPushButton:pressed { background-color: rgba(0,0,0,0.10); border-radius:9999px; }
             """)
             del_else_btn.setFixedWidth(28)
             del_else_btn.setToolTip("删除else分支")

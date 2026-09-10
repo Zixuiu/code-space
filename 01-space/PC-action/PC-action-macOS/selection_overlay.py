@@ -1126,7 +1126,7 @@ class SelectionOverlay(QWidget):
                             background-color: #111827;
                             color: #FFFFFF;
                             border: none;
-                            border-radius: 9px;
+                            border-radius:9999px;
                             font-size: 13px;
                             font-weight: 600;
                             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
@@ -1146,7 +1146,7 @@ class SelectionOverlay(QWidget):
                             background-color: transparent;
                             color: #6B7280;
                             border: 1px solid #D1D5DB;
-                            border-radius: 9px;
+                            border-radius:9999px;
                             font-weight: 600;
                             font-size: 13px;
                             font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
@@ -1723,7 +1723,7 @@ class SelectionOverlay(QWidget):
                     background-color: #FFFFFF;
                     color: #1D1D1F;
                     border: 1px solid #D1D1D6;
-                    border-radius: 8px;
+                    border-radius:9999px;
                     padding: 6px 14px;
                     font-size: 13px;
                     font-weight: 500;
