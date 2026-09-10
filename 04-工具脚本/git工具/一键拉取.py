@@ -227,6 +227,15 @@ def main():
     for p in collect_protect():
         log(f"   保留: {os.path.relpath(p, REPO_ROOT)}", "INFO")
 
+    # 0. 确保 origin 固定为 HTTPS + token（避免 SSH 无密钥导致拉取失真、与远端不一致）
+    try:
+        https_url = auth()
+        if https_url and "gitcode.com" in https_url and "oauth2:" in https_url:
+            run(f'git remote set-url origin "{https_url}"')
+            log("origin 已固定为 HTTPS + token", "INFO")
+    except Exception:
+        pass
+
     # 2. fetch
     log("步骤 1/3: 拉取远端最新代码 ...")
     r = do_fetch(REMOTE, BRANCH)

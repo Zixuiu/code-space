@@ -256,14 +256,15 @@ def main():
     print("=" * 70)
     print(f"📁 工作目录: {BASE_DIR}")
 
-    # Step 1+2: 配置 SSH 并检查私钥 + 认证
-    log("\n步骤 1-2/6: 配置 SSH 公钥 / 私钥 / 客户端...")
-    ssh_ok, pub_key_file, config_file = setup_ssh_and_check()
-    use_token = not ssh_ok
-    if ssh_ok:
-        log("SSH 配置完成，认证通过", "SUCCESS")
-    else:
-        log("SSH 不可用（缺私钥或认证失败），将回退到 HTTPS + token 方式", "WARNING")
+    # Step 1+2: 固定使用 HTTPS + token（本机未配 SSH 私钥；跳过 SSH 以免把 origin 改成 SSH，导致 pull/status 失真）
+    log("\n步骤 1-2/6: 使用 HTTPS + token 认证...")
+    ssh_ok = False
+    use_token = True
+    _tok = get_gitcode_token()
+    if not _tok:
+        log("未找到 GitCode token：请设置环境变量 GITCODE_TOKEN，或在 ~/.ssh/gitcode_token 写入 token", "ERROR")
+        sys.exit(2)
+    HTTPS_URL = f"https://oauth2:{_tok}@gitcode.com/weixin_58844486/codespace.git"
 
     # Step 3: 暂存并提交所有可提交改动
     # 用 `git diff --cached --quiet` 的退出码作为唯一判断依据（最可靠，不解析文本输出）：
@@ -291,15 +292,15 @@ def main():
         else:
             log("提交失败，错误信息: " + (r.stderr.strip() or r.stdout.strip())[:400], "ERROR")
 
-    # Step 4: 设置远程仓库为 SSH
-    log("\n步骤 4/6: 配置远程仓库为 SSH 协议...")
-    r = run_cmd(f'git remote set-url origin "{SSH_URL}"')
+    # Step 4: 固定远程仓库为 HTTPS + token（保证 origin 恒为 HTTPS，pull/status/push 一致；不再改为 SSH）
+    log("\n步骤 4/6: 固定远程仓库为 HTTPS + token ...")
+    r = run_cmd(f'git remote set-url origin "{HTTPS_URL}"')
     if r.returncode == 0:
-        log(f"远程仓库已设置为: {SSH_URL}", "SUCCESS")
+        log("远程仓库已固定为 HTTPS + token", "SUCCESS")
     else:
         log(f"设置失败: {r.stderr}", "ERROR")
     r = run_cmd("git remote -v")
-    if r.returncode == 0 and SSH_URL in r.stdout:
+    if r.returncode == 0 and "gitcode.com" in r.stdout:
         for line in r.stdout.strip().split('\n'):
             if 'origin' in line:
                 print(f"   {line.strip()}")
