@@ -248,6 +248,15 @@ def main():
         restore_protect(snaps)
         return 1
 
+    # 2.5 把远端跟踪引用固化进 packed-refs（2026-09-10 修复）
+    #     本机存在一个怪现象：.git/refs/remotes/origin/* 的 loose 引用在进程结束后会丢失，
+    #     git 于是回退去读旧的 packed-refs，结果 origin/main 永远停在旧值、
+    #     每次 fetch 都重复报告同一个 "a40f601..e36b42e main -> origin/main"，
+    #     看起来像"本地落后于远端"。把引用固化进 packed-refs（能正常持久化）即可根治。
+    r = run("git pack-refs --all --prune")
+    if r.returncode != 0:
+        log("pack-refs 未成功（不影响本次拉取结果）", "WARNING")
+
     # 3. reset --hard 强制对齐远端
     log("步骤 2/3: 强制对齐远端（丢弃本地改动）...")
     r = run("git reset --hard FETCH_HEAD")
