@@ -1,19 +1,19 @@
 ; ============================================================
-; PC-Action 安装包构建脚本 (Inno Setup)
+; Action 安装包构建脚本 (Inno Setup)
 ; 作用：生成标准安装包，安装时让用户选择安装到 C 盘或 D 盘，
 ;       并自动创建开始菜单/桌面快捷方式、支持卸载。
 ;
 ; 使用方法：
 ;   1) 先安装 Inno Setup 6 (https://jrsoftware.org/isinfo.php)
-;   2) 把打包好的 PC-Action.exe 放到本脚本同级的 dist\ 目录
+;   2) 把打包好的 Action.exe 放到本脚本同级的 dist\ 目录
 ;   3) 用 Inno Setup 打开本文件，点 Build，或命令行：
 ;      "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 ; ============================================================
 
-#define MyAppName "PC-Action"
+#define MyAppName "Action"
 #define MyAppVersion "1.0.0"
-#define MyAppPublisher "PC-Action"
-#define MyAppExeName "PC-Action.exe"
+#define MyAppPublisher "Action"
+#define MyAppExeName "Action.exe"
 
 [Setup]
 ; 卸载信息注册到"添加/删除程序"
@@ -31,7 +31,7 @@ DefaultGroupName={#MyAppName}
 ; 打包后放置的 exe（相对本脚本文件）
 SourceDir=..\dist
 OutputDir=..\installer\output
-OutputBaseFilename=PC-Action-Setup
+OutputBaseFilename=Action-Setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern

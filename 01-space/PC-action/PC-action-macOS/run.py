@@ -1,5 +1,5 @@
 """
-PC-action 启动脚本 (Windows)
+Action 启动脚本 (Windows)
 自动设置 Qt 插件路径，避免 "no Qt platform plugin" 错误。
 用法: python run.py
 """
@@ -44,7 +44,7 @@ def _ensure_admin():
     except Exception:
         # 提权被取消/失败：降到普通权限继续运行，不把程序"弄没"
         try:
-            sys.stderr.write("[PC-action] 请求管理员权限失败，将以普通权限运行\n")
+            sys.stderr.write("[Action] 请求管理员权限失败，将以普通权限运行\n")
         except Exception:
             pass
         return

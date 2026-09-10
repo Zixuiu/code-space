@@ -6,7 +6,7 @@ Action 安装包专用打包脚本（onedir 模式）
 用途：交给 installer\\setup.nsi 打成真正的安装包（用户可自选安装位置）
 
 构建命令（项目根目录执行）：
-    .venv\\Scripts\\python.exe -m PyInstaller --clean --noconfirm PC-Action-install.spec
+    .venv\\Scripts\\python.exe -m PyInstaller --clean --noconfirm Action-install.spec
 """
 
 a = Analysis(

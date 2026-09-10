@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 REM ============================================================
-REM  PC-Action 一键构建安装包（NSIS 版，无需安装任何打包工具）
+REM  Action 一键构建安装包（NSIS 版，无需安装任何打包工具）
 REM
 REM  步骤：
 REM    1) 生成图标 installer\app.ico（如已存在则跳过）
@@ -54,7 +54,7 @@ if not exist "%~dp0app.ico" (
 
 REM ---- 2) PyInstaller 打包 ----
 echo [2/3] PyInstaller 打包中（约 2-5 分钟）...
-"%VENV%" -m PyInstaller --clean --noconfirm PC-Action-install.spec
+"%VENV%" -m PyInstaller --clean --noconfirm Action-install.spec
 if errorlevel 1 (
   echo [错误] PyInstaller 打包失败
   pause

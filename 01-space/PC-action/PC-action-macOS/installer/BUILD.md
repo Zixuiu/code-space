@@ -1,11 +1,11 @@
-# Action（原 PC-Action）安装包构建说明（NSIS 版）
+# Action（原 Action）安装包构建说明（NSIS 版）
 
 目标：把项目打成一个**标准 Windows 安装包**，安装时用户自己选择装到 C 盘、D 盘或任意位置。
 
-相比早期的 Inno Setup 方案（`../PC-Action.iss`），本方案**不需要在本机安装任何打包工具**：
+相比早期的 Inno Setup 方案（`../Action.iss`），本方案**不需要在本机安装任何打包工具**：
 NSIS 便携版已随项目放在 `installer\tools\nsis\`（缺失时构建脚本会自动下载）。
 
-> 注意：应用已在一次提交中从 `PC-Action` 改名为 `Action`。
+> 注意：应用已在一次提交中从 `Action` 改名为 `Action`。
 > 包名、`dist\Action\Action.exe`、卸载注册表项全部用 `Action`，请以此为准。
 
 ## 目录内容
@@ -20,14 +20,14 @@ NSIS 便携版已随项目放在 `installer\tools\nsis\`（缺失时构建脚本
 | `app.ico` | 安装包图标（已存在时不重新生成） |
 | `tools/nsis/nsis-3.10/` | NSIS 3.10 便携版编译器（勿删） |
 | `output/` | 最终产物：`Action-<版本>-Setup.exe` |
-| `../PC-Action-install.spec` | PyInstaller 打包配置（onedir 模式，专供安装包使用） |
+| `../Action-install.spec` | PyInstaller 打包配置（onedir 模式，专供安装包使用） |
 
 ## 首次在本机准备环境（换电脑 / 删过 .venv 必做）
 
 `.venv` **不进 git**，clone 下来一定是空的；脚本第一步就会以此为错误退出。先建一次：
 
 ```cmd
-cd 01-space\PC-action\PC-action-macOS
+cd 01-space\Action\Action-macOS
 python -m venv .venv
 .venv\Scripts\python.exe -m pip install -U pip wheel
 ```
@@ -72,14 +72,14 @@ build_installer.cmd 1.0.1    :: 指定版本号
 
 ## 手动分步执行（想看清每一步 / 脚本报错时用它定位）
 
-在**项目根目录**（`PC-action-macOS`）执行：
+在**项目根目录**（`Action-macOS`）执行：
 
 ```cmd
 REM 1) 图标（通常已存在，可跳过）
 .venv\Scripts\python.exe installer\make_icon.py
 
 REM 2) PyInstaller 打包成 dist\Action\
-.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm PC-Action-install.spec
+.venv\Scripts\python.exe -m PyInstaller --clean --noconfirm Action-install.spec
 
 REM 3) NSIS 编译（注意：output 目录必须存在，makensis 不会自己建）
 cd installer
@@ -111,7 +111,7 @@ tools\nsis\nsis-3.10\makensis.exe /V2 /DAPP_VERSION=1.0.0 /DREQUIRED_MB=900 setu
 | `[错误] 未找到虚拟环境` | `.venv` 不存在，按上文“首次准备环境”重建 |
 | `Can't open output file`<br>（且退出码非 0，无产物） | NSIS **不会自动创建** `OutFile` 的目录。先 `mkdir output` 再编译 |
 | NSIS 报 `!insertmacro: macro ... not found` | 便携版缺 `Include`，重新下载 nsis-3.10 完整解压 |
-| 安装后启动缺图标/资源 | `PC-Action-install.spec` 的 `datas` 要带上 `icons`、`data`、`pricing.json` |
+| 安装后启动缺图标/资源 | `Action-install.spec` 的 `datas` 要带上 `icons`、`data`、`pricing.json` |
 | 装完却在设置/64 位工具里找不到卸载项 | 注册表落到了 WOW6432Node，见“64 位注册表视图”一节 |
 | `pip install -r requirements.txt` 十几分钟不动 | resolver 在 supabase 依赖链上回溯，改成分批安装（见上文） |
 | 安装包体积异常小（几十 KB） | `dist\Action` 是空的或不存在，`File /r` 没抓到文件，重跑第 2 步 |
@@ -145,7 +145,7 @@ tools\nsis\nsis-3.10\makensis.exe /V2 /DAPP_VERSION=1.0.0 /DREQUIRED_MB=900 setu
 实测（2026-09-09，Python 3.13 + opencv 5.0）：`dist\Action` **274MB / 272 个文件**，
 LZMA 固实压缩后安装包 **77MB**（比早期 90–120MB 更小，opencv 版本升级所致）；
 NSIS 压缩这一步约需 4 分钟。
-如需瘦身，可在 `PC-Action-install.spec` 的 `excludes` 里加不需要的模块，
+如需瘦身，可在 `Action-install.spec` 的 `excludes` 里加不需要的模块，
 或删掉 `dist\Action\_internal` 中确认用不到的组件
 （如 `PyQt5/Qt5/bin/opengl32sw.dll` 20MB、`cv2/opencv_videoio_ffmpeg500_64.dll` 29MB）。
 

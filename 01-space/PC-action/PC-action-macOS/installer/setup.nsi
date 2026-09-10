@@ -1,5 +1,5 @@
 ﻿; ============================================================
-;  PC-Action 安装脚本 (NSIS 3 / Unicode / 简体中文)
+;  Action 安装脚本 (NSIS 3 / Unicode / 简体中文)
 ;
 ;  向导流程：
 ;    欢迎 → 许可协议 → 选择安装位置（C/D/E 任意盘）→ 附加选项 → 安装 → 完成
@@ -10,7 +10,7 @@
 ;    /DAPP_VERSION=1.0.1       指定版本号
 ;    /DREQUIRED_MB=900         指定安装所需磁盘空间(MB)
 ;
-;  前置：已用 PyInstaller 生成 ..\dist\PC-Action\PC-Action.exe
+;  前置：已用 PyInstaller 生成 ..\dist\Action\Action.exe
 ; ============================================================
 
 Unicode true
@@ -122,7 +122,7 @@ Function .onInit
     Abort
   ${EndIf}
 
-  ; 关闭正在运行的 PC-Action，避免文件被占用导致安装失败
+  ; 关闭正在运行的 Action，避免文件被占用导致安装失败
   nsExec::Exec /TIMEOUT=3000 '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXE}"'
 
   ; 命令行用 /D=xxx 显式指定了目录时，一切以它为准：
