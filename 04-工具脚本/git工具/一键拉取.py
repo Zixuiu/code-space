@@ -73,8 +73,12 @@ def collect_protect():
             sp = os.path.join(app, p)
             if os.path.exists(sp):
                 protect.append(sp)
-    # 2. 工具脚本目录（防止 clean 把运行中的脚本和 bat 删掉）
-    protect.append(BASE_DIR)
+    # 2. 工具脚本目录：★ 绝不做整目录"快照→还原"（2026-09-10 修复）
+    #    代价说明：本目录 5 个文件（一键拉取.py / 一键推送.py / 两个 .bat / _probe_ent.py）
+    #    都已被 git 跟踪，`git clean -fd` 不会删除已跟踪文件，本就不需要整目录保护；
+    #    而旧的整目录快照还原会在 `reset --hard` 之后，用拉取前的旧内容把远端新版本覆盖回去，
+    #    结果就是"这个目录永远拉不到远端更新"，还会让 `git status` 显示假 M（被误判成本地有新改动）。
+    #    本地残留（__pycache__ 等）已被 .gitignore 忽略，`clean -fd`（不带 -x）默认不清理 ignored 文件。
     return protect
 
 
