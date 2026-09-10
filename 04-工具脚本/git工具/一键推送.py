@@ -332,6 +332,8 @@ def main():
         ok = push_via_token()
         if not ok:
             sys.exit(1)
+        # 推送后刷新 origin/main 跟踪引用，避免 origin 与远端不同步造成的“假 ahead / 假差异”
+        run_cmd("git fetch origin --prune")
 
     # Step 6: 推送到 GitHub（未配置 token 时跳过，不阻断主流程）
     log("\n步骤 6/6: 推送到 GitHub...")
