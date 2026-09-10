@@ -170,6 +170,13 @@ class _CapsuleButtonFixer(QObject):
         return False
 
     def _fix(self, btn):
+        # 豁免：个别按钮需要矩形外观（如流程表格右键菜单项），
+        # 只要事先 setProperty('no_capsule', True) 就跳过胶囊化。
+        try:
+            if btn.property('no_capsule'):
+                return
+        except Exception:
+            pass
         ss = btn.styleSheet()
         if not ss or 'border-radius' not in ss:
             return

@@ -1531,7 +1531,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
         try:
             if self.login_manager is not None:
                 try:
-                    self.login_manager.logout()
+                    # persist=True：写入会话失效标记，下次启动不再自动登录
+                    # （这是「保持登录」唯一的失效入口——用户主动点退出）
+                    self.login_manager.logout(persist=True)
                 except Exception:
                     pass
                 self.login_manager.current_user = None
@@ -1544,11 +1546,17 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                     self.update_shortcuts()
             except Exception:
                 traceback.print_exc()
+            # 登录表单里的密码清掉（用户名保留，方便直接再登）
+            try:
+                if hasattr(self, 'login_pane') and hasattr(self.login_pane, 'login_password'):
+                    self.login_pane.login_password.clear()
+            except Exception:
+                pass
             if hasattr(self, 'macos_sidebar'):
                 self.macos_sidebar.set_username(None)
             if hasattr(self, 'account_stack'):
                 self.account_stack.setCurrentWidget(self.login_pane)
-            log_info("账户页退出登录")
+            log_info("账户页退出登录（已写入退出标记，下次启动停留在登录页）")
         except Exception:
             traceback.print_exc()
 
@@ -1955,8 +1963,8 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
                 border: 1px solid #E7EAF0;
                 border-top-left-radius: 0px;
                 border-top-right-radius: 0px;
-                border-bottom-left-radius: 12px;
-                border-bottom-right-radius: 12px;
+                border-bottom-left-radius: 6px;
+                border-bottom-right-radius: 6px;
             }
             QLabel#folderMenuTitle {
                 color: #6B7280;
@@ -1972,7 +1980,9 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
             shadow = QGraphicsDropShadowEffect(card)
             shadow.setBlurRadius(18)
             shadow.setOffset(0, 3)
-            shadow.setColor(QColor(0, 0, 0, 60))
+            # ★ 2026-09-10 用户要求：菜单卡片四周的投影改成纯白（原来是黑色 QColor(0,0,0,60)，
+            #   在卡片边边角角形成一圈黑晕）。改白后视觉上等同于无黑晕。
+            shadow.setColor(QColor(255, 255, 255, 60))
             card.setGraphicsEffect(shadow)
         except Exception:
             pass
@@ -1987,33 +1997,36 @@ class MacOSAutoRecorderApp(AutoRecorderApp):
 
         rename_btn = QPushButton("重命名")
         rename_btn.setCursor(Qt.PointingHandCursor)
+        rename_btn.setProperty('no_capsule', True)   # 矩形菜单项：退出全局胶囊化
         rename_btn.setStyleSheet("""
             QPushButton {
                 text-align: left; border: none; background: #FFFFFF;
                 color: #374151; font-size: 13px; padding: 9px 14px;
-                border-radius:9999px;
+                border-radius:6px;
             }
             QPushButton:hover { background: #E8F0FE; color: #111827; }
         """)
         delete_btn = QPushButton("删除")
         delete_btn.setCursor(Qt.PointingHandCursor)
+        delete_btn.setProperty('no_capsule', True)   # 矩形菜单项：退出全局胶囊化
         delete_btn.setStyleSheet("""
             QPushButton {
                 text-align: left; border: none; background: #FFFFFF;
                 color: #DC2626; font-size: 13px; padding: 9px 14px;
                 border-top: 1px solid #EEF0F4;
-                border-radius:9999px;
+                border-radius:6px;
             }
             QPushButton:hover { background: #FDECEC; color: #B91C1C; }
         """)
         rename_btn.clicked.connect(lambda: (card.close(), self.rename_folder_in_tab(folder_path, table_widget)))
         interval_btn = QPushButton("设置间隔")
         interval_btn.setCursor(Qt.PointingHandCursor)
+        interval_btn.setProperty('no_capsule', True)   # 矩形菜单项：退出全局胶囊化
         interval_btn.setStyleSheet("""
             QPushButton {
                 text-align: left; border: none; background: #FFFFFF;
                 color: #374151; font-size: 13px; padding: 9px 14px;
-                border-radius:9999px;
+                border-radius:6px;
             }
             QPushButton:hover { background: #E8F0FE; color: #111827; }
         """)
@@ -4355,6 +4368,19 @@ def start_macos_app():
     from login_manager import LoginManager
 
     login_manager = LoginManager()
+
+    # ★ 保持登录（2026-09-10）：只要用户没在账户页点过「退出」，启动时就用上次
+    #   保存的凭据自动恢复登录态，不再每次开机都要求点一次「登录」。
+    #   用户点过「退出」→ session.json 里写了 active=False，这里不再自动登录，
+    #   程序停在登录页等用户手动登录。
+    try:
+        _auto_ok, _auto_info = login_manager.auto_login()
+        if _auto_ok:
+            log_info(f"[保持登录] 已自动恢复登录态: {_auto_info}")
+        else:
+            log_info(f"[保持登录] 未自动登录（{_auto_info}），停留在登录页")
+    except Exception as _e:
+        log_error(f"[保持登录] 自动登录异常: {_e}")
 
     # 商业化：登录改为内嵌主窗口「账户」页（方案 7-7 左对齐极简），
     # 不再弹出独立登录窗；未登录时默认展示账户页，登录成功后自动进入录制控制。

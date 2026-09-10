@@ -199,7 +199,7 @@ class StyledMessageDialog(QDialog):
         if c:
             s = QGraphicsDropShadowEffect()
             s.setBlurRadius(40)
-            s.setColor(QColor(142,142,147,30))
+            s.setColor(QColor(255, 255, 255, 30))
             s.setOffset(0,8)
             c.setGraphicsEffect(s)
     
@@ -431,7 +431,7 @@ class StyledInputDialog(QDialog):
         if c:
             s = QGraphicsDropShadowEffect()
             s.setBlurRadius(40)
-            s.setColor(QColor(142, 142, 147, 30))
+            s.setColor(QColor(255, 255, 255, 30))
             s.setOffset(0, 8)
             c.setGraphicsEffect(s)
 
@@ -488,7 +488,7 @@ def add_card_shadow(widget):
     """卡片投影（与 StyledMessageDialog 一致）。"""
     s = QGraphicsDropShadowEffect()
     s.setBlurRadius(40)
-    s.setColor(QColor(142, 142, 147, 30))
+    s.setColor(QColor(255, 255, 255, 30))
     s.setOffset(0, 8)
     widget.setGraphicsEffect(s)
 

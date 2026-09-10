@@ -43,6 +43,10 @@ class LoginManager:
         self.users_file = os.path.join(self.data_dir, "users.json")
         self.credentials_file = os.path.join(self.data_dir, "login_credentials.json")
         self.saved_login_file = os.path.join(self.data_dir, "saved_login.json")
+        # ★ 保持登录（2026-09-10）：会话状态文件。
+        #   active=True  → 下次启动自动恢复登录（用户没点过「退出」）
+        #   active=False → 用户点过「退出」，下次启动必须手动登录
+        self.session_file = os.path.join(self.data_dir, "session.json")
         
         # 加载环境变量，支持多种位置
         self._load_env()
@@ -316,6 +320,8 @@ class LoginManager:
         # 1. 本地优先：本地有此账号且密码匹配
         if username in users and users[username]['password'] == password_hash:
             self.current_user = username
+            # ★ 保持登录：登录成功即标记会话有效，下次启动自动恢复
+            self.mark_session_active(username)
             return True, username
 
         # 2. 远程兜底：本地没有（或密码不符）时，反查 Supabase 认证，
@@ -337,6 +343,7 @@ class LoginManager:
                     }
                     self._save_users(users)
                     self.current_user = username
+                    self.mark_session_active(username)
                     return True, username
         except Exception as e:
             print(f"远程认证失败: {e}")
@@ -579,10 +586,100 @@ class LoginManager:
             return credentials[username].get('password')
         return None
     
-    def logout(self):
-        """用户登出"""
+    # ------------------------------------------------------------------
+    # 保持登录（会话持久化，2026-09-10）
+    # 需求：只要用户没在账户页点过「退出」，重启程序就自动恢复登录态；
+    #       点了「退出」才回到登录页。
+    # ------------------------------------------------------------------
+    def _load_session(self):
+        """读取会话状态文件，异常/缺失时返回空 dict（= 未退出过）"""
+        try:
+            with open(self.session_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+        except Exception:
+            return {}
+
+    def _save_session(self, data):
+        try:
+            with open(self.session_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"保存登录会话失败: {e}")
+
+    def mark_session_active(self, username):
+        """登录成功后标记会话有效：下次启动自动登录"""
+        self._save_session({
+            'active': True,
+            'username': username,
+            'logged_in_at': datetime.now().isoformat(),
+        })
+
+    def clear_session(self):
+        """用户主动「退出」：写失效标记，下次启动不再自动登录"""
+        self._save_session({
+            'active': False,
+            'username': '',
+            'logged_out_at': datetime.now().isoformat(),
+        })
+
+    def has_active_session(self):
+        """当前是否处于「未点过退出」的保持登录状态"""
+        return self._load_session().get('active') is not False
+
+    def auto_login(self):
+        """启动时自动恢复登录态。
+
+        - 用户点过「退出」（session.active=False）→ 不自动登录，返回 (False, 原因)
+        - 否则用上次保存的凭据尝试登录（本地哈希校验优先，失败再走远程兜底）
+
+        返回 (ok: bool, username 或 失败原因)
+        """
+        try:
+            sess = self._load_session()
+            if sess.get('active') is False:
+                return False, "上次已退出登录，需手动登录"
+
+            saved_user, saved_pwd = self.load_saved_login()
+            username = sess.get('username') or saved_user or ''
+            password = saved_pwd if username == saved_user else ''
+            if not password:
+                password = self.get_saved_credentials(username) or ''
+            if not username or not password:
+                return False, "没有可用的已保存凭据"
+
+            # 快路径：本地 users.json 直接比对哈希（零网络开销，正常路径都走这里，
+            # 避免启动时因为远程兜底卡在网络上）
+            _rec = self._load_users().get(username)
+            if _rec and _rec.get('password') == self._hash_password(password):
+                self.current_user = username
+                self.mark_session_active(username)
+                return True, username
+
+            # 慢路径：本地缺失/不匹配时才走完整 login()（含远程兜底）
+            ok, result = self.login(username, password)
+            if ok:
+                return True, username
+            return False, f"自动登录失败: {result}"
+        except Exception as e:
+            return False, f"自动登录异常: {e}"
+
+    def logout(self, persist=True):
+        """用户登出。
+
+        persist=True（默认，来自账户页「退出」）时会写入会话失效标记，
+        保证下次启动停在登录页；程序内部清理登录态时可传 persist=False，
+        不影响「保持登录」。
+        """
         self.current_user = None
-    
+        if persist:
+            try:
+                self.clear_session()
+            except Exception:
+                pass
+
     def is_admin(self, username=None):
         """检查用户是否为管理员"""
         if username is None:

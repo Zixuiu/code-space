@@ -22,7 +22,7 @@ else:
 
 sys.path.insert(0, current_dir)
 
-# 桌面运行/崩溃日志：Action运行日志.txt
+# 运行/崩溃日志：Action运行日志.txt（写在应用目录的上级文件夹）
 try:
     from crash_logger import install_crash_logger
     install_crash_logger()
